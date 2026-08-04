@@ -1,240 +1,239 @@
 # Project Overview — Marka
 
-> Nền tảng AI Content đa kênh dành riêng cho Marketer Việt Nam.
+> Nền tảng AI Content đa kênh & Quản lý chiến dịch tiếp thị dành riêng cho Marketer Việt Nam.
+
+---
+
+## 0. Ghi chú phạm vi (đọc trước khi code)
+
+Tài liệu này dùng làm cơ sở code cho đồ án **1 người - 24 tuần (~6 tháng)**. Mục 3 và Mục 3.1 (Roadmap) là **nguồn sự thật về phạm vi** — nếu một tính năng không nằm trong Phase 1-4, mặc định là _Could-have / Won't-have_, không code trước khi các phase trước hoàn thành và ổn định.
+
+> **Đồng bộ với tài liệu Khảo sát hệ thống**: mô hình vai trò và phạm vi kênh đăng bài trong tài liệu này đã được cập nhật để khớp 100% với tài liệu "Khảo sát hệ thống" — cố định **3 vai trò** (System Admin, Workspace Owner, Content Creator) và **không** có Telegram trong danh sách kênh đăng thật.
 
 ---
 
 ## 1. Mục tiêu sản phẩm
 
-Giải quyết bài toán **phân phối nội dung đa kênh (omnichannel content)** cho các nhà tiếp thị (marketer) Việt Nam.
+Giải quyết bài toán **phân phối nội dung đa kênh (omnichannel content)** và **quản lý quy trình xuất bản** cho các nhà tiếp thị (marketer) Việt Nam.
 
-Từ một ý tưởng/nội dung gốc ban đầu hoặc nguồn trích xuất (URL), marketer thường mất nhiều giờ để chỉnh sửa (adapt) cho phù hợp với định dạng, văn phong và thuật toán của từng nền tảng (Facebook, LinkedIn, TikTok, SEO). Marka giúp tự động hóa quy trình này bằng AI chỉ trong vòng chưa đầy 30 giây, tích hợp cổng thanh toán thực tế (PayOS) và trang quản trị hệ thống (Admin Panel) để theo dõi và vận hành hiệu quả.
+Từ một ý tưởng/nội dung gốc ban đầu, marketer thường mất nhiều giờ để chỉnh sửa (adapt) cho phù hợp với định dạng, văn phong và thuật toán của từng nền tảng (Facebook, Zalo, Instagram, TikTok). Marka giúp tự động hóa quy trình này bằng AI, quản lý luồng phê duyệt nội dung chặt chẽ giữa các vai trò (Creator → Owner), tích hợp cổng thanh toán thực tế (PayOS) và trang quản trị hệ thống (Admin Panel) để theo dõi và vận hành hiệu quả.
 
 ---
 
-## 2. Tổng quan kiến trúc chức năng
+## 2. Tổng quan hệ thống vai trò & Phân quyền (RBAC)
 
-Hệ thống được chia thành 5 module nghiệp vụ dành cho người dùng và 1 module dành cho quản trị viên, liên kết chặt chẽ qua một luồng nghiệp vụ xuyên suốt:
+Hệ thống thiết lập mô hình phân quyền 2 cấp: **Cấp hệ thống (System level)** và **Cấp không gian làm việc (Workspace level)**, cố định **3 vai trò chính** (đáp ứng `FR-AD-04`), không hỗ trợ tạo vai trò tùy chỉnh (Custom Role).
 
-**Đăng nhập → Tạo/Quản lý Workspace → Thiết lập Brand Voice → Tạo nội dung (trừ Credit) → Đánh giá & tối ưu → Lên lịch → Theo dõi lịch sử → Quản lý gói/Credits.**
+### 2.1. Cấp hệ thống (System Roles)
+
+- **System Admin**: Quản trị toàn bộ hệ thống, quản lý tài khoản, cấu hình kết nối API nền tảng, cổng thanh toán, xem audit logs và quản lý các Workspace.
+  - System Admin **không** có quyền chỉnh sửa nội dung/bài viết bên trong một Workspace theo mặc định. Admin chỉ có quyền: suspend/unsuspend account, xem metadata Workspace (tên, chủ sở hữu, gói cước, số credit), và xem audit log tổng hệ thống.
+
+### 2.2. Cấp không gian làm việc (Workspace Roles)
+
+Mỗi Workspace đại diện cho một thương hiệu hoặc doanh nghiệp cụ thể (`FR-AD-11`). Trong mỗi Workspace, người dùng được phân vào **2 vai trò cố định**:
+
+- **Workspace Owner**: Toàn quyền cấu hình Workspace, quản lý thành viên, cài đặt Brand Voice, quản lý gói cước/Billing, **phê duyệt/từ chối bài viết** (gộp vai trò Reviewer), quản lý kết nối kênh mạng xã hội, và **thực hiện hoặc ủy quyền đăng bài** (gộp vai trò Social Media Manager).
+- **Content Creator**: Soạn thảo bài viết, tải media, sử dụng AI sinh nội dung, gửi bài duyệt, nhận phản hồi khi bị từ chối và cập nhật lại để nộp lại. Nếu được Owner **ủy quyền**, Creator có thể tự lên lịch/đăng bài đối với các bài đã `Approved`.
+
+Không có vai trò Reviewer/Approver, Social Media Manager hay Viewer/Guest riêng biệt — các chức năng tương ứng được gộp vào 2 vai trò trên để giữ mô hình phân quyền đơn giản, đúng phạm vi đồ án cá nhân.
+
+**Quy tắc quan trọng**: vai trò được gán **theo từng cặp (User, Workspace)**, không phải toàn cục. Một User có thể là Owner ở Workspace A và Content Creator ở Workspace B cùng lúc. Bảng dữ liệu quan hệ tối thiểu: `WorkspaceMember(userId, workspaceId, role)`. UI phải cho phép chuyển đổi Workspace đang hoạt động (workspace switcher) và cập nhật quyền tương ứng.
+
+---
+
+## 3. Bản đồ Feasibility (Đánh giá tính khả thi cho Đồ án 1 người - 24 tuần)
+
+| Mã FR             | Tên yêu cầu chức năng                                                              | Đánh giá khả thi & Phương án triển khai                                                                                                                                                                                                                                                                                     | Trạng thái phạm vi             | Ưu tiên |
+| :---------------- | :--------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------- | :------ |
+| **FR-CC-01 → 11** | Nghiệp vụ Content Creator & Media Library                                          | Sử dụng WYSIWYG editor (TipTap/React-Quill), Cloudinary/S3 cho Media và cơ chế lưu tạm/lưu nháp trong DB.                                                                                                                                                                                                                   | **Full Scope**                 | Must    |
+| **FR-CC-12 → 19** | Trợ lý AI Content & Brand Voice                                                    | Tích hợp **1 LLM provider chính** (OpenAI GPT-4o hoặc Claude — chọn 1, không code multi-provider trong MVP) để sinh text theo Brand Voice, chấm điểm Viral Score, và DALL-E 3 để sinh ảnh minh họa. Multi-provider đẩy sang Phase 4 (Could-have) nếu còn thời gian.                                                         | **Full Scope (1 provider)**    | Must    |
+| **FR-RV-01 → 06** | Nghiệp vụ Phê duyệt (do **Workspace Owner** đảm nhiệm)                             | Quản lý trạng thái bài viết qua máy trạng thái (State Machine): `Draft` → `Pending` → `Approved` / `Rejected`. Owner là người duyệt, không có vai trò Reviewer riêng.                                                                                                                                                       | **Full Scope**                 | Must    |
+| **FR-SM-01 → 11** | Kết nối & Đăng bài đa kênh (do **Owner** hoặc **Creator được ủy quyền** thực hiện) | Do chính sách API cực kỳ khắt khe của Zalo OA, TikTok, Instagram (yêu cầu pháp nhân doanh nghiệp để xét duyệt):<br>- **Facebook Page**: Kết nối và đăng thật qua Facebook Graph API (chế độ Developer/Sandbox).<br>- **Instagram, TikTok, Zalo OA**: Luồng **Giả lập đăng bài (Simulation Mode)** — xem chi tiết mục 4.4.1. | **Tích hợp thực tế + Giả lập** | Must    |
+| **FR-EM-01 → 04** | Hệ thống Email Thông báo (System Emails)                                           | Gửi email thông báo tự động (hết hạn gói, hết credit, nhắc lịch đăng bài, lời mời tham gia workspace) qua SMTP/Resend.                                                                                                                                                                                                      | **Full Scope**                 | Should  |
+| **FR-AD-01 → 13** | Quản trị hệ thống (System Admin)                                                   | Quản lý tài khoản (suspend/unsuspend), cấu hình kết nối API, thống kê dashboard, lịch sử gọi AI. Bỏ FR-AD-05 (Tạo vai trò tùy chỉnh).                                                                                                                                                                                       | **Full Scope (Trừ FR-AD-05)**  | Should  |
+| **FR-VW-01 → 02** | Calendar View (lịch đăng bài đa kênh)                                              | Hiển thị lịch tháng cho toàn bộ bài đã lên lịch/đã đăng trong Workspace, hỗ trợ đổi ngày đăng (chỉ áp dụng cho bài ở trạng thái `Scheduled`, chưa `Published`).                                                                                                                                                             | **Full Scope**                 | Should  |
+| **N/A**           | Cổng thanh toán (PayOS)                                                            | Tích hợp cổng PayOS thực tế để nạp credit và tự động nâng cấp gói qua Webhook có xác thực chữ ký bảo mật.                                                                                                                                                                                                                   | **Full Scope**                 | Must    |
+
+### 3.1. Roadmap đề xuất (6 phase / 24 tuần)
+
+| Phase                                     | Tuần  | Nội dung                                                                                                                                                                                                    |
+| :---------------------------------------- | :---- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Phase 1 — Nền tảng**                    | 1-4   | Phân tích thiết kế (ERD, API contract), Auth (Email/Password + Google OAuth), Workspace CRUD + RBAC (2 vai trò workspace), User Profile, cấu hình bảo mật cơ bản (mục 5), setup CI/CD + môi trường dev/prod |
+| **Phase 2 — Content Core**                | 5-9   | Content Creator + Media Library, luồng duyệt bài (Draft→Pending→Approved/Rejected do Owner duyệt), Brand Voice                                                                                              |
+| **Phase 3 — AI Assistant**                | 10-13 | Tích hợp AI sinh nội dung (1 provider chính), sinh biến thể đa kênh, sinh ảnh AI (DALL-E 3), Viral Score & 1-Click Fix                                                                                      |
+| **Phase 4 — Phân phối & Lịch đăng**       | 14-17 | Facebook thật, Instagram/TikTok/Zalo giả lập, Calendar View, BullMQ + Redis worker, cơ chế Retry                                                                                                            |
+| **Phase 5 — Thanh toán & Email**          | 18-21 | PayOS + Credit system + Webhook, Hệ thống Email Thông báo (hết hạn gói, hết credit, nhắc lịch đăng bài, lời mời workspace)                                                                                  |
+| **Phase 6 — Admin, hoàn thiện & báo cáo** | 22-24 | Admin Panel + Audit Log, kiểm thử toàn hệ thống, sửa lỗi, tối ưu hiệu năng, viết báo cáo/slide bảo vệ                                                                                                       |
+
+Với quỹ thời gian rộng hơn, các hạng mục sau chuyển từ Could-have lên **Should-have** nếu Phase 1-5 đúng tiến độ: hỗ trợ thêm 1 LLM provider thứ hai (fallback khi provider chính lỗi/quá tải), 2FA cho Workspace Owner, môi trường `staging` riêng biệt. Viral Score radar nâng cao vẫn giữ **Could-have**.
+
+### 3.2. Ngoài phạm vi (Out of Scope — nêu rõ để tránh hiểu nhầm)
+
+- Chiến dịch Email Marketing hàng loạt, trình soạn thảo Email chiến dịch và quản lý danh bạ khách hàng (import CSV/Excel).
+- Drag-and-drop Email Builder tự viết từ đầu.
+- Đăng bài thật lên Instagram, TikTok, Zalo OA (chỉ giả lập).
+- Đăng bài qua Telegram (ngoài phạm vi — không nằm trong danh sách kênh của tài liệu khảo sát).
+- Tạo vai trò tùy chỉnh (custom role) hoặc vai trò Reviewer/Social Media Manager/Viewer riêng biệt — chỉ 2 vai trò workspace cố định (Owner, Content Creator).
+- Đa ngôn ngữ (i18n) giao diện — chỉ tiếng Việt.
+- Ứng dụng di động — chỉ web responsive.
+- Hỗ trợ nhiều LLM provider song song trong MVP.
+
+---
+
+## 4. Đặc tả chi tiết các Phân hệ & Luồng nghiệp vụ
+
+### 4.1. Phân hệ 1 — Xác thực & Không gian làm việc (Auth & Workspace)
+
+- **Xác thực (`FR-AD-01`, `FR-AD-02`, `FR-AD-03`)**: Đăng ký/Đăng nhập bằng Email/Password và Google OAuth. Hỗ trợ Admin khóa/mở khóa tài khoản người dùng (`FR-AD-02`). Áp dụng rate-limit đăng nhập (ví dụ tối đa 5 lần sai/15 phút/IP) để chống brute-force.
+- **Quản lý Workspace (`FR-AD-11`)**:
+  - Mỗi Workspace đại diện cho một thương hiệu riêng biệt.
+  - Người dùng có thể tạo Workspace mới, cập nhật thông tin (tên, logo), và mời thành viên qua email (chỉ 2 vai trò để chọn: Owner, Content Creator).
+  - **Phân quyền Workspace (RBAC)**: theo mô hình `(User, Workspace) -> Role` như mô tả ở mục 2.2.
+- **Hồ sơ cá nhân (User Profile)**: Đổi tên hiển thị, ảnh đại diện (upload Cloudinary/S3), thay đổi mật khẩu và đổi email (xác thực OTP qua email mới).
+
+### 4.2. Phân hệ 2 — Thư viện & Quy trình Biên tập Nội dung
+
+- **Soạn thảo (`FR-CC-01`, `FR-CC-03`, `FR-CC-04`, `FR-CC-05`)**: Sử dụng Rich Text Editor để định dạng văn bản, chèn link, emoji, hashtag. Hỗ trợ chọn mẫu template có sẵn và gắn nhãn/phân loại theo chiến dịch. Tự động lưu bản nháp sau mỗi 30 giây.
+- **Thư viện Media (`FR-CC-02`, `FR-CC-06`, `FR-CC-07`)**: Upload ảnh/video trực tiếp lên thư viện độc lập hoặc đính kèm khi soạn bài. Lọc media theo tên, loại file, thẻ tag và ngày tạo. Giới hạn: ảnh ≤ 10MB, video ≤ 100MB; chỉ chấp nhận đuôi file whitelist (jpg, png, webp, mp4, mov); mỗi Workspace có quota lưu trữ theo gói cước.
+- **Quy trình Duyệt bài (`FR-CC-09`, `FR-CC-10`, `FR-CC-11`, `FR-RV-01 → 04`)**:
+  1. Creator hoàn thành bài viết → Bấm **Gửi duyệt** → Trạng thái chuyển thành `Pending Review`.
+  2. **Workspace Owner** nhận thông báo, xem danh sách bài viết chờ duyệt (`FR-RV-01`, `FR-RV-05`).
+  3. Owner xem trước (Preview) hiển thị của bài viết (`FR-RV-02`) và đưa ra quyết định:
+     - **Duyệt (Approve)**: Chuyển trạng thái sang `Approved` → Chuyển tiếp sang luồng đăng bài.
+     - **Từ chối (Reject)**: Chuyển trạng thái sang `Rejected` → Bắt buộc nhập lý do từ chối để Creator chỉnh sửa lại.
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                                      MARKA                                        │
-├─────────────┬─────────────┬─────────────┬───────────────┬─────────────┬───────────┤
-│  Auth &     │  AI Content │  Brand      │  Calendar &   │  Billing &  │  System   │
-│  Workspace  │  Generator  │  Voice      │  History      │  Credits    │  Admin    │
-│  (CRUD)     │             │             │               │  (PayOS)    │           │
-└─────────────┴─────────────┴─────────────┴───────────────┴─────────────┴───────────┘
+                     ┌───────────┐
+                     │   Draft   │◄────────────────────────┐
+                     └─────┬─────┘                         │
+                           │ Gửi duyệt (Creator)           │
+                           ▼                               │ Từ chối
+                     ┌───────────┐ (Ghi lý do)             │ (Owner)
+                     │  Pending  ├─────────────────────────┤
+                     └─────┬─────┘                         │
+                           │ Duyệt (Owner)                 │
+                           ▼                               │
+                     ┌───────────┐                         │
+                     │ Approved  │                         │
+                     └─────┬─────┘                         │
+                           │ Lên lịch/Đăng (Owner hoặc     │
+                           │ Creator được ủy quyền)        │
+                           ▼                               │
+                     ┌───────────┐                         │
+         Lịch đến giờ│ Scheduled │                         │
+      ──────────────►└─────┬─────┘                         │
+                           │ Đăng thành công / Thất bại    │
+                    ┌──────┴──────┐                        │
+                    ▼             ▼                        │
+             ┌───────────┐  ┌───────────┐  Thử lại (Retry) │
+             │ Published │  │  Failed   ├──────────────────┤
+             └───────────┘  └───────────┘  (giữ nguyên nội │
+                                             dung, không cần│
+                                             duyệt lại)     │
 ```
 
----
+Ghi chú: `Failed` → Retry quay lại `Scheduled` (gọi lại API đăng bài), **không** quay lại `Draft`/`Pending` — nội dung đã duyệt không cần duyệt lại.
 
-## 3. Đặc tả chi tiết các Module & Luồng hoạt động
+### 4.3. Phân hệ 3 — Trợ lý AI Content & Brand Voice
 
-### 3.1. Module 1 — Auth & Workspace (CRUD)
+- **Quản lý Brand Voice (`FR-CC-12`)**: Lưu trữ thông tin định dạng tông giọng của thương hiệu (ngành hàng, khách hàng mục tiêu, từ khóa nên/không nên dùng, bài viết mẫu few-shot).
+- **Sinh nội dung bằng AI (`FR-CC-13`, `FR-CC-14`, `FR-CC-15`, `FR-CC-16`)**:
+  - Nhập chủ đề/ý chính hoặc dán URL bài viết nguồn → AI tự động áp dụng Brand Voice để tạo bài viết.
+  - Sinh biến thể đa kênh: Tự động tối ưu nội dung theo đặc thù của Facebook (ngắn gọn, emoji), TikTok (kịch bản thoại/phân cảnh), các kênh khác trong danh sách hỗ trợ.
+  - Hỗ trợ **Regenerate** (sinh lại phương án khác kèm góp ý chỉnh sửa) và chỉnh sửa trực tiếp nội dung do AI tạo trước khi lưu.
+  - MVP dùng **1 LLM provider duy nhất** (xem mục 3).
+- **Sinh ảnh minh họa bằng AI (`FR-CC-17`, `FR-CC-18`, `FR-CC-19`)**: Gọi API Text-to-Image (DALL-E 3) để sinh ảnh minh họa dựa trên nội dung bài viết và lưu vào thư viện media của Workspace.
+- **Viral Score & 1-Click Fix**: Đánh giá chất lượng bài viết theo biểu đồ radar (tiêu chí Hook, CTA, độ dễ đọc...) và cung cấp nút tối ưu hóa nhanh bằng AI.
 
-#### Chức năng
+### 4.4. Phân hệ 4 — Kết nối & Đăng bài đa kênh
 
-- **Xác thực**: Đăng ký/Đăng nhập bằng Email+Password và Google OAuth (NextAuth.js v5).
-- **CRUD Workspace đầy đủ**:
-  - **Create**: Tạo Workspace mới (tên workspace, tải lên logo/avatar tùy chọn). Một người dùng có thể sở hữu hoặc tham gia nhiều Workspace khác nhau.
-  - **Read**: Xem danh sách các Workspace, xem chi tiết thông tin Workspace (thông tin chung, danh sách thành viên, gói dịch vụ đang sử dụng).
-  - **Update**: Thay đổi tên/logo của Workspace, thay đổi vai trò thành viên, chuyển quyền sở hữu (Owner) cho thành viên khác.
-  - **Delete**: Xóa Workspace (chỉ Owner được phép thực hiện, yêu cầu xác nhận 2 bước để tránh nhầm lẫn; áp dụng cơ chế soft delete để có thể khôi phục trong vòng X ngày).
-- **Cộng tác nhóm**: Mời thành viên mới tham gia Workspace qua email, xóa thành viên khỏi Workspace.
-- **Phân quyền 2 cấp**:
-  - `OWNER` (Toàn quyền quản trị Workspace và quản lý Billing/thanh toán nâng cấp gói).
-  - `MEMBER` (Tạo/sửa nội dung, lên lịch, không có quyền chỉnh sửa cấu hình Workspace và Billing).
-- **Hồ sơ cá nhân (User Profile)**: Người dùng tự quản lý thông tin độc lập với Workspace:
-  - Thay đổi tên hiển thị.
-  - Thay đổi ảnh đại diện (upload ảnh mới lên CDN Cloudinary/S3 hoặc chọn avatar mặc định).
-  - Thay đổi email: Hệ thống gửi mã OTP xác thực tới email mới → Xác minh OTP thành công mới áp dụng đổi email.
-  - Đổi mật khẩu: Yêu cầu mật khẩu cũ (ẩn nếu đăng nhập qua Google OAuth).
-- **Bảo mật & Ghi vết**:
-  - Ghi nhận Audit Log khi có thay đổi email, đổi mật khẩu hoặc xoá Workspace.
-  - **Quản lý Session**: Khi thay đổi mật khẩu hoặc bị khóa tài khoản, hệ thống tự động tăng `tokenVersion` của User trong cơ sở dữ liệu để vô hiệu hóa tức thì toàn bộ các JWT session hiện tại của tài khoản đó.
+- **Kết nối kênh (`FR-SM-01`, `FR-SM-02`, `FR-AD-06`)**:
+  - **Facebook Page**: Kết nối tài khoản thông qua luồng OAuth của Facebook (sử dụng Facebook App chế độ thử nghiệm/nhà phát triển).
+  - **Instagram, TikTok, Zalo OA (Sandbox/Giả lập)**: Cấu hình tài khoản giả lập trên hệ thống để phục vụ luồng chạy demo.
 
-#### Luồng hoạt động
+#### 4.4.1. Định nghĩa "Simulation Mode" (làm rõ để tránh hiểu sai khi code)
 
-1. Người dùng truy cập trang chủ → chọn **Đăng ký** → nhập email/mật khẩu hoặc đăng nhập nhanh bằng Google.
-2. Hệ thống tự động khởi tạo một Workspace mặc định (ví dụ: `Workspace của Nguyễn`) và gán quyền `OWNER` cho người dùng đó.
-3. Người dùng có thể tạo thêm các Workspace mới từ **Workspace Switcher** trên thanh công cụ điều hướng.
-4. Owner mời thành viên bằng cách truy cập **Workspace Settings → Members** → nhập email → gửi thư mời → thành viên nhấp link, tạo tài khoản và tự động gia nhập Workspace dưới vai trò `MEMBER`.
-5. Khi xóa Workspace tại **Workspace Settings → Danger Zone**, hệ thống yêu cầu gõ lại chính xác tên Workspace để xác nhận → Workspace chuyển sang trạng thái đã xóa (soft-delete), ghi nhận vào Audit Log.
-6. Để cập nhật hồ sơ, người dùng truy cập **Hồ sơ cá nhân** → chỉnh sửa thông tin hoặc nhập OTP đổi email → thực hiện thành công, hệ thống cập nhật DB và ghi Audit Log.
+Với Instagram, TikTok, Zalo OA: khi bấm "Đăng", hệ thống **không** gọi API thật. Thay vào đó:
 
----
+1. Ghi log bài đăng vào bảng `SimulatedPost` với trạng thái `Published` sau một độ trễ giả lập (2-5 giây, để mô phỏng trải nghiệm thật).
+2. Giao diện hiển thị rõ nhãn **"Chế độ giả lập"** trên mọi bài đăng thuộc nhóm kênh này (không được để người dùng nhầm là đã đăng thật).
+3. Cung cấp nút **Copy nội dung nhanh** và **Tải ảnh/video** để người dùng tự đăng thủ công lên nền tảng thật nếu muốn.
 
-### 3.2. Module 2 — Brand Voice (Giọng văn thương hiệu)
+- **Biên tập & Lên lịch đăng (`FR-SM-03` → `FR-SM-09`, `FR-VW-01`, `FR-VW-02`)**:
+  - Chọn 1 hoặc nhiều kênh đã liên kết để đăng bài (`FR-SM-03`).
+  - Cho phép điều chỉnh nội dung riêng biệt phù hợp với từng kênh trước khi xuất bản (`FR-SM-04`).
+  - **Calendar View**: Hiển thị toàn bộ lịch trình đăng bài dưới dạng lịch tháng trực quan, hỗ trợ kéo thả để thay đổi ngày đăng (chỉ với bài `Scheduled`).
+  - **Đăng bài**, thực hiện bởi **Owner** hoặc **Creator được ủy quyền**:
+    - **Lên lịch (Schedule)**: Hệ thống sử dụng Worker (BullMQ + Redis) quét và tự động kích hoạt API đăng bài khi đến giờ.
+    - **Đăng ngay (Publish Now)**: Gửi request đăng bài lập tức lên các API nền tảng đã chọn.
+- **Kết quả đăng bài (`FR-SM-10`, `FR-SM-11`)**: Ghi nhận trạng thái đăng bài (Thành công / Thất bại kèm mã lỗi chi tiết). Hỗ trợ nút **Thử lại (Retry)** khi đăng bài bị lỗi mà không cần soạn lại từ đầu (xem sơ đồ trạng thái mục 4.2).
 
-#### Chức năng
+### 4.5. Phân hệ 5 — Hệ thống Email & Thông báo Tự động (System & Notification Emails)
 
-- **Thiết lập thủ công**: Khai báo tone giọng (chuyên nghiệp, gần gũi, hài hước...), đối tượng khách hàng mục tiêu (persona), các từ khóa bắt buộc phải có và các từ cấm sử dụng (banned words).
-- **Phân tích giọng văn (Brand Voice Analyzer)**: Người dùng dán vào 2-3 bài viết mẫu có sẵn → AI tự động phân tích và trích xuất tone giọng, độ dài câu trung bình, sắc thái biểu đạt để đề xuất bộ Brand Voice tự động điền vào form (tối đa 1 yêu cầu/phút/user).
-- **So sánh trước/sau**: Sinh thử một đoạn văn bản mẫu trước và sau khi áp dụng Brand Voice để người dùng dễ dàng trực quan hóa kết quả.
+- **Email mời tham gia Workspace (`FR-EM-01`)**: Khi Workspace Owner mời một thành viên mới qua email, hệ thống tự động gửi email kèm đường dẫn xác thực và mã kích hoạt để người dùng chấp nhận tham gia Workspace.
+- **Email nhắc nhở gói cước & Credit (`FR-EM-02`, `FR-EM-03`)**:
+  - Tự động gửi email cảnh báo khi gói dịch vụ sắp hết hạn (ví dụ trước 3 ngày) để nhắc nhở nạp tiền/gia hạn.
+  - Tự động gửi email cảnh báo khi credit khả dụng trong Workspace sắp hết (dưới 10% hạn mức tháng) để người dùng cân đối hoặc mua thêm.
+- **Email nhắc nhở lịch đăng bài (`FR-EM-04`)**:
+  - Trước thời điểm lên lịch đăng bài (Scheduled) khoảng 15 phút, hệ thống tự động gửi email nhắc nhở cho **người phụ trách đăng bài** (Owner hoặc Creator được ủy quyền) để kiểm tra nội dung và trạng thái tài khoản liên kết.
+- **Cơ chế gửi & Tự động hóa**:
+  - Tác vụ kiểm tra hạn gói, credit và nhắc lịch đăng bài được vận hành bởi Cron Job định kỳ kết hợp hàng đợi BullMQ + Redis worker để gửi email bất đồng bộ.
+  - Email được gửi qua giao thức SMTP (Gmail/Outlook) hoặc tích hợp dịch vụ Resend/SendGrid API (`FR-AD-07`).
 
-#### Luồng hoạt động
+### 4.6. Phân hệ 6 — Nạp Credit & Cổng thanh toán PayOS
 
-1. Người dùng vào **Brand Voice Settings** của Workspace:
-   - **Cách A (Điền thủ công)**: Người dùng tự điền các thông tin mô tả tone giọng, từ khóa cấm/bắt buộc và đối tượng mục tiêu.
-   - **Cách B (Analyzer)**: Dán 2-3 bài viết chuẩn của doanh nghiệp → Bấm **Phân tích** → Hệ thống gọi AI để bóc tách văn phong và tự động hoàn thiện form thiết lập → Người dùng tinh chỉnh lại nếu muốn và bấm Lưu.
-2. Hệ thống tạo và hiển thị phần so sánh trước/sau khi lưu: lấy 1 nội dung brief gốc và hiển thị bản chưa áp giọng văn bên cạnh bản đã áp giọng văn để đối chiếu.
-3. Bộ hồ sơ Brand Voice này sẽ được áp dụng làm luật mặc định cho mọi tác vụ sinh nội dung AI tiếp theo trong Workspace.
+- **Cơ chế Gói dịch vụ & Credit**: Phân chia Workspace thành các gói dịch vụ (FREE, PRO, ENTERPRISE) với hạn mức Credit cấp hàng tháng khác nhau. Mỗi hành động gọi AI (sinh bài viết, cải thiện bài viết, sinh ảnh) sẽ trừ một lượng credit tương ứng.
+  - **Bảng chi phí credit** (khởi điểm, có thể cấu hình qua Admin Panel — không hard-code):
 
----
+    | Hành động                      | Credit |
+    | :----------------------------- | :----- |
+    | Sinh 1 bài viết text           | 5      |
+    | Regenerate                     | 3      |
+    | Sinh 1 ảnh (DALL-E 3)          | 10     |
+    | Chấm Viral Score / 1-Click Fix | 2      |
 
-### 3.3. Module 3 — AI Content Generator (Lõi sáng tạo nội dung)
+  - **Reset hàng tháng**: credit gói FREE/PRO reset về hạn mức mặc định vào đầu chu kỳ, **không cộng dồn** (use-it-or-lose-it) — cần nêu rõ trên UI để tránh khiếu nại.
+  - **Credit không đủ**: hệ thống chặn hành động _trước khi_ gọi API AI (kiểm tra số dư ước tính), hiển thị modal mời nạp thêm/nâng cấp gói, không cho phép âm credit.
 
-#### Chức năng
+- **Thanh toán trực tuyến**:
+  - Người dùng bấm nâng cấp gói → Gọi API PayOS để tạo mã QR thanh toán kèm theo đường link cổng thanh toán thật.
+  - **Webhook tự động**: Nhận thông tin chuyển khoản từ PayOS về server qua Webhook bảo mật để cộng credit tức thì.
+  - **Kiểm soát trùng lặp (Idempotency)**: Sử dụng mã đơn hàng duy nhất để kiểm tra chéo, tránh xử lý trùng lặp giao dịch.
+  - **Client Polling**: Hỗ trợ cơ chế tự động gửi request kiểm tra trạng thái thanh toán từ giao diện người dùng mỗi 5 giây phòng trường hợp webhook bị chậm.
+  - **Hạ gói/Hủy**: khi hết chu kỳ thanh toán mà không gia hạn, Workspace tự động hạ về gói FREE; không hỗ trợ hoàn tiền tự động trong phạm vi đồ án (ghi rõ trong FAQ/điều khoản, xử lý hoàn tiền thủ công qua Admin nếu có).
 
-- **Đầu vào linh hoạt**: Cho phép nhập tay văn bản thô hoặc dán URL bài viết bất kỳ để hệ thống tự động cào và trích xuất nội dung chính (loại bỏ menu, quảng cáo).
-- **Chuyển đổi sang 4 định dạng nền tảng**: Tối ưu hóa định dạng và phong cách cho:
-  1. _Facebook Post_ (tập trung Hook, emoji, CTA và hashtag).
-  2. _LinkedIn Post_ (văn phong chuyên nghiệp B2B, bullet points).
-  3. _TikTok Script_ (kịch bản phân cảnh chi tiết: bối cảnh, góc máy, action, overlay text, âm thanh).
-  4. _SEO Article_ (bài viết dài có tiêu đề H1, thẻ Meta description và các thẻ H2/H3).
-- **Tham số tùy chọn**: Điều chỉnh độ dài (ngắn, vừa, dài) và mức độ trang trọng (formal/casual).
-- **Sinh nhiều phiên bản (variants)**: AI tự tạo ra 2-3 phiên bản khác nhau của cùng một định dạng đích để người dùng lựa chọn.
-- **Tối ưu hóa hiệu năng & Chi phí AI**:
-  - **Prompt Engineering**: Sử dụng các prompt mẫu được tối ưu hóa kỹ lưỡng (không fine-tune mô hình) để kiểm soát chất lượng đầu ra và giảm tối đa chi phí API.
-  - **Prompt Caching**: Lưu trữ các prompt và response của các yêu cầu phổ biến/trùng lặp vào Redis cache (TTL 7 ngày) giúp trả về kết quả tức thì và không tốn credit/cost.
-  - **Streaming Response**: Sử dụng kết nối Server-Sent Events (SSE) để truyền phát văn bản thời gian thực (hiệu ứng chữ gõ), cải thiện đáng kể trải nghiệm người dùng (UX) tránh "đứng hình".
-  - **Xử lý nền bất đồng bộ (BullMQ)**: Đối với các bài viết dài (như SEO Article) hoặc các tác vụ tạo đồng thời nhiều variant, hệ thống đẩy công việc vào hàng đợi BullMQ (lưu trong Redis) để xử lý bất đồng bộ ở background, tránh HTTP timeout.
-- **Đánh giá Viral Score & 1-Click Fix**:
-  - Chấm điểm bài viết trên thang điểm từ 0–100 dựa trên 5 tiêu chí: Hook (câu mở đầu thu hút), CTA (kêu gọi hành động), Readability (độ dễ đọc), Emotion (cảm xúc tác động), và Brand Voice Match (độ khớp giọng văn). Điển hiển thị trực quan dưới dạng biểu đồ mạng nhện (radar chart).
-  - Nút **"1-Click Fix" (Cải thiện nhanh)**: AI tự động phân tích tiêu chí có điểm thấp nhất và viết lại đoạn văn bản tương ứng để tối ưu hóa.
-- **Lịch sử chỉnh sửa phiên bản (Version History)**: Lưu lại lịch sử mỗi lần chỉnh sửa tay hoặc bấm cải thiện tự động (`ContentVersion`) để người dùng có thể xem lại hoặc khôi phục phiên bản trước đó.
+### 4.7. Phân hệ 7 — Quản trị hệ thống (System Admin)
 
-#### Luồng hoạt động
-
-1. Người dùng vào chức năng **Tạo nội dung mới** → Chọn nguồn nhập (nhập tay hoặc dán URL bài viết) → Nhập dữ liệu và bấm tiếp tục.
-2. Chọn các định dạng đầu ra mong muốn và thiết lập độ dài, tone giọng.
-3. Hệ thống kiểm tra hạn mức tín dụng (credit) của Workspace. Nếu đủ:
-   - Các tác vụ tạo bài đăng ngắn hoặc trích xuất nhanh sẽ khởi chạy kết nối Streaming (SSE) trả dữ liệu trực tiếp về UI.
-   - Các tác vụ tạo SEO Article dài hoặc nhiều định dạng cùng lúc sẽ được đẩy vào hàng đợi **BullMQ**. Client nhận về một `jobId` để theo dõi tiến độ qua endpoint `/api/jobs/{jobId}`. Khi job hoàn thành, variants nội dung được trả về kèm theo Viral Score tương ứng.
-4. Người dùng xem các phiên bản, có thể chỉnh sửa trực tiếp hoặc bấm **"1-Click Fix"** để AI cải thiện. Mỗi lần thay đổi tạo ra một `ContentVersion` mới trong lịch sử.
+- **Dashboard Thống kê**: Hiển thị tổng quan số lượng User, số Workspace, lượng Credit tiêu thụ và doanh thu thực tế.
+- **Quản lý Tài nguyên**: Danh sách tài khoản người dùng, danh sách các Workspace, xem trạng thái hoạt động và cấu hình giới hạn sử dụng AI (`FR-AD-13`).
+- **Audit Logs (`FR-AD-09`)**: Lưu nhật ký các hoạt động quan trọng như đăng nhập, đổi mật khẩu, thay đổi email, xóa workspace, phê duyệt bài viết, giao dịch thanh toán thành công.
 
 ---
 
-### 3.4. Module 4 — Content Calendar & History (Lịch biên tập & Lịch sử)
+## 5. Đặc tả Bảo mật & Quản lý Session
 
-#### Chức năng
-
-- **Lịch biên tập dạng Tháng (Monthly Calendar)**: Hiển thị trực quan các bài viết đã lên lịch theo ngày, phân biệt rõ ràng bằng màu sắc theo từng nền tảng (Facebook, LinkedIn, TikTok, SEO). Hỗ trợ kéo thả ngày xuất bản.
-- **Lên lịch bài viết**: Hỗ trợ đặt ngày và giờ cụ thể để xuất bản bài viết.
-- **Lịch Marketing Việt Nam**: Tích hợp danh sách tĩnh các ngày lễ, sự kiện lớn và dịp mua sắm tại Việt Nam (hỗ trợ cả âm lịch) trong vòng 30 ngày tới. Với mỗi ngày lễ, AI sinh sẵn gợi ý góc nội dung (Content Angle) theo đúng Brand Voice hiện tại.
-- **Lịch sử bài viết (/history)**: Tìm kiếm bài viết theo từ khóa, lọc theo kênh, lọc theo trạng thái (`Draft`, `Scheduled`, `Published`). Hỗ trợ copy nhanh nội dung bài viết chỉ với 1 click.
-
-#### Luồng hoạt động
-
-1. Từ màn hình tạo nội dung, sau khi chọn **Lên lịch** → Hiện lên popup chọn ngày/giờ → Xác nhận → Trạng thái bài viết chuyển sang `Scheduled` và hiển thị trên Lịch tháng.
-2. Tại màn hình **Calendar**, người dùng có thể nhấp vào một bài đăng bất kỳ để xem nhanh nội dung, điều chỉnh ngày giờ hoặc sửa đổi thông tin.
-3. Khi xem danh sách ngày lễ ở tab **Lịch Marketing Việt Nam**, người dùng chọn một dịp lễ → Bấm **Tạo bài viết cho ngày này** → Hệ thống tự động chuyển tiếp sang Module 3 và điền sẵn ý tưởng tiếp cận do AI đề xuất làm brief đầu vào.
-4. Sau khi đăng bài lên mạng xã hội theo lịch, người dùng vào `/history` để đổi trạng thái bài viết thành `Published` nhằm theo dõi tiến độ.
+- **CSRF & XSS Protection**: Tự động validate CSRF Tokens cho mọi request nhạy cảm. Áp dụng thư viện `dompurify` làm sạch dữ liệu nhập vào trước khi lưu trữ hoặc hiển thị trên giao diện.
+- **SQL Injection Prevention**: Giao tiếp dữ liệu sử dụng Prisma ORM với Parameterized Queries, không cộng chuỗi thô để tránh lỗi SQL Injection.
+- **CORS Configuration**: Cấu hình CORS nghiêm ngặt chỉ cho phép các domain được định nghĩa cố định trong `.env` truy cập tài nguyên API.
+- **JWT Session & Revocation**: Thiết lập Access Token có thời hạn ngắn kết hợp Refresh Token lưu trong HTTP-Only Cookie. Sử dụng trường `tokenVersion` trên DB để lập tức vô hiệu hóa tất cả session cũ khi người dùng đổi mật khẩu hoặc bị khóa tài khoản.
+- **Rate limiting**: giới hạn số lần đăng nhập sai, giới hạn tần suất gọi API sinh nội dung AI theo User/Workspace để chống lạm dụng (ngoài kiểm soát bằng credit).
+- **File upload validation**: kiểm tra MIME type thực tế (không chỉ đuôi file), giới hạn kích thước theo mục 4.2, quét virus cơ bản nếu thời gian cho phép (Could-have).
 
 ---
 
-### 3.5. Module 5 — Billing & Credits (Thanh toán & Hạn ngạch)
+## 6. Cơ chế Tự phục hồi & Tối ưu hóa hiệu năng
 
-#### Chức năng
-
-- **Hệ thống Gói dịch vụ (3 hạng gói)**:
-  - **FREE**: Cấp 20 credit/tháng, giới hạn tối đa 1 Brand Voice, chỉ hoạt động cá nhân.
-  - **PRO**: Cấp 300 credit/tháng, không giới hạn Brand Voice, tối đa mời được 5 thành viên.
-  - **ENTERPRISE**: Cấp 1000 credit/tháng, không giới hạn số lượng Brand Voice và thành viên.
-- **Kiểm soát & Khóa hành động**: Mọi hành động gọi AI (Tạo bài, 1-Click Fix, Phân tích Brand Voice) sẽ bị chặn và yêu cầu nâng cấp gói nếu credit hiện tại của Workspace bằng 0.
-- **Tích hợp thanh toán thật qua PayOS**:
-  - Tạo link thanh toán/mã QR qua API PayOS.
-  - **Webhook an toàn**: Nhận thông báo giao dịch thành công tự động từ PayOS để cập nhật gói cước và cộng credit. Xác thực chữ ký webhook bằng cơ chế kiểm tra `checksum` (HMAC-SHA256).
-  - **Idempotency Key (Chống thanh toán trùng lặp)**: Sử dụng mã đơn hàng duy nhất (`payos_order_code`) làm mã khoá giao dịch trong cơ sở dữ liệu. Ngăn chặn hoàn toàn việc xử lý trùng lặp một giao dịch nhiều lần khi nhận webhook lặp hoặc lỗi mạng.
-  - **Chiến lược Polling kiểm tra (Retry)**: Hỗ trợ kiểm tra trạng thái đơn hàng tự động từ Client. Nếu webhook bị chậm/lỗi, trang thanh toán sẽ thực hiện gửi request truy vấn `/api/billing/payos/status/{orderCode}` mỗi 5 giây/lần, kéo dài tối đa trong vòng 10 phút (120 lượt thử) trước khi kết thúc và hiển thị thông báo liên hệ hỗ trợ.
-- **Lịch sử giao dịch chi tiết**: Lịch sử nạp/trừ credit đơn giản và lịch sử các giao dịch chuyển khoản PayOS.
-
-#### Luồng hoạt động
-
-1. Khi gọi AI tạo bài, hệ thống trừ credit và ghi nhận vào lịch sử credit. Nếu credit hết, các nút gọi AI bị vô hiệu hóa.
-2. Người dùng truy cập trang **Settings → Billing** → Chọn gói PRO hoặc ENTERPRISE → Bấm nâng cấp.
-3. Hệ thống tạo đơn hàng trong DB (`PaymentTransaction` trạng thái `PENDING`), gọi API PayOS sinh mã QR và hiển thị lên màn hình.
-4. Người dùng chuyển khoản quét mã QR.
-   - Khi thanh toán thành công, PayOS gọi Webhook về server → Server kiểm tra chữ ký webhook hợp lệ, đối chiếu mã đơn hàng để đảm bảo tính duy nhất (Idempotency) → Cập nhật đơn hàng thành `PAID`, nâng cấp gói và cộng credit, ghi Audit Log.
-   - Nếu Webhook lỗi/chậm, client chạy background polling trong 10 phút liên tục gọi API kiểm tra trạng thái đơn hàng từ PayOS để đồng bộ và cập nhật gói.
-5. Định kỳ hàng tháng (đầu chu kỳ), hệ thống reset credit về hạn mức gói hiện tại của Workspace.
+- **Xử lý nền bất đồng bộ (BullMQ + Redis)**: Đối với các tác vụ tốn thời gian như sinh bài viết dài, tạo nhiều biến thể, sinh ảnh bằng AI hoặc lên lịch đăng bài, hệ thống đẩy vào hàng đợi BullMQ để xử lý bất đồng bộ ở background, tránh nghẽn kết nối và HTTP timeout.
+- **Tự động thử lại (Retry)**: Khi gọi API OpenAI/DALL-E bị lỗi hoặc timeout, BullMQ tự động thực hiện thử lại tối đa 3 lần với giãn cách lũy thừa. Nếu thất bại hoàn toàn, hệ thống sẽ trả lại credit cho Workspace.
+- **Redis Caching**: Lưu trữ các prompt mẫu, cấu hình hệ thống, và dữ liệu ngày lễ Việt Nam vào Redis để phản hồi lập tức và giảm số lượng truy vấn trực tiếp vào Database.
+- **Connection Pooling**: Cấu hình PgBouncer hoặc Prisma Accelerate để quản lý hiệu quả số lượng kết nối đồng thời vào cơ sở dữ liệu PostgreSQL.
 
 ---
 
-### 3.6. Module 6 — Trang quản trị hệ thống (System Admin)
+## 7. Yêu cầu phi chức năng (NFR) & Tuân thủ
 
-#### Chức năng
-
-- **Dashboard tổng quan**: Thống kê số lượng người dùng mới, số lượng workspace, lượng credit tiêu thụ toàn hệ thống và biểu đồ tăng trưởng doanh thu/giao dịch theo ngày/tuần.
-- **Quản lý người dùng (Users)**: Xem danh sách, tìm kiếm người dùng. Hỗ trợ tính năng **Khoá/Mở khoá tài khoản (Suspend/Unsuspend)** nếu phát hiện tài khoản vi phạm chính sách hoặc spam hệ thống.
-- **Quản lý Workspace**: Xem danh sách các workspace trên hệ thống, kiểm tra gói cước đang dùng và số credit còn lại. Hỗ trợ **Khoá/Xoá workspace**.
-- **Quản lý Gói dịch vụ (Plan)**: Cho phép Admin chỉnh sửa thông tin các gói cước (giá tiền, hạn mức credit cấp hàng tháng, số thành viên tối đa).
-- **Log giao dịch toàn hệ thống**: Theo dõi toàn bộ lịch sử trừ credit và giao dịch thanh toán để đối soát khi cần thiết.
-- **Xem Audit Logs**: Cho phép Admin giám sát toàn bộ log hoạt động quan trọng trong hệ thống để phục vụ điều tra bảo mật hoặc đối soát giao dịch.
-
-#### Luồng hoạt động
-
-1. Tài khoản được phân quyền `role = ADMIN` đăng nhập vào hệ thống → Hiển thị thêm tùy chọn truy cập **Trang quản trị** (đường dẫn `/admin` được bảo vệ bằng middleware kiểm tra quyền).
-2. Admin theo dõi sức khỏe hệ thống qua trang Dashboard tổng quan.
-3. Khi có khiếu nại hoặc dấu hiệu lạm dụng, Admin tìm kiếm User/Workspace qua thanh tìm kiếm và thực hiện hành động Khoá/Mở khoá nhanh chóng.
-4. Khi cần thay đổi chính sách kinh doanh, Admin vào mục quản lý Plan để điều chỉnh giá gói PRO hoặc đổi hạn ngạch credit mặc định.
-
----
-
-## 4. Đặc tả Bảo mật & Quản lý Session
-
-Để đảm bảo hệ thống an toàn trước các cuộc tấn công mạng phổ biến, các cơ chế bảo mật sau đây được cấu hình chặt chẽ:
-
-- **CSRF Protection (Chống giả mạo request)**: Sử dụng NextAuth.js v5 để tự động validate CSRF Tokens cho mọi request nhạy cảm (POST/PUT/DELETE). Các API tùy chỉnh được bảo vệ bằng việc kiểm tra tiêu đề `Origin` và `Referer`.
-- **XSS Prevention (Chống chèn mã độc)**: Áp dụng thư viện `dompurify` để làm sạch toàn bộ dữ liệu nhập vào từ phía người dùng (input sanitization) trước khi lưu trữ hoặc hiển thị trên giao diện.
-- **SQL Injection Prevention (Chống chèn truy vấn DB)**: Toàn bộ quá trình giao tiếp dữ liệu sử dụng **Prisma ORM với Parameterized Queries** (Prepared Statements). Không sử dụng cộng chuỗi thô để sinh truy vấn cơ sở dữ liệu.
-- **CORS Configuration (Cấu hình CORS nghiêm ngặt)**: Chỉ cho phép các domain được cấu hình cố định trong `.env` (ví dụ: domain chính của app và domain webhook PayOS) truy cập vào tài nguyên API. Tuyệt đối không sử dụng wildcard `*` cho các API yêu cầu xác thực.
-- **API Key Rotation Policy (Xoay vòng khoá)**: Các API Keys của hệ thống (OpenAI, PayOS) được xoay vòng định kỳ 90 ngày. Với các API Keys được lưu trong Workspace, hệ thống cung cấp nút "Rotate Key" giúp thu hồi khoá cũ và tạo khoá mới ngay lập tức.
-- **JWT Refresh Token Strategy**: Thời gian sống của Access Token JWT là 1 ngày, Refresh Token là 30 ngày. Hệ thống triển khai JWT rotation callback trong NextAuth để tự động refresh session cho người dùng mà không cần bắt họ đăng nhập lại.
-- **Session Revocation (Thu hồi phiên làm việc)**: Bảng `User` chứa trường `tokenVersion`. Mỗi khi người dùng đổi mật khẩu, hoặc bị Admin khóa tài khoản (suspend), giá trị `tokenVersion` sẽ tự động được tăng thêm 1. Khi đó, toàn bộ JWT session cũ chứa `tokenVersion` không khớp sẽ lập tức bị hệ thống từ chối và yêu cầu đăng nhập lại.
-- **Chi tiết Audit Logs (Ghi vết hoạt động)**: Bảng `AuditLog` ghi nhận chi tiết:
-  - **Ai làm** (`userId`)
-  - **Ở đâu** (`workspaceId`)
-  - **Khi nào** (`createdAt`)
-  - **Hành động gì** (`action`: `DELETE_WORKSPACE`, `CHANGE_EMAIL`, `PAYMENT_SUCCESS`, `SUSPEND_USER`...)
-  - **Từ đâu** (`ipAddress`, `userAgent`)
-  - **Chi tiết thay đổi** (`details` lưu dưới dạng JSON)
-
----
-
-## 5. Cơ chế Tự phục hồi & Xử lý lỗi (Resilience)
-
-Hệ thống được thiết kế để duy trì tính hoạt động liên tục (Liveness) và tự phục hồi khi có sự cố phát sinh từ bên thứ ba hoặc môi trường:
-
-- **Xử lý Timeout & Lỗi AI API**:
-  - Cuộc gọi AI API có thời hạn timeout tối đa là 15 giây.
-  - Khi gặp lỗi hoặc timeout, **BullMQ** sẽ tự động thực hiện thử lại (retry) tối đa 3 lần với cơ chế giãn cách lũy thừa (exponential backoff).
-  - Nếu tác vụ hoàn toàn thất bại sau 3 lần thử, job được đánh dấu là `FAILED` và hệ thống **không trừ credit** của Workspace.
-- **Tự động reconnect Database**: Prisma Client được cấu hình tự động thử kết nối lại khi gặp sự cố ngắt kết nối tạm thời. Nếu mất kết nối kéo dài, hệ thống trả về mã lỗi `503 Service Unavailable` kèm mã `DATABASE_DISCONNECTED`.
-- **Fallback khi Redis Down**: Vì BullMQ và caching phụ thuộc hoàn toàn vào Redis, khi phát hiện kết nối tới Redis bị ngắt, hệ thống tự động bỏ qua hàng đợi BullMQ và chuyển sang chế độ **Xử lý đồng bộ trực tiếp (Synchronous Direct Processing)** trên luồng HTTP để đảm bảo các chức năng chính (như sinh variants Facebook/LinkedIn ngắn) vẫn hoạt động bình thường cho người dùng.
-- **Giao dịch Rollback (Atomicity)**: Các luồng cập nhật dữ liệu tài chính như trừ/nạp credit, thay đổi gói cước, hoặc thanh toán đơn hàng được bọc hoàn toàn trong **Prisma Transactions** (`prisma.$transaction`). Nếu bất kỳ câu lệnh nào trong chuỗi xử lý bị lỗi, toàn bộ các cập nhật trước đó sẽ được rollback hoàn toàn về trạng thái cũ để đảm bảo tính nhất quán dữ liệu.
-
----
-
-## 6. Các biện pháp Tối ưu hoá hiệu năng hệ thống (Performance)
-
-- **Redis Caching**: Thiết lập caching trên Redis cho các tác vụ tốn tài nguyên (AI responses, ngày lễ Việt Nam, vai trò người dùng trong Workspace) để giảm tải cho DB và giảm chi phí AI API.
-- **Tối ưu hóa câu lệnh cơ sở dữ liệu**: Đánh chỉ mục (`@@index`) trên các cột tìm kiếm và khóa ngoại. Sử dụng `select` và `include` của Prisma để ngăn ngừa triệt để lỗi **N+1 Query** khi lấy dữ liệu liên kết (như danh sách bài đăng kèm các phiên bản).
-- **CDN (Content Delivery Network)**: Toàn bộ ảnh đại diện của người dùng và logo của Workspace sau khi tải lên sẽ được lưu trữ trên AWS S3/Cloudinary và phân phối qua CDN (Cloudflare/CloudFront) để tăng tốc độ tải tài nguyên tĩnh.
-- **Nén phản hồi (Compression)**: Cấu hình Next.js hỗ trợ nén dữ liệu truyền tải Gzip/Brotli giúp tiết kiệm băng thông và tăng tốc độ tải trang trên trình duyệt.
-- **Connection Pooling**: Cấu hình PgBouncer hoặc Prisma Accelerate trong môi trường PostgreSQL ở Production để quản lý kết nối cơ sở dữ liệu hiệu quả, tránh cạn kiệt connection pool dưới tải cao.
-
----
-
-## 8. Các tính năng ngoài phạm vi (Định hướng phát triển tương lai)
-
-Các tính năng sau đây được lược bỏ khỏi phạm vi 4 tháng của đồ án để tập trung hoàn thiện các cơ chế bảo mật, PayOS và vận hành hệ thống:
-
-1. **Content DNA (Machine Learning nâng cao)**: Học phong cách viết sâu qua hàng trăm bài đăng lịch sử.
-2. **Vietnamese TTS Preview**: Nghe thử giọng đọc thương hiệu tiếng Việt bằng giọng nói AI.
-3. **Trợ lý phản hồi Comment / Inbox tự động (Reply Assistant)**: Đóng vai trả lời comment khách hàng.
-4. **Bóc tách đối thủ (Competitor Teardown)**: Cào dữ liệu fanpage đối thủ để phân tích.
-5. **Đăng bài tự động trực tiếp qua Social API (Facebook/Zalo Graph API)**: Người dùng copy nội dung thủ công để đăng nhằm tránh việc xét duyệt API phức tạp của bên thứ ba.
-6. **Luồng duyệt bài nhiều cấp phức tạp (Multi-level Approval)**: Tinh giản để tập trung vào cơ chế phân quyền Workspace cơ bản (`OWNER` và `MEMBER`).
+- **Hiệu năng**: API thông thường phản hồi < 500ms (p95, không tính các tác vụ AI/queue). Tác vụ AI xử lý bất đồng bộ, người dùng nhận kết quả qua polling hoặc WebSocket/SSE.
+- **Backup & Retention**: Backup PostgreSQL hàng ngày (tối thiểu snapshot thủ công định kỳ trong phạm vi đồ án). Audit log lưu tối thiểu 90 ngày.
+- **Bảo vệ dữ liệu cá nhân**: Thông tin cá nhân của người dùng (email, họ tên) được bảo mật nghiêm ngặt. Chỉ gửi email thông báo hệ thống khi thật sự cần thiết (mời workspace, xác nhận tài khoản, cảnh báo hết hạn gói/credit) và tuân thủ các quy định bảo mật hiện hành.
+- **Môi trường triển khai**: tối thiểu 2 môi trường — `development` và `production`; môi trường `staging` là Should-have (xem mục 3.1) nếu Phase 1-5 đúng tiến độ.
