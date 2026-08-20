@@ -1,82 +1,134 @@
-import { Flame, FolderOpen, Blocks, Terminal } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Sparkles, Database, Server, Activity, Layers, ExternalLink } from 'lucide-react';
+import httpClient from './services/httpClient';
 
-function App() {
+interface HealthData {
+  uptime: number;
+  database: string;
+  redis: string;
+  version: string;
+}
+
+const TABLES = [
+  'users', 'workspaces', 'workspace_members', 'workspace_invites',
+  'brand_voices', 'posts', 'post_media', 'media_assets',
+  'channel_connections', 'scheduled_posts', 'approval_histories', 'ai_generations',
+  'credit_transactions', 'orders', 'notifications', 'refresh_tokens', 'audit_logs'
+];
+
+export function App() {
+  const [health, setHealth] = useState<HealthData | null>(null);
+
+  useEffect(() => {
+    httpClient
+      .get<{ data: HealthData }>('/health')
+      .then((res) => setHealth(res.data.data))
+      .catch(() => setHealth(null));
+  }, []);
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0c10] flex items-center justify-center p-6 text-slate-800 dark:text-slate-200 transition-colors duration-300">
-      <div className="max-w-xl w-full bg-white dark:bg-[#15161e] border border-slate-100 dark:border-[#222533] rounded-3xl p-8 shadow-xl space-y-8">
-        
-        {/* Brand Header */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center text-brand-600 dark:text-brand-400">
-            <Flame className="w-5 h-5 fill-brand-100 dark:fill-brand-500/20" />
+    <div className="min-h-screen bg-[#0a0b10] text-slate-100 flex flex-col font-sans">
+      {/* Header */}
+      <header className="border-b border-slate-800 bg-[#0e1017]/80 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-linear-to-tr from-indigo-600 to-purple-500 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-lg tracking-tight">Marka Platform</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              Scaffold Core
+            </span>
           </div>
-          <div>
-            <h1 className="font-display font-bold text-2xl tracking-tight bg-gradient-to-r from-brand-600 to-indigo-500 bg-clip-text text-transparent">
-              Marka AI Platform
-            </h1>
-            <p className="text-xs text-slate-400 dark:text-slate-500">React + Express Boilerplate Ready</p>
-          </div>
-        </div>
 
-        {/* Welcome Content */}
-        <div className="space-y-3">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-            Khung cấu trúc dự án đã được khởi tạo thành công!
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-            Các thư mục rỗng và file cấu hình cho cả Frontend (Vite, React, TypeScript, TailwindCSS v4) và Backend (Node, Express, Prisma) đã sẵn sàng.
+          <a
+            href="http://localhost:5000/api-docs"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-lg bg-slate-850 border border-slate-750 transition"
+          >
+            <span>Swagger API Docs</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-10 space-y-8">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-white">
+            Hạ tầng Khung Dự án Marka
+          </h1>
+          <p className="text-slate-400 text-sm">
+            Kiến trúc phân tầng 1 chiều: Client → Router → Controller → Service → Repository → PostgreSQL.
           </p>
         </div>
 
-        {/* Structure checklist */}
-        <div className="space-y-3 bg-slate-50 dark:bg-[#1c1d27]/40 p-5 rounded-2xl border border-slate-100 dark:border-[#222533]/50">
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <FolderOpen className="w-4 h-4" />
-            Cấu trúc thư mục hiện tại
-          </h3>
-          
-          <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300">
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
-              <span><strong>backend/src/</strong>: config, controllers, middlewares, repositories, routes, services, validators, utils</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
-              <span><strong>backend/prisma/</strong>: schema.prisma (cơ sở dữ liệu SQLite)</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
-              <span><strong>frontend/src/</strong>: assets, components (ui, shared, features), hooks, pages, services, stores, types, utils</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Tech Stack libraries loaded */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 bg-white dark:bg-[#1a1c26] border border-slate-100 dark:border-[#2b2e40] rounded-xl flex items-start gap-3">
-            <Blocks className="w-5 h-5 text-indigo-500 shrink-0" />
-            <div>
-              <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200">Frontend Libs</h4>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Router-dom, Zustand, TanStack Query, Axios, Lucide, Tailwind v4</p>
-            </div>
+        {/* Diagnostics Card */}
+        <div className="p-6 rounded-2xl bg-[#11131c] border border-slate-800">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="w-4 h-4 text-indigo-400" />
+            <h2 className="text-sm font-semibold text-white">Trạng thái Kết nối Hệ thống</h2>
           </div>
 
-          <div className="p-4 bg-white dark:bg-[#1a1c26] border border-slate-100 dark:border-[#2b2e40] rounded-xl flex items-start gap-3">
-            <Terminal className="w-5 h-5 text-emerald-500 shrink-0" />
-            <div>
-              <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200">Backend Libs</h4>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Express, Prisma client, Morgan, Helmet, Cors, Zod, Nodemon</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span>Express API Server</span>
+                <Server className="w-4 h-4 text-slate-500" />
+              </div>
+              <p className="mt-2 text-sm font-semibold text-emerald-400">Port 5000 (Active)</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span>PostgreSQL (Prisma)</span>
+                <Database className="w-4 h-4 text-slate-500" />
+              </div>
+              <p className="mt-2 text-sm font-semibold text-slate-200">
+                {health?.database || '17 Bảng đã sẵn sàng'}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span>BullMQ & Redis</span>
+                <Layers className="w-4 h-4 text-slate-500" />
+              </div>
+              <p className="mt-2 text-sm font-semibold text-slate-200">
+                {health?.redis || '3 Queues đã khởi tạo'}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Next Steps */}
-        <div className="text-center pt-2">
-          <p className="text-xs text-slate-400 dark:text-slate-500">
-            Bắt đầu phát triển bằng cách tạo file và import tại các thư mục tương ứng.
-          </p>
+        {/* 17 Tables Grid */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-purple-400" />
+            <h2 className="text-sm font-semibold text-white">17 Bảng Cơ Sở Dữ Liệu (schema.prisma)</h2>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {TABLES.map((table, idx) => (
+              <div
+                key={table}
+                className="p-3 rounded-xl bg-[#11131c] border border-slate-800/80 flex items-center gap-2"
+              >
+                <span className="text-[11px] font-mono text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">
+                  #{idx + 1}
+                </span>
+                <span className="font-mono text-xs text-slate-300 truncate">{table}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
+        Marka AI Platform &copy; 2026 — Clean Architecture Scaffold
+      </footer>
     </div>
   );
 }

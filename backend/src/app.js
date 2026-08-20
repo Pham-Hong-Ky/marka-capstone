@@ -2,22 +2,40 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import compression from 'compression';
+import cookieParser from 'cookie-parser';
+import swaggerUi from 'swagger-ui-express';
+
+import env from './config/env.js';
+import swaggerSpec from './config/swagger.js';
+import requestId from './middlewares/requestId.js';
+import errorHandler from './middlewares/error.js';
+import apiLimiter from './middlewares/rateLimiter.js';
+import v1Routes from './routes/index.js';
+import { NotFoundError } from './utils/errors/index.js';
 
 const app = express();
 
 app.use(helmet());
-app.use(cors());
-app.use(morgan('dev'));
+app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
+app.use(compression());
+app.use(cookieParser());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(requestId);
 
-// Basic health check route
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Marka Express API is running' });
+if (env.NODE_ENV !== 'test') {
+  app.use(morgan('dev'));
+}
+
+app.use('/api/', apiLimiter);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api/v1', v1Routes);
+
+app.use((req, res, next) => {
+  next(new NotFoundError(`Đường dẫn ${req.originalUrl} không tồn tại`));
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Endpoint not found' });
-});
+app.use(errorHandler);
 
 export default app;
