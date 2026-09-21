@@ -182,6 +182,123 @@ sequenceDiagram
     deactivate View
 ```
 
+### UC33 — Refresh Token
+
+```mermaid
+sequenceDiagram
+    actor User as Admin/Workspace owner/Content creator
+    participant View as View(Front-end)
+    participant Controller as Auth controller
+    participant Service as Auth service
+    participant Repository as User repository
+    participant DB as Database
+
+    View->>Controller: 1.1: Post:auth/refresh-token
+    activate Controller
+    Controller->>Service: 1.1.1: refreshToken(refreshToken)
+    activate Service
+    Service->>Service: 1.1.1.1: verifyRefreshToken(refreshToken)
+
+    alt Trường hợp 1: Token không hợp lệ hoặc hết hạn
+        Service-->>Controller: throw UnauthorizedError
+        Controller-->>View: 401 "Invalid or expired refresh token"
+        View->>View: chuyển về trang login
+    else Trường hợp 2: Token hợp lệ
+        Service->>Repository: 1.1.1.2: findUserById(userId)
+        activate Repository
+        Repository->>DB: query SELECT users
+        activate DB
+        DB-->>Repository: User
+        deactivate DB
+        Repository-->>Service: User
+        deactivate Repository
+
+        Service->>Service: 1.1.1.3: generateAccessToken(user)
+        Service->>Service: 1.1.1.4: generateRefreshToken(user)
+
+        Service->>Repository: 1.1.1.5: revokeRefreshToken(oldRefreshToken)
+        activate Repository
+        Repository->>DB: query UPDATE refresh_tokens SET revoked=true
+        activate DB
+        DB-->>Repository: { count: 1 }
+        deactivate DB
+        Repository-->>Service: { count: 1 }
+        deactivate Repository
+
+        Service-->>Controller: { accessToken, refreshToken }
+        Controller-->>View: 200 OK { accessToken, refreshToken }
+        deactivate Controller
+        View->>View: lưu token mới vào store
+    end
+    deactivate Service
+```
+
+### UC34 — Verify Email
+
+```mermaid
+sequenceDiagram
+    actor User as Người dùng vừa đăng ký
+    participant View as View(Front-end)
+    participant Controller as Auth controller
+    participant Service as Auth service
+    participant Repository as User repository
+    participant DB as Database
+
+    User->>View: 1: Nhấn link xác thực trong email
+    activate View
+    View->>Controller: 1.1: Get:auth/verify-email?token=xxx
+    activate Controller
+    Controller->>Service: 1.1.1: verifyEmail(token)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findUserByVerificationToken(token)
+    activate Repository
+    Repository->>DB: query SELECT users WHERE verificationToken=token
+    activate DB
+
+    alt Trường hợp 1: Token không hợp lệ hoặc đã dùng
+        DB-->>Repository: null
+        deactivate DB
+        Repository-->>Service: null
+        deactivate Repository
+        Service-->>Controller: throw BadRequestError
+        Controller-->>View: 400 "Invalid or expired verification token"
+        View->>View: hiển thị lỗi "Link xác thực không hợp lệ"
+    else Trường hợp 2: Xác thực thành công
+        activate DB
+        DB-->>Repository: User
+        deactivate DB
+        Repository-->>Service: User
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.2: updateUser(userId, { emailVerified: true, verificationToken: null })
+        activate Repository
+        Repository->>DB: query UPDATE users SET emailVerified=true
+        activate DB
+        DB-->>Repository: updated User
+        deactivate DB
+        Repository-->>Service: updated User
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.3: createAuditLog()
+        activate Repository
+        Repository->>DB: query INSERT audit_logs
+        activate DB
+        DB-->>Repository: AuditLog
+        deactivate DB
+        Repository-->>Service: AuditLog
+        deactivate Repository
+
+        Service-->>Controller: void
+        activate Controller
+        Controller-->>View: 200 OK { message: "Email verified successfully" }
+        deactivate Controller
+        View->>View: hiển thị "Email đã xác thực thành công"
+    end
+    deactivate Service
+    deactivate View
+```
+
 ### UC04 — Change Password
 
 ```mermaid
@@ -799,6 +916,122 @@ sequenceDiagram
     deactivate View
 ```
 
+### UC35 — List Workspaces
+
+```mermaid
+sequenceDiagram
+    actor User as Admin/Workspace owner/Content creator
+    participant View as View(Front-end)
+    participant Controller as Workspace controller
+    participant Service as Workspace service
+    participant Repository as Workspace repository
+    participant DB as Database
+
+    User->>View: 1: Mở trang chọn Workspace
+    activate View
+    View->>Controller: 1.1: Get:/workspaces
+    activate Controller
+    Controller->>Service: 1.1.1: listWorkspaces(userId)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findWorkspacesByUserId(userId)
+    activate Repository
+    Repository->>DB: query SELECT workspaces JOIN workspace_members WHERE userId=userId
+    activate DB
+    DB-->>Repository: WorkspaceList
+    deactivate DB
+    Repository-->>Service: WorkspaceList
+    deactivate Repository
+
+    Service-->>Controller: WorkspaceList
+    Controller-->>View: 200 OK { workspaces }
+    deactivate Controller
+    View->>View: hiển thị danh sách workspace kèm vai trò
+    deactivate View
+```
+
+### UC36 — Change Member Role
+
+```mermaid
+sequenceDiagram
+    actor Owner as Workspace owner
+    participant View as View(Front-end)
+    participant Controller as Workspace controller
+    participant Service as Workspace service
+    participant Repository as Workspace repository
+    participant DB as Database
+
+    Owner->>View: 1: Chọn thành viên & thay đổi vai trò
+    activate View
+    View->>Controller: 1.1: Patch:/workspaces/:id/members/:memberId
+    activate Controller
+    Controller->>Service: 1.1.1: changeMemberRole(workspaceId, memberId, actorId, newRole)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findMember(workspaceId, actorId)
+    activate Repository
+    Repository->>DB: query SELECT workspace_members WHERE userId=actorId
+    activate DB
+    DB-->>Repository: Member (actor)
+    deactivate DB
+    Repository-->>Service: Member (actor)
+    deactivate Repository
+
+    alt Trường hợp 1: Actor không phải Owner
+        Service-->>Controller: throw ForbiddenError
+        Controller-->>View: 403 "Only owner can change roles"
+        View->>View: hiển thị lỗi "Bạn không có quyền thay đổi vai trò"
+    else Trường hợp 2: Actor là Owner, tiếp tục
+        Service->>Repository: 1.1.1.2: findMember(workspaceId, memberId)
+        activate Repository
+        Repository->>DB: query SELECT workspace_members WHERE userId=memberId
+        activate DB
+        DB-->>Repository: Member (target)
+        deactivate DB
+        Repository-->>Service: Member (target)
+        deactivate Repository
+
+        alt Trường hợp 2a: Hạ role Owner duy nhất
+            Service->>Repository: 1.1.1.3: countOwners(workspaceId)
+            activate Repository
+            Repository->>DB: query SELECT count(*) WHERE role=OWNER
+            activate DB
+            DB-->>Repository: count (=1)
+            deactivate DB
+            Repository-->>Service: count
+            deactivate Repository
+            Service-->>Controller: throw ConflictError
+            Controller-->>View: 409 "Cannot demote the sole owner"
+            View->>View: hiển thị lỗi "Không thể hạ role Owner duy nhất"
+        else Trường hợp 2b: Đổi role thành công
+            Service->>Repository: 1.1.1.4: updateMemberRole(workspaceId, memberId, newRole)
+            activate Repository
+            Repository->>DB: query UPDATE workspace_members SET role=newRole
+            activate DB
+            DB-->>Repository: updated Member
+            deactivate DB
+            Repository-->>Service: updated Member
+            deactivate Repository
+
+            Service->>Repository: 1.1.1.5: createAuditLog()
+            activate Repository
+            Repository->>DB: query INSERT audit_logs
+            activate DB
+            DB-->>Repository: AuditLog
+            deactivate DB
+            Repository-->>Service: AuditLog
+            deactivate Repository
+
+            Service-->>Controller: { memberId, newRole }
+            Controller-->>View: 200 OK { memberId, newRole }
+            View->>View: cập nhật vai trò trên giao diện
+        end
+    end
+    deactivate Controller
+    deactivate Service
+    deactivate View
+```
+
 ## Phân hệ 2 — Nội dung & Media
 
 ### UC05 — Create Content
@@ -1066,6 +1299,64 @@ sequenceDiagram
     Controller-->>View: 200 OK { success: true }
     deactivate Controller
     View->>View: xóa bài viết khỏi danh sách hiển thị
+    deactivate View
+```
+
+### UC37 — Upload Media
+
+```mermaid
+sequenceDiagram
+    actor User as Content creator/Workspace member
+    participant View as View(Front-end)
+    participant Controller as Media controller
+    participant Service as Media service
+    participant Cloud as Cloudinary (External)
+    participant Repository as Media repository
+    participant DB as Database
+
+    User->>View: 1: Chọn file ảnh/video & nhấn Upload
+    activate View
+    View->>Controller: 1.1: Post:/workspaces/:id/media (multipart/form-data)
+    activate Controller
+    Controller->>Service: 1.1.1: uploadMedia(workspaceId, userId, file, tags)
+    activate Service
+
+    Service->>Service: 1.1.1.1: validateFile(file)
+
+    alt Trường hợp 1: File không hợp lệ (sai định dạng / quá lớn)
+        Service-->>Controller: throw BadRequestError
+        Controller-->>View: 400 "Invalid file type or size exceeded"
+        View->>View: hiển thị lỗi "File không hợp lệ"
+    else Trường hợp 2: Upload thành công
+        Service->>Cloud: 1.1.1.2: uploadToCloudinary(file)
+        activate Cloud
+        Cloud-->>Service: { url, mimeType, size, thumbnailUrl }
+        deactivate Cloud
+
+        Service->>Repository: 1.1.1.3: createMediaAsset(data)
+        activate Repository
+        Repository->>DB: query INSERT media_assets
+        activate DB
+        DB-->>Repository: MediaAsset
+        deactivate DB
+        Repository-->>Service: MediaAsset
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.4: createAuditLog()
+        activate Repository
+        Repository->>DB: query INSERT audit_logs
+        activate DB
+        DB-->>Repository: AuditLog
+        deactivate DB
+        Repository-->>Service: AuditLog
+        deactivate Repository
+
+        Service-->>Controller: MediaAsset
+        Controller-->>View: 201 Created (MediaAsset)
+        View->>View: hiển thị file đã upload thành công
+    end
+    deactivate Controller
+    deactivate Service
     deactivate View
 ```
 
@@ -1641,6 +1932,78 @@ sequenceDiagram
     deactivate View
 ```
 
+### UC38 — Cancel Scheduled Post
+
+```mermaid
+sequenceDiagram
+    actor Owner as Workspace owner/Admin
+    participant View as View(Front-end)
+    participant Controller as Post controller
+    participant Service as Post service
+    participant Queue as BullMQ (Queue)
+    participant Repository as Post repository
+    participant DB as Database
+
+    Owner->>View: 1: Chọn lịch đăng bài & nhấn Huỷ
+    activate View
+    View->>Controller: 1.1: Delete:/posts/:id/schedule/:scheduleId
+    activate Controller
+    Controller->>Service: 1.1.1: cancelScheduledPost(postId, scheduleId)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findScheduledPostById(scheduleId)
+    activate Repository
+    Repository->>DB: query SELECT scheduled_posts WHERE id=scheduleId
+    activate DB
+    DB-->>Repository: ScheduledPost
+    deactivate DB
+    Repository-->>Service: ScheduledPost
+    deactivate Repository
+
+    alt Trường hợp 1: Lịch đăng đã PUBLISHED
+        Service-->>Controller: throw ConflictError
+        Controller-->>View: 409 "Cannot cancel a published schedule"
+        View->>View: hiển thị lỗi "Không thể huỷ lịch đăng đã publish"
+    else Trường hợp 2: Huỷ thành công
+        Service->>Queue: 1.1.1.2: cancelBullMQJob(scheduleId)
+        Queue-->>Service: Job cancelled
+
+        Service->>Repository: 1.1.1.3: updateScheduledPostStatus(scheduleId, CANCELLED)
+        activate Repository
+        Repository->>DB: query UPDATE scheduled_posts SET status=CANCELLED
+        activate DB
+        DB-->>Repository: updated ScheduledPost
+        deactivate DB
+        Repository-->>Service: updated ScheduledPost
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.4: checkAndUpdatePostOverallStatus(postId)
+        activate Repository
+        Repository->>DB: query UPDATE posts SET status=APPROVED (nếu tất cả schedule đã huỷ)
+        activate DB
+        DB-->>Repository: updated Post
+        deactivate DB
+        Repository-->>Service: updated Post
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.5: createAuditLog()
+        activate Repository
+        Repository->>DB: query INSERT audit_logs
+        activate DB
+        DB-->>Repository: AuditLog
+        deactivate DB
+        Repository-->>Service: AuditLog
+        deactivate Repository
+
+        Service-->>Controller: void
+        Controller-->>View: 200 OK { success: true }
+        View->>View: cập nhật giao diện lịch đăng
+    end
+    deactivate Controller
+    deactivate Service
+    deactivate View
+```
+
 ### UC15 — Post content to social media (Đăng ngay)
 
 ```mermaid
@@ -2008,6 +2371,420 @@ sequenceDiagram
         View->>View: hiển thị danh sách nhật ký hệ thống kèm bộ lọc
         deactivate View
     end
+```
+
+## Phân hệ 8 — Notification
+
+### UC39 — List Notifications
+
+```mermaid
+sequenceDiagram
+    actor User as Admin/Workspace owner/Content creator
+    participant View as View(Front-end)
+    participant Controller as Notification controller
+    participant Service as Notification service
+    participant Repository as Notification repository
+    participant DB as Database
+
+    User->>View: 1: Mở danh sách thông báo
+    activate View
+    View->>Controller: 1.1: Get:/notifications?page=1&limit=20
+    activate Controller
+    Controller->>Service: 1.1.1: listNotifications(userId, filters)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findNotificationsByUserId(userId, filters)
+    activate Repository
+    Repository->>DB: query SELECT notifications WHERE userId=userId ORDER BY createdAt DESC
+    activate DB
+    DB-->>Repository: { notifications, total }
+    deactivate DB
+    Repository-->>Service: { notifications, total }
+    deactivate Repository
+
+    Service->>Repository: 1.1.1.2: countUnreadNotifications(userId)
+    activate Repository
+    Repository->>DB: query SELECT count(*) WHERE userId=userId AND isRead=false
+    activate DB
+    DB-->>Repository: unreadCount
+    deactivate DB
+    Repository-->>Service: unreadCount
+    deactivate Repository
+
+    Service-->>Controller: { notifications, total, unreadCount }
+    Controller-->>View: 200 OK { notifications, total, unreadCount }
+    deactivate Controller
+    View->>View: hiển thị danh sách thông báo kèm badge số chưa đọc
+    deactivate View
+```
+
+### UC40 — Mark Notification as Read
+
+```mermaid
+sequenceDiagram
+    actor User as Admin/Workspace owner/Content creator
+    participant View as View(Front-end)
+    participant Controller as Notification controller
+    participant Service as Notification service
+    participant Repository as Notification repository
+    participant DB as Database
+
+    User->>View: 1: Nhấn vào thông báo để đọc
+    activate View
+    View->>Controller: 1.1: Patch:/notifications/:id/read
+    activate Controller
+    Controller->>Service: 1.1.1: markAsRead(notificationId, userId)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findNotificationById(id)
+    activate Repository
+    Repository->>DB: query SELECT notifications WHERE id=id
+    activate DB
+
+    alt Trường hợp 1: Không tìm thấy hoặc không thuộc user
+        DB-->>Repository: null
+        deactivate DB
+        Repository-->>Service: null
+        deactivate Repository
+        Service-->>Controller: throw NotFoundError
+        Controller-->>View: 404 "Notification not found"
+        View->>View: hiển thị lỗi
+    else Trường hợp 2: Đánh dấu thành công
+        activate DB
+        DB-->>Repository: Notification
+        deactivate DB
+        Repository-->>Service: Notification
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.2: updateNotification(id, { isRead: true })
+        activate Repository
+        Repository->>DB: query UPDATE notifications SET isRead=true
+        activate DB
+        DB-->>Repository: updated Notification
+        deactivate DB
+        Repository-->>Service: updated Notification
+        deactivate Repository
+
+        Service-->>Controller: void
+        Controller-->>View: 200 OK { success: true }
+        View->>View: cập nhật trạng thái thông báo đã đọc
+    end
+    deactivate Controller
+    deactivate Service
+    deactivate View
+```
+
+### UC41 — Mark All Notifications as Read
+
+```mermaid
+sequenceDiagram
+    actor User as Admin/Workspace owner/Content creator
+    participant View as View(Front-end)
+    participant Controller as Notification controller
+    participant Service as Notification service
+    participant Repository as Notification repository
+    participant DB as Database
+
+    User->>View: 1: Nhấn "Đánh dấu tất cả đã đọc"
+    activate View
+    View->>Controller: 1.1: Patch:/notifications/read-all
+    activate Controller
+    Controller->>Service: 1.1.1: markAllAsRead(userId)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: markAllNotificationsRead(userId)
+    activate Repository
+    Repository->>DB: query UPDATE notifications SET isRead=true WHERE userId=userId AND isRead=false
+    activate DB
+    DB-->>Repository: { count: N }
+    deactivate DB
+    Repository-->>Service: { count: N }
+    deactivate Repository
+
+    Service-->>Controller: { updatedCount: N }
+    Controller-->>View: 200 OK { updatedCount: N }
+    deactivate Controller
+    View->>View: cập nhật tất cả thông báo thành đã đọc, ẩn badge
+    deactivate View
+```
+
+## Phân hệ 9 — Credit Package Management
+
+### UC42 — List Credit Packages
+
+```mermaid
+sequenceDiagram
+    actor User as Tất cả user
+    participant View as View(Front-end)
+    participant Controller as Credit package controller
+    participant Service as Credit package service
+    participant Repository as Credit package repository
+    participant DB as Database
+
+    User->>View: 1: Mở trang Nạp tiền / Quản lý gói credit
+    activate View
+    View->>Controller: 1.1: Get:/credit-packages
+    activate Controller
+    Controller->>Service: 1.1.1: listCreditPackages(isAdmin, includeInactive)
+    activate Service
+
+    alt Admin xem tất cả gói (kể cả inactive)
+        Service->>Repository: 1.1.1.1a: findAllCreditPackages()
+        activate Repository
+        Repository->>DB: query SELECT credit_packages WHERE deletedAt IS NULL ORDER BY sortOrder
+        activate DB
+        DB-->>Repository: PackageList
+        deactivate DB
+        Repository-->>Service: PackageList
+        deactivate Repository
+    else User thường chỉ xem gói active
+        Service->>Repository: 1.1.1.1b: findActiveCreditPackages()
+        activate Repository
+        Repository->>DB: query SELECT credit_packages WHERE isActive=true AND deletedAt IS NULL ORDER BY sortOrder
+        activate DB
+        DB-->>Repository: PackageList
+        deactivate DB
+        Repository-->>Service: PackageList
+        deactivate Repository
+    end
+
+    Service-->>Controller: PackageList
+    Controller-->>View: 200 OK { packages }
+    deactivate Controller
+    View->>View: hiển thị danh sách gói credit
+    deactivate View
+```
+
+### UC43 — Create Credit Package
+
+```mermaid
+sequenceDiagram
+    actor Admin as System Admin
+    participant View as View(Front-end)
+    participant Controller as Credit package controller
+    participant Service as Credit package service
+    participant Repository as Credit package repository
+    participant DB as Database
+
+    Admin->>View: 1: Nhập thông tin gói credit & nhấn Tạo
+    activate View
+    View->>Controller: 1.1: Post:/credit-packages
+    activate Controller
+    Controller->>Service: 1.1.1: createCreditPackage(input)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findCreditPackageByName(name)
+    activate Repository
+    Repository->>DB: query SELECT credit_packages WHERE name=name
+    activate DB
+    DB-->>Repository: CreditPackage | null
+    deactivate DB
+    Repository-->>Service: CreditPackage | null
+    deactivate Repository
+
+    alt Trường hợp 1: Tên gói đã tồn tại
+        Service-->>Controller: throw ConflictError
+        Controller-->>View: 409 "Package name already exists"
+        View->>View: hiển thị lỗi "Tên gói đã tồn tại"
+    else Trường hợp 2: Tạo thành công
+        Service->>Repository: 1.1.1.2: createCreditPackageRecord(data)
+        activate Repository
+        Repository->>DB: query INSERT credit_packages
+        activate DB
+        DB-->>Repository: CreditPackage
+        deactivate DB
+        Repository-->>Service: CreditPackage
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.3: createAuditLog()
+        activate Repository
+        Repository->>DB: query INSERT audit_logs
+        activate DB
+        DB-->>Repository: AuditLog
+        deactivate DB
+        Repository-->>Service: AuditLog
+        deactivate Repository
+
+        Service-->>Controller: CreditPackage
+        Controller-->>View: 201 Created (CreditPackage)
+        View->>View: thêm gói mới vào danh sách
+    end
+    deactivate Controller
+    deactivate Service
+    deactivate View
+```
+
+### UC44 — Update Credit Package
+
+```mermaid
+sequenceDiagram
+    actor Admin as System Admin
+    participant View as View(Front-end)
+    participant Controller as Credit package controller
+    participant Service as Credit package service
+    participant Repository as Credit package repository
+    participant DB as Database
+
+    Admin->>View: 1: Sửa thông tin gói credit & nhấn Lưu
+    activate View
+    View->>Controller: 1.1: Patch:/credit-packages/:id
+    activate Controller
+    Controller->>Service: 1.1.1: updateCreditPackage(packageId, input)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findCreditPackageById(id)
+    activate Repository
+    Repository->>DB: query SELECT credit_packages WHERE id=id
+    activate DB
+
+    alt Trường hợp 1: Gói không tồn tại
+        DB-->>Repository: null
+        deactivate DB
+        Repository-->>Service: null
+        deactivate Repository
+        Service-->>Controller: throw NotFoundError
+        Controller-->>View: 404 "Credit package not found"
+        View->>View: hiển thị lỗi "Gói credit không tồn tại"
+    else Trường hợp 2: Cập nhật thành công
+        activate DB
+        DB-->>Repository: CreditPackage
+        deactivate DB
+        Repository-->>Service: CreditPackage
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.2: updateCreditPackageRecord(id, data)
+        activate Repository
+        Repository->>DB: query UPDATE credit_packages
+        activate DB
+        DB-->>Repository: updated CreditPackage
+        deactivate DB
+        Repository-->>Service: updated CreditPackage
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.3: createAuditLog()
+        activate Repository
+        Repository->>DB: query INSERT audit_logs
+        activate DB
+        DB-->>Repository: AuditLog
+        deactivate DB
+        Repository-->>Service: AuditLog
+        deactivate Repository
+
+        Service-->>Controller: updated CreditPackage
+        Controller-->>View: 200 OK (CreditPackage)
+        View->>View: cập nhật thông tin gói trên giao diện
+    end
+    deactivate Controller
+    deactivate Service
+    deactivate View
+```
+
+### UC45 — Delete Credit Package
+
+```mermaid
+sequenceDiagram
+    actor Admin as System Admin
+    participant View as View(Front-end)
+    participant Controller as Credit package controller
+    participant Service as Credit package service
+    participant Repository as Credit package repository
+    participant DB as Database
+
+    Admin->>View: 1: Nhấn Xoá gói credit & xác nhận
+    activate View
+    View->>Controller: 1.1: Delete:/credit-packages/:id
+    activate Controller
+    Controller->>Service: 1.1.1: deleteCreditPackage(packageId)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findCreditPackageById(id)
+    activate Repository
+    Repository->>DB: query SELECT credit_packages WHERE id=id
+    activate DB
+
+    alt Trường hợp 1: Gói không tồn tại
+        DB-->>Repository: null
+        deactivate DB
+        Repository-->>Service: null
+        deactivate Repository
+        Service-->>Controller: throw NotFoundError
+        Controller-->>View: 404 "Credit package not found"
+        View->>View: hiển thị lỗi
+    else Trường hợp 2: Xoá mềm thành công
+        activate DB
+        DB-->>Repository: CreditPackage
+        deactivate DB
+        Repository-->>Service: CreditPackage
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.2: softDeleteCreditPackage(id)
+        activate Repository
+        Repository->>DB: query UPDATE credit_packages SET deletedAt=now()
+        activate DB
+        DB-->>Repository: updated CreditPackage
+        deactivate DB
+        Repository-->>Service: updated CreditPackage
+        deactivate Repository
+
+        Service->>Repository: 1.1.1.3: createAuditLog()
+        activate Repository
+        Repository->>DB: query INSERT audit_logs
+        activate DB
+        DB-->>Repository: AuditLog
+        deactivate DB
+        Repository-->>Service: AuditLog
+        deactivate Repository
+
+        Service-->>Controller: void
+        Controller-->>View: 200 OK { success: true }
+        View->>View: xoá gói khỏi danh sách hiển thị
+    end
+    deactivate Controller
+    deactivate Service
+    deactivate View
+```
+
+### UC46 — View Credit Balance & History
+
+```mermaid
+sequenceDiagram
+    actor User as Workspace member
+    participant View as View(Front-end)
+    participant Controller as Credit controller
+    participant Service as Credit service
+    participant Repository as Credit repository
+    participant DB as Database
+
+    User->>View: 1: Mở trang "Quản lý Credit"
+    activate View
+    View->>Controller: 1.1: Get:/workspaces/:id/credits?page=1&limit=20
+    activate Controller
+    Controller->>Service: 1.1.1: getCreditInfo(workspaceId, pagination)
+    activate Service
+
+    Service->>Repository: 1.1.1.1: findWorkspaceById(workspaceId)
+    activate Repository
+    Repository->>DB: query SELECT workspaces (remainingCredit, monthlyQuota)
+    activate DB
+    DB-->>Repository: Workspace
+    deactivate DB
+    Repository-->>Service: Workspace
+    deactivate Repository
+
+    Service->>Repository: 1.1.1.2: findCreditTransactionsByWorkspace(workspaceId, pagination)
+    activate Repository
+    Repository->>DB: query SELECT credit_transactions WHERE workspaceId=id ORDER BY createdAt DESC
+    activate DB
+    DB-->>Repository: { transactions, total }
+    deactivate DB
+    Repository-->>Service: { transactions, total }
+    deactivate Repository
+
+    Service-->>Controller: { remainingCredit, monthlyQuota, transactions, total }
+    Controller-->>View: 200 OK { remainingCredit, monthlyQuota, transactions, total }
+    deactivate Controller
+    View->>View: hiển thị số dư credit và lịch sử giao dịch
+    deactivate View
 ```
 
 ## Phụ lục — Tiến trình kỹ thuật chạy nền (không phải UC do người dùng thao tác)

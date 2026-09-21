@@ -79,12 +79,6 @@ enum PublishStatus {
   FAILED
 }
 
-enum ApprovalAction {
-  SUBMIT
-  APPROVE
-  REJECT
-}
-
 enum AiGenType {
   TEXT
   IMAGE
@@ -119,7 +113,7 @@ enum OrderStatus {
 }
 
 // ==========================================
-// MODELS (17 TABLES)
+// MODELS (14 TABLES)
 // ==========================================
 
 /// 1. Users table
@@ -140,18 +134,16 @@ model User {
   updatedAt         DateTime     @updatedAt
 
   // Relationships
-  workspaceMembers           WorkspaceMember[]
-  sentInvites                WorkspaceInvite[]   @relation("SentInvites")
-  submittedPosts             Post[]              @relation("SubmittedPosts")
-  reviewedPosts              Post[]              @relation("ReviewedPosts")
-  createdMedia               MediaAsset[]        @relation("CreatedMedia")
-  approvalHistories          ApprovalHistory[]   @relation("ActorApprovalHistories")
-  aiGenerations              AiGeneration[]      @relation("UserAiGenerations")
-  creditTransactions         CreditTransaction[] @relation("CreatedCreditTransactions")
-  orders                     Order[]             @relation("UserOrders")
-  notifications              Notification[]      @relation("UserNotifications")
-  refreshTokens              RefreshToken[]      @relation("UserRefreshTokens")
-  auditLogs                  AuditLog[]          @relation("ActorAuditLogs")
+  workspaceMembers   WorkspaceMember[]
+  sentInvites        WorkspaceInvite[]   @relation("SentInvites")
+  submittedPosts     Post[]              @relation("SubmittedPosts")
+  reviewedPosts      Post[]              @relation("ReviewedPosts")
+  createdMedia       MediaAsset[]        @relation("CreatedMedia")
+  aiGenerations      AiGeneration[]      @relation("UserAiGenerations")
+  creditTransactions CreditTransaction[] @relation("CreatedCreditTransactions")
+  orders             Order[]             @relation("UserOrders")
+  notifications      Notification[]      @relation("UserNotifications")
+  auditLogs          AuditLog[]          @relation("ActorAuditLogs")
 
   @@map("users")
 }
@@ -165,16 +157,17 @@ model Workspace {
   remainingCredit Int           @default(100)
   monthlyQuota    Int           @default(100)
   planExpiresAt   DateTime?
-  deletedAt       DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+
+  brandVoice Json? // { industry, targetAudience, keywordsShouldUse, keywordsAvoid, fewShotExamples }
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   // Relationships
   members            WorkspaceMember[]
   invites            WorkspaceInvite[]
-  brandVoice         BrandVoice?
   posts              Post[]
-  mediaAssets        MediaAsset[]
   channelConnections ChannelConnection[]
   aiGenerations      AiGeneration[]
   creditTransactions CreditTransaction[]
@@ -222,25 +215,7 @@ model WorkspaceInvite {
   @@map("workspace_invites")
 }
 
-/// 5. Brand Voices table
-model BrandVoice {
-  id                String   @id @default(uuid()) @db.VarChar(36)
-  workspaceId       String   @unique @db.VarChar(36)
-  industry          String   @db.VarChar(255)
-  targetAudience    String   @db.VarChar(255)
-  keywordsShouldUse String?  @db.Text
-  keywordsAvoid     String?  @db.Text
-  fewShotExamples   Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relationships
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@map("brand_voices")
-}
-
-/// 6. Posts table
+/// 5. Posts table
 model Post {
   id            String     @id @default(uuid()) @db.VarChar(36)
   workspaceId   String     @db.VarChar(36)
@@ -258,34 +233,20 @@ model Post {
   updatedAt     DateTime   @updatedAt
 
   // Relationships
-  workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  submittedBy       User?             @relation("SubmittedPosts", fields: [submittedById], references: [id], onDelete: SetNull)
-  reviewedBy        User?             @relation("ReviewedPosts", fields: [reviewedById], references: [id], onDelete: SetNull)
-  postMedia         PostMedia[]
-  scheduledPosts    ScheduledPost[]
-  approvalHistories ApprovalHistory[]
-  aiGenerations     AiGeneration[]
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  submittedBy    User?           @relation("SubmittedPosts", fields: [submittedById], references: [id], onDelete: SetNull)
+  reviewedBy     User?           @relation("ReviewedPosts", fields: [reviewedById], references: [id], onDelete: SetNull)
+  mediaAssets    MediaAsset[]
+  scheduledPosts ScheduledPost[]
+  aiGenerations  AiGeneration[]
 
   @@map("posts")
 }
 
-/// 7. Post Media (Junction Table)
-model PostMedia {
-  postId       String @db.VarChar(36)
-  mediaAssetId String @db.VarChar(36)
-
-  // Relationships
-  post       Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
-  mediaAsset MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
-
-  @@id([postId, mediaAssetId])
-  @@map("post_media")
-}
-
-/// 8. Media Assets table
+/// 6. Media Assets table
 model MediaAsset {
   id           String      @id @default(uuid()) @db.VarChar(36)
-  workspaceId  String      @db.VarChar(36)
+  postId       String      @db.VarChar(36)
   url          String      @db.VarChar(255)
   type         MediaType
   mimeType     String?     @db.VarChar(100)
@@ -297,14 +258,14 @@ model MediaAsset {
   createdAt    DateTime    @default(now())
 
   // Relationships
-  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy User?       @relation("CreatedMedia", fields: [createdById], references: [id], onDelete: SetNull)
-  postMedia PostMedia[]
+  post      Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("CreatedMedia", fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@index([postId])
   @@map("media_assets")
 }
 
-/// 9. Channel Connections table
+/// 7. Channel Connections table
 model ChannelConnection {
   id                String         @id @default(uuid()) @db.VarChar(36)
   workspaceId       String         @db.VarChar(36)
@@ -326,7 +287,7 @@ model ChannelConnection {
   @@map("channel_connections")
 }
 
-/// 10. Scheduled Posts table
+/// 8. Scheduled Posts table
 model ScheduledPost {
   id             String        @id @default(uuid()) @db.VarChar(36)
   postId         String        @db.VarChar(36)
@@ -348,23 +309,7 @@ model ScheduledPost {
   @@map("scheduled_posts")
 }
 
-/// 11. Approval Histories table
-model ApprovalHistory {
-  id        String         @id @default(uuid()) @db.VarChar(36)
-  postId    String         @db.VarChar(36)
-  actorId   String?        @db.VarChar(36)
-  action    ApprovalAction
-  reason    String?        @db.VarChar(255)
-  createdAt DateTime       @default(now())
-
-  // Relationships
-  post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
-  actor User? @relation("ActorApprovalHistories", fields: [actorId], references: [id], onDelete: SetNull)
-
-  @@map("approval_histories")
-}
-
-/// 12. AI Generations table
+/// 9. AI Generations table
 model AiGeneration {
   id          String      @id @default(uuid()) @db.VarChar(36)
   workspaceId String      @db.VarChar(36)
@@ -387,7 +332,7 @@ model AiGeneration {
   @@map("ai_generations")
 }
 
-/// 13. Credit Transactions table
+/// 10. Credit Transactions table
 model CreditTransaction {
   id            String           @id @default(uuid()) @db.VarChar(36)
   workspaceId   String           @db.VarChar(36)
@@ -407,11 +352,31 @@ model CreditTransaction {
   @@map("credit_transactions")
 }
 
-/// 14. Orders table
+/// 11. Credit Packages table
+model CreditPackage {
+  id           String    @id @default(uuid()) @db.VarChar(36)
+  name         String    @db.VarChar(255)
+  description  String?   @db.VarChar(500)
+  creditAmount Int
+  price        Int
+  sortOrder    Int       @default(0)
+  isActive     Boolean   @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relationships
+  orders Order[]
+
+  @@map("credit_packages")
+}
+
+/// 12. Orders table
 model Order {
   id           String         @id @default(uuid()) @db.VarChar(36)
   orderCode    String         @unique @db.VarChar(100)
   workspaceId  String         @db.VarChar(36)
+  packageId    String?        @db.VarChar(36)
   amount       Int
   creditAmount Int?
   targetPlan   WorkspacePlan?
@@ -423,21 +388,22 @@ model Order {
   updatedAt    DateTime       @updatedAt
 
   // Relationships
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy User?     @relation("UserOrders", fields: [createdById], references: [id], onDelete: SetNull)
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  package   CreditPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  createdBy User?          @relation("UserOrders", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@map("orders")
 }
 
-/// 15. Notifications table
+/// 13. Notifications table
 model Notification {
-  id          String    @id @default(uuid()) @db.VarChar(36)
-  userId      String    @db.VarChar(36)
-  workspaceId String?   @db.VarChar(36)
-  type        String    @db.VarChar(100)
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  userId      String   @db.VarChar(36)
+  workspaceId String?  @db.VarChar(36)
+  type        String   @db.VarChar(100)
   payload     Json
-  isRead      Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
   // Relationships
   user      User       @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
@@ -446,30 +412,15 @@ model Notification {
   @@map("notifications")
 }
 
-/// 16. Refresh Tokens table
-model RefreshToken {
-  id        String   @id @default(uuid()) @db.VarChar(36)
-  token     String   @unique @db.VarChar(255)
-  userId    String   @db.VarChar(36)
-  revoked   Boolean  @default(false)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relationships
-  user User @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("refresh_tokens")
-}
-
-/// 17. Audit Logs table
+/// 14. Audit Logs table (đã gộp ApprovalHistory)
 model AuditLog {
   id          String   @id @default(uuid()) @db.VarChar(36)
   workspaceId String?  @db.VarChar(36)
   actorId     String?  @db.VarChar(36)
   action      String   @db.VarChar(100)
-  targetType  String   @db.VarChar(100)
+  targetType  String   @db.VarChar(100) // "Post", "Workspace", "ChannelConnection", ...
   targetId    String?  @db.VarChar(255)
+  reason      String?  @db.VarChar(255) // lý do (kế thừa từ ApprovalHistory.reason cho Post reject/approval)
   metadata    Json?
   createdAt   DateTime @default(now())
 
@@ -477,5 +428,6 @@ model AuditLog {
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   actor     User?      @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
 
+  @@index([targetType, targetId, createdAt])
   @@map("audit_logs")
 }

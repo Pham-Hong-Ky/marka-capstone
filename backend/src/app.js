@@ -13,6 +13,7 @@ import errorHandler from './middlewares/error.js';
 import apiLimiter from './middlewares/rateLimiter.js';
 import v1Routes from './routes/index.js';
 import { NotFoundError } from './utils/errors/index.js';
+import { morganStream } from './utils/logger.js';
 
 const app = express();
 
@@ -24,8 +25,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestId);
 
+// Integrate Morgan with Winston logger and track Request ID
 if (env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
+  morgan.token('req-id', (req) => req.id || '-');
+  const morganFormat =
+    env.NODE_ENV === 'development'
+      ? ':method :url :status :response-time ms - [Req: :req-id]'
+      : ':remote-addr - :req-id ":method :url" :status :res[content-length] ":referrer" ":user-agent" - :response-time ms';
+
+  app.use(morgan(morganFormat, { stream: morganStream }));
 }
 
 app.use('/api/', apiLimiter);

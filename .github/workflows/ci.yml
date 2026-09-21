@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [dev, main]
 
+# Tự động hủy các lần chạy trước nếu có commit mới được push lên cùng branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ──────────────────────────────────────────────────────
   # JOB 1: Frontend — Lint + TypeScript + Vite Build
@@ -31,17 +36,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint (oxlint)
+      - name: Lint Frontend (oxlint)
         run: npm run lint
 
       - name: TypeScript + Vite Build
         run: npm run build
 
   # ──────────────────────────────────────────────────────
-  # JOB 2: Backend — Prisma Validate + Connection Test
+  # JOB 2: Backend — Lint + Prisma + Automated Tests
   # ──────────────────────────────────────────────────────
   backend-ci:
-    name: "Backend — Prisma Schema & Connection"
+    name: "Backend — Lint, Schema & Automated Tests"
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -86,6 +91,7 @@ jobs:
       JWT_ACCESS_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
       AES_SECRET_KEY: ci_test_aes_secret_key_32_bytes!!
+      CLIENT_URL: http://localhost:5173
 
     steps:
       - name: Checkout code
@@ -101,6 +107,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint Backend (oxlint)
+        run: npm run lint
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
       - name: Validate Prisma Schema
         run: npx prisma validate
 
@@ -109,3 +121,6 @@ jobs:
 
       - name: Test Connections (PostgreSQL + Redis)
         run: npm run test:connection
+
+      - name: Run Automated Tests (Vitest + Supertest)
+        run: npm test

@@ -4,7 +4,7 @@ import { AppError } from '../utils/errors/index.js';
 import logger from '../utils/logger.js';
 import env from '../config/env.js';
 
-export const errorHandler = (err, req, res, next) => {
+export const errorHandler = (err, req, res, _next) => {
   // 1. Operational AppError
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({

@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["oxc", "unicorn", "node"],
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-undef": "error",
+    "no-duplicate-imports": "error",
+    "no-debugger": "error",
+    "no-console": ["warn", { "allow": ["warn", "error", "info"] }],
+    "no-constant-condition": "warn",
+    "no-unreachable": "error"
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ],
+  "env": {
+    "node": true,
+    "es2022": true
+  }
+}
