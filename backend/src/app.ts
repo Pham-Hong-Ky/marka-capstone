@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -25,9 +25,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestId);
 
-// Integrate Morgan with Winston logger and track Request ID
 if (env.NODE_ENV !== 'test') {
-  morgan.token('req-id', (req) => req.id || '-');
+  morgan.token('req-id', (req: Request) => req.id || '-');
   const morganFormat =
     env.NODE_ENV === 'development'
       ? ':method :url :status :response-time ms - [Req: :req-id]'
@@ -40,7 +39,7 @@ app.use('/api/', apiLimiter);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api/v1', v1Routes);
 
-app.use((req, res, next) => {
+app.use((req: Request, _res: Response, next: NextFunction) => {
   next(new NotFoundError(`Đường dẫn ${req.originalUrl} không tồn tại`));
 });
 

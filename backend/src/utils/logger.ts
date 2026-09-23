@@ -18,11 +18,8 @@ export const logger = winston.createLogger({
   ],
 });
 
-/**
- * Stream adapter to pipe HTTP logs from Morgan into Winston
- */
 export const morganStream = {
-  write: (message) => {
+  write: (message: string) => {
     logger.http(message.trim());
   },
 };

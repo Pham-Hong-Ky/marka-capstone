@@ -5,7 +5,6 @@ export const getSystemHealth = async () => {
   let dbStatus = 'disconnected';
   let redisStatus = 'disconnected';
 
-  // 1. Check PostgreSQL Database
   try {
     await prisma.$queryRaw`SELECT 1`;
     dbStatus = 'connected';
@@ -13,7 +12,6 @@ export const getSystemHealth = async () => {
     dbStatus = 'error';
   }
 
-  // 2. Check Redis Cache
   try {
     const pingResult = await cacheConnection.ping();
     redisStatus = pingResult === 'PONG' ? 'connected' : 'idle';

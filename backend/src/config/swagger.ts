@@ -11,7 +11,7 @@ export const swaggerSpec = swaggerJSDoc({
     },
     servers: [{ url: `http://localhost:${env.PORT}/api/v1` }],
   },
-  apis: ['./src/routes/*.js', './src/modules/**/*.js'],
+  apis: ['./src/routes/*.ts', './src/modules/**/*.ts', './src/routes/*.js', './src/modules/**/*.js'],
 });
 
 export default swaggerSpec;

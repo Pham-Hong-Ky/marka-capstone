@@ -1,16 +1,10 @@
+import { Request } from 'express';
 import rateLimit from 'express-rate-limit';
 
-/**
- * Key generator prioritizing Workspace ID, then User ID, falling back to IP.
- * This prevents entire NAT/university WiFi networks from being rate-limited as one IP.
- */
-export const getClientOrWorkspaceKey = (req) => {
-  return req.workspaceId || req.user?.activeWorkspaceId || req.user?.id || req.ip;
+export const getClientOrWorkspaceKey = (req: Request): string => {
+  return (req as any).workspaceId || req.user?.id || req.ip || 'unknown';
 };
 
-/**
- * Global general API rate limiter (200 req / min per IP)
- */
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 200,
@@ -22,10 +16,6 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-/**
- * Stricter rate limiter for Auth endpoints (Login, Register, Forgot Password)
- * Prevents brute force attacks (15 req / 15 mins per IP)
- */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15,
@@ -37,15 +27,11 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-/**
- * Workspace-scoped rate limiter factory.
- * Limits traffic per workspace (or authenticated user/IP fallback).
- */
 export const createWorkspaceLimiter = ({
   windowMs = 60 * 1000,
   max = 60,
   message = 'Workspace đã vượt quá giới hạn lượt gọi API.',
-} = {}) => {
+}: { windowMs?: number; max?: number; message?: string } = {}) => {
   return rateLimit({
     windowMs,
     max,
@@ -60,9 +46,6 @@ export const createWorkspaceLimiter = ({
   });
 };
 
-/**
- * Specialized Rate Limiter for AI Generation routes (20 req / min per workspace)
- */
 export const aiLimiter = createWorkspaceLimiter({
   windowMs: 60 * 1000,
   max: 20,

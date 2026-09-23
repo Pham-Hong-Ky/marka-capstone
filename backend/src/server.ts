@@ -11,7 +11,7 @@ const server = app.listen(PORT, () => {
   logger.info(`Swagger Docs: http://localhost:${PORT}/api-docs`);
 });
 
-const shutdown = async (signal) => {
+const shutdown = async (signal: string) => {
   logger.info(`Nhận tín hiệu ${signal}. Đang đóng server...`);
   server.close(async () => {
     await prisma.$disconnect();

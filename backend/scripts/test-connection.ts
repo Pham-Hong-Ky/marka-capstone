@@ -4,7 +4,6 @@ import { cacheConnection, queueConnection } from '../src/config/redis.js';
 async function runDiagnostics() {
   console.log('\n================ KIỂM TRA KẾT NỐI HỆ THỐNG ================\n');
 
-  // 1. Test PostgreSQL Connection (Timeout 5s)
   try {
     const dbPromise = prisma.$queryRaw`SELECT 1 as result`;
     const timeoutPromise = new Promise((_, reject) =>
@@ -12,11 +11,10 @@ async function runDiagnostics() {
     );
     const dbResult = await Promise.race([dbPromise, timeoutPromise]);
     console.log('✅ PostgreSQL Database: KẾT NỐI THÀNH CÔNG (Query SELECT 1 OK)', dbResult);
-  } catch (err) {
+  } catch (err: any) {
     console.error('❌ PostgreSQL Database: KẾT NỐI THẤT BẠI:', err.message);
   }
 
-  // 2. Test Redis Cache Connection (Timeout 3s)
   try {
     const pingPromise = cacheConnection.ping();
     const timeoutPromise = new Promise((_, reject) =>
@@ -24,11 +22,10 @@ async function runDiagnostics() {
     );
     const cachePing = await Promise.race([pingPromise, timeoutPromise]);
     console.log(`✅ Redis Cache Connection: KẾT NỐI THÀNH CÔNG (PING -> ${cachePing})`);
-  } catch (err) {
+  } catch (err: any) {
     console.error('❌ Redis Cache Connection: KẾT NỐI THẤT BẠI:', err.message);
   }
 
-  // 3. Test Redis Queue Connection (Timeout 3s)
   try {
     const queuePromise = queueConnection.ping();
     const timeoutPromise = new Promise((_, reject) =>
@@ -36,7 +33,7 @@ async function runDiagnostics() {
     );
     const queuePing = await Promise.race([queuePromise, timeoutPromise]);
     console.log(`✅ Redis Queue Connection (BullMQ): KẾT NỐI THÀNH CÔNG (PING -> ${queuePing})`);
-  } catch (err) {
+  } catch (err: any) {
     console.error(`❌ Redis Queue Connection (BullMQ): KẾT NỐI THẤT BẠI: ${err.message}`);
   }
 
