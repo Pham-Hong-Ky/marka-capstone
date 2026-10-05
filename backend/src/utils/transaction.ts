@@ -10,10 +10,10 @@ export const withTransaction = async <T>(
     return await prisma.$transaction(async (tx) => {
       return await action(tx);
     }, options);
-  } catch (error: any) {
-    logger.error(`❌ Transaction thất bại: ${error.message}`, {
-      stack: error.stack,
-    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    logger.error(`❌ Transaction thất bại: ${message}`, { stack });
     throw error;
   }
 };

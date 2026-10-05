@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import authController from '../modules/auth/auth.controller.js';
 import userController from '../modules/user/user.controller.js';
 import healthController from '../modules/health/health.controller.js';
@@ -19,8 +19,9 @@ import {
 import env from '../config/env.js';
 
 const router = Router();
-const rateLimitMiddleware = env.NODE_ENV === 'test' ? (_req: any, _res: any, next: any) => next() : authLimiter;
-const loginRateLimitMiddleware = env.NODE_ENV === 'test' ? (_req: any, _res: any, next: any) => next() : loginLimiter;
+const bypassRateLimit = (_req: Request, _res: Response, next: NextFunction) => next();
+const rateLimitMiddleware = env.NODE_ENV === 'test' ? bypassRateLimit : authLimiter;
+const loginRateLimitMiddleware = env.NODE_ENV === 'test' ? bypassRateLimit : loginLimiter;
 
 // Health
 router.get('/health', healthController.checkHealth);

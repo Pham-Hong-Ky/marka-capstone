@@ -5,7 +5,7 @@ import { AppError } from '../utils/errors/index.js';
 import logger from '../utils/logger.js';
 import env from '../config/env.js';
 
-export const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
+export const errorHandler = (err: unknown, req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       status: err.status,
@@ -31,12 +31,14 @@ export const errorHandler = (err: any, req: Request, res: Response, _next: NextF
     });
   }
 
-  logger.error(err.message, { requestId: req.id, stack: err.stack, path: req.originalUrl });
+  const message = err instanceof Error ? err.message : 'Lỗi không xác định';
+  const stack = err instanceof Error ? err.stack : undefined;
+  logger.error(message, { requestId: req.id, stack, path: req.originalUrl });
 
   return res.status(500).json({
     status: 'error',
     message: 'Đã có lỗi hệ thống xảy ra',
-    ...(env.NODE_ENV === 'development' ? { debug: err.message } : {}),
+    ...(env.NODE_ENV === 'development' ? { debug: message } : {}),
   });
 };
 

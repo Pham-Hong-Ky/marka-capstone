@@ -1,4 +1,5 @@
 import prisma from '../../config/db.js';
+import { Prisma } from '@prisma/client';
 
 export interface CreateUserData {
   email: string;
@@ -21,7 +22,7 @@ export interface AuditLogData {
   targetType: string;
   targetId?: string | null;
   reason?: string | null;
-  metadata?: any;
+  metadata?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
 }
 
 export const findUserById = async (userId: string) => {
@@ -142,7 +143,7 @@ export const createAuditLog = async ({
   targetType,
   targetId = null,
   reason = null,
-  metadata = null,
+  metadata = Prisma.DbNull,
 }: AuditLogData) => {
   try {
     return await prisma.auditLog.create({
@@ -156,8 +157,9 @@ export const createAuditLog = async ({
         metadata,
       },
     });
-  } catch (error: any) {
-    console.warn('⚠️ Ghi Audit Log thất bại:', error.message);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('⚠️ Ghi Audit Log thất bại:', message);
     return null;
   }
 };

@@ -2,9 +2,9 @@ export class AppError extends Error {
   public statusCode: number;
   public status: string;
   public isOperational: boolean;
-  public errors: any;
+  public errors: unknown;
 
-  constructor(message: string, statusCode = 500, errors: any = null) {
+  constructor(message: string, statusCode = 500, errors: unknown = null) {
     super(message);
     this.statusCode = statusCode;
     this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
@@ -38,7 +38,7 @@ export class ConflictError extends AppError {
 }
 
 export class ValidationError extends AppError {
-  constructor(message = 'Dữ liệu không hợp lệ', errors: any = null) {
+  constructor(message = 'Dữ liệu không hợp lệ', errors: unknown = null) {
     super(message, 422, errors);
   }
 }

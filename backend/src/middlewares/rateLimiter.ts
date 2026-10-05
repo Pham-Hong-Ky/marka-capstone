@@ -2,7 +2,7 @@ import { Request } from 'express';
 import rateLimit from 'express-rate-limit';
 
 export const getClientOrWorkspaceKey = (req: Request): string => {
-  return (req as any).workspaceId || req.user?.id || req.ip || 'unknown';
+  return req.workspaceId || req.user?.id || req.ip || 'unknown';
 };
 
 export const apiLimiter = rateLimit({
