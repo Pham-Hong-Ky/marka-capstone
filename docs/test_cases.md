@@ -108,9 +108,9 @@
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
-| 10.1 | Mời thành viên mới thành công | Path: `/workspaces/<id>/invites`, Body: `{ "email": "newmember@test.com", "role": "MEMBER" }` (owner token) | HTTP 201, trả về `Invite`, email mời được gửi | | |
-| 10.2 | Mời thất bại — email đã là thành viên | Body: `{ "email": "existedmember@test.com", "role": "MEMBER" }` | HTTP 409, `{ "message": "User is already a member" }` | | |
-| 10.3 | Mời thất bại — không phải owner | Body: `{ "email": "new@test.com", "role": "MEMBER" }` (member token) | HTTP 403, lỗi phân quyền | | |
+| 10.1 | Mời thành viên mới thành công | Path: `/workspaces/<id>/invites`, Body: `{ "email": "newmember@test.com", "role": "CONTENT_CREATOR" }` (owner token) | HTTP 201, trả về `Invite`, email mời được gửi | | |
+| 10.2 | Mời thất bại — email đã là thành viên | Body: `{ "email": "existedmember@test.com", "role": "CONTENT_CREATOR" }` | HTTP 409, `{ "message": "User is already a member" }` | | |
+| 10.3 | Mời thất bại — không phải owner | Body: `{ "email": "new@test.com", "role": "CONTENT_CREATOR" }` (member token) | HTTP 403, lỗi phân quyền | | |
 
 ---
 
@@ -251,7 +251,7 @@
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
-| 23.1 | Kết nối Facebook thành công | Body: `{ "workspaceId": "<id>", "pageId": "<pageId>", "pageAccessToken": "<valid_token>", "appId": "<appId>", "appSecret": "<secret>" }` | HTTP 201, trả về `ConnectionRecord` | | |
+| 23.1 | Kết nối Facebook thành công | Body: `{ "workspaceId": "<id>", "pageId": "<pageId>", "pageAccessToken": "<valid_token>" }` (appId/appSecret lấy từ env) | HTTP 201, trả về `ConnectionRecord` | | |
 | 23.2 | Kết nối thất bại — token không hợp lệ | Body: `{ ..., "pageAccessToken": "invalid_token" }` | HTTP 400, `{ "message": "Invalid page access token" }` | | |
 
 #### Kịch bản 2: Kết nối kênh giả lập (`POST /channels/simulate`)
@@ -298,7 +298,7 @@
 |-----|-------|----------------|--------------------------|------------------------|------------|
 | 27.1 | Đăng bài ngay thành công | Path: `/posts/<approved_id>/publish`, Body: `{ "channelId": "<id>" }` | HTTP 200, trả về `Post` trạng thái `PUBLISHED` | | |
 | 27.2 | Đăng bài thất bại — bài chưa APPROVED | Path: `/posts/<draft_id>/publish` | HTTP 400 hoặc 409, chỉ bài APPROVED mới được đăng | | |
-| 27.3 | Đăng bài thất bại — lỗi Facebook API | Giả lập Facebook API lỗi | HTTP 502, `{ "message": "Publish failed" }`, bài chuyển FAILED | | |
+| 27.3 | Đăng ngay — job thất bại ở worker | Giả lập Facebook API lỗi | HTTP `202 { jobId }` khi enqueue; sau đó `scheduledPost.status = FAILED`, owner nhận thông báo lỗi | | |
 
 ---
 
