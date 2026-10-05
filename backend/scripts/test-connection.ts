@@ -1,6 +1,8 @@
 import prisma from '../src/config/db.js';
 import { cacheConnection, queueConnection } from '../src/config/redis.js';
 
+const toMessage = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
 async function runDiagnostics() {
   console.log('\n================ KIỂM TRA KẾT NỐI HỆ THỐNG ================\n');
 
@@ -11,8 +13,8 @@ async function runDiagnostics() {
     );
     const dbResult = await Promise.race([dbPromise, timeoutPromise]);
     console.log('✅ PostgreSQL Database: KẾT NỐI THÀNH CÔNG (Query SELECT 1 OK)', dbResult);
-  } catch (err: any) {
-    console.error('❌ PostgreSQL Database: KẾT NỐI THẤT BẠI:', err.message);
+  } catch (err) {
+    console.error('❌ PostgreSQL Database: KẾT NỐI THẤT BẠI:', toMessage(err));
   }
 
   try {
@@ -22,8 +24,8 @@ async function runDiagnostics() {
     );
     const cachePing = await Promise.race([pingPromise, timeoutPromise]);
     console.log(`✅ Redis Cache Connection: KẾT NỐI THÀNH CÔNG (PING -> ${cachePing})`);
-  } catch (err: any) {
-    console.error('❌ Redis Cache Connection: KẾT NỐI THẤT BẠI:', err.message);
+  } catch (err) {
+    console.error('❌ Redis Cache Connection: KẾT NỐI THẤT BẠI:', toMessage(err));
   }
 
   try {
@@ -33,19 +35,24 @@ async function runDiagnostics() {
     );
     const queuePing = await Promise.race([queuePromise, timeoutPromise]);
     console.log(`✅ Redis Queue Connection (BullMQ): KẾT NỐI THÀNH CÔNG (PING -> ${queuePing})`);
-  } catch (err: any) {
-    console.error(`❌ Redis Queue Connection (BullMQ): KẾT NỐI THẤT BẠI: ${err.message}`);
+  } catch (err) {
+    console.error(`❌ Redis Queue Connection (BullMQ): KẾT NỐI THẤT BẠI: ${toMessage(err)}`);
   }
 
   console.log('\n===========================================================\n');
 
   try {
     await prisma.$disconnect();
-  } catch {}
+  } catch (err) {
+    console.warn('⚠️ Không thể đóng kết nối Prisma:', toMessage(err));
+  }
+
   try {
     cacheConnection.disconnect();
     queueConnection.disconnect();
-  } catch {}
+  } catch (err) {
+    console.warn('⚠️ Không thể đóng kết nối Redis:', toMessage(err));
+  }
 
   process.exit(0);
 }

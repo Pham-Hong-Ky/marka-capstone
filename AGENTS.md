@@ -30,6 +30,8 @@ Luồng: `route → validate(Zod) → controller → service → repository → 
 - **Repository**: chỉ Prisma; hàm nhỏ, đặt tên theo hành động (`findUserById`, `createUser`); export named + `default`.
 - **Validation**: schema Zod tách riêng; dùng `.openapi({ example })`; export schema gốc + object `{ body, params, query }`.
 - Xử lý lỗi qua error classes + middleware `error`, không tự `res.status().json()` thủ công.
+- **Định dạng response**: luôn trả qua `ApiResponse.success` / `ApiResponse.error`. Envelope chuẩn `{ status, message, data?, meta? }`, trong đó `4xx → "fail"`, `5xx → "error"`. Danh sách phân trang: dữ liệu trong `data`, thông tin phân trang trong `meta`.
+- **Bảo vệ route**: dùng `requireAuth` trước, rồi `requireRoles` / `requireWorkspaceRole` khi cần. App **đa tenant** — mọi truy vấn theo workspace phải scope bằng `workspaceId` (lấy từ header `x-workspace-id` hoặc params), không đọc chéo workspace khác.
 
 ## 3. Kiến trúc Frontend
 
@@ -49,6 +51,7 @@ Luồng: `route → validate(Zod) → controller → service → repository → 
 - **Hạn chế comment.** Chỉ comment "tại sao" khi logic khó hiểu; không mô tả điều code đã nói rõ.
 - Đặt tên rõ nghĩa: biến/hàm `camelCase`, type/class `PascalCase`, hằng `UPPER_SNAKE`; hàm async đặt theo động từ.
 - Không để `console.log` bừa (dùng `logger`); `console.warn/error` được phép.
+- **Không để `catch` trống.** Mỗi `catch` phải xử lý lỗi hoặc tối thiểu ghi log; không được nuốt lỗi im lặng.
 - Message trả về/lỗi cho người dùng: **tiếng Việt**.
 - Import nội bộ dùng đuôi `.js` (ESM NodeNext).
 

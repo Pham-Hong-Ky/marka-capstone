@@ -9,7 +9,6 @@
     "dev": "tsx watch src/server.ts",
     "worker": "tsx src/worker-server.ts",
     "typecheck": "tsc --noEmit",
-    "create:admin": "tsx scripts/create-admin.ts",
     "test:connection": "tsx scripts/test-connection.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
