@@ -18,14 +18,14 @@
 - **Đăng ký / Đăng nhập (UC01, UC02)**:
   1. Guest nhập email + password (hoặc bấm "Đăng nhập với Google").
   2. Hệ thống validate định dạng email, độ mạnh password (tối thiểu 8 ký tự, có chữ + số).
-  3. Nếu đăng ký bằng email: gửi email xác thực (link/OTP) → tài khoản ở trạng thái `unverified` cho đến khi xác thực.
+  3. **Ghi chú phạm vi**: gửi email xác thực (link/OTP) và trạng thái `unverified` được **dời sang Phase 5** — Phase 1 chưa gửi email xác thực, tài khoản đăng ký xong được đăng nhập tự động.
   4. Đăng nhập thành công → server tạo `accessToken` (JWT, hạn ngắn ~15 phút) + `refreshToken` (lưu HTTP-Only Cookie, hạn dài ~7-30 ngày) → trả về client (chuyển sang trạng thái User đã xác thực).
   5. Nếu sai quá 5 lần trong 15 phút cho cùng 1 IP/email → khóa tạm thời (rate limit), trả lỗi `429`.
 - **Đăng xuất (Logout - UC03)**:
   1. Người dùng (User) nhấn nút "Đăng xuất" trên giao diện.
   2. Client gửi yêu cầu `POST /auth/logout` đồng thời đính kèm `refreshToken` hiện tại (thường gửi qua HTTP-Only cookie).
   3. Server nhận yêu cầu:
-     - Xóa hoặc thu hồi (revoke) `refreshToken` tương ứng trong database để ngăn chặn việc sử dụng lại.
+     - Tăng `tokenVersion` của user lên 1 → mọi access/refresh token cũ (đã ký kèm `tokenVersion` cũ) lập tức bị vô hiệu hoá, không thể dùng lại.
      - Phản hồi xóa cookie chứa `refreshToken` trên trình duyệt bằng cách đặt thời gian hết hạn trong quá khứ (`max-age = 0`).
   4. Client nhận kết quả thành công, tiến hành xóa sạch token tạm thời (`accessToken`) lưu trong bộ nhớ cục bộ (Redux Store/React Context), sau đó điều hướng người dùng quay trở lại màn hình Đăng nhập (`/login`).
 
@@ -33,8 +33,8 @@
 
 - Google OAuth: dùng `passport-google-oauth20` hoặc tự implement OAuth2 code flow; map theo `email` để tránh tạo trùng account nếu user từng đăng ký bằng email/password.
 - Password hash bằng `bcrypt` (cost factor ≥ 10), **không** tự chế thuật toán hash.
-- `refreshToken` phải rotate mỗi lần dùng (refresh token rotation) để giảm rủi ro replay.
-- Trường `tokenVersion` trên bảng `User`: tăng +1 khi đổi mật khẩu hoặc bị Admin khóa → mọi accessToken cũ cấp trước đó lập tức bị coi là invalid dù chưa hết hạn.
+- `refreshToken` là JWT **stateless**, không lưu bảng DB riêng; cơ chế thu hồi dựa trên `tokenVersion` (không lưu từng token). Mỗi lần refresh vẫn cấp cặp token mới cho client.
+- Trường `tokenVersion` trên bảng `User`: tăng +1 khi đổi mật khẩu, đăng xuất, hoặc bị Admin khóa → mọi access/refresh token cũ cấp trước đó lập tức bị coi là invalid dù chưa hết hạn.
 
 ---
 
@@ -84,14 +84,14 @@
 
 - Middleware xác thực quyền phải luôn kiểm tra `(userId, workspaceId) -> role` cho **mọi** request liên quan đến workspace, không chỉ dựa vào role global của user.
 - Token mời cần một-lần-dùng (invalidate sau khi accept) và có thể bị Owner thu hồi (revoke) trước khi được chấp nhận.
-- Xóa thành viên / Thành viên rời workspace: Không xóa cascade các bài viết/media do người đó tạo; chúng vẫn thuộc về workspace. Giữ nguyên ID của user đã rời tại trường `createdBy` để phục vụ truy vết. Chỉ Owner mới có quyền sửa tiếp các bài viết này. Nếu bài viết đang ở trạng thái `PENDING` (chờ duyệt), Owner vẫn có quyền duyệt hoặc từ chối bài viết bình thường.
-- **Xóa mềm Workspace (UC18)**: Cần cập nhật trường `deletedAt` trên bảng `Workspace` thay vì xóa cứng. Các truy vấn workspace thông thường phải lọc các bản ghi có `deletedAt IS NULL`.
+- Xóa thành viên / Thành viên rời workspace: Không xóa cascade các bài viết/media do người đó tạo; chúng vẫn thuộc về workspace. Giữ nguyên ID của user đã rời tại trường `createdById` (Post) để phục vụ truy vết. Chỉ Owner mới có quyền sửa tiếp các bài viết này. Nếu bài viết đang ở trạng thái `PENDING` (chờ duyệt), Owner vẫn có quyền duyệt hoặc từ chối bài viết bình thường.
+- **Xóa mềm (D18)**: Áp dụng cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset` — cập nhật trường `deletedAt` thay vì xóa cứng. Cơ chế cưỡng chế bằng **Prisma Client Extension** tự thêm điều kiện `deletedAt: null` mặc định; muốn lấy bản ghi đã xóa phải dùng API `includeDeleted`. Riêng với UC18: cập nhật `deletedAt` trên bảng `Workspace`; các truy vấn workspace thông thường phải lọc các bản ghi có `deletedAt IS NULL`.
 
 ---
 
 ## 1.3. Hồ sơ cá nhân (Update Profile & Change Password - UC04, UC32)
 
-**Mô tả**: Cho phép người dùng cập nhật thông tin hồ sơ cá nhân (tên hiển thị, avatar) và thay đổi mật khẩu tài khoản hoặc email để bảo mật thông tin.
+**Mô tả**: Cho phép người dùng cập nhật thông tin hồ sơ cá nhân (tên hiển thị, avatar) và thay đổi mật khẩu tài khoản để bảo mật thông tin (luồng đổi email qua OTP được dời sang Phase 5).
 
 **Tác nhân (Actors)**:
 - **UC04 (Change Password)**: User (All Roles)
@@ -100,6 +100,6 @@
 **Luồng hoạt động**:
 
 1. Đổi mật khẩu: yêu cầu nhập mật khẩu cũ → verify → set mật khẩu mới → tăng `tokenVersion` (buộc đăng nhập lại trên các thiết bị khác).
-2. Đổi email: nhập email mới → gửi OTP đến email mới → xác nhận OTP → cập nhật email, gửi thông báo đến email cũ ("email tài khoản đã được thay đổi") để phát hiện chiếm đoạt tài khoản.
+2. Đổi email (dời sang Phase 5): nhập email mới → gửi OTP đến email mới → xác nhận OTP → cập nhật email, gửi thông báo đến email cũ ("email tài khoản đã được thay đổi") để phát hiện chiếm đoạt tài khoản.
 
-**Lưu ý khi làm**: OTP nên có hạn ngắn (5-10 phút), giới hạn số lần nhập sai (≤5 lần) để chống brute-force.
+**Lưu ý khi làm**: Phase 1 UC32 chỉ hỗ trợ cập nhật `name` + `avatar`. Luồng đổi email qua OTP chưa nằm trong phạm vi Phase 1; khi triển khai OTP cần hạn ngắn (5-10 phút) và giới hạn số lần nhập sai (≤5 lần) để chống brute-force.

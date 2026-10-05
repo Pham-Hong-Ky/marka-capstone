@@ -7,10 +7,10 @@ Tài liệu này đặc tả chi tiết thiết kế cơ sở dữ liệu vật 
 ## 1. Biểu đồ Quan hệ Thực thể (ERD Overview)
 
 Hệ thống bao gồm các nhóm thực thể chính:
-1. **Xác thực & Không gian làm việc**: `users`, `workspaces`, `workspace_members`, `workspace_invites`, `refresh_tokens`.
-2. **Quản lý nội dung & Media**: `posts`, `media_assets`, `post_media` (bảng liên kết nhiều-nhiều), `scheduled_posts`, `approval_histories`.
-3. **Kênh liên kết & Cấu hình**: `channel_connections`, `brand_voices`.
-4. **Credit, Giao dịch & Quản trị**: `orders`, `credit_transactions`, `ai_generations`, `notifications`, `audit_logs`.
+1. **Xác thực & Không gian làm việc**: `users`, `workspaces`, `workspace_members`, `workspace_invites`.
+2. **Quản lý nội dung & Media**: `posts`, `media_assets`, `scheduled_posts`, `post_metrics`.
+3. **Kênh liên kết**: `channel_connections`.
+4. **Credit, Giao dịch & Quản trị**: `orders`, `credit_packages`, `credit_transactions`, `ai_generations`, `notifications`, `audit_logs`.
 
 Chi tiết mối liên kết thực thể tham chiếu tại file thiết kế [schema.dbml](file:///f:/DATN/marka-capstone/docs/schema.dbml).
 
@@ -31,7 +31,6 @@ Lưu trữ thông tin tài khoản người dùng, vai trò hệ thống và tr�
 | `authProvider` | ENUM | Default: 'LOCAL', NOT NULL | Phương thức xác thực (`LOCAL` hoặc `GOOGLE`) |
 | `googleId` | VARCHAR(255) | Nullable | ID của tài khoản Google nếu login OAuth |
 | `emailVerified` | BOOLEAN | Default: FALSE, NOT NULL | Trạng thái xác thực email |
-| `verificationToken` | VARCHAR(255) | Nullable | Token xác minh email/OTP |
 | `systemRole` | ENUM | Default: 'USER', NOT NULL | Vai trò hệ thống (`SYSTEM_ADMIN`, `USER`) |
 | `tokenVersion` | INTEGER | Default: 1, NOT NULL | Version token dùng để hủy session hàng loạt khi đổi pass |
 | `isSuspended` | BOOLEAN | Default: FALSE, NOT NULL | Trạng thái khóa tài khoản bởi Admin |
@@ -50,9 +49,16 @@ Mỗi Workspace đại diện cho một thương hiệu hoặc doanh nghiệp ri
 | `remainingCredit` | INTEGER | Default: 100, NOT NULL | Số credit khả dụng dùng để gọi AI |
 | `monthlyQuota` | INTEGER | Default: 100, NOT NULL | Hạn mức credit mặc định được cấp mỗi tháng |
 | `planExpiresAt` | TIMESTAMP | Nullable | Thời điểm hết hạn của gói cước trả phí |
+| `billingCycleStart` | TIMESTAMP | Nullable | Mốc bắt đầu chu kỳ billing hiện tại (dùng cho cron reset credit hằng tháng — D6) |
+| `nextResetAt` | TIMESTAMP | Nullable | Mốc cron reset credit kế tiếp / neo hạ gói khi hết hạn (D6) |
+| `planExpiryWarningSentAt` | TIMESTAMP | Nullable | Cờ chống gửi trùng email cảnh báo sắp hết hạn gói (D7) |
+| `creditWarningSentAt` | TIMESTAMP | Nullable | Cờ chống gửi trùng email cảnh báo sắp hết credit (D7) |
+| `brandVoice` | JSON | Nullable | Cấu hình tông giọng thương hiệu dạng JSON (`{ industry, targetAudience, keywordsShouldUse, keywordsAvoid, fewShotExamples }`) |
 | `deletedAt` | TIMESTAMP | Nullable | Thời điểm xóa mềm Workspace (null nếu đang hoạt động) |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm khởi tạo Workspace |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật thông tin Workspace |
+
+* **Hạn mức theo gói**: `monthlyQuota` (credit/tháng) tương ứng `FREE = 100`, `PRO = 1000`, `ENTERPRISE = 5000`. Credit reset theo chu kỳ là **đặt lại về hạn mức, không cộng dồn** phần dư. Khi gói hết hạn (`planExpiresAt`/`nextResetAt`), Workspace tự động **hạ về `FREE`** (D6).
 
 ### 2.3. Bảng `workspace_members` (Thành viên của Workspace)
 Lưu trữ quan hệ phân quyền 2 cấp Workspace (RBAC).
@@ -81,25 +87,10 @@ Lưu trữ thông tin lời mời thành viên chưa kích hoạt.
 | `token` | VARCHAR(255) | Unique, NOT NULL | Token bí mật gửi qua email xác thực |
 | `isUsed` | BOOLEAN | Default: FALSE, NOT NULL | Trạng thái đã sử dụng token |
 | `expiresAt` | TIMESTAMP | NOT NULL | Thời hạn hết hiệu lực lời mời (7 ngày) |
-| `invitedById` | VARCHAR(36) | FK -> `users.id` | ID người gửi lời mời (Workspace Owner) |
+| `invitedById` | VARCHAR(36) | FK -> `users.id`, SetNull | ID người gửi lời mời (Workspace Owner) |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm gửi lời mời |
 
-### 2.5. Bảng `brand_voices` (Tông giọng thương hiệu)
-Lưu trữ cấu hình ngữ cảnh để nạp cho trợ lý AI.
-
-| Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
-| :--- | :--- | :--- | :--- |
-| `id` | VARCHAR(36) | PK, Default: UUID | ID duy nhất của cấu hình |
-| `workspaceId` | VARCHAR(36) | Unique, FK -> `workspaces.id`, Cascade | Workspace sở hữu Brand Voice |
-| `industry` | VARCHAR(255) | NOT NULL | Ngành hàng kinh doanh |
-| `targetAudience` | VARCHAR(255) | NOT NULL | Khách hàng mục tiêu |
-| `keywordsShouldUse` | TEXT | Nullable | Các từ khóa khuyên dùng (cách nhau bằng dấu phẩy) |
-| `keywordsAvoid` | TEXT | Nullable | Các từ khóa cần tránh sử dụng |
-| `fewShotExamples` | JSON | Nullable | Mẫu bài viết tiêu biểu (chứa mảng JSON các bài viết thực tế) |
-| `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm thiết lập |
-| `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm chỉnh sửa cấu hình |
-
-### 2.6. Bảng `posts` (Bài viết nội dung)
+### 2.5. Bảng `posts` (Bài viết nội dung)
 Lưu trữ nội dung bài viết chính và vòng đời trạng thái của nó.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
@@ -111,6 +102,7 @@ Lưu trữ nội dung bài viết chính và vòng đời trạng thái của n�
 | `status` | ENUM | Default: 'DRAFT', NOT NULL | Trạng thái duyệt/xuất bản (`DRAFT`, `PENDING`, `APPROVED`, `REJECTED`, `SCHEDULED`, `PUBLISHED`, `FAILED`, `ARCHIVED`) |
 | `campaignTag` | VARCHAR(255) | Nullable | Thẻ gắn nhãn chiến dịch |
 | `rejectReason` | VARCHAR(255) | Nullable | Lý do từ chối phê duyệt từ Owner |
+| `createdById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người tạo bài viết (API truyền tham số `creatorId`, map thẳng vào `createdById` — D2) |
 | `submittedById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người gửi duyệt bài viết |
 | `submittedAt` | TIMESTAMP | Nullable | Thời điểm gửi duyệt bài viết |
 | `reviewedById` | VARCHAR(36) | FK -> `users.id`, SetNull | Owner thực hiện phê duyệt/từ chối bài |
@@ -119,21 +111,16 @@ Lưu trữ nội dung bài viết chính và vòng đời trạng thái của n�
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm tạo bài viết |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật bài viết lần cuối |
 
-### 2.7. Bảng `post_media` (Liên kết Bài viết - Media)
-Bảng phụ liên kết nhiều-nhiều giữa bài viết và media đính kèm.
+* **Index**: Index trên cột `createdById` (phục vụ lọc UC09 / phân quyền xóa UC10).
 
-| Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
-| :--- | :--- | :--- | :--- |
-| `postId` | VARCHAR(36) | PK, FK -> `posts.id`, Cascade | Liên kết tới bài viết |
-| `mediaAssetId` | VARCHAR(36) | PK, FK -> `media_assets.id`, Cascade | Liên kết tới media đính kèm |
-
-### 2.8. Bảng `media_assets` (Thư viện hình ảnh và video)
-Quản lý tệp tin đa phương tiện trong Workspace.
+### 2.6. Bảng `media_assets` (Thư viện hình ảnh và video)
+Thư viện tệp tin đa phương tiện **cấp Workspace**; việc gắn vào bài viết là **tùy chọn** (D1).
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
 | :--- | :--- | :--- | :--- |
 | `id` | VARCHAR(36) | PK, Default: UUID | ID duy nhất của tệp |
-| `workspaceId` | VARCHAR(36) | FK -> `workspaces.id`, Cascade | Workspace sở hữu tệp |
+| `workspaceId` | VARCHAR(36) | FK -> `workspaces.id`, Cascade, NOT NULL | Workspace sở hữu tệp (thư viện cấp Workspace) |
+| `postId` | VARCHAR(36) | FK -> `posts.id`, SetNull, Nullable | Bài viết mà tệp được đính kèm (tùy chọn, null nếu chỉ nằm trong thư viện) |
 | `url` | VARCHAR(255) | NOT NULL | URL đường dẫn tệp trên Cloudinary hoặc AWS S3 |
 | `type` | ENUM | NOT NULL | Loại định dạng (`IMAGE` hoặc `VIDEO`) |
 | `mimeType` | VARCHAR(100) | Nullable | Định dạng file chi tiết (ví dụ: `image/png`, `video/mp4`) |
@@ -141,10 +128,13 @@ Quản lý tệp tin đa phương tiện trong Workspace.
 | `size` | INTEGER | NOT NULL | Dung lượng tệp tin (tính bằng bytes) |
 | `tags` | VARCHAR(255) | Nullable | Thẻ gắn nhãn để lọc thư viện |
 | `source` | ENUM | Default: 'UPLOADED', NOT NULL | Nguồn gốc tệp (`UPLOADED` tải lên, `AI_GENERATED` AI sinh) |
-| `createdById` | VARCHAR(36) | FK -> `users.id` | Người thực hiện tải lên hoặc yêu cầu AI tạo |
+| `createdById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người thực hiện tải lên hoặc yêu cầu AI tạo |
+| `deletedAt` | TIMESTAMP | Nullable | Thời điểm xóa mềm tệp (D1) |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm đưa vào thư viện |
 
-### 2.9. Bảng `channel_connections` (Kênh mạng xã hội liên kết)
+* **Index**: Index trên `workspaceId` (truy vấn thư viện theo Workspace) và trên `postId`.
+
+### 2.7. Bảng `channel_connections` (Kênh mạng xã hội liên kết)
 Lưu trữ thông tin xác thực/mã hóa các kênh phân phối bài viết.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
@@ -163,7 +153,7 @@ Lưu trữ thông tin xác thực/mã hóa các kênh phân phối bài viết.
 
 * **Index**: Unique Constraint trên bộ ba `(workspaceId, platform, externalAccountId)`.
 
-### 2.10. Bảng `scheduled_posts` (Lịch trình xuất bản cụ thể)
+### 2.8. Bảng `scheduled_posts` (Lịch trình xuất bản cụ thể)
 Đại diện cho một job đăng bài cụ thể lên 1 kênh liên kết riêng lẻ.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
@@ -173,35 +163,24 @@ Lưu trữ thông tin xác thực/mã hóa các kênh phân phối bài viết.
 | `channelId` | VARCHAR(36) | FK -> `channel_connections.id`, Cascade | Kênh liên kết sẽ được xuất bản |
 | `customContent` | JSON | Nullable | Nội dung đã được tối ưu riêng biệt cho kênh này |
 | `scheduledAt` | TIMESTAMP | Nullable | Thời gian hẹn giờ đăng bài (null nếu đăng ngay) |
-| `status` | ENUM | Default: 'SCHEDULED', NOT NULL | Trạng thái đăng bài (`SCHEDULED`, `PUBLISHED`, `FAILED`) |
+| `status` | ENUM | Default: 'SCHEDULED', NOT NULL | Trạng thái đăng bài (`SCHEDULED`, `PUBLISHED`, `FAILED`, `CANCELLED`) |
 | `externalPostId` | VARCHAR(255) | Nullable | ID bài viết thực tế sau khi đăng thành công (MXH cung cấp) |
 | `errorMessage` | TEXT | Nullable | Nhật ký lỗi phản hồi từ API khi đăng bài thất bại |
 | `retryCount` | INTEGER | Default: 0, NOT NULL | Số lần tự động thử lại của Worker khi gặp lỗi |
+| `reminderSentAt` | TIMESTAMP | Nullable | Cờ chống gửi trùng email/thông báo nhắc lịch đăng (D7) |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm khởi tạo lịch trình |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật lịch trình |
 
-* **Index**: Composite Index trên `(status, scheduledAt)` phục vụ Worker quét job mỗi phút cực nhanh.
+* **Index**: Composite Index trên `(status, scheduledAt)` phục vụ tra cứu/đối soát lịch đăng; index trên `channelId` (huỷ theo kênh) và `postId`. Cơ chế đăng chính là **BullMQ delayed job** (đẩy job với `delay` tới hạn đăng), **không dựa vào cron quét mỗi phút**; cron chỉ chạy **đối soát phụ** (job mồ côi / quá hạn).
 
-### 2.11. Bảng `approval_histories` (Lịch sử duyệt bài)
-Phục vụ audit trail theo dõi tiến trình phê duyệt của bài viết.
-
-| Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
-| :--- | :--- | :--- | :--- |
-| `id` | VARCHAR(36) | PK, Default: UUID | ID duy nhất bản ghi lịch sử |
-| `postId` | VARCHAR(36) | FK -> `posts.id`, Cascade | Liên kết tới bài viết |
-| `actorId` | VARCHAR(36) | FK -> `users.id` | ID người đưa ra quyết định (Owner/Creator) |
-| `action` | ENUM | NOT NULL | Hành động duyệt (`SUBMIT` gửi, `APPROVE` duyệt, `REJECT` từ chối) |
-| `reason` | VARCHAR(255) | Nullable | Ghi chú/Lý do từ chối phê duyệt bài |
-| `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm hành động diễn ra |
-
-### 2.12. Bảng `ai_generations` (Lịch sử sử dụng AI)
+### 2.9. Bảng `ai_generations` (Lịch sử sử dụng AI)
 Lưu nhật ký prompts và logs để kiểm tra chi phí/dashboard của System Admin.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
 | :--- | :--- | :--- | :--- |
 | `id` | VARCHAR(36) | PK, Default: UUID | ID duy nhất của log |
 | `workspaceId` | VARCHAR(36) | FK -> `workspaces.id`, Cascade | Workspace thực hiện yêu cầu AI |
-| `userId` | VARCHAR(36) | FK -> `users.id` | Người yêu cầu sinh AI |
+| `userId` | VARCHAR(36) | FK -> `users.id`, SetNull | Người yêu cầu sinh AI |
 | `postId` | VARCHAR(36) | FK -> `posts.id`, SetNull, Nullable | ID bài viết đích nhận nội dung AI (nếu có) |
 | `type` | ENUM | NOT NULL | Loại tác vụ (`TEXT`, `IMAGE`, `VIRAL_SCORE`, `REGENERATE`) |
 | `provider` | VARCHAR(100) | NOT NULL | Nhà cung cấp AI (ví dụ: `OpenAI`) |
@@ -212,7 +191,7 @@ Lưu nhật ký prompts và logs để kiểm tra chi phí/dashboard của Syste
 | `creditCost` | INTEGER | NOT NULL | Số credit đã trừ của Workspace cho giao dịch này |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm gọi AI |
 
-### 2.13. Bảng `credit_transactions` (Nhật ký giao dịch Credit)
+### 2.10. Bảng `credit_transactions` (Nhật ký giao dịch Credit)
 Lịch sử thay đổi tài chính trong Workspace. Phục vụ truy vết số dư.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
@@ -228,7 +207,23 @@ Lịch sử thay đổi tài chính trong Workspace. Phục vụ truy vết số
 | `createdById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người thực hiện hành động tạo giao dịch |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm giao dịch hoàn thành |
 
-### 2.14. Bảng `orders` (Hóa đơn nâng cấp & nạp credit)
+### 2.11. Bảng `credit_packages` (Danh mục gói credit)
+Lưu trữ danh mục các gói credit bán cho Workspace.
+
+| Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `id` | VARCHAR(36) | PK, Default: UUID | ID duy nhất của gói credit |
+| `name` | VARCHAR(255) | NOT NULL | Tên gói credit |
+| `description` | VARCHAR(500) | Nullable | Mô tả chi tiết gói credit |
+| `creditAmount` | INTEGER | NOT NULL | Số credit cung cấp khi mua gói |
+| `price` | INTEGER | NOT NULL | Giá bán của gói (VND) |
+| `sortOrder` | INTEGER | Default: 0, NOT NULL | Thứ tự hiển thị gói trong danh sách |
+| `isActive` | BOOLEAN | Default: TRUE, NOT NULL | Trạng thái mở bán của gói |
+| `deletedAt` | TIMESTAMP | Nullable | Thời điểm xóa mềm gói credit |
+| `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm khởi tạo gói |
+| `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật gói |
+
+### 2.12. Bảng `orders` (Hóa đơn nâng cấp & nạp credit)
 Quản lý tích hợp cổng thanh toán PayOS.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
@@ -236,17 +231,18 @@ Quản lý tích hợp cổng thanh toán PayOS.
 | `id` | VARCHAR(36) | PK, Default: UUID | ID hóa đơn |
 | `orderCode` | VARCHAR(100) | Unique, NOT NULL | Mã đơn hàng đối chiếu duy nhất gửi sang cổng PayOS |
 | `workspaceId` | VARCHAR(36) | FK -> `workspaces.id`, Cascade | Workspace mua credit/gói cước |
+| `packageId` | VARCHAR(36) | FK -> `credit_packages.id`, SetNull, Nullable | Gói credit được mua (nếu có) |
 | `amount` | INTEGER | NOT NULL | Số tiền thanh toán (VND) |
 | `creditAmount` | INTEGER | Nullable | Số credit được mua (nếu mua credit lẻ) |
 | `targetPlan` | ENUM | Nullable | Gói cước nâng cấp mục tiêu (nếu mua gói cước PRO/ENTERPRISE) |
-| `payosTransId` | VARCHAR(255) | Nullable | Mã giao dịch thành công đối chiếu từ PayOS |
+| `payosTransId` | VARCHAR(255) | Unique, Nullable | Mã giao dịch thành công đối chiếu từ PayOS (unique hỗ trợ idempotency webhook — D4) |
 | `paidAt` | TIMESTAMP | Nullable | Thời điểm hoàn thành thanh toán |
 | `status` | ENUM | Default: 'PENDING', NOT NULL | Trạng thái đơn hàng (`PENDING`, `PAID`, `CANCELLED`) |
-| `createdById` | VARCHAR(36) | FK -> `users.id` | Người tạo đơn hàng thanh toán |
+| `createdById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người tạo đơn hàng thanh toán |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm khởi tạo đơn hàng |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật trạng thái đơn hàng |
 
-### 2.15. Bảng `notifications` (Thông báo in-app hệ thống)
+### 2.13. Bảng `notifications` (Thông báo in-app hệ thống)
 Lưu thông tin phục vụ trung tâm thông báo (chuông thông báo).
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
@@ -259,21 +255,8 @@ Lưu thông tin phục vụ trung tâm thông báo (chuông thông báo).
 | `isRead` | BOOLEAN | Default: FALSE, NOT NULL | Trạng thái đã đọc thông báo |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm gửi thông báo |
 
-### 2.16. Bảng `refresh_tokens` (Refresh token lưu DB bảo mật)
-Quản lý thu hồi token bảo mật phiên làm việc đa thiết bị.
-
-| Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
-| :--- | :--- | :--- | :--- |
-| `id` | VARCHAR(36) | PK, Default: UUID | ID bản ghi |
-| `token` | VARCHAR(255) | Unique, NOT NULL | Refresh Token đã được ký và hash |
-| `userId` | VARCHAR(36) | FK -> `users.id`, Cascade, NOT NULL | User sở hữu token |
-| `revoked` | BOOLEAN | Default: FALSE, NOT NULL | Đã thu hồi/đã xoay vòng token |
-| `expiresAt` | TIMESTAMP | NOT NULL | Hạn hết hiệu lực của Refresh Token |
-| `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm cấp phát |
-| `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm thu hồi hoặc cập nhật |
-
-### 2.17. Bảng `audit_logs` (Nhật ký kiểm toán hệ thống)
-Bảng ghi sự kiện bảo mật toàn hệ thống dành cho System Admin quản lý.
+### 2.14. Bảng `audit_logs` (Nhật ký kiểm toán hệ thống)
+Bảng ghi sự kiện bảo mật toàn hệ thống dành cho System Admin quản lý. Đã gộp lịch sử duyệt bài (ApprovalHistory) qua cột `reason`.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
 | :--- | :--- | :--- | :--- |
@@ -283,15 +266,39 @@ Bảng ghi sự kiện bảo mật toàn hệ thống dành cho System Admin qu�
 | `action` | VARCHAR(100) | NOT NULL | Tên hành động (ví dụ: `LOGIN`, `DELETE_WORKSPACE`, `REVIEW_POST`) |
 | `targetType` | VARCHAR(100) | NOT NULL | Loại thực thể bị tác động (ví dụ: `POST`, `WORKSPACE`, `USER`) |
 | `targetId` | VARCHAR(255) | Nullable | ID cụ thể của thực thể bị tác động |
+| `reason` | VARCHAR(255) | Nullable | Lý do hành động (kế thừa từ ApprovalHistory cho thao tác duyệt/từ chối bài viết) |
 | `metadata` | JSON | Nullable | Dữ liệu chi tiết về thay đổi trước/sau hoặc tham số request |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm hành động diễn ra |
+
+* **Index**: Composite Index trên `(targetType, targetId, createdAt)`, `(workspaceId, createdAt)` và `(actorId, createdAt)` (D8).
+
+### 2.15. Bảng `post_metrics` (Chỉ số tương tác bài đăng — Phân hệ 8)
+Lưu chỉ số hiệu suất của một bài đã đăng trên kênh; quan hệ **1-1** với `scheduled_posts`.
+
+| Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `id` | VARCHAR(36) | PK, Default: UUID | ID duy nhất của bản ghi metrics |
+| `scheduledPostId` | VARCHAR(36) | FK -> `scheduled_posts.id`, Cascade, UNIQUE, NOT NULL | Lịch đăng được đo chỉ số (1-1) |
+| `reactions` | INTEGER | Default: 0, NOT NULL | Tổng số lượt cảm xúc |
+| `reactionsDetail` | JSON | Nullable | Chi tiết cảm xúc theo loại (like/love/haha/...) |
+| `comments` | INTEGER | Default: 0, NOT NULL | Tổng số bình luận |
+| `shares` | INTEGER | Default: 0, NOT NULL | Tổng số lượt chia sẻ |
+| `reach` | INTEGER | Nullable | Số người tiếp cận (reach) |
+| `impressions` | INTEGER | Nullable | Số lượt hiển thị (impressions) |
+| `permalinkUrl` | VARCHAR(255) | Nullable | URL permalink bài đăng trên nền tảng |
+| `syncError` | VARCHAR(255) | Nullable | Lỗi phát sinh khi đồng bộ metrics (n8n/Facebook API) |
+| `fetchedAt` | TIMESTAMP | Nullable | Thời điểm lấy chỉ số từ nền tảng |
+| `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm tạo bản ghi |
+| `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật bản ghi |
+
+* **Index**: Unique Constraint trên `scheduledPostId` (đảm bảo quan hệ 1-1).
 
 ---
 
 ## 3. Các Quy Tắc Thiết Kế Cơ Sở Dữ Liệu Đặc Thù
 
 ### 3.1. Quy tắc Xóa mềm (Soft Delete)
-Để phục vụ audit log lưu trữ và khôi phục dữ liệu khi lỡ tay, các thực thể chính gồm **Workspace** và **Post** không bao giờ bị xóa cứng (hard delete) khỏi database khi người dùng thao tác xóa.
+Để phục vụ audit log lưu trữ và khôi phục dữ liệu khi lỡ tay, các thực thể chính gồm **Workspace**, **Post**, **CreditPackage** và **MediaAsset** không bao giờ bị xóa cứng (hard delete) khỏi database khi người dùng thao tác xóa.
 * Sử dụng trường `deletedAt` kiểu dữ liệu TIMESTAMP (mặc định là `null`).
 * Khi xóa: Hệ thống cập nhật `deletedAt = NOW()`.
 * Khi truy vấn: Mọi câu lệnh SELECT thông thường tại backend bắt buộc phải bổ sung điều kiện lọc `deletedAt: null` (đối với Prisma là `{ deletedAt: null }`).
@@ -301,3 +308,6 @@ Các dữ liệu liên quan đến quyền truy cập tài khoản bên thứ ba
 * Sử dụng thuật toán mã hóa đối xứng **AES-256-GCM** hoặc **AES-256-CBC**.
 * Khóa bảo mật `AES_SECRET_KEY` được lưu trong file cấu hình môi trường `.env` ở server và tuyệt đối không được đưa lên Git.
 * Dữ liệu trong database sẽ ở dạng chuỗi Hex/Base64 đã mã hóa. Backend thực hiện giải mã (decrypt) ngay khi truy vấn lên lớp Service để sử dụng.
+
+### 3.3. Múi giờ (Timezone) — D19
+Toàn hệ thống dùng **UTC**: cột `DateTime` trong DB lưu UTC, API trao đổi theo **ISO-8601 UTC**, server/worker đặt `TZ=UTC`. Frontend tự chuyển đổi sang giờ địa phương khi hiển thị.

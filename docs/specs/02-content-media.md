@@ -36,7 +36,7 @@
 **Luồng hoạt động**:
 
 1. User chọn file → client validate sơ bộ (đuôi file, kích thước) → upload thẳng lên S3/Cloudinary qua signed URL (không qua server để tránh nghẽn băng thông backend).
-2. Server nhận callback/metadata sau khi upload xong → lưu bản ghi `MediaAsset(workspaceId, url, type, size, tags, createdBy)`.
+2. Server nhận callback/metadata sau khi upload xong → lưu bản ghi `MediaAsset(workspaceId, postId?, url, type, size, tags, createdById)`. Media là **thư viện cấp Workspace** (D1): `workspaceId` bắt buộc, `postId` **nullable** — file có thể tồn tại độc lập trong thư viện và được gắn vào bài viết sau.
 3. Kiểm tra quota lưu trữ của workspace theo gói cước **trước khi** cấp signed URL — nếu vượt quota, chặn ngay từ bước 1.
 4. Lọc/tìm kiếm theo tên, loại file, tag, ngày tạo trên trang thư viện.
 
@@ -73,8 +73,8 @@
 
 **Lưu ý khi làm**:
 
-- Đây là state machine trung tâm của hệ thống — nên implement rõ ràng bằng enum + bảng chuyển trạng thái hợp lệ (validate transition ở tầng service, không để FE tự ý set status).
-- Lưu lịch sử duyệt (`ApprovalHistory`: ai, khi nào, hành động, lý do) phục vụ Audit Log và tránh tranh chấp "ai duyệt/từ chối bài này".
+- Đây là state machine trung tâm của hệ thống — implement bằng enum + bảng chuyển trạng thái hợp lệ (validate transition ở tầng service, không để FE tự ý set status). Danh sách trạng thái/transition đầy đủ (gồm **`ARCHIVED`**, `REJECTED→PENDING`, `PENDING/APPROVED→DRAFT`) nằm ở `specs/README.md §8` (D15); `PUBLISHED` không xoá mà chỉ `ARCHIVED`.
+- Lưu lịch sử duyệt vào `audit_logs` (action `POST_APPROVED`/`POST_REJECTED`, `targetType="Post"`, kèm `reason`) phục vụ Audit Log và tránh tranh chấp "ai duyệt/từ chối bài này".
 - `Failed` (ở Phân hệ 4) quay lại `Scheduled` để retry, **không** quay lại `Pending` — bài đã duyệt nội dung thì không cần duyệt lại chỉ vì lỗi kỹ thuật khi đăng.
 - **Thông báo in-app**: Tất cả các thông báo in-app (như khi gửi duyệt bài, duyệt/từ chối bài, mời tham gia workspace) đều được lưu trữ trong bảng `Notification` để hiển thị trên UI chuông thông báo của người dùng và đánh dấu trạng thái đã đọc (`isRead`).
 
@@ -91,7 +91,7 @@
 **Luồng hoạt động**:
 
 1. **Xem chi tiết bài viết (UC08)**: Creator/Owner có thể bấm chọn một bài viết bất kỳ trong danh sách hoặc trên lịch đăng bài để xem toàn bộ nội dung chi tiết, các kênh liên kết, lịch sử chỉnh sửa, trạng thái duyệt và phản hồi từ Owner.
-2. **Tìm kiếm & Lọc bài viết (UC09)**: Hỗ trợ tìm kiếm bài viết theo tiêu đề/từ khóa và lọc theo trạng thái (Draft, Pending, Approved, Rejected, Scheduled, Published, Failed), ngày tạo/đăng, người tạo (createdBy), và nhãn chiến dịch (campaign tag).
+2. **Tìm kiếm & Lọc bài viết (UC09)**: Hỗ trợ tìm kiếm bài viết theo tiêu đề/từ khóa và lọc theo trạng thái (Draft, Pending, Approved, Rejected, Scheduled, Published, Failed, **Archived**), ngày tạo/đăng, người tạo (`createdById`), và nhãn chiến dịch (campaign tag).
 3. **Lọc thư viện media**: Tìm kiếm theo tên file, loại định dạng (ảnh/video), nhãn tag đi kèm và khoảng thời gian tải lên.
 4. **Tìm kiếm workspace**: Dành cho cả người dùng (chuyển đổi nhanh qua workspace switcher) và Admin (quản lý danh sách workspace) để dễ dàng chuyển đổi không gian làm việc.
 
@@ -106,13 +106,7 @@
 **Luồng hoạt động**:
 
 1. **Xuất lịch đăng bài**: Hỗ trợ xuất toàn bộ danh sách hoặc lịch đăng bài trong khoảng thời gian đã chọn ra định dạng CSV/Excel.
-2. **Báo cáo hiệu suất bài viết (Đồng bộ số liệu tương tác định kỳ)**: Thống kê các chỉ số tương tác thực tế của các bài viết từ Facebook Page (like, reactions, share, comment) qua Facebook Graph API để cập nhật lên dashboard.
-   - **Lên lịch quét số liệu**: Hệ thống cài đặt một tác vụ chạy tự động định kỳ (Cron Job) trên Server (ví dụ: quét 2 tiếng một lần).
-   - **Truy vấn dữ liệu Facebook**:
-     - Tác vụ quét qua database để lấy ra tất cả các bài viết của các kênh Facebook đang ở trạng thái `PUBLISHED` (Đã đăng) kèm theo Post ID của chúng.
-     - Với từng Post ID, Server sử dụng Page Access Token tương ứng đã giải mã để gửi một yêu cầu truy vấn thông tin tới Facebook API (`GET /vXX.X/{post-id}?fields=shares,likes.summary(true),comments.summary(true)`).
-     - Facebook phản hồi dữ liệu thống kê thời gian thực của bài viết đó bao gồm: tổng lượt Like/Reactions, lượt Share và tổng lượt Comment.
-   - **Cập nhật và Hiển thị**: Server phân tích kết quả nhận được, lưu các con số mới nhất vào database của hệ thống và hiển thị lên giao diện báo cáo/Dashboard của Workspace.
+2. **Báo cáo hiệu suất bài viết (Đồng bộ số liệu tương tác định kỳ)**: Thống kê các chỉ số tương tác thực tế của các bài viết từ Facebook Page (like, reactions, share, comment) qua Facebook Graph API để cập nhật lên dashboard. Chi tiết cơ chế đồng bộ (lịch chạy, endpoint, upsert `post_metrics`, xử lý rate limit/token) xem **`08-post-analytics.md`** — tiến trình đồng bộ do **n8n (Pattern A)** kích hoạt và **n8n không tham gia luồng đăng bài** (D21).
 
 ---
 
@@ -129,7 +123,7 @@
    - Bài viết ở trạng thái `DRAFT` (Bản nháp), `REJECTED` (Bị từ chối) hoặc `FAILED` (Đăng lỗi): Có thể xóa được bởi chính Creator tạo ra bài viết đó hoặc bất kỳ Workspace Owner nào.
    - Bài viết ở trạng thái `PENDING` (Chờ duyệt) hoặc `APPROVED` (Đã duyệt): Phải thu hồi về trạng thái `DRAFT` trước khi xóa, hoặc chỉ có Workspace Owner mới có quyền xóa trực tiếp.
    - Bài viết ở trạng thái `SCHEDULED` (Đã lên lịch): Việc xóa bài viết sẽ đồng thời hủy Job lên lịch tương ứng trong BullMQ/Redis.
-   - Bài viết ở trạng thái `PUBLISHED` (Đã đăng): Không cho phép xóa bài viết (chỉ có thể ẩn bài viết trên UI Marka bằng cách chuyển trạng thái hiển thị nội bộ sang `ARCHIVED` hoặc người dùng tự xóa thủ công trên Facebook Page thật).
+   - Bài viết ở trạng thái `PUBLISHED` (Đã đăng): **Không cho phép xóa — trả `403 Forbidden`** (D16). Chỉ có thể ẩn bài viết trên UI Marka bằng cách chuyển trạng thái hiển thị nội bộ sang `ARCHIVED`, hoặc người dùng tự xóa thủ công trên Facebook Page thật.
 2. **Luồng thực hiện**:
    - Người dùng bấm nút "Xóa" tại danh sách bài viết hoặc trang chi tiết bài viết.
    - Hệ thống hiển thị popup xác nhận: "Bạn có chắc chắn muốn xóa bài viết này không?".

@@ -18,12 +18,13 @@ Không có vai trò tùy chỉnh, không có Reviewer/Social Media Manager/Viewe
 
 ---
 
-## Danh mục Phân hệ & Danh sách Use Cases (UC01 - UC32)
+## Danh mục Phân hệ & Danh sách Use Cases (UC01 – UC51)
 
 | Mã UC | Tên chức năng (Use Case) | Tác nhân chính (Actor) | Phân hệ / Tài liệu chi tiết | Ghi chú |
 | :--- | :--- | :--- | :--- | :--- |
 | **UC01** | Register | Guest | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Xác thực qua Email/Password hoặc Google OAuth |
 | **UC02** | Login | Guest | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Đăng nhập hệ thống |
+| **UC02b** | Google OAuth Login | Guest | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Đăng nhập/đăng ký bằng Google OAuth |
 | **UC03** | Logout | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Đăng xuất phiên làm việc |
 | **UC04** | Change Password | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#13-hồ-sơ-cá-nhân-update-profile--change-password---uc04-uc32) | Đổi mật khẩu trong cài đặt |
 | **UC05** | Create Content | Content Creator, Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#21-soạn-thảo--cập-nhật-nội-dung-create--update-content---uc05-uc07) | Rich Text Editor, Template, Auto-save nháp |
@@ -50,10 +51,34 @@ Không có vai trò tùy chỉnh, không có Reviewer/Social Media Manager/Viewe
 | **UC26** | View brand voice | Content Creator, Owner | [03. AI Assistant & Brand Voice](file:///f:/DATN/marka-capstone/docs/specs/03-ai-brandvoice.md#31-cấu-hình--quản-lý-brand-voice-create-update--view-brand-voice---uc24-uc25-uc26) | Xem cấu hình tông giọng trong cài đặt/soạn thảo |
 | **UC27** | View connected channels | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Xem danh sách và trạng thái các kênh kết nối |
 | **UC28** | Connect social channels | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Kết nối FB Page thật hoặc TikTok/IG/Zalo giả lập |
+| **UC28a** | Connect Facebook Page (thật) | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Nhập thủ công `pageId` + `pageAccessToken`; token mã hóa AES-256 (D13) |
+| **UC28b** | Connect simulated channels | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Kết nối IG/TikTok/Zalo giả lập (`ChannelType.SIMULATED`) |
 | **UC29** | Disconnect social channel | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Ngắt kết nối kênh, tự động hủy các bài scheduled |
 | **UC30** | Purchase Credits | Workspace Owner | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md#61-nạp-credit--nâng-cấp-gói-purchase-credits---uc30) | Nạp thêm credit qua cổng thanh toán PayOS |
-| **UC31** | View Dashboard & Audit Log | System Admin, Owner, Creator | [07. Quản trị hệ thống & Báo cáo](file:///f:/DATN/marka-capstone/docs/specs/07-admin-analytics.md#71-dashboard-thống-kê-view-dashboard---uc31) | Xem báo cáo hiệu suất và nhật ký hoạt động |
-| **UC32** | Update Profile | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#13-hồ-sơ-cá-nhân-update-profile--change-password---uc04-uc32) | Cập nhật tên hiển thị, avatar, email |
+| **UC30a** | Create Order | Workspace Owner | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Tạo đơn hàng + link/QR PayOS (`status=PENDING`) |
+| **UC30b** | PayOS Webhook | System | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Verify chữ ký, idempotent theo `orderCode`, cộng credit |
+| **UC30c** | Poll Order Status | Workspace Owner | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Client polling trạng thái đơn mỗi 5 giây |
+| **UC31** | View Dashboard & Audit Log | System Admin, Owner, Creator (dashboard); System Admin + Owner (audit log) | [07. Quản trị hệ thống & Báo cáo](file:///f:/DATN/marka-capstone/docs/specs/07-admin-analytics.md#71-dashboard-thống-kê-view-dashboard---uc31) | Xem báo cáo hiệu suất và nhật ký hoạt động |
+| **UC31a** | View Admin Dashboard | System Admin, Workspace Owner, Content Creator | [07. Quản trị hệ thống & Báo cáo](file:///f:/DATN/marka-capstone/docs/specs/07-admin-analytics.md#71-dashboard-thống-kê-view-dashboard---uc31) | Thống kê user/workspace/credit/doanh thu |
+| **UC31b** | View Audit Log | System Admin, Workspace Owner | [07. Quản trị hệ thống & Báo cáo](file:///f:/DATN/marka-capstone/docs/specs/07-admin-analytics.md#73-audit-log-view-audit-log---uc31) | Xem nhật ký hành động; **Content Creator KHÔNG có quyền** |
+| **UC32** | Update Profile | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#13-hồ-sơ-cá-nhân-update-profile--change-password---uc04-uc32) | Cập nhật tên hiển thị, avatar (đổi email qua OTP dời Phase 5) |
+| **UC33** | Refresh Token | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Làm mới access token từ refresh token trong cookie |
+| **UC34** | Verify Email | Guest / User | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | **Dời Phase 5 — chưa triển khai**; đăng ký xong đăng nhập tự động |
+| **UC35** | List Workspaces | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Xem danh sách workspace mà user là thành viên |
+| **UC36** | Change Member Role | Workspace Owner | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Thay đổi vai trò thành viên trong workspace |
+| **UC37** | Upload Media | Content Creator, Workspace Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#22-thư-viện-media) | Upload file vào thư viện media cấp Workspace |
+| **UC38** | Cancel Scheduled Post | Workspace Owner (hoặc Creator được ủy quyền) | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#42-biên-tập--lên-lịch-đăng-theo-từng-kênh-schedule-content---uc12) | Huỷ lịch đăng (`ScheduledPost → CANCELLED`) |
+| **UC39** | List Notifications | User (All Roles) | [05. Email & Thông báo tự động](file:///f:/DATN/marka-capstone/docs/specs/05-notifications-email.md#54-thông-báo-in-app-hệ-thống-chuông-thông-báo) | Xem danh sách thông báo in-app |
+| **UC40** | Mark Notification as Read | User (All Roles) | [05. Email & Thông báo tự động](file:///f:/DATN/marka-capstone/docs/specs/05-notifications-email.md#54-thông-báo-in-app-hệ-thống-chuông-thông-báo) | Đánh dấu 1 thông báo đã đọc |
+| **UC41** | Mark All Notifications as Read | User (All Roles) | [05. Email & Thông báo tự động](file:///f:/DATN/marka-capstone/docs/specs/05-notifications-email.md#54-thông-báo-in-app-hệ-thống-chuông-thông-báo) | Đánh dấu tất cả thông báo đã đọc |
+| **UC42** | View Post Analytics | Content Creator, Owner | [08. Thống kê hiệu quả bài đăng](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md#85-api-endpoints) | Xem reactions/comments/shares của bài đã đăng |
+| **UC42b** | Refresh Post Metrics | Content Creator, Owner | [08. Thống kê hiệu quả bài đăng](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md#85-api-endpoints) | Làm mới số liệu thủ công cho 1 bài (rate-limit 30s) |
+| **UC43** | View Workspace Performance Overview | Content Creator, Owner | [08. Thống kê hiệu quả bài đăng](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md#85-api-endpoints) | Dashboard tổng hợp hiệu quả đăng bài theo Workspace |
+| **UC47** | List Credit Packages | Tất cả user (gói active) | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xem danh sách gói credit để nạp |
+| **UC48** | Create Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Tạo gói credit mới |
+| **UC49** | Update Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Cập nhật gói credit (giá, credit, `isActive`) |
+| **UC50** | Delete Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xoá mềm gói credit (`deletedAt`) |
+| **UC51** | View Credit Balance & History | Workspace member | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xem số dư và lịch sử giao dịch credit |
 
 ---
 
@@ -66,12 +91,13 @@ Không có vai trò tùy chỉnh, không có Reviewer/Social Media Manager/Viewe
 5. [05. Phân hệ Email & Thông báo tự động (05-notifications-email.md)](file:///f:/DATN/marka-capstone/docs/specs/05-notifications-email.md)
 6. [06. Phân hệ Credit & Thanh toán PayOS (06-billing-payos.md)](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md)
 7. [07. Phân hệ Quản trị hệ thống & Báo cáo (07-admin-analytics.md)](file:///f:/DATN/marka-capstone/docs/specs/07-admin-analytics.md)
+8. [08. Phân hệ Thống kê hiệu quả bài đăng — Post Analytics (08-post-analytics.md)](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md)
 
 ---
 
 ## 8. Lưu ý triển khai chung (áp dụng toàn hệ thống)
 
-1. **State machine là trung tâm**: Post status (`Draft/Pending/Approved/Rejected/Scheduled/Published/Failed`) nên định nghĩa transition hợp lệ ở 1 nơi duy nhất (service layer), có validate rõ ràng — tránh để nhiều chỗ trong code tự ý set status trực tiếp.
+1. **State machine là trung tâm (D15)**: Post status gồm `Draft/Pending/Approved/Rejected/Scheduled/Published/Failed/**Archived**`; định nghĩa transition hợp lệ ở **1 nơi duy nhất** (service layer), validate rõ ràng, tránh để nhiều chỗ trong code tự ý set status. Các transition bắt buộc: `REJECTED → PENDING` (gửi duyệt lại), `PENDING/APPROVED → DRAFT` (thu hồi), `FAILED → SCHEDULED` (retry), `PUBLISHED → ARCHIVED` (không xoá bài đã đăng).
 2. **Mọi thao tác tốn thời gian đều qua queue**: sinh AI text/ảnh, đăng bài, gửi email — không xử lý đồng bộ trong request-response để tránh timeout và giữ API < 500ms.
 3. **Idempotency ở mọi nơi có tiền/credit**: webhook thanh toán, trừ/hoàn credit, email nhắc định kỳ — luôn có cơ chế chống xử lý trùng.
 4. **Mã hóa dữ liệu nhạy cảm**: access token (Facebook, PayOS API key) bắt buộc AES-256 trước khi lưu DB, không log ra console/log file.

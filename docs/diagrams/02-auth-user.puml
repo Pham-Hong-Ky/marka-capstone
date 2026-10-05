@@ -1,0 +1,82 @@
+@startuml 02-auth-user
+!pragma layout smetana
+skinparam dpi 120
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #37474F
+  ArrowColor #455A64
+  FontSize 12
+}
+skinparam stereotypeCBackgroundColor #90CAF9
+title Auth & User — Class Diagram
+
+package "auth" #E3F2FD {
+  class AuthController <<Controller>> {
+    - authService : AuthService
+    + register(input : RegisterDTO) : AuthResult
+    + login(email : string, password : string) : AuthResult
+    + logout(userId : string, refreshToken : string) : void
+  }
+  class AuthService <<Service>> {
+    - userRepository : UserRepository
+    - jwtConfig : JwtConfig
+    + register(input : RegisterDTO) : AuthResult
+    + login(email : string, password : string) : AuthResult
+    + logout(userId : string, refreshToken : string) : void
+  }
+}
+
+package "user" #E8EAF6 {
+  class UserController <<Controller>> {
+    - userService : UserService
+    + changePassword(userId : string, old : string, newPwd : string) : boolean
+    + updateProfile(userId : string, input : UpdateProfileDTO) : UserDTO
+  }
+  class UserService <<Service>> {
+    - userRepository : UserRepository
+    + changePassword(userId : string, old : string, newPwd : string) : boolean
+    + updateProfile(userId : string, input : UpdateProfileDTO) : UserDTO
+  }
+  class UserRepository <<Repository>> {
+    - prisma : PrismaClient
+    + findUserByEmail(email : string) : User
+    + findUserById(id : string) : User
+    + createUser(data : CreateUserData) : User
+    + updateUser(userId : string, data : UpdateUserData) : User
+    + incrementTokenVersion(userId : string) : User
+  }
+}
+
+class User <<Entity>> {
+  - id : string
+  - email : string
+  - passwordHash : string
+  - name : string
+  - avatar : string
+  - systemRole : SystemRole
+  - tokenVersion : int
+  - isSuspended : boolean
+}
+
+AuthController --> AuthService
+UserController --> UserService
+AuthService ..> UserRepository
+UserService ..> UserRepository
+UserRepository ..> User
+
+note bottom of UserRepository
+  **Sua so voi so do goc**: bo revokeRefreshToken() /
+  revokeAllRefreshTokens() (khong co bang refresh_tokens).
+  Theo architecture.md muc 2.4 -> dung incrementTokenVersion()
+  dua tren User.tokenVersion.
+end note
+
+note bottom of User
+  **D2**: `Post` them `createdById` (FK users, `SetNull`).
+  Tham so truyen vao service van goi `creatorId` (lay tu JWT)
+  va map thang vao `createdById`.
+end note
+@enduml

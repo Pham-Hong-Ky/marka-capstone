@@ -24,8 +24,8 @@ Owner mời → tạo `WorkspaceInvite(token, expiresAt)` → gửi email chứa
 
 **Luồng hoạt động**:
 
-1. Cron job chạy hàng ngày, quét các workspace có `planExpiresAt` trong vòng 3 ngày tới → gửi email nhắc gia hạn (mỗi workspace chỉ gửi 1 lần cho mốc 3 ngày, tránh spam).
-2. Cron job (hoặc trigger ngay sau mỗi lần trừ credit) kiểm tra nếu `remainingCredit / monthlyQuota < 10%` → gửi email cảnh báo (đánh dấu đã gửi trong tháng để không lặp lại nhiều lần).
+1. Cron job chạy hàng ngày, quét các workspace có `planExpiresAt` trong vòng 3 ngày tới → gửi email nhắc gia hạn. Cờ chống gửi trùng: **`Workspace.planExpiryWarningSentAt`** (D7) — mỗi workspace chỉ gửi 1 lần cho mốc 3 ngày, tránh spam.
+2. Cron job (hoặc trigger ngay sau mỗi lần trừ credit) kiểm tra nếu `remainingCredit / monthlyQuota < 10%` → gửi email cảnh báo. Cờ chống gửi trùng trong chu kỳ: **`Workspace.creditWarningSentAt`** (D7).
 
 ---
 
@@ -37,7 +37,7 @@ Owner mời → tạo `WorkspaceInvite(token, expiresAt)` → gửi email chứa
 
 **Luồng hoạt động**: 
 
-Cron job quét mỗi phút các `ScheduledPost` có `scheduledAt` trong khoảng 14-16 phút tới (buffer 2 phút quanh mốc 15 phút) → gửi email nhắc cho người phụ trách đăng bài → đánh dấu đã gửi (tránh gửi trùng nếu cron chạy lại).
+Cron job quét mỗi phút các `ScheduledPost` có `scheduledAt` trong khoảng 14-16 phút tới (buffer 2 phút quanh mốc 15 phút) → gửi email nhắc cho **Workspace Owner và Content Creator có `WorkspaceMember.allowDirectPublish = true`** (người thực sự được phép đăng — D11) → đánh dấu **`ScheduledPost.reminderSentAt`** (D7, tránh gửi trùng nếu cron chạy lại).
 
 ---
 
@@ -50,7 +50,7 @@ Cron job quét mỗi phút các `ScheduledPost` có `scheduledAt` trong khoảng
 **Luồng hoạt động**:
 
 1. **Kích hoạt sự kiện**: Khi xảy ra các hành động (Creator gửi duyệt bài viết, Owner duyệt hoặc từ chối bài viết, Owner mời thành viên mới vào Workspace), server đồng thời tạo một bản ghi mới trong bảng `Notification` lưu thông tin: `userId` (người nhận), `type` (loại thông báo, ví dụ: `POST_PENDING`, `POST_APPROVED`, `POST_REJECTED`, `WORKSPACE_INVITE`), và `payload` (chứa metadata dạng JSON như tên bài viết, lý do từ chối, tên workspace).
-2. **Realtime push**: Hệ thống có thể gửi thông báo realtime tới trình duyệt của người dùng qua WebSockets/SSE nếu họ đang online.
+2. **Nhận thông báo**: MVP dùng **polling** (client định kỳ gọi API danh sách thông báo); gửi realtime qua **WebSocket/SSE là Phase sau (tùy chọn)** (D20).
 3. **Đọc thông báo**: Trên UI, người dùng bấm vào biểu tượng chuông thông báo để xem danh sách. Khi click vào từng mục thông báo, client gửi request cập nhật trạng thái `isRead = true` và điều hướng người dùng tới trang nghiệp vụ liên quan (VD: trang chi tiết bài viết, trang chấp nhận lời mời).
 
 ---
@@ -59,4 +59,4 @@ Cron job quét mỗi phút các `ScheduledPost` có `scheduledAt` trong khoảng
 
 - Tất cả job gửi email nên qua BullMQ queue riêng (`email-queue`), tách khỏi luồng chính, để lỗi SMTP/Resend không ảnh hưởng đến các API khác.
 - Dùng template engine (React Email, MJML, hoặc Handlebars) để quản lý email template gọn gàng, dễ bảo trì.
-- Luôn có cờ đánh dấu "đã gửi" (idempotency) cho các email dạng nhắc nhở định kỳ, tránh gửi trùng khi cron chạy lại do lỗi/restart server.
+- Luôn có cờ đánh dấu "đã gửi" (idempotency) cho các email dạng nhắc nhở định kỳ (`Workspace.planExpiryWarningSentAt`, `Workspace.creditWarningSentAt`, `ScheduledPost.reminderSentAt` — D7), tránh gửi trùng khi cron chạy lại do lỗi/restart server.

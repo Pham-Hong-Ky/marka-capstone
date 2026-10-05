@@ -66,9 +66,9 @@ graph TD
 
 ### 2.1. Quản lý Giao dịch (Prisma Transactions)
 Để tránh tình trạng bất nhất dữ liệu, các luồng nghiệp vụ phức tạp liên quan đến tài chính (Credit) hoặc mối quan hệ nhiều bảng bắt buộc phải sử dụng Transaction.
-* **Cách triển khai**:
-  - Giao dịch được khởi tạo ở lớp **Service** bằng cách dùng `prisma.$transaction`.
-  - Service truyền instance transaction client (được ký hiệu là `tx` hoặc `prismaTransaction`) vào các phương thức của **Repository**.
+* **Cách triển khai (D17)**:
+  - Với luồng nhiều bước/tài chính, giao dịch do lớp **Service** sở hữu: dùng `prisma.$transaction`, rồi truyền instance transaction client (ký hiệu `tx` hoặc `prismaTransaction`) vào các phương thức của **Repository**.
+  - **Repository được phép** tự mở transaction cho thao tác **atomic tự chứa** (ví dụ `createUser` tạo user + workspace + member trong 1 transaction) — cả hai pattern đều hợp lệ.
   - Ví dụ:
     ```typescript
     await prisma.$transaction(async (tx) => {
@@ -82,7 +82,7 @@ Các hành động tiêu tốn nhiều thời gian (gọi LLM OpenAI mất 5-15 
 * **Cách hoạt động**:
   - Lớp Service đẩy payload công việc vào hàng đợi BullMQ tương ứng (ví dụ: `content-generation-queue`, `publishing-queue`).
   - Request trả về mã trạng thái ngay lập tức cho Client kèm theo `jobId`.
-  - Một process độc lập (Background Worker) lắng nghe Redis và lấy job ra xử lý. Sau khi hoàn tất, Worker cập nhật trạng thái vào DB và đẩy thông báo realtime tới trình duyệt của người dùng qua WebSockets/SSE.
+  - Một process độc lập (Background Worker) lắng nghe Redis và lấy job ra xử lý. Sau khi hoàn tất, Worker cập nhật trạng thái vào DB và tạo thông báo in-app (`Notification`); ở **MVP client nhận kết quả qua polling**. **WebSocket/SSE là Phase sau (tùy chọn)** (D20).
 
 ### 2.3. Xử lý lỗi tập trung (Global Error Handling Middleware)
 Hệ thống sử dụng cơ chế ném lỗi hướng đối tượng (Object-oriented exception throwing) và bắt lỗi tập trung:
@@ -96,8 +96,18 @@ Hệ thống sử dụng cơ chế ném lỗi hướng đối tượng (Object-o
   }
   ```
 
-### 2.4. Rotation & Revocation Session (Refresh Token trong DB)
+### 2.4. Session & Revocation (Access/Refresh Token với `tokenVersion`)
 Để ngăn chặn tấn công replay và bảo mật phiên làm việc tối đa:
-* Khi Login thành công, hệ thống cấp Access Token (JWT lưu ở Client Memory, hạn ngắn 15 phút) và một Refresh Token (lưu trong DB bảng `refresh_tokens` và trả về trình duyệt dưới dạng HTTP-Only, Secure, SameSite Cookie).
-* Mỗi khi Access Token hết hạn, client gửi Refresh Token lên để cấp cặp token mới (Refresh Token Rotation). Token cũ lập tức bị đánh dấu là `revoked = true` trong database.
-* Khi người dùng thực hiện Đổi mật khẩu (UC04) hoặc bị System Admin khóa tài khoản (UC32), hệ thống sẽ tăng `tokenVersion` trên bảng `User` đồng thời đánh dấu `revoked = true` toàn bộ Refresh Token của user đó, lập tức đăng xuất tài khoản khỏi tất cả các thiết bị.
+* Khi Login thành công, hệ thống cấp Access Token (JWT lưu ở Client Memory, hạn ngắn 15 phút) và Refresh Token (JWT **stateless**, trả về trình duyệt dưới dạng HTTP-Only, Secure, SameSite Cookie, hạn 7 ngày). **Không** có bảng `refresh_tokens` lưu trong DB.
+* Cả hai token đều chứa trường `tokenVersion` của user tại thời điểm cấp.
+* Mỗi khi Access Token hết hạn, client gọi `POST /auth/refresh-token` kèm Refresh Token (trong cookie) để nhận cặp token mới.
+* Cơ chế thu hồi dựa trên trường `tokenVersion` ở bảng `User`: khi người dùng Đăng xuất (UC03), Đổi mật khẩu (UC04) hoặc bị System Admin khóa tài khoản, hệ thống tăng `tokenVersion` lên 1. Mọi access/refresh token cũ mang `tokenVersion` cũ lập tức bị từ chối ở middleware, đăng xuất tài khoản khỏi tất cả thiết bị (dù token chưa hết hạn).
+
+### 2.5. Xóa mềm (Soft Delete) bằng Prisma Client Extension (D18)
+* Áp dụng xóa mềm (`deletedAt`) cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset` — không xóa cứng.
+* Cơ chế **cưỡng chế** là một **Prisma Client Extension**: mọi truy vấn mặc định tự thêm điều kiện `deletedAt: null`, tránh việc lập trình viên quên lọc ở từng Repository/Service.
+* Muốn truy xuất bản ghi đã xóa (audit/khôi phục) phải gọi API chuyên biệt (`includeDeleted`), không bật mặc định.
+
+### 2.6. Quy ước thời gian UTC (D19)
+* Toàn hệ thống dùng **UTC**: DB lưu `DateTime` UTC, API trao đổi chuỗi **ISO-8601 UTC**; đặt biến môi trường `TZ=UTC` cho server và worker.
+* Frontend tự chuyển đổi sang múi giờ địa phương khi hiển thị; mọi so sánh lịch đăng (`scheduledAt`, `nextResetAt`, cron) đều thực hiện trên UTC.

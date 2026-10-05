@@ -11,11 +11,11 @@
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
-| 1.1 | Đăng ký thành công với thông tin hợp lệ | `{ "email": "user@test.com", "password": "Abc@12345", "name": "Test User" }` | HTTP 201, trả về `UserDto` (id, email, name), email xác thực được gửi | | |
-| 1.2 | Đăng ký thất bại — email đã tồn tại | `{ "email": "existed@test.com", "password": "Abc@12345", "name": "Test User" }` | HTTP 409, `{ "message": "Email already exists" }` | | |
-| 1.3 | Đăng ký thất bại — email sai định dạng | `{ "email": "not-an-email", "password": "Abc@12345", "name": "Test User" }` | HTTP 400, lỗi validation email | | |
-| 1.4 | Đăng ký thất bại — thiếu trường bắt buộc (`name`) | `{ "email": "user2@test.com", "password": "Abc@12345" }` | HTTP 400, lỗi validation thiếu trường | | |
-| 1.5 | Đăng ký thất bại — mật khẩu quá ngắn (< 8 ký tự) | `{ "email": "user3@test.com", "password": "123", "name": "Test" }` | HTTP 400, lỗi validation password | | |
+| 1.1 | Đăng ký thành công với thông tin hợp lệ | `{ "email": "user@test.com", "password": "Abc@12345", "name": "Test User" }` | HTTP 201, trả về `{ accessToken, user }` (tự động đăng nhập), Set-Cookie `refreshToken` | | |
+| 1.2 | Đăng ký thất bại — email đã tồn tại | `{ "email": "existed@test.com", "password": "Abc@12345", "name": "Test User" }` | HTTP 409, `{ "message": "Email này đã được đăng ký trong hệ thống" }` | | |
+| 1.3 | Đăng ký thất bại — email sai định dạng | `{ "email": "not-an-email", "password": "Abc@12345", "name": "Test User" }` | HTTP 422, lỗi validation email | | |
+| 1.4 | Đăng ký thất bại — thiếu trường bắt buộc (`name`) | `{ "email": "user2@test.com", "password": "Abc@12345" }` | HTTP 422, lỗi validation thiếu trường | | |
+| 1.5 | Đăng ký thất bại — mật khẩu quá ngắn (< 8 ký tự) | `{ "email": "user3@test.com", "password": "123", "name": "Test" }` | HTTP 422, lỗi validation password | | |
 
 ---
 
@@ -23,11 +23,11 @@
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
-| 2.1 | Đăng nhập thành công với thông tin đúng | `{ "email": "user@test.com", "password": "Abc@12345" }` | HTTP 200, trả về `AuthSessionDto` (access_token, refresh_token, user info) | | |
-| 2.2 | Đăng nhập thất bại — email không tồn tại | `{ "email": "notfound@test.com", "password": "Abc@12345" }` | HTTP 401, `{ "message": "Invalid credentials" }` | | |
-| 2.3 | Đăng nhập thất bại — sai mật khẩu | `{ "email": "user@test.com", "password": "WrongPass!" }` | HTTP 401, `{ "message": "Invalid credentials" }` | | |
-| 2.4 | Đăng nhập thất bại — thiếu trường email | `{ "password": "Abc@12345" }` | HTTP 400, lỗi validation | | |
-| 2.5 | Thông báo lỗi sai email và sai mật khẩu phải giống nhau | Gọi TC 2.2 và TC 2.3 rồi so sánh body | Cả hai đều trả về `{ "message": "Invalid credentials" }` | | |
+| 2.1 | Đăng nhập thành công với thông tin đúng | `{ "email": "user@test.com", "password": "Abc@12345" }` | HTTP 200, trả về `{ accessToken, user }`; refreshToken nằm trong HttpOnly Cookie (không lộ trong JSON) | | |
+| 2.2 | Đăng nhập thất bại — email không tồn tại | `{ "email": "notfound@test.com", "password": "Abc@12345" }` | HTTP 401, `{ "message": "Email hoặc mật khẩu không chính xác" }` | | |
+| 2.3 | Đăng nhập thất bại — sai mật khẩu | `{ "email": "user@test.com", "password": "WrongPass!" }` | HTTP 401, `{ "message": "Email hoặc mật khẩu không chính xác" }` | | |
+| 2.4 | Đăng nhập thất bại — thiếu trường email | `{ "password": "Abc@12345" }` | HTTP 422, lỗi validation | | |
+| 2.5 | Thông báo lỗi sai email và sai mật khẩu phải giống nhau | Gọi TC 2.2 và TC 2.3 rồi so sánh body | Cả hai đều trả về `{ "message": "Email hoặc mật khẩu không chính xác" }` | | |
 
 ---
 
@@ -35,9 +35,9 @@
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
-| 3.1 | Đăng xuất thành công | Header: `Authorization: Bearer <access_token>`, Body: `{ "refreshToken": "<refresh_token>" }` | HTTP 200, body `{}`, có Clear-Cookie header, refresh token bị vô hiệu hóa trong DB | | |
+| 3.1 | Đăng xuất thành công | Header: `Authorization: Bearer <access_token>`, Body: `{ "refreshToken": "<refresh_token>" }` | HTTP 200, `{ "status": "success", "message": "Đăng xuất thành công" }`, có Clear-Cookie header, `tokenVersion` tăng nên mọi token cũ bị vô hiệu hoá | | |
 | 3.2 | Đăng xuất không có token | Không có Authorization header | HTTP 401, lỗi unauthorized | | |
-| 3.3 | Dùng refresh token cũ sau khi đăng xuất | Sau TC 3.1, dùng lại `refresh_token` để refresh | HTTP 401, token đã bị thu hồi | | |
+| 3.3 | Dùng refresh token cũ sau khi đăng xuất | Sau TC 3.1, dùng lại `refresh_token` để refresh | HTTP 401, token cũ bị từ chối do `tokenVersion` đã thay đổi | | |
 
 ---
 
@@ -45,8 +45,8 @@
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
-| 4.1 | Đổi mật khẩu thành công | Header: `Authorization: Bearer <token>`, Body: `{ "oldPassword": "Abc@12345", "newPassword": "NewPass@99" }` | HTTP 200, `{ "message": "Password updated" }`, tất cả refresh token cũ bị thu hồi | | |
-| 4.2 | Đổi mật khẩu thất bại — mật khẩu cũ sai | Header: `Authorization: Bearer <token>`, Body: `{ "oldPassword": "WrongOld!", "newPassword": "NewPass@99" }` | HTTP 401, `{ "message": "Old password incorrect" }` | | |
+| 4.1 | Đổi mật khẩu thành công | Header: `Authorization: Bearer <token>`, Body: `{ "oldPassword": "Abc@12345", "newPassword": "NewPass@99" }` | HTTP 200, `{ "status": "success", "message": "Đổi mật khẩu thành công..." }`, mọi token cũ bị vô hiệu hoá do tăng `tokenVersion` | | |
+| 4.2 | Đổi mật khẩu thất bại — mật khẩu cũ sai | Header: `Authorization: Bearer <token>`, Body: `{ "oldPassword": "WrongOld!", "newPassword": "NewPass@99" }` | HTTP 401, `{ "message": "Mật khẩu cũ không chính xác" }` | | |
 | 4.3 | Đổi mật khẩu thất bại — không có token | Không có Authorization header | HTTP 401, lỗi unauthorized | | |
 | 4.4 | Đăng nhập lại bằng mật khẩu cũ sau khi đổi | Dùng mật khẩu cũ để login sau TC 4.1 | HTTP 401, đăng nhập thất bại | | |
 
@@ -57,7 +57,7 @@
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
 | 5.1 | Cập nhật tên thành công | Header: `Authorization: Bearer <token>`, Body: `{ "name": "New Name" }` | HTTP 200, trả về `User` với tên mới | | |
-| 5.2 | Cập nhật ảnh đại diện thành công | Header: `Authorization: Bearer <token>`, Body: `{ "avatarUrl": "https://example.com/avatar.png" }` | HTTP 200, trả về `User` với `avatarUrl` mới | | |
+| 5.2 | Cập nhật ảnh đại diện thành công | Header: `Authorization: Bearer <token>`, Body: `{ "avatar": "https://example.com/avatar.png" }` | HTTP 200, trả về `User` với `avatar` mới | | |
 | 5.3 | Cập nhật không có token | Không có Authorization header | HTTP 401, lỗi unauthorized | | |
 
 ---
@@ -70,7 +70,7 @@
 |-----|-------|----------------|--------------------------|------------------------|------------|
 | 6.1 | Tạo workspace thành công | Header: `Authorization: Bearer <token>`, Body: `{ "name": "My Workspace" }` | HTTP 201, trả về `Workspace`, người tạo có role OWNER | | |
 | 6.2 | Tạo workspace thất bại — tên đã tồn tại trong tài khoản | Body: `{ "name": "My Workspace" }` (tên trùng TC 6.1) | HTTP 409, `{ "message": "Workspace name already exists" }` | | |
-| 6.3 | Tạo workspace với logo | Body: `{ "name": "Logo WS", "logoUrl": "https://example.com/logo.png" }` | HTTP 201, trả về `Workspace` có `logoUrl` | | |
+| 6.3 | Tạo workspace với logo | Body: `{ "name": "Logo WS", "logo": "https://example.com/logo.png" }` | HTTP 201, trả về `Workspace` có `logo` | | |
 | 6.4 | Tạo workspace không có token | Không có Authorization header | HTTP 401, lỗi unauthorized | | |
 
 ---
@@ -152,7 +152,7 @@
 |-----|-------|----------------|--------------------------|------------------------|------------|
 | 14.1 | Tạo bài viết thành công | Header: `Authorization: Bearer <token>`, Body: `{ "workspaceId": "<id>", "title": "Test Post", "content": "Nội dung bài test", "mediaUrls": [] }` | HTTP 201, trả về `Post` với trạng thái `DRAFT` | | |
 | 14.2 | Tạo bài viết kèm ảnh | Body: `{ ..., "mediaUrls": ["https://example.com/img.jpg"] }` | HTTP 201, trả về `Post` có `mediaUrls` | | |
-| 14.3 | Tạo bài viết thiếu workspaceId | Body: `{ "title": "Test", "content": "..." }` | HTTP 400, lỗi validation | | |
+| 14.3 | Tạo bài viết thiếu workspaceId | Body: `{ "title": "Test", "content": "..." }` | HTTP 422, lỗi validation | | |
 
 ---
 
@@ -183,7 +183,7 @@
 | 17.2 | Tìm kiếm theo từ khoá | Query: `?workspaceId=<id>&keyword=test` | HTTP 200, danh sách bài có chứa "test" | | |
 | 17.3 | Lọc theo trạng thái DRAFT | Query: `?workspaceId=<id>&status=DRAFT` | HTTP 200, chỉ trả về bài có trạng thái DRAFT | | |
 | 17.4 | Phân trang | Query: `?workspaceId=<id>&page=1&limit=5` | HTTP 200, tối đa 5 bài, có trường `total` | | |
-| 17.5 | Thiếu workspaceId | Không có query param | HTTP 400, lỗi validation | | |
+| 17.5 | Thiếu workspaceId | Không có query param | HTTP 422, lỗi validation | | |
 
 ---
 
@@ -215,7 +215,7 @@
 |-----|-------|----------------|--------------------------|------------------------|------------|
 | 20.1 | Duyệt bài thành công | Path: `/posts/<id>/review` (owner token), Body: `{ "action": "APPROVE" }` | HTTP 200, `{ "status": "APPROVED" }`, creator nhận thông báo | | |
 | 20.2 | Từ chối bài thành công kèm lý do | Body: `{ "action": "REJECT", "reason": "Nội dung chưa phù hợp" }` | HTTP 200, `{ "status": "REJECTED" }`, creator nhận thông báo | | |
-| 20.3 | Từ chối không có lý do | Body: `{ "action": "REJECT" }` (không có `reason`) | HTTP 400, lỗi validation (reason bắt buộc khi REJECT) | | |
+| 20.3 | Từ chối không có lý do | Body: `{ "action": "REJECT" }` (không có `reason`) | HTTP 422, lỗi validation (reason bắt buộc khi REJECT) | | |
 | 20.4 | Duyệt bài không phải trạng thái PENDING | Bài ở trạng thái DRAFT | HTTP 400 hoặc 409, không thể review bài chưa nộp | | |
 | 20.5 | Duyệt thất bại — không phải owner | Path: `/posts/<id>/review` (content creator token) | HTTP 403, lỗi phân quyền | | |
 
@@ -308,10 +308,10 @@
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
-| 28.1 | Tạo Brand Voice mới thành công | Path: `/workspaces/<id>/brand-voice`, Body: `{ "industry": "Thời trang", "targetAudience": "Nữ 18-35", "keywords": ["trendy", "affordable"], "writingStyle": "casual" }` | HTTP 200, trả về `BrandVoice` mới tạo | | |
-| 28.2 | Cập nhật Brand Voice đã có | Body: `{ "industry": "Làm đẹp", "targetAudience": "Nữ 25-40", "keywords": ["luxury"], "writingStyle": "formal" }` | HTTP 200, trả về `BrandVoice` đã cập nhật | | |
+| 28.1 | Tạo Brand Voice mới thành công | Path: `/workspaces/<id>/brand-voice`, Body: `{ "industry": "Thời trang", "targetAudience": "Nữ 18-35", "writingStyle": "casual", "keywordsShouldUse": ["trendy", "affordable"], "keywordsAvoid": [] }` | HTTP 200, trả về `{ brandVoice }` mới tạo | | |
+| 28.2 | Cập nhật Brand Voice đã có | Body: `{ "industry": "Làm đẹp", "targetAudience": "Nữ 25-40", "writingStyle": "formal", "keywordsShouldUse": ["luxury"], "keywordsAvoid": [] }` | HTTP 200, trả về `{ brandVoice }` đã cập nhật | | |
 | 28.3 | Tạo Brand Voice thất bại — không phải owner | Path: `/workspaces/<id>/brand-voice` (member token) | HTTP 403, lỗi phân quyền | | |
-| 28.4 | Tạo Brand Voice với sampleContent | Body: `{ ..., "sampleContent": "Ví dụ nội dung mẫu" }` | HTTP 200, `BrandVoice` có `sampleContent` | | |
+| 28.4 | Tạo Brand Voice với fewShotExamples | Body: `{ ..., "fewShotExamples": ["Ví dụ nội dung mẫu"] }` | HTTP 200, `brandVoice.fewShotExamples` có dữ liệu | | |
 
 ---
 
@@ -319,8 +319,8 @@
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
-| 29.1 | Xem Brand Voice thành công | Path: `/workspaces/<id>/brand-voice` (member token) | HTTP 200, trả về `BrandVoice` | | |
-| 29.2 | Xem Brand Voice workspace chưa có | Path: `/workspaces/<new_id>/brand-voice` | HTTP 404, chưa có Brand Voice | | |
+| 29.1 | Xem Brand Voice thành công | Path: `/workspaces/<id>/brand-voice` (member token) | HTTP 200, trả về `{ brandVoice }` | | |
+| 29.2 | Xem Brand Voice workspace chưa có | Path: `/workspaces/<new_id>/brand-voice` | HTTP 200, `{ "brandVoice": null }` (chưa cấu hình) | | |
 
 ---
 

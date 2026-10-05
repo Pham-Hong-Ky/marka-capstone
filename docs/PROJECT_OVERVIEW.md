@@ -78,6 +78,7 @@ Với quỹ thời gian rộng hơn, các hạng mục sau chuyển từ Could-h
 - Đa ngôn ngữ (i18n) giao diện — chỉ tiếng Việt.
 - Ứng dụng di động — chỉ web responsive.
 - Hỗ trợ nhiều LLM provider song song trong MVP.
+- **Gửi email xác thực tài khoản (UC34) và luồng đổi email qua OTP** — dời sang Phase 5; Phase 1 đăng ký xong đăng nhập tự động, chưa gửi email xác thực.
 
 ---
 
@@ -90,7 +91,7 @@ Với quỹ thời gian rộng hơn, các hạng mục sau chuyển từ Could-h
   - Mỗi Workspace đại diện cho một thương hiệu riêng biệt.
   - Người dùng có thể tạo Workspace mới, cập nhật thông tin (tên, logo), và mời thành viên qua email (chỉ 2 vai trò để chọn: Owner, Content Creator).
   - **Phân quyền Workspace (RBAC)**: theo mô hình `(User, Workspace) -> Role` như mô tả ở mục 2.2.
-- **Hồ sơ cá nhân (User Profile)**: Đổi tên hiển thị, ảnh đại diện (upload Cloudinary/S3), thay đổi mật khẩu và đổi email (xác thực OTP qua email mới).
+- **Hồ sơ cá nhân (User Profile)**: Đổi tên hiển thị, ảnh đại diện (upload Cloudinary/S3), thay đổi mật khẩu. Luồng đổi email (xác thực OTP qua email mới) và gửi email xác thực tài khoản được dời sang Phase 5.
 
 ### 4.2. Phân hệ 2 — Thư viện & Quy trình Biên tập Nội dung
 
@@ -156,7 +157,7 @@ Ghi chú: `Failed` → Retry quay lại `Scheduled` (gọi lại API đăng bài
 
 Với Instagram, TikTok, Zalo OA: khi bấm "Đăng", hệ thống **không** gọi API thật. Thay vào đó:
 
-1. Ghi log bài đăng vào bảng `SimulatedPost` với trạng thái `Published` sau một độ trễ giả lập (2-5 giây, để mô phỏng trải nghiệm thật).
+1. Ghi nhận kết quả vào `ScheduledPost` của kênh đó (`ChannelType.SIMULATED`, `status = PUBLISHED`, `externalPostId` sinh giả) sau một độ trễ giả lập (2-5 giây, để mô phỏng trải nghiệm thật) — **không có bảng `SimulatedPost`** (D9).
 2. Giao diện hiển thị rõ nhãn **"Chế độ giả lập"** trên mọi bài đăng thuộc nhóm kênh này (không được để người dùng nhầm là đã đăng thật).
 3. Cung cấp nút **Copy nội dung nhanh** và **Tải ảnh/video** để người dùng tự đăng thủ công lên nền tảng thật nếu muốn.
 
@@ -165,7 +166,7 @@ Với Instagram, TikTok, Zalo OA: khi bấm "Đăng", hệ thống **không** g�
   - Cho phép điều chỉnh nội dung riêng biệt phù hợp với từng kênh trước khi xuất bản (`FR-SM-04`).
   - **Calendar View**: Hiển thị toàn bộ lịch trình đăng bài dưới dạng lịch tháng trực quan, hỗ trợ kéo thả để thay đổi ngày đăng (chỉ với bài `Scheduled`).
   - **Đăng bài**, thực hiện bởi **Owner** hoặc **Creator được ủy quyền**:
-    - **Lên lịch (Schedule)**: Hệ thống sử dụng Worker (BullMQ + Redis) quét và tự động kích hoạt API đăng bài khi đến giờ.
+    - **Lên lịch (Schedule)**: Hệ thống đẩy job vào **BullMQ + Redis** với độ trễ tới `scheduledAt` (delayed job). Khi tới hạn, Worker tự động kích hoạt API đăng bài. **n8n không tham gia luồng đăng bài** (chỉ dùng cho đồng bộ metrics).
     - **Đăng ngay (Publish Now)**: Gửi request đăng bài lập tức lên các API nền tảng đã chọn.
 - **Kết quả đăng bài (`FR-SM-10`, `FR-SM-11`)**: Ghi nhận trạng thái đăng bài (Thành công / Thất bại kèm mã lỗi chi tiết). Hỗ trợ nút **Thử lại (Retry)** khi đăng bài bị lỗi mà không cần soạn lại từ đầu (xem sơ đồ trạng thái mục 4.2).
 
@@ -193,7 +194,8 @@ Với Instagram, TikTok, Zalo OA: khi bấm "Đăng", hệ thống **không** g�
     | Sinh 1 ảnh (DALL-E 3)          | 10     |
     | Chấm Viral Score / 1-Click Fix | 2      |
 
-  - **Reset hàng tháng**: credit gói FREE/PRO reset về hạn mức mặc định vào đầu chu kỳ, **không cộng dồn** (use-it-or-lose-it) — cần nêu rõ trên UI để tránh khiếu nại.
+  - **Hạn mức credit theo gói (D6)**: FREE = 100, PRO = 1000, ENTERPRISE = 5000 credit/tháng. `Workspace` lưu `billingCycleStart`/`nextResetAt` làm mốc neo cho cron reset/hạ gói.
+  - **Reset hàng tháng**: credit của **cả ba gói (FREE/PRO/ENTERPRISE)** reset về `monthlyQuota` vào đầu chu kỳ, **không cộng dồn** (use-it-or-lose-it) — cần nêu rõ trên UI để tránh khiếu nại.
   - **Credit không đủ**: hệ thống chặn hành động _trước khi_ gọi API AI (kiểm tra số dư ước tính), hiển thị modal mời nạp thêm/nâng cấp gói, không cho phép âm credit.
 
 - **Thanh toán trực tuyến**:
@@ -233,7 +235,7 @@ Với Instagram, TikTok, Zalo OA: khi bấm "Đăng", hệ thống **không** g�
 
 ## 7. Yêu cầu phi chức năng (NFR) & Tuân thủ
 
-- **Hiệu năng**: API thông thường phản hồi < 500ms (p95, không tính các tác vụ AI/queue). Tác vụ AI xử lý bất đồng bộ, người dùng nhận kết quả qua polling hoặc WebSocket/SSE.
+- **Hiệu năng**: API thông thường phản hồi < 500ms (p95, không tính các tác vụ AI/queue). Tác vụ AI xử lý bất đồng bộ; **MVP dùng polling**, còn WebSocket/SSE là **Phase sau (tùy chọn)** (D20).
 - **Backup & Retention**: Backup PostgreSQL hàng ngày (tối thiểu snapshot thủ công định kỳ trong phạm vi đồ án). Audit log lưu tối thiểu 90 ngày.
 - **Bảo vệ dữ liệu cá nhân**: Thông tin cá nhân của người dùng (email, họ tên) được bảo mật nghiêm ngặt. Chỉ gửi email thông báo hệ thống khi thật sự cần thiết (mời workspace, xác nhận tài khoản, cảnh báo hết hạn gói/credit) và tuân thủ các quy định bảo mật hiện hành.
 - **Môi trường triển khai**: tối thiểu 2 môi trường — `development` và `production`; môi trường `staging` là Should-have (xem mục 3.1) nếu Phase 1-5 đúng tiến độ.

@@ -2,6 +2,8 @@
 
 > Tài liệu này mô tả toàn bộ các API endpoint của hệ thống Marka, được tổng hợp từ sequence diagram theo từng Use Case.
 > Mỗi API bao gồm: **Method & Path**, **Mô tả**, **Đầu vào**, **Xử lý nội bộ** và **Kết quả trả về**.
+>
+> **Quy ước chung**: toàn bộ API dùng thời gian **UTC (ISO-8601)** (D19). Các tham số `creatorId` (lấy từ JWT) map thẳng vào cột `Post.createdById` (D2).
 
 ---
 
@@ -29,22 +31,22 @@
 ```
 
 #### Xử lý nội bộ
-1. **Validate** định dạng email, password tại front-end trước khi gửi.
+1. **Validate** định dạng `email`, `name` và độ mạnh `password` bằng Zod schema (password tối thiểu 8 ký tự, chứa cả chữ và số).
 2. `findUserByEmail(email)` — Kiểm tra email có tồn tại trong DB chưa.
-3. `hashPassword(password)` — Mã hoá mật khẩu bằng bcrypt.
-4. `createUser(data)` — Tạo bản ghi user mới trong DB.
-5. `sendVerificationEmail()` — Gửi email xác thực đến người dùng.
-6. `createAuditLog()` — Ghi nhật ký hành động.
+3. `hashPassword(password)` — Mã hoá mật khẩu bằng bcrypt (cost ≥ 10).
+4. `createUser(data)` — Thực hiện `$transaction` tạo `User`, tạo `Workspace` mặc định (100 credit) và tạo quan hệ `WorkspaceMember` với vai trò `OWNER`.
+5. `createAuditLog()` — Ghi nhật ký hành động `USER_REGISTER`.
+6. **Auto-login**: sinh `accessToken` (15m) + `refreshToken` (7d, chứa `tokenVersion`) và đặt `refreshToken` vào HttpOnly Cookie.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Đăng ký thành công | `201 Created` | `UserDto` (thông tin user vừa tạo) |
-| ❌ Email đã tồn tại | `409 Conflict` | `{ message: "Email already exists" }` |
+| ✅ Đăng ký thành công | `201 Created` | `{ status: "success", message: "Đăng ký tài khoản thành công", data: { accessToken, user } }` (Set-Cookie: `refreshToken`) |
+| ❌ Email đã tồn tại | `409 Conflict` | `{ status: "fail", message: "Email này đã được đăng ký trong hệ thống" }` |
 
 #### Ý nghĩa
-Cho phép người dùng mới tạo tài khoản trong hệ thống. Sau khi đăng ký, email xác thực được gửi đến hộp thư. Không cho phép trùng email.
+Cho phép người dùng mới tạo tài khoản trong hệ thống. Tự động cấp một Workspace cá nhân mặc định (100 credits) và **đăng nhập tự động** để người dùng làm việc ngay. Việc gửi email xác thực (UC34) được dời sang Phase 5 và chưa nằm trong phạm vi hiện tại.
 
 ---
 
@@ -67,21 +69,60 @@ Cho phép người dùng mới tạo tài khoản trong hệ thống. Sau khi đ
 ```
 
 #### Xử lý nội bộ
-1. **Validate** định dạng email, password tại front-end.
+1. **Validate** định dạng email, password bằng Zod schema.
 2. `findUserByEmail(email)` — Tìm user theo email.
-3. `verifyPassword(password, hash)` — So sánh mật khẩu nhập với hash trong DB.
-4. Tạo `access_token` + `refresh_token` và trả về `AuthSessionDto`.
+3. `verifyPassword(password, hash)` — So sánh mật khẩu nhập với bcrypt hash.
+4. Kiểm tra tài khoản có bị khóa không (`user.isSuspended`).
+5. Tạo `accessToken` (15m) và `refreshToken` (7d, chứa `tokenVersion`).
+6. Đặt `refreshToken` vào **HttpOnly, Secure, SameSite Cookie** chống XSS.
+7. `createAuditLog()` — Ghi nhật ký `USER_LOGIN`.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Đăng nhập thành công | `200 OK` | `AuthSessionDto` (access token, refresh token, user info) |
-| ❌ Sai email (không tìm thấy user) | `401 Unauthorized` | `{ message: "Invalid credentials" }` |
-| ❌ Sai mật khẩu | `401 Unauthorized` | `{ message: "Invalid credentials" }` |
+| ✅ Đăng nhập thành công | `200 OK` | `{ status: "success", data: { accessToken, user } }` (Set-Cookie: `refreshToken`) |
+| ❌ Sai email hoặc mật khẩu | `401 Unauthorized` | `{ status: "fail", message: "Email hoặc mật khẩu không chính xác" }` |
+| ❌ Tài khoản bị khóa | `403 Forbidden` | `{ status: "fail", message: "Tài khoản của bạn đã bị tạm khóa" }` |
 
 #### Ý nghĩa
-Xác thực danh tính người dùng. Trả về session token dùng cho các request tiếp theo. Thông báo lỗi được giữ chung (không tiết lộ sai email hay sai mật khẩu) để tránh enumeration attack.
+Xác thực danh tính người dùng. Trả về access token cho bộ nhớ frontend và lưu refresh token an toàn tuyệt đối trong HttpOnly cookie.
+
+---
+
+### UC02b — Google OAuth Login (Đăng nhập bằng Google)
+
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `POST` |
+| **Path** | `/auth/google` |
+| **Controller** | Auth Controller |
+| **Service** | Auth Service |
+| **Actors** | Người dùng có tài khoản Google |
+
+#### Đầu vào (Request Body)
+```json
+{
+  "idToken": "string"
+}
+```
+
+#### Xử lý nội bộ
+1. Xác thực `idToken` thông qua `googleClient.verifyIdToken({ audience })`.
+2. Trích xuất `email`, `name`, `picture`, `googleId (sub)`.
+3. Tìm user trong DB theo email:
+   - Nếu chưa có: Tạo mới `User` + `Workspace` mặc định + `WorkspaceMember` (`OWNER`).
+   - Nếu đã có: Kiểm tra `isSuspended` và liên kết `googleId`, cập nhật `avatar` nếu cần.
+4. Sinh `accessToken` và `refreshToken` (lưu vào HttpOnly cookie).
+5. Ghi `AuditLog` (`USER_GOOGLE_LOGIN`).
+
+#### Kết quả trả về
+
+| Trường hợp | HTTP Status | Body |
+|---|---|---|
+| ✅ Đăng nhập Google thành công | `200 OK` | `{ status: "success", data: { accessToken, user } }` (Set-Cookie: `refreshToken`) |
+| ❌ Token Google không hợp lệ | `401 Unauthorized` | `{ status: "fail", message: "Xác thực tài khoản Google không hợp lệ" }` |
+| ❌ Tài khoản bị tạm khóa | `403 Forbidden` | `{ status: "fail", message: "Tài khoản của bạn đã bị tạm khóa" }` |
 
 ---
 
@@ -95,27 +136,24 @@ Xác thực danh tính người dùng. Trả về session token dùng cho các r
 | **Service** | Auth Service |
 | **Actors** | Admin / Workspace owner / Content creator (đã đăng nhập) |
 
-#### Đầu vào (Request Body / Header)
-```json
-{
-  "refreshToken": "string"
-}
-```
-> `userId` lấy từ JWT token trong header `Authorization`.
+#### Đầu vào (Header / Cookie)
+- Header: `Authorization: Bearer <accessToken>`
+- Cookie: `refreshToken`
 
 #### Xử lý nội bộ
-1. `revokeRefreshToken(refreshToken)` — Đánh dấu refresh token đã bị thu hồi trong DB (UPDATE `refresh_tokens`).
-2. `createAuditLog()` — Ghi nhật ký hành động.
-3. Xoá cookie trên response.
+1. Trích xuất `userId` từ token qua middleware `requireAuth`.
+2. `incrementTokenVersion(userId)` — Tăng `tokenVersion` lên 1 để lập tức vô hiệu hóa mọi phiên Refresh Token cũ trên tất cả thiết bị.
+3. `createAuditLog()` — Ghi nhật ký `USER_LOGOUT`.
+4. `clearRefreshTokenCookie(res)` — Xoá cookie `refreshToken` trên trình duyệt.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Đăng xuất thành công | `200 OK` | `{}` (kèm Clear-Cookie header) |
+| ✅ Đăng xuất thành công | `200 OK` | `{ status: "success", message: "Đăng xuất thành công" }` (Clear-Cookie: `refreshToken`) |
 
 #### Ý nghĩa
-Kết thúc phiên làm việc của người dùng. Vô hiệu hoá refresh token trên server để ngăn tái sử dụng. Front-end xoá token khỏi store và chuyển về trang login.
+Kết thúc phiên làm việc an toàn của người dùng.
 
 ---
 
@@ -127,64 +165,28 @@ Kết thúc phiên làm việc của người dùng. Vô hiệu hoá refresh tok
 | **Path** | `/auth/refresh-token` |
 | **Controller** | Auth Controller |
 | **Service** | Auth Service |
-| **Actors** | Admin / Workspace owner / Content creator (đã đăng nhập) |
+| **Actors** | Client có Refresh Token còn hiệu lực |
 
-#### Đầu vào (Request Body)
-```json
-{
-  "refreshToken": "string"
-}
-```
+#### Đầu vào (Cookie / Request Body)
+- Cookie: `refreshToken` (ưu tiên) hoặc Request Body `{ "refreshToken": "string" }`
 
 #### Xử lý nội bộ
-1. `verifyRefreshToken(refreshToken)` — Xác thực refresh token (kiểm tra hết hạn, bị thu hồi).
-2. `findUserById(userId)` — Lấy thông tin user từ payload token.
-3. `generateAccessToken(user)` — Tạo access token mới.
-4. `generateRefreshToken(user)` — Tạo refresh token mới (rotation).
-5. `revokeRefreshToken(oldRefreshToken)` — Thu hồi refresh token cũ.
+1. `verifyRefreshToken(token)` — Giải mã và kiểm tra chữ ký JWT.
+2. `findUserById(decoded.id)` — Kiểm tra `tokenVersion` của user trong database có khớp với `tokenVersion` trong token không.
+3. Kiểm tra trạng thái tài khoản (`isSuspended`).
+4. Cấp phát cặp token mới (`accessToken` & `refreshToken` xoay vòng).
+5. Gán cookie `refreshToken` mới.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Làm mới thành công | `200 OK` | `{ accessToken, refreshToken }` |
-| ❌ Refresh token không hợp lệ / hết hạn | `401 Unauthorized` | `{ message: "Invalid or expired refresh token" }` |
+| ✅ Làm mới thành công | `200 OK` | `{ status: "success", message: "Làm mới token thành công", data: { accessToken } }` |
+| ❌ Token hết hạn / thu hồi | `401 Unauthorized` | `{ status: "fail", message: "Refresh token không hợp lệ hoặc đã hết hạn" }` |
+| ❌ Tài khoản bị khóa | `403 Forbidden` | `{ status: "fail", message: "Tài khoản đã bị tạm khóa" }` |
 
 #### Ý nghĩa
-Làm mới access token khi hết hạn mà không cần đăng nhập lại. Áp dụng cơ chế **token rotation** (mỗi lần refresh sẽ cấp refresh token mới và thu hồi token cũ) để tăng bảo mật.
-
----
-
-### UC34 — Verify Email (Xác thực email)
-
-| Thuộc tính | Giá trị |
-|---|---|
-| **Method** | `GET` |
-| **Path** | `/auth/verify-email` |
-| **Controller** | Auth Controller |
-| **Service** | Auth Service |
-| **Actors** | Người dùng vừa đăng ký (qua link email) |
-
-#### Đầu vào (Query Params)
-| Param | Kiểu | Mô tả |
-|---|---|---|
-| `token` | `string` | Token xác thực email (bắt buộc) |
-
-#### Xử lý nội bộ
-1. `findUserByVerificationToken(token)` — Tìm user theo verification token.
-2. **Nếu không tìm thấy hoặc token đã dùng**: Trả về lỗi.
-3. `updateUser(userId, { emailVerified: true, verificationToken: null })` — Đánh dấu email đã xác thực.
-4. `createAuditLog()` — Ghi nhật ký.
-
-#### Kết quả trả về
-
-| Trường hợp | HTTP Status | Body |
-|---|---|---|
-| ✅ Xác thực thành công | `200 OK` | `{ message: "Email verified successfully" }` |
-| ❌ Token không hợp lệ / đã dùng | `400 Bad Request` | `{ message: "Invalid or expired verification token" }` |
-
-#### Ý nghĩa
-Xác thực email sau khi đăng ký. Link xác thực được gửi trong email ở UC01. Sau khi xác thực, user có thể sử dụng đầy đủ tính năng hệ thống.
+Làm mới access token khi hết hạn tự động dưới nền (silent refresh) mà không làm gián đoạn trải nghiệm của người dùng.
 
 ---
 
@@ -212,18 +214,49 @@ Xác thực email sau khi đăng ký. Link xác thực được gửi trong emai
 2. `verifyPassword(oldPassword, user.passwordHash)` — Kiểm tra mật khẩu cũ.
 3. `hashPassword(newPassword)` — Mã hoá mật khẩu mới.
 4. `updateUser(userId, { passwordHash })` — Cập nhật mật khẩu trong DB.
-5. `revokeAllRefreshTokens(userId)` — Thu hồi tất cả refresh token cũ (bắt buộc đăng nhập lại trên các thiết bị khác).
+5. `incrementTokenVersion(userId)` — Tăng `tokenVersion` lên 1, lập tức vô hiệu hoá mọi access/refresh token cũ (buộc đăng nhập lại trên tất cả thiết bị khác).
 6. `createAuditLog()` — Ghi nhật ký hành động.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Đổi mật khẩu thành công | `200 OK` | `{ message: "Password updated" }` |
-| ❌ Mật khẩu cũ không đúng | `401 Unauthorized` | `{ message: "Old password incorrect" }` |
+| ✅ Đổi mật khẩu thành công | `200 OK` | `{ status: "success", message: "Đổi mật khẩu thành công. Vui lòng đăng nhập lại trên các thiết bị khác" }` |
+| ❌ Mật khẩu cũ không đúng | `401 Unauthorized` | `{ status: "fail", message: "Mật khẩu cũ không chính xác" }` |
 
 #### Ý nghĩa
 Cho phép người dùng tự đổi mật khẩu. Sau khi đổi, tất cả phiên đăng nhập khác bị vô hiệu hoá nhằm bảo mật tài khoản.
+
+---
+
+### — Get Profile (Xem thông tin cá nhân hiện tại)
+
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `GET` |
+| **Path** | `/users/me` |
+| **Controller** | User Controller |
+| **Service** | User Service |
+| **Actors** | Admin / Workspace owner / Content creator (đã đăng nhập) |
+
+#### Đầu vào (Header)
+- Header: `Authorization: Bearer <accessToken>`
+> `userId` lấy từ JWT token.
+
+#### Xử lý nội bộ
+1. `requireAuth` — Xác thực access token và lấy `userId`.
+2. `findUserById(userId)` — Lấy thông tin user kèm danh sách workspace mà user tham gia.
+3. Trả về hồ sơ cá nhân.
+
+#### Kết quả trả về
+
+| Trường hợp | HTTP Status | Body |
+|---|---|---|
+| ✅ Thành công | `200 OK` | `{ status: "success", message: "...", data: { id, email, name, avatar, systemRole, emailVerified, workspaces[] } }` |
+| ❌ Chưa đăng nhập / token hết hạn | `401 Unauthorized` | `{ status: "fail", message: "Vui lòng đăng nhập để tiếp tục" }` |
+
+#### Ý nghĩa
+Trả về hồ sơ cá nhân của người dùng đang đăng nhập, kèm danh sách workspace và vai trò tương ứng. Dùng để khởi tạo state người dùng và workspace switcher ở client.
 
 ---
 
@@ -241,7 +274,7 @@ Cho phép người dùng tự đổi mật khẩu. Sau khi đổi, tất cả ph
 ```json
 {
   "name": "string",
-  "avatarUrl": "string (optional)"
+  "avatar": "string (optional)"
 }
 ```
 
@@ -278,7 +311,7 @@ Cho phép người dùng cập nhật tên hiển thị và ảnh đại diện.
 ```json
 {
   "name": "string",
-  "logoUrl": "string (optional)"
+  "logo": "string (optional)"
 }
 ```
 > `userId` (owner) lấy từ JWT token.
@@ -317,7 +350,7 @@ Tạo một không gian làm việc mới. Người tạo tự động trở th�
 ```json
 {
   "name": "string (optional)",
-  "logoUrl": "string (optional)"
+  "logo": "string (optional)"
 }
 ```
 
@@ -406,7 +439,7 @@ Trả về toàn bộ thành viên đang hoạt động và các lời mời ch�
 ```json
 {
   "email": "string",
-  "role": "ADMIN | MEMBER"
+  "role": "OWNER | CONTENT_CREATOR"
 }
 ```
 
@@ -605,7 +638,7 @@ Cho phép Workspace owner thay đổi vai trò thành viên. Bảo vệ workspac
   "mediaUrls": ["string"] 
 }
 ```
-> `creatorId` lấy từ JWT token.
+> `creatorId` lấy từ JWT token (map thẳng vào cột `Post.createdById` — D2).
 
 #### Xử lý nội bộ
 1. **Validate** dữ liệu đầu vào tại front-end.
@@ -677,14 +710,14 @@ Hỗ trợ cả **lưu thủ công** và **auto-save**. Chỉ cho phép sửa kh
 
 #### Xử lý nội bộ
 1. `findPostById(postId)` — Lấy thông tin bài viết.
-2. `findApprovalHistoryByPost(postId)` — Lấy lịch sử duyệt bài.
+2. `findAuditLogsByPost(postId)` — Lấy lịch sử duyệt bài từ `audit_logs` (lọc `targetType="Post"`, `targetId=postId`).
 3. `findScheduledPostsByPost(postId)` — Lấy danh sách lịch đăng bài đã đặt.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Thành công | `200 OK` | `{ post, history: ApprovalHistory[], schedules: ScheduledPost[] }` |
+| ✅ Thành công | `200 OK` | `{ post, history: AuditLog[], schedules: ScheduledPost[] }` |
 
 #### Ý nghĩa
 Trả về toàn bộ thông tin chi tiết bài viết bao gồm: nội dung, lịch sử duyệt và các lịch đăng bài liên quan.
@@ -707,7 +740,7 @@ Trả về toàn bộ thông tin chi tiết bài viết bao gồm: nội dung, l
 | `workspaceId` | `string` | ID workspace (bắt buộc) |
 | `keyword` | `string` | Từ khoá tìm kiếm |
 | `status` | `string` | Lọc theo trạng thái (DRAFT, PENDING, APPROVED, ...) |
-| `creatorId` | `string` | Lọc theo người tạo |
+| `creatorId` | `string` | Lọc theo người tạo (map vào cột `Post.createdById` — D2) |
 | `page` | `number` | Trang hiện tại |
 | `limit` | `number` | Số bản ghi mỗi trang |
 
@@ -737,18 +770,20 @@ Trả về toàn bộ thông tin chi tiết bài viết bao gồm: nội dung, l
 
 #### Xử lý nội bộ
 1. `findPostById(postId)` — Lấy thông tin và trạng thái bài viết.
-2. **Nếu trạng thái `SCHEDULED`**: Huỷ job trong hàng đợi `BullMQ` trước (`cancelScheduledJob(postId)`).
-3. `softDeletePost(postId)` — Đánh dấu `deletedAt = now()` (xoá mềm).
-4. `createAuditLog()` — Ghi nhật ký.
+2. **Nếu trạng thái `PUBLISHED`**: Từ chối xoá — bài đã đăng chỉ được **archive** (`ARCHIVED`), trả `403 Forbidden` (D16).
+3. **Nếu trạng thái `SCHEDULED`**: Huỷ job trong hàng đợi `BullMQ` trước (`cancelScheduledJob(postId)`).
+4. `softDeletePost(postId)` — Đánh dấu `deletedAt = now()` (xoá mềm).
+5. `createAuditLog()` — Ghi nhật ký.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
 | ✅ Xoá thành công | `200 OK` | `{ success: true }` |
+| ❌ Bài đã PUBLISHED | `403 Forbidden` | `{ message: "Published post can only be archived" }` |
 
 #### Ý nghĩa
-Xoá mềm bài viết. Nếu bài đang **lên lịch**, job trong queue sẽ bị huỷ trước để tránh đăng bài sau khi xoá.
+Xoá mềm bài viết. Bài đã **PUBLISHED** không được xoá mà chỉ có thể chuyển sang trạng thái **ARCHIVED**. Nếu bài đang **lên lịch**, job trong queue sẽ bị huỷ trước để tránh đăng bài sau khi xoá.
 
 ---
 
@@ -845,15 +880,15 @@ Chuyển bài viết từ DRAFT sang trạng thái **chờ duyệt (PENDING)**. 
 
 #### Xử lý nội bộ — Trường hợp APPROVE
 1. `updatePostStatus(postId, APPROVED, details)` — Cập nhật trạng thái.
-2. `createApprovalHistory(postId, reviewerId, APPROVE)` — Lưu lịch sử duyệt.
+2. `createAuditLog({ action: "POST_APPROVED", targetType: "Post", targetId: postId })` — Lưu lịch sử duyệt vào `audit_logs`.
 3. `createNotification(creatorId, POST_APPROVED)` — Thông báo cho người tạo.
-4. `createAuditLog()` — Ghi nhật ký.
+4. Xác nhận hoàn tất (audit log đã ghi ở bước 2).
 
 #### Xử lý nội bộ — Trường hợp REJECT
 1. `updatePostStatus(postId, REJECTED, details)` — Cập nhật trạng thái.
-2. `createApprovalHistory(postId, reviewerId, REJECT, reason)` — Lưu lịch sử từ chối kèm lý do.
+2. `createAuditLog({ action: "POST_REJECTED", targetType: "Post", targetId: postId, reason })` — Lưu lịch sử từ chối kèm lý do vào `audit_logs`.
 3. `createNotification(creatorId, POST_REJECTED)` — Thông báo cho người tạo.
-4. `createAuditLog()` — Ghi nhật ký.
+4. Xác nhận hoàn tất (audit log đã ghi ở bước 2).
 
 #### Kết quả trả về
 
@@ -863,7 +898,7 @@ Chuyển bài viết từ DRAFT sang trạng thái **chờ duyệt (PENDING)**. 
 | ✅ Từ chối thành công | `200 OK` | `{ status: "REJECTED" }` |
 
 #### Ý nghĩa
-Workspace owner ra quyết định phê duyệt hoặc từ chối bài viết. Kết quả được lưu lại trong `approval_histories` để theo dõi.
+Workspace owner ra quyết định phê duyệt hoặc từ chối bài viết. Kết quả được lưu lại trong `audit_logs` (đã gộp ApprovalHistory qua cột `reason`) để theo dõi. Tham số `creatorId` truyền cho `createNotification` map thẳng vào cột `Post.createdById` (D2).
 
 ---
 
@@ -892,26 +927,24 @@ Workspace owner ra quyết định phê duyệt hoặc từ chối bài viết. 
 }
 ```
 
-#### Xử lý nội bộ
+#### Xử lý nội bộ (**bất đồng bộ** — D10)
 1. `findWorkspaceById(workspaceId)` — Kiểm tra số dư credit của workspace.
-2. `findBrandVoiceByWorkspace(workspaceId)` — Lấy cấu hình Brand Voice để đưa vào prompt.
-3. `generateText(prompt)` — Gọi **OpenAI API** sinh nội dung.
-4. **Nếu thành công**:
-   - `deductCredit(workspaceId, cost)` — Trừ credit.
-   - `createAiGeneration({ status: SUCCESS })` — Lưu lịch sử generation.
-   - `createAuditLog()` — Ghi nhật ký.
-5. **Nếu thất bại**:
-   - `createAiGeneration({ status: FAILED })` — Lưu lịch sử generation với trạng thái lỗi.
+2. `getWorkspaceBrandVoice(workspaceId)` — Lấy cấu hình Brand Voice (cột JSON `workspaces.brandVoice`) để đưa vào prompt.
+3. `enqueueContentGenerationJob(data)` — Đẩy job vào hàng đợi **BullMQ** `content-generation-queue`, trả về ngay `jobId` (chưa gọi OpenAI).
+4. `createAiGeneration({ status, jobId })` — Lưu lịch sử generation ở trạng thái chờ xử lý.
+5. `createAuditLog()` — Ghi nhật ký.
+6. **Worker** (chạy nền) mới gọi `generateText(prompt)` → **OpenAI API**; khi thành công: `deductCredit(workspaceId, cost)` + cập nhật `AiGeneration` (`status = SUCCESS`); khi thất bại: cập nhật `AiGeneration` (`status = FAILED`).
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Sinh nội dung thành công | `200 OK` | `{ generationId, content: string }` |
-| ❌ Lỗi từ OpenAI | `502 Bad Gateway` | `{ message: "AI generation failed" }` |
+| ✅ Đã tiếp nhận yêu cầu | `202 Accepted` | `{ jobId, generationId }` |
+
+> Kết quả sinh nội dung do worker xử lý nền; client theo dõi qua `generationId` (polling/in-app notification). Lỗi từ OpenAI được ghi nhận bất đồng bộ (`AiGeneration.status = FAILED`), không trả về ngay ở request.
 
 #### Ý nghĩa
-Tích hợp OpenAI để sinh nội dung marketing theo brand voice của workspace. Mỗi lần sinh thành công sẽ trừ credit. Toàn bộ lịch sử generation (cả thành công lẫn thất bại) đều được lưu lại.
+Tích hợp OpenAI để sinh nội dung marketing theo brand voice của workspace. Yêu cầu được xử lý **bất đồng bộ** qua `content-generation-queue`: API trả `202 Accepted` + `jobId`, worker mới gọi OpenAI. Mỗi lần sinh thành công sẽ trừ credit. Toàn bộ lịch sử generation (cả thành công lẫn thất bại) đều được lưu lại.
 
 ---
 
@@ -960,17 +993,16 @@ Hỗ trợ **2 kịch bản**:
 {
   "workspaceId": "string",
   "pageId": "string",
-  "pageAccessToken": "string",
-  "appId": "string",
-  "appSecret": "string"
+  "pageAccessToken": "string"
 }
 ```
+> **App ID/Secret không truyền trong request và không lưu DB**: lấy từ biến môi trường `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` (D13).
 
 ##### Xử lý nội bộ
-1. `verifyPageAccessToken(pageId, accessToken)` — Gọi **Facebook API** để xác thực token.
+1. `verifyPageAccessToken(pageId, pageAccessToken)` — Gọi **Facebook API** (App ID/Secret đọc từ env `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET`) để xác thực token.
 2. **Nếu token không hợp lệ**: Ghi log thất bại, trả về lỗi.
-3. `encryptToken(accessToken)`, `encryptSecret(appSecret)` — Mã hoá thông tin nhạy cảm trước khi lưu.
-4. `upsertChannelConnection({ platform: FB, encryptedToken, appId, ... })` — Lưu kết nối (INSERT hoặc UPDATE nếu đã tồn tại).
+3. `encryptToken(pageAccessToken)` — Mã hoá **Page Access Token** trước khi lưu.
+4. `upsertChannelConnection({ platform: FB, pageId, accessToken: encryptedToken, ... })` — Lưu kết nối (INSERT hoặc UPDATE nếu đã tồn tại); Page Token đã mã hoá lưu vào cột `ChannelConnection.accessToken`.
 5. `createAuditLog(CONNECT_SUCCESS)` — Ghi nhật ký.
 
 ##### Kết quả trả về
@@ -1007,7 +1039,7 @@ Hỗ trợ **2 kịch bản**:
 | ✅ Kết nối giả lập thành công | `201 Created` | `ConnectionRecord` |
 
 #### Ý nghĩa
-Cho phép kết nối tài khoản mạng xã hội thật hoặc tạo kênh giả lập phục vụ demo/kiểm thử mà không cần tài khoản Facebook thật.
+Cho phép kết nối tài khoản mạng xã hội thật hoặc tạo kênh giả lập phục vụ demo/kiểm thử mà không cần tài khoản Facebook thật. Facebook thật chỉ cần `pageId` + `pageAccessToken`; `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET` nằm ở biến môi trường, chỉ `pageAccessToken` được mã hoá AES-256 lưu trong `ChannelConnection.accessToken` (D13).
 
 ---
 
@@ -1049,7 +1081,7 @@ Ngắt liên kết mạng xã hội. Tất cả lịch đăng bài sắp tới c
 | **Path** | `/posts/:id/schedule` |
 | **Controller** | Post Controller |
 | **Service** | Post Service |
-| **Actors** | Workspace owner / Admin |
+| **Actors** | Workspace owner / Content creator |
 
 #### Đầu vào
 - **Path param**: `id` — ID bài viết (phải ở trạng thái **APPROVED**)
@@ -1067,11 +1099,12 @@ Ngắt liên kết mạng xã hội. Tất cả lịch đăng bài sắp tới c
 
 #### Xử lý nội bộ
 1. `findPostById(postId)` — Xác nhận bài viết ở trạng thái APPROVED.
-2. **Loop qua từng kênh được chọn**:
+2. `findWorkspaceMember(workspaceId, actorId)` — Kiểm tra quyền đăng (D11): **Owner** luôn được; **Content creator** chỉ được lên lịch khi `WorkspaceMember.allowDirectPublish = true`; nếu không, trả `403 Forbidden`.
+3. **Loop qua từng kênh được chọn**:
    - `createScheduledPost(data)` — Tạo bản ghi lịch đăng (INSERT vào `scheduled_posts`).
    - `enqueuePublishJob(scheduledPostId, runAt)` — Đẩy job vào **BullMQ** với thời gian trì hoãn tương ứng.
-3. `updatePostStatus(postId, SCHEDULED)` — Cập nhật trạng thái bài viết thành SCHEDULED.
-4. `createAuditLog()` — Ghi nhật ký.
+4. `updatePostStatus(postId, SCHEDULED)` — Cập nhật trạng thái bài viết thành SCHEDULED.
+5. `createAuditLog()` — Ghi nhật ký.
 
 #### Kết quả trả về
 
@@ -1166,23 +1199,20 @@ Huỷ một lịch đăng bài cụ thể. Job tương ứng trong BullMQ sẽ b
 }
 ```
 
-#### Xử lý nội bộ
+#### Xử lý nội bộ (**bất đồng bộ** — D10)
 1. `findPostById(postId)` — Lấy bài viết (APPROVED).
-2. `findChannelById(channelId)` — Lấy thông tin kênh Facebook.
-3. `publishToFacebook(pageToken, content)` — Gọi **Facebook Graph API** đăng bài.
-4. **Nếu thành công**:
-   - `updatePostStatus(postId, PUBLISHED)` — Cập nhật trạng thái.
-   - `createAuditLog()` — Ghi nhật ký.
-5. **Nếu thất bại**:
-   - `updatePostStatus(postId, FAILED, errorMsg)` — Ghi nhận thất bại.
-   - `createAuditLog()` — Ghi nhật ký.
+2. `findWorkspaceMember(workspaceId, actorId)` — Kiểm tra quyền đăng (D11): **Owner** luôn được; **Content creator** chỉ được đăng khi `WorkspaceMember.allowDirectPublish = true`; nếu không, trả `403 Forbidden`.
+3. `findChannelById(channelId)` — Lấy thông tin kênh Facebook.
+4. `enqueuePublishJob(scheduledPostId, runAt = now)` — Đẩy job vào hàng đợi **BullMQ** `publishing-queue`, trả về ngay `jobId` (chưa gọi Facebook).
+5. `createAuditLog()` — Ghi nhật ký.
+6. **Worker** (chạy nền) mới gọi `publishToFacebook(pageToken, content)` → **Facebook Graph API**; khi thành công: `updatePostStatus(postId, PUBLISHED)`; khi thất bại: `updatePostStatus(postId, FAILED, errorMsg)`.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Đăng bài thành công | `200 OK` | `Post` (trạng thái PUBLISHED) |
-| ❌ Lỗi Facebook API | `502 Bad Gateway` | `{ message: "Publish failed" }` |
+| ✅ Đã tiếp nhận yêu cầu | `202 Accepted` | `{ jobId }` (đăng bài bất đồng bộ) |
+| ❌ Không có quyền đăng trực tiếp | `403 Forbidden` | `{ message: "Direct publish not allowed" }` |
 
 ---
 
@@ -1207,22 +1237,23 @@ Huỷ một lịch đăng bài cụ thể. Job tương ứng trong BullMQ sẽ b
 {
   "industry": "string",
   "targetAudience": "string",
-  "keywords": ["string"],
   "writingStyle": "string",
-  "sampleContent": "string (optional)"
+  "keywordsShouldUse": ["string"],
+  "keywordsAvoid": ["string"],
+  "fewShotExamples": ["string (optional)"]
 }
 ```
 
 #### Xử lý nội bộ
-1. `findBrandVoiceByWorkspace(workspaceId)` — Kiểm tra brand voice đã tồn tại chưa.
-2. `upsertBrandVoiceRecord(workspaceId, data)` — INSERT nếu chưa có, UPDATE nếu đã có.
+1. `findWorkspaceById(workspaceId)` — Lấy workspace hiện tại (kiểm tra đã có `brandVoice` chưa).
+2. `updateWorkspaceBrandVoice(workspaceId, data)` — Ghi/cập nhật **cột JSON `brandVoice`** của bảng `workspaces` (mỗi workspace 1 cấu hình).
 3. `createAuditLog()` — Ghi nhật ký.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Lưu thành công (tạo mới hoặc cập nhật) | `200 OK` | `BrandVoice` |
+| ✅ Lưu thành công (tạo mới hoặc cập nhật) | `200 OK` | `{ brandVoice }` |
 
 #### Ý nghĩa
 Dùng một endpoint duy nhất (`PUT` = upsert) để xử lý cả tạo mới lẫn cập nhật Brand Voice. Brand Voice được sử dụng như context khi sinh nội dung bằng AI (UC06).
@@ -1243,13 +1274,13 @@ Dùng một endpoint duy nhất (`PUT` = upsert) để xử lý cả tạo mới
 - **Path param**: `id` — ID workspace
 
 #### Xử lý nội bộ
-1. `findBrandVoiceByWorkspace(workspaceId)` — Lấy cấu hình Brand Voice.
+1. `getWorkspaceBrandVoice(workspaceId)` — Đọc cột JSON `brandVoice` của bảng `workspaces`.
 
 #### Kết quả trả về
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Thành công | `200 OK` | `BrandVoice` |
+| ✅ Thành công | `200 OK` | `{ brandVoice }` (có thể `null` nếu workspace chưa cấu hình) |
 
 ---
 
@@ -1303,13 +1334,13 @@ Bao gồm **2 luồng song song**: Tạo đơn hàng + Webhook xác nhận thanh
 | **Path** | `/payos/webhook` |
 | **Actors** | PayOS (bên thứ ba gọi vào) |
 
-##### Xử lý nội bộ
-1. `verifyPayosSignature()` — Xác thực chữ ký webhook để tránh giả mạo.
-2. `findOrderByCode(orderCode)` — Tìm đơn hàng.
-3. `updateOrderStatus(orderCode, PAID)` — Cập nhật trạng thái đơn.
-4. `addCredit(workspaceId, creditAmount)` — Cộng credit vào workspace (UPDATE `workspaces` + INSERT `credit_transactions`).
-5. `createNotification(ownerId, ORDER_COMPLETED)` — Thông báo nạp tiền thành công.
-6. `createAuditLog()` — Ghi nhật ký.
+##### Xử lý nội bộ (idempotent — D12)
+1. `verifyPayosSignature()` — **Service** xác thực chữ ký webhook để tránh giả mạo.
+2. **Transaction + cập nhật atomic có điều kiện**: `updateMany({ where: { orderCode, status: 'PENDING' }, data: { status: 'PAID' } })` — chỉ chuyển `PENDING → PAID` khi đơn còn ở trạng thái `PENDING` (khóa idempotency là `orderCode`).
+3. **Chỉ khi update thành công** (`count > 0`): `addCredit(workspaceId, creditAmount)` — Cộng credit vào workspace (UPDATE `workspaces` + INSERT `credit_transactions`).
+4. `createNotification(ownerId, ORDER_COMPLETED)` — Thông báo nạp tiền thành công.
+5. `createAuditLog()` — Ghi nhật ký.
+6. **Nếu update trả `count = 0`** (PayOS retry / đơn không còn `PENDING`): bỏ qua cộng credit, trả `200 OK` (idempotent, không cộng trùng).
 
 ##### Kết quả trả về
 
@@ -1333,7 +1364,7 @@ Bao gồm **2 luồng song song**: Tạo đơn hàng + Webhook xác nhận thanh
 
 | Trường hợp | HTTP Status | Body |
 |---|---|---|
-| ✅ Thành công | `200 OK` | `{ status: "PENDING | PAID | FAILED" }` |
+| ✅ Thành công | `200 OK` | `{ status: "PENDING | PAID | CANCELLED" }` |
 
 #### Ý nghĩa (toàn bộ UC30)
 Luồng thanh toán QR code qua PayOS. Front-end hiển thị QR và **polling** mỗi 5 giây để kiểm tra trạng thái. PayOS tự động gọi webhook sau khi khách chuyển khoản thành công. Credit được cộng ngay vào workspace khi webhook xác nhận.
@@ -1495,7 +1526,7 @@ Trả về danh sách thông báo của user kèm số lượng chưa đọc. H�
 
 ---
 
-### UC42 — List Credit Packages (Xem danh sách gói credit)
+### UC47 — List Credit Packages (Xem danh sách gói credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1525,7 +1556,7 @@ Trả về danh sách gói credit để hiển thị trên trang nạp tiền. A
 
 ---
 
-### UC43 — Create Credit Package (Tạo gói credit mới)
+### UC48 — Create Credit Package (Tạo gói credit mới)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1564,7 +1595,7 @@ System Admin tạo gói credit mới để người dùng có thể mua. Mỗi g
 
 ---
 
-### UC44 — Update Credit Package (Cập nhật gói credit)
+### UC49 — Update Credit Package (Cập nhật gói credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1605,7 +1636,7 @@ Cho phép Admin chỉnh sửa tên, mô tả, giá tiền, số credit, thứ t�
 
 ---
 
-### UC45 — Delete Credit Package (Xoá gói credit)
+### UC50 — Delete Credit Package (Xoá gói credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1635,7 +1666,7 @@ Xoá mềm gói credit. Gói đã xoá sẽ không hiển thị cho người dù
 
 ---
 
-### UC46 — View Credit Balance & History (Xem số dư và lịch sử credit)
+### UC51 — View Credit Balance & History (Xem số dư và lịch sử credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1706,10 +1737,11 @@ Thực hiện đăng bài tự động theo lịch đã đặt. Hỗ trợ cả 
 |---|---|---|---|
 | UC01 | POST | `/auth/register` | Đăng ký tài khoản |
 | UC02 | POST | `/auth/login` | Đăng nhập |
+| UC02b | POST | `/auth/google` | Đăng nhập bằng Google OAuth |
 | UC03 | POST | `/auth/logout` | Đăng xuất |
 | UC33 | POST | `/auth/refresh-token` | Làm mới access token |
-| UC34 | GET | `/auth/verify-email` | Xác thực email |
 | UC04 | PATCH | `/users/me/password` | Đổi mật khẩu |
+| — | GET | `/users/me` | Xem thông tin cá nhân hiện tại |
 | UC32 | PATCH | `/users/me` | Cập nhật hồ sơ cá nhân |
 | UC35 | GET | `/workspaces` | Xem danh sách workspace |
 | UC16 | POST | `/workspaces` | Tạo workspace |
@@ -1743,11 +1775,11 @@ Thực hiện đăng bài tự động theo lịch đã đặt. Hỗ trợ cả 
 | UC30a | POST | `/workspaces/:id/orders` | Tạo đơn mua credit |
 | UC30b | POST | `/payos/webhook` | Webhook xác nhận thanh toán |
 | UC30c | GET | `/orders/:code` | Polling trạng thái đơn hàng |
-| UC46 | GET | `/workspaces/:id/credits` | Xem số dư & lịch sử credit |
-| UC42 | GET | `/credit-packages` | Xem danh sách gói credit |
-| UC43 | POST | `/credit-packages` | Tạo gói credit |
-| UC44 | PATCH | `/credit-packages/:id` | Cập nhật gói credit |
-| UC45 | DELETE | `/credit-packages/:id` | Xoá gói credit |
+| UC51 | GET | `/workspaces/:id/credits` | Xem số dư & lịch sử credit |
+| UC47 | GET | `/credit-packages` | Xem danh sách gói credit |
+| UC48 | POST | `/credit-packages` | Tạo gói credit |
+| UC49 | PATCH | `/credit-packages/:id` | Cập nhật gói credit |
+| UC50 | DELETE | `/credit-packages/:id` | Xoá gói credit |
 | UC31a | GET | `/admin/dashboard` | Xem thống kê Dashboard |
 | UC31b | GET | `/admin/audit-logs` | Xem nhật ký hệ thống |
 | UC39 | GET | `/notifications` | Xem danh sách thông báo |

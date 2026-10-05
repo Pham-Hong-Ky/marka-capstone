@@ -12,7 +12,7 @@
 
 1. Mặc định quyền: Creator chỉ có quyền soạn thảo và gửi bài duyệt. Quyền đăng bài/lên lịch đăng thuộc về Workspace Owner.
 2. Thiết lập ủy quyền: Workspace Owner truy cập trang "Quản lý thành viên", chọn thành viên có vai trò Creator và bật toggle **"Cho phép đăng bài trực tiếp"** (mặc định là `OFF`).
-3. Khi toggle là `ON`: Creator có thể nhấn đăng ngay hoặc lên lịch đăng bài cho các bài viết đã ở trạng thái `APPROVED` (Đã duyệt).
+3. Khi toggle là `ON`: Creator có thể nhấn đăng ngay hoặc lên lịch đăng bài cho các bài viết đã ở trạng thái `APPROVED` (Đã duyệt). Server **bắt buộc kiểm tra** `WorkspaceMember.allowDirectPublish = true` ở UC12 và UC15; nếu `false` → trả `403 Forbidden` (D11). Owner luôn được phép đăng/lên lịch.
 4. Lưu ý quan trọng: Creator **không** bao giờ có quyền phê duyệt bài viết (duyệt trạng thái `PENDING` sang `APPROVED`), họ chỉ được đăng/lên lịch đăng đối với bài đã được duyệt bởi Owner trước đó.
 
 ---
@@ -29,16 +29,16 @@
 **Luồng hoạt động**:
 
 - **Kết nối kênh (UC28)**:
-  - **Facebook Page (thật)**: Owner bấm "Kết nối Facebook" → redirect sang OAuth flow của Facebook (yêu cầu quyền `pages_manage_posts`, `pages_read_engagement`). Facebook trả về `accessToken` (Page token) → server **mã hóa AES-256** trước khi lưu vào `ChannelConnection`.
+  - **Facebook Page (thật)**: Owner bấm "Kết nối Facebook" → hiển thị form **nhập thủ công `pageId` + `pageAccessToken`** (không dùng OAuth redirect ở MVP — D13). `appId`/`appSecret` đặt ở **biến môi trường**, **không** lưu DB; chỉ `accessToken` (Page Token) được **mã hóa AES-256** trước khi lưu vào `ChannelConnection`. Quyền cần cấp cho token: `pages_manage_posts`, `pages_read_engagement`.
   - **Instagram/TikTok/Zalo (giả lập)**: Owner bấm "Kết nối" → hiển thị form nhập thông tin giả lập (tên kênh, avatar demo) — **không** gọi OAuth thật → Lưu `ChannelConnection(type=SIMULATED, platform=INSTAGRAM/TIKTOK/ZALO)`.
 - **Cập nhật kênh liên kết (UC29)**:
-  - **Làm mới kết nối (Re-authenticate)**: Hệ thống định kỳ (cron) kiểm tra hiệu lực token (endpoint `debug_token`) → nếu hết hạn/sắp hết hạn, đánh dấu `status: EXPIRED`. Workspace Owner bấm nút "Kết nối lại" (Reconnect) trên UI để tiến hành lại OAuth flow lấy accessToken mới mà không làm thay đổi ID liên kết của kênh.
+  - **Làm mới kết nối (Re-authenticate)**: Hệ thống định kỳ (cron) kiểm tra hiệu lực token (endpoint `debug_token`) → nếu hết hạn/sắp hết hạn, đánh dấu `status: EXPIRED`. Workspace Owner bấm nút "Kết nối lại" (Reconnect) trên UI để **nhập lại `pageAccessToken` thủ công** (D13) mà không làm thay đổi ID liên kết của kênh.
   - **Cập nhật thông tin kênh giả lập**: Với kênh giả lập, cho phép Owner thay đổi tên hiển thị, hình ảnh avatar demo, hoặc tạm dừng hoạt động.
 - **Hủy kết nối kênh (Disconnect)**:
   - Workspace Owner truy cập trang quản lý kênh kết nối (UC27) và bấm "Hủy kết nối" bên cạnh kênh muốn xóa.
   - Hệ thống hiển thị popup xác nhận: "Ngắt kết nối kênh này sẽ tự động hủy các bài đăng đang chờ đăng (Scheduled) trên kênh tương ứng. Bạn có chắc chắn?".
   - Xác nhận → Client gửi yêu cầu `DELETE /channels/{channelConnectionId}` lên Server.
-  - Server xác thực quyền Owner, tiến hành xóa bản ghi kết nối, tìm kiếm các `ScheduledPost` có `status = SCHEDULED` liên quan đến kênh này để chuyển trạng thái sang `FAILED` (Hủy do ngắt kết nối) và xóa job trong hàng đợi BullMQ/Redis.
+  - Server xác thực quyền Owner, tiến hành xóa bản ghi kết nối, tìm kiếm các `ScheduledPost` có `status = SCHEDULED` liên quan đến kênh này để chuyển trạng thái sang `CANCELLED` (Hủy do ngắt kết nối — D3) và xóa job trong hàng đợi BullMQ/Redis.
 
 **Lưu ý khi làm**:
 
@@ -59,10 +59,15 @@
 1. Owner (hoặc Creator được ủy quyền) mở bài `Approved` → chọn 1 hoặc nhiều kênh đã kết nối.
 2. Với mỗi kênh, cho phép chỉnh nội dung riêng (đã có bản AI sinh theo kênh từ Phân hệ 3, có thể sửa tiếp) + chọn media đính kèm.
 3. Chọn **Đăng ngay** hoặc **Lên lịch** (chọn ngày giờ) → tạo bản ghi `ScheduledPost(postId, channelId, scheduledAt, status)`.
-4. Nếu **Đăng ngay**: đẩy job vào queue xử lý ngay lập tức.
-5. Nếu **Lên lịch**: worker cron quét các `ScheduledPost` có `scheduledAt <= now` và `status = SCHEDULED` mỗi phút → kích hoạt job đăng bài.
+4. Nếu **Đăng ngay**: đẩy job vào **BullMQ** để xử lý ngay lập tức (`delay = 0`).
+5. Nếu **Lên lịch**: đẩy job vào **BullMQ** với `delay = scheduledAt - now`. Khi tới hạn, BullMQ tự động kích hoạt Worker đăng bài — **không cần cron quét liên tục**.
 
-**Lưu ý khi làm**: Một bài viết có thể đăng đồng thời lên nhiều kênh — mỗi kênh nên có `ScheduledPost` + trạng thái đăng **độc lập** (kênh A thành công, kênh B thất bại vẫn xử lý riêng, không rollback lẫn nhau).
+**Lưu ý khi làm**:
+
+- Một bài viết có thể đăng đồng thời lên nhiều kênh — mỗi kênh nên có `ScheduledPost` + trạng thái đăng **độc lập** (kênh A thành công, kênh B thất bại vẫn xử lý riêng, không rollback lẫn nhau).
+- Đặt `jobId = scheduledPostId` khi enqueue để chống enqueue trùng; Worker kiểm tra trạng thái trước khi đăng (idempotent).
+- Database (`scheduled_posts`) là **nguồn sự thật**. Có thể thêm cron đối soát định kỳ để phục hồi các job bị mất nếu Redis không bật persistence.
+- BullMQ/Redis phụ trách việc đăng bài; **n8n không tham gia luồng này** (n8n chỉ dùng cho đồng bộ metrics — xem `08-post-analytics.md`).
 
 ---
 
@@ -86,7 +91,7 @@
 **Luồng hoạt động (Giả lập — Instagram/TikTok/Zalo)**:
 
 1. Worker nhận Job đăng bài giả lập, thực hiện độ trễ ngẫu nhiên từ 2-5 giây (để mô phỏng thời gian phản hồi API thật).
-2. Ghi nhận bài viết vào bảng `SimulatedPost` với trạng thái `PUBLISHED`.
+2. Ghi nhận kết quả vào `ScheduledPost` của kênh đó với `status = PUBLISHED` và `externalPostId` sinh giả — **không có bảng `SimulatedPost`** (kênh giả lập dùng `ChannelType.SIMULATED`, D9).
 3. Giao diện (UI) hiển thị nhãn **"Chế độ giả lập"** nổi bật trên tất cả các bài thuộc nhóm kênh này.
 4. Cung cấp nút **"Copy nội dung nhanh"** và **"Tải file đính kèm"** để người dùng tự tay đăng thủ công lên nền tảng thật nếu cần.
 

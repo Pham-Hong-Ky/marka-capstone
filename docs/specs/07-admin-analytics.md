@@ -38,6 +38,6 @@ Admin xem danh sách user → khóa/mở khóa (`isSuspended = true/false`) → 
 
 **Luồng hoạt động**: 
 
-Mỗi hành động quan trọng, sau khi xử lý thành công ở tầng service, ghi 1 bản ghi `AuditLog(actorId, action, targetType, targetId, metadata, createdAt)` — nên làm qua 1 hàm helper dùng chung (`logAudit(...)`) gọi ở cuối mỗi service method liên quan. System Admin có quyền truy cập màn hình Audit Log để xem và lọc danh sách hành động này.
+Mỗi hành động quan trọng, sau khi xử lý thành công ở tầng service, ghi 1 bản ghi `AuditLog(actorId, action, targetType, targetId, metadata, createdAt)` — nên làm qua 1 hàm helper dùng chung (`logAudit(...)`) gọi ở cuối mỗi service method liên quan. **Quyền xem Audit Log chỉ thuộc System Admin và Workspace Owner** (Owner chỉ thấy log trong workspace của mình); **Content Creator KHÔNG có quyền xem audit log** — khớp `test_cases.md`.
 
 **Lưu ý khi làm**: Audit log lưu tối thiểu 90 ngày — cân nhắc archive/xóa bản ghi cũ hơn bằng cron job định kỳ để bảng không phình quá lớn.

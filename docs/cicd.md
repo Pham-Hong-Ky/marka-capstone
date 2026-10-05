@@ -1,6 +1,6 @@
 # Kế Hoạch CI/CD — Marka Capstone
 
-> **Stack triển khai:** GitHub Actions (CI) · Vercel (Frontend) · Render (Backend) · Neon (PostgreSQL) · Upstash (Redis)
+> **Stack triển khai:** GitHub Actions (CI) · Vercel (Frontend) · Render (Backend API + Background Worker) · Neon (PostgreSQL) · Upstash (Redis)
 
 ---
 
@@ -219,13 +219,13 @@ Sau khi push, vào tab **Actions** trên GitHub để xem CI chạy trong khoả
    ```
    *(Lưu ý: `rediss://` có 2 chữ s vì dùng TLS)*
 
-#### Bước 3: Render (Backend)
+#### Bước 3: Render — Backend API
 
 1. Đăng ký tại [render.com](https://render.com) bằng GitHub.
 2. **New → Web Service** → Chọn repo `marka-capstone`.
    - Root Directory: `backend`
-   - Build Command: `npm ci && npx prisma generate`
-   - Start Command: `node src/server.js`
+   - Build Command: `npm ci --include=dev && npx prisma generate`
+   - Start Command: `npm start`  *(chạy bằng `tsx` — `tsx` là devDependency nên Build phải có `--include=dev`)*
    - Environment: `Node 20`
 3. Thêm toàn bộ biến môi trường trong tab **Environment**:
    ```
@@ -236,10 +236,27 @@ Sau khi push, vào tab **Actions** trên GitHub để xem CI chạy trong khoả
    JWT_REFRESH_SECRET=<strong-random-secret>
    AES_SECRET_KEY=<32-char-key>
    CLIENT_URL=https://<your-app>.vercel.app
+   APP_BASE_URL=https://<your-app>.vercel.app
+   ENABLE_WORKERS=false
    ... (các key 3rd party khác)
    ```
+   > `ENABLE_WORKERS=false` để API **không** chạy queue tại đây; worker chạy ở service riêng (Bước 3b) → API và worker scale độc lập.
 4. Deploy lần đầu thủ công → Test `/api/v1/health` trả về `connected`.
 5. Copy **Service URL** của Render (dạng `https://marka-api.onrender.com`).
+
+#### Bước 3b: Render — Background Worker (BullMQ)
+
+Tách worker ra khỏi API để job AI/đăng bài/gửi email không chiếm CPU của web server. Không cần Docker.
+
+1. **New → Background Worker** → cùng repo `marka-capstone`.
+   - Root Directory: `backend`
+   - Build Command: `npm ci --include=dev && npx prisma generate`
+   - Start Command: `npm run worker`
+   - Environment: `Node 20`
+2. Thêm cùng nhóm biến môi trường như Bước 3 (đặc biệt `DATABASE_URL`, `REDIS_URL`, `OPENAI_API_KEY`), **không** cần `PORT`.
+3. Deploy → log sẽ hiện `[Workers] Đang lắng nghe job...`.
+
+> **Không dùng Docker ở local:** chỉ cần PostgreSQL + Redis chạy trực tiếp (hoặc dùng Neon + Upstash cloud). Trên Render, service được cấu hình bằng Root Directory + Build/Start Command, không cần Dockerfile.
 
 #### Bước 4: Vercel (Frontend)
 

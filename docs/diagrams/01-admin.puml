@@ -1,0 +1,47 @@
+@startuml 01-admin
+!pragma layout smetana
+skinparam dpi 120
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #37474F
+  ArrowColor #455A64
+  FontSize 12
+}
+skinparam stereotypeCBackgroundColor #90CAF9
+title Admin — Class Diagram
+
+package "admin" #ECEFF1 {
+  class AdminController <<Controller>> {
+    - adminService : AdminService
+    + getDashboardStats(workspaceId : string) : DashboardStatsDTO
+  }
+  class AdminService <<Service>> {
+    - adminRepository : AdminRepository
+    + getDashboardStats(workspaceId : string) : DashboardStatsDTO
+  }
+  class AdminRepository <<Repository>> {
+    - prisma : PrismaClient
+    + aggregateUsersAndWorkspaces() : UserWorkspaceStats
+    + aggregateCreditAndRevenue(workspaceId : string) : CreditRevenueStats
+  }
+}
+
+class DashboardStatsDTO <<DTO>> {
+  - totalUsers : int
+  - totalWorkspaces : int
+  - totalCreditUsed : int
+  - totalRevenue : int
+}
+
+AdminController --> AdminService
+AdminService ..> AdminRepository
+AdminRepository ..> DashboardStatsDTO
+
+note bottom of AdminRepository
+  Admin la truy van DB **dong bo** (Prisma aggregate).
+  KHONG dung queue, KHONG dung n8n.
+end note
+@enduml

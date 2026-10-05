@@ -18,7 +18,7 @@
 1. **Tạo Brand Voice (UC24)**: Trong lần thiết lập đầu tiên, Workspace Owner vào màn hình cài đặt Brand Voice và điền thông tin: ngành hàng, đối tượng mục tiêu, phong cách viết bài, từ khóa khuyên dùng/cần tránh, kèm theo 1-3 bài viết mẫu tiêu biểu (few-shot learning).
 2. **Cập nhật Brand Voice (UC25)**: Workspace Owner có thể chỉnh sửa bất cứ lúc nào thông tin cấu hình Brand Voice để làm mới chiến lược truyền thông hoặc bổ sung từ khóa mới.
 3. **Xem Brand Voice (UC26)**: Tất cả thành viên trong Workspace (Owner & Content Creator) có thể xem cấu hình Brand Voice hiện tại thông qua giao diện cài đặt hoặc trực tiếp ngay trong cửa sổ soạn thảo/gọi AI để biết ngữ cảnh giọng thương hiệu đang áp dụng.
-4. **Lưu trữ & Áp dụng**: Hệ thống lưu thông tin vào bảng `BrandVoice` gắn với workspace (mỗi workspace 1 cấu hình chính) và tự động nạp làm system prompt / context mỗi khi gọi AI sinh nội dung cho workspace đó.
+4. **Lưu trữ & Áp dụng**: Hệ thống lưu thông tin vào **cột JSON `brandVoice` của bảng `workspaces`** (mỗi workspace 1 cấu hình chính) và tự động nạp làm system prompt / context mỗi khi gọi AI sinh nội dung cho workspace đó. Cấu trúc: `{ industry, targetAudience, writingStyle, keywordsShouldUse, keywordsAvoid, fewShotExamples }`.
 
 **Lưu ý khi làm**: Giới hạn độ dài few-shot examples để không vượt quá context window hợp lý và không đội chi phí token mỗi lần gọi API.
 
@@ -34,12 +34,12 @@
 **Luồng hoạt động**:
 
 1. Creator nhập chủ đề/ý chính.
-2. Server kiểm tra số dư Credit của workspace **trước khi** gọi AI (ví dụ cần 5 credit cho sinh text). Nếu không đủ → trả lỗi, hiển thị modal nạp thêm, **không gọi API AI**.
-3. Job được đẩy vào hàng đợi BullMQ (`content-generation` queue) để xử lý bất đồng bộ → trả về `jobId` cho client, client poll hoặc nhận qua WebSocket/SSE khi hoàn tất.
+2. Server kiểm tra số dư Credit của workspace **trước khi** gọi AI (ví dụ cần 5 credit cho sinh text — `CreditActionType.GEN_TEXT`). Nếu không đủ → trả lỗi, hiển thị modal nạp thêm, **không gọi API AI**.
+3. Job được đẩy vào hàng đợi BullMQ (`content-generation` queue) để xử lý bất đồng bộ → trả về `jobId` cho client, client **poll** trạng thái khi hoàn tất (WebSocket/SSE là Phase sau — D20).
 4. Worker gọi LLM provider với prompt = Brand Voice + chủ đề + hướng dẫn định dạng theo từng kênh được chọn (Facebook: ngắn gọn + emoji; TikTok: kịch bản phân cảnh...).
 5. Gọi thành công → **trừ credit ngay lúc này** (không trừ trước) → lưu kết quả vào `AIGeneration` + tạo/nối vào bản ghi bài viết ở trạng thái `DRAFT`.
 6. Gọi thất bại sau 3 lần retry (exponential backoff) → **không trừ credit**, trả lỗi rõ ràng cho Creator.
-7. Creator có thể **Regenerate** (sinh lại, tốn thêm credit riêng) hoặc chỉnh sửa trực tiếp nội dung AI tạo trước khi lưu/gửi duyệt.
+7. Creator có thể **Regenerate** (sinh lại — `CreditActionType.REGEN`, tốn thêm credit riêng) hoặc chỉnh sửa trực tiếp nội dung AI tạo trước khi lưu/gửi duyệt.
 
 **Lưu ý khi làm**:
 
@@ -65,7 +65,7 @@
 **Luồng hoạt động**:
 
 1. Creator bấm "Sinh ảnh minh họa" từ trong bài viết → hệ thống tự tạo prompt ảnh từ nội dung bài (hoặc cho phép Creator tự chỉnh prompt).
-2. Kiểm tra credit (10 credit/ảnh) → đẩy job vào queue riêng (`image-generation`) → gọi API DALL-E 3.
+2. Kiểm tra credit (10 credit/ảnh — `CreditActionType.GEN_IMAGE`) → đẩy job vào queue riêng (`image-generation`) → gọi API DALL-E 3.
 3. Ảnh trả về → tải xuống và lưu vào S3/Cloudinary (không dùng trực tiếp URL tạm của OpenAI vì có hạn sử dụng) → tạo `MediaAsset` gắn `source=AI_GENERATED` → trừ credit.
 4. Thất bại → hoàn credit, thông báo lỗi.
 
@@ -81,7 +81,7 @@
 
 **Luồng hoạt động**:
 
-1. Creator bấm "Chấm điểm" → gửi nội dung bài cho AI với prompt đánh giá theo rubric cố định (Hook, CTA, Readability, Length phù hợp kênh...).
+1. Creator bấm "Chấm điểm" (`CreditActionType.SCORE`) → gửi nội dung bài cho AI với prompt đánh giá theo rubric cố định (Hook, CTA, Readability, Length phù hợp kênh...).
 2. AI trả về JSON có điểm từng tiêu chí + gợi ý cải thiện → hiển thị dạng radar chart.
 3. Creator bấm "1-Click Fix" → AI sinh lại bản cải thiện dựa trên gợi ý → Creator xem trước, chọn Apply hoặc Discard.
 

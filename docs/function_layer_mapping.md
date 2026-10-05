@@ -12,7 +12,6 @@ sequenceDiagram
     participant Service as Auth service
     participant Repository as User repository
     participant DB as Database
-    participant Mail as Mail Server
 
     User->>View: 1: Nhập email, mật khẩu, tên
     activate View
@@ -35,28 +34,26 @@ sequenceDiagram
             Repository-->>Service: User
             deactivate Repository
             Service-->>Controller: throw ConflictError
-            Controller-->>View: 409 Conflict "Email already exists"
+            Controller-->>View: 409 Conflict "Email này đã được đăng ký trong hệ thống"
             deactivate Controller
             View->>View: hiển thị lỗi "Email đã đăng ký"
         else Trường hợp 2: Đăng ký thành công
             activate Repository
             activate DB
             DB-->>Repository: null
-            activate DB
             deactivate DB
             Repository-->>Service: null
             deactivate Repository
             Service->>Service: hashPassword(password)
-            Service->>Repository: 2.1.1.2: createUser(data)
+            Service->>Repository: 2.1.1.2: createUser(data) (Transaction)
             activate Repository
-            Repository->>DB: query INSERT user
+            Repository->>DB: $transaction [INSERT user, INSERT default workspace, INSERT workspace_member]
             activate DB
-            DB-->>Repository: new User
+            DB-->>Repository: new User + default Workspace
             deactivate DB
             Repository-->>Service: new User
             deactivate Repository
-            Service->>Mail: 2.1.1.3: sendVerificationEmail()
-            Service->>Repository: 2.1.1.4: createAuditLog()
+            Service->>Repository: 2.1.1.3: createAuditLog()
             activate Repository
             Repository->>DB: query INSERT audit_logs
             activate DB
@@ -64,11 +61,13 @@ sequenceDiagram
             deactivate DB
             Repository-->>Service: AuditLog
             deactivate Repository
-            Service-->>Controller: UserDto
+            Service->>Service: generateAccessToken(user) & generateRefreshToken(tokenVersion)
+            Service-->>Controller: { accessToken, refreshToken, user }
             activate Controller
-            Controller-->>View: 201 Created (UserDto)
+            Controller->>Controller: setRefreshTokenCookie(res, refreshToken)
+            Controller-->>View: 201 Created { accessToken, user } (Set-Cookie: HttpOnly refreshToken)
             deactivate Controller
-            View->>View: hiển thị "Kiểm tra email"
+            View->>View: Lưu accessToken & vào thẳng dashboard (đăng nhập tự động)
         end
     end
     deactivate View
@@ -100,45 +99,94 @@ sequenceDiagram
         Repository->>DB: query(email)
         activate DB
 
-        alt Trường hợp 1: Sai email (Không tìm thấy user)
-            DB-->>Repository: null
+        alt Trường hợp 1: Sai email hoặc sai mật khẩu
+            DB-->>Repository: null hoặc Hash không khớp
             deactivate DB
-            Repository-->>Service: null
+            Repository-->>Service: User hoặc null
             deactivate Repository
             Service-->>Controller: throw UnauthorizedError
-            Controller-->>View: 401 "Invalid credentials"
-            deactivate Controller
-            View->>View: hiển thị lỗi "Tài khoản không tồn tại"
-        else Trường hợp 2: Sai mật khẩu (verifyPassword thất bại)
+            Controller-->>View: 401 "Email hoặc mật khẩu không chính xác"
+            View->>View: hiển thị lỗi đăng nhập
+        else Trường hợp 2: Tài khoản bị tạm khóa
             activate Repository
             activate DB
-            DB-->>Repository: User
-            activate DB
+            DB-->>Repository: User (isSuspended=true)
             deactivate DB
             Repository-->>Service: User
             deactivate Repository
-            Service->>Service: verifyPassword(password) (false)
-            Service-->>Controller: throw UnauthorizedError
-            activate Controller
-            Controller-->>View: 401 "Invalid credentials"
-            deactivate Controller
-            View->>View: hiển thị lỗi "Mật khẩu không chính xác"
+            Service-->>Controller: throw ForbiddenError
+            Controller-->>View: 403 "Tài khoản của bạn đã bị tạm khóa"
         else Trường hợp 3: Đăng nhập thành công
             activate Repository
             activate DB
-            DB-->>Repository: User
-            activate DB
+            DB-->>Repository: User (isSuspended=false)
             deactivate DB
             Repository-->>Service: User
             deactivate Repository
-            Service->>Service: verifyPassword(password) (true)
-            Service-->>Controller: AuthSessionDto
-            activate Controller
-            Controller-->>View: 200 OK (AuthSessionDto)
-            deactivate Controller
-            View->>View: chuyển sang trang chủ
+            Service->>Service: generateAccessToken(payload)
+            Service->>Service: generateRefreshToken(tokenVersion)
+            Service->>Repository: createAuditLog(USER_LOGIN)
+            activate Repository
+            Repository->>DB: query INSERT audit_logs
+            deactivate Repository
+            Service-->>Controller: { accessToken, refreshToken, user }
+            Controller->>Controller: setRefreshTokenCookie(res, refreshToken)
+            Controller-->>View: 200 OK { accessToken, user } (Set-Cookie: HttpOnly refreshToken)
+            View->>View: Lưu accessToken vào store & chuyển sang trang dashboard
         end
     end
+    deactivate View
+```
+
+### UC02b — Google OAuth Login
+
+```mermaid
+sequenceDiagram
+    actor User as Người dùng
+    participant View as View (Front-end)
+    participant Controller as Auth controller
+    participant Service as Auth service
+    participant Google as Google OAuth API
+    participant Repository as User repository
+    participant DB as Database
+
+    User->>View: 1: Nhấn "Đăng nhập bằng Google"
+    activate View
+    View->>Google: 1.1: Lấy idToken từ Google Identity Services
+    Google-->>View: idToken
+    View->>Controller: 2: POST /auth/google { idToken }
+    activate Controller
+    Controller->>Service: 2.1: googleLogin(idToken)
+    activate Service
+    Service->>Google: 2.1.1: verifyIdToken(idToken, audience)
+    Google-->>Service: Google Payload (email, name, picture, sub)
+    Service->>Repository: 2.1.2: findUserByEmail(email)
+    activate Repository
+    Repository->>DB: query(email)
+    activate DB
+    DB-->>Repository: User hoặc null
+    deactivate DB
+    Repository-->>Service: User hoặc null
+    deactivate Repository
+
+    alt User chưa tồn tại
+        Service->>DB: $transaction [Tạo User, Tạo Default Workspace, Tạo WorkspaceMember OWNER]
+    else User đã tồn tại
+        alt Tài khoản bị khóa (isSuspended=true)
+            Service-->>Controller: throw ForbiddenError
+            Controller-->>View: 403 "Tài khoản của bạn đã bị tạm khóa"
+        else Tài khoản bình thường
+            Service->>DB: Cập nhật googleId, avatar nếu chưa có
+        end
+    end
+
+    Service->>Service: generateAccessToken & generateRefreshToken
+    Service->>Repository: createAuditLog(USER_GOOGLE_LOGIN)
+    Service-->>Controller: { accessToken, refreshToken, user }
+    Controller->>Controller: setRefreshTokenCookie(res, refreshToken)
+    Controller-->>View: 200 OK { accessToken, user }
+    deactivate Controller
+    deactivate Service
     deactivate View
 ```
 
@@ -155,147 +203,27 @@ sequenceDiagram
 
     User->>View: 1: Nhấn "Đăng xuất"
     activate View
-    View->>Controller: 1.1: Post:auth/logout
+    View->>Controller: 1.1: POST /auth/logout (Bearer Token)
     activate Controller
-    Controller->>Service: 1.1.1: logout(userId, refreshToken)
+    Controller->>Service: 1.1.1: logout(userId)
     activate Service
-    Service->>Repository: 1.1.1.1: revokeRefreshToken(refreshToken)
+    Service->>Repository: 1.1.1.1: incrementTokenVersion(userId)
     activate Repository
-    Repository->>DB: query UPDATE refresh_tokens
+    Repository->>DB: UPDATE users SET token_version = token_version + 1
     activate DB
-    DB-->>Repository: { count: 1 }
+    DB-->>Repository: { updated: true }
     deactivate DB
-    Repository-->>Service: { count: 1 }
+    Repository-->>Service: { updated: true }
     deactivate Repository
-    Service->>Repository: 1.1.1.2: createAuditLog()
+    Service->>Repository: 1.1.1.2: createAuditLog(USER_LOGOUT)
     activate Repository
-    Repository->>DB: query INSERT audit_logs
-    activate DB
-    DB-->>Repository: AuditLog
-    deactivate DB
-    Repository-->>Service: AuditLog
+    Repository->>DB: INSERT audit_logs
     deactivate Repository
-    Service-->>Controller: void
-    Controller-->>View: 200 OK (Clear Cookie)
+    Service-->>Controller: true
+    Controller->>Controller: clearRefreshTokenCookie(res)
+    Controller-->>View: 200 OK (Clear-Cookie: refreshToken)
     deactivate Controller
-    View->>View: Xoá token khỏi store & chuyển về trang login
-    deactivate View
-```
-
-### UC33 — Refresh Token
-
-```mermaid
-sequenceDiagram
-    actor User as Admin/Workspace owner/Content creator
-    participant View as View(Front-end)
-    participant Controller as Auth controller
-    participant Service as Auth service
-    participant Repository as User repository
-    participant DB as Database
-
-    View->>Controller: 1.1: Post:auth/refresh-token
-    activate Controller
-    Controller->>Service: 1.1.1: refreshToken(refreshToken)
-    activate Service
-    Service->>Service: 1.1.1.1: verifyRefreshToken(refreshToken)
-
-    alt Trường hợp 1: Token không hợp lệ hoặc hết hạn
-        Service-->>Controller: throw UnauthorizedError
-        Controller-->>View: 401 "Invalid or expired refresh token"
-        View->>View: chuyển về trang login
-    else Trường hợp 2: Token hợp lệ
-        Service->>Repository: 1.1.1.2: findUserById(userId)
-        activate Repository
-        Repository->>DB: query SELECT users
-        activate DB
-        DB-->>Repository: User
-        deactivate DB
-        Repository-->>Service: User
-        deactivate Repository
-
-        Service->>Service: 1.1.1.3: generateAccessToken(user)
-        Service->>Service: 1.1.1.4: generateRefreshToken(user)
-
-        Service->>Repository: 1.1.1.5: revokeRefreshToken(oldRefreshToken)
-        activate Repository
-        Repository->>DB: query UPDATE refresh_tokens SET revoked=true
-        activate DB
-        DB-->>Repository: { count: 1 }
-        deactivate DB
-        Repository-->>Service: { count: 1 }
-        deactivate Repository
-
-        Service-->>Controller: { accessToken, refreshToken }
-        Controller-->>View: 200 OK { accessToken, refreshToken }
-        deactivate Controller
-        View->>View: lưu token mới vào store
-    end
-    deactivate Service
-```
-
-### UC34 — Verify Email
-
-```mermaid
-sequenceDiagram
-    actor User as Người dùng vừa đăng ký
-    participant View as View(Front-end)
-    participant Controller as Auth controller
-    participant Service as Auth service
-    participant Repository as User repository
-    participant DB as Database
-
-    User->>View: 1: Nhấn link xác thực trong email
-    activate View
-    View->>Controller: 1.1: Get:auth/verify-email?token=xxx
-    activate Controller
-    Controller->>Service: 1.1.1: verifyEmail(token)
-    activate Service
-
-    Service->>Repository: 1.1.1.1: findUserByVerificationToken(token)
-    activate Repository
-    Repository->>DB: query SELECT users WHERE verificationToken=token
-    activate DB
-
-    alt Trường hợp 1: Token không hợp lệ hoặc đã dùng
-        DB-->>Repository: null
-        deactivate DB
-        Repository-->>Service: null
-        deactivate Repository
-        Service-->>Controller: throw BadRequestError
-        Controller-->>View: 400 "Invalid or expired verification token"
-        View->>View: hiển thị lỗi "Link xác thực không hợp lệ"
-    else Trường hợp 2: Xác thực thành công
-        activate DB
-        DB-->>Repository: User
-        deactivate DB
-        Repository-->>Service: User
-        deactivate Repository
-
-        Service->>Repository: 1.1.1.2: updateUser(userId, { emailVerified: true, verificationToken: null })
-        activate Repository
-        Repository->>DB: query UPDATE users SET emailVerified=true
-        activate DB
-        DB-->>Repository: updated User
-        deactivate DB
-        Repository-->>Service: updated User
-        deactivate Repository
-
-        Service->>Repository: 1.1.1.3: createAuditLog()
-        activate Repository
-        Repository->>DB: query INSERT audit_logs
-        activate DB
-        DB-->>Repository: AuditLog
-        deactivate DB
-        Repository-->>Service: AuditLog
-        deactivate Repository
-
-        Service-->>Controller: void
-        activate Controller
-        Controller-->>View: 200 OK { message: "Email verified successfully" }
-        deactivate Controller
-        View->>View: hiển thị "Email đã xác thực thành công"
-    end
-    deactivate Service
+    View->>View: Xoá accessToken khỏi store & chuyển về trang login
     deactivate View
 ```
 
@@ -328,7 +256,7 @@ sequenceDiagram
 
     alt Trường hợp 1: Sai mật khẩu cũ
         Service-->>Controller: throw UnauthorizedError
-        Controller-->>View: 401 "Old password incorrect"
+        Controller-->>View: 401 "Mật khẩu cũ không chính xác"
         View->>View: hiển thị lỗi "Mật khẩu cũ không chính xác"
     else Trường hợp 2: Đổi mật khẩu thành công
         Service->>Service: hashPassword(new)
@@ -341,13 +269,13 @@ sequenceDiagram
         Repository-->>Service: updated User
         deactivate Repository
 
-        Service->>Repository: 1.1.1.3: revokeAllRefreshTokens(userId)
+        Service->>Repository: 1.1.1.3: incrementTokenVersion(userId)
         activate Repository
-        Repository->>DB: query UPDATE refresh_tokens SET revoked=true
+        Repository->>DB: query UPDATE users SET tokenVersion = tokenVersion + 1
         activate DB
-        DB-->>Repository: { count: N }
+        DB-->>Repository: updated User
         deactivate DB
-        Repository-->>Service: { count: N }
+        Repository-->>Service: updated User
         deactivate Repository
 
         Service->>Repository: 1.1.1.4: createAuditLog()
@@ -361,7 +289,7 @@ sequenceDiagram
 
         Service-->>Controller: void
         activate Controller
-        Controller-->>View: 200 OK { message: "Password updated" }
+        Controller-->>View: 200 OK { status: "success", message: "Đổi mật khẩu thành công..." }
         deactivate Controller
         View->>View: hiển thị "Đổi mật khẩu thành công"
         deactivate View
@@ -1167,13 +1095,13 @@ sequenceDiagram
     Repository-->>Service: Post
     deactivate Repository
 
-    Service->>Repository: 1.1.1.2: findApprovalHistoryByPost(postId)
+    Service->>Repository: 1.1.1.2: findAuditLogsByPost(postId)
     activate Repository
-    Repository->>DB: query SELECT approval_histories
+    Repository->>DB: query SELECT audit_logs WHERE targetType='Post' AND targetId=postId
     activate DB
-    DB-->>Repository: ApprovalHistory
+    DB-->>Repository: AuditLog[]
     deactivate DB
-    Repository-->>Service: ApprovalHistory
+    Repository-->>Service: AuditLog[]
     deactivate Repository
 
     Service->>Repository: 1.1.1.3: findScheduledPostsByPost(postId)
@@ -1254,7 +1182,20 @@ sequenceDiagram
     Repository-->>Service: Post
     deactivate Repository
 
-    alt Trường hợp 1: Trạng thái Draft / Rejected / Failed
+    alt Trường hợp 1: Trạng thái PUBLISHED (đã đăng — D16)
+        Note over Service,Controller: Không xoá bài đã đăng; chỉ archive
+        Service->>Repository: 1.1.1.2c: archivePost(postId)
+        activate Repository
+        Repository->>DB: query UPDATE posts SET status=ARCHIVED
+        activate DB
+        DB-->>Repository: archived Post
+        deactivate DB
+        Repository-->>Service: archived Post
+        deactivate Repository
+
+        Service-->>Controller: throw ForbiddenError
+        Controller-->>View: 403 "Published post cannot be deleted — chỉ archive"
+    else Trường hợp 2: Trạng thái Draft / Rejected / Failed / Archived
         Service->>Repository: 1.1.1.2a: softDeletePost(postId)
         activate Repository
         Repository->>DB: query UPDATE posts SET deletedAt=now()
@@ -1272,7 +1213,10 @@ sequenceDiagram
         deactivate DB
         Repository-->>Service: AuditLog
         deactivate Repository
-    else Trường hợp 2: Trạng thái Scheduled (Đang chờ đăng bài)
+
+        Service-->>Controller: void
+        Controller-->>View: 200 OK { success: true }
+    else Trường hợp 3: Trạng thái Scheduled (Đang chờ đăng bài)
         Service->>Queue: 1.1.1.2b: cancelScheduledJob(postId)
         Queue-->>Service: job cancelled
 
@@ -1293,10 +1237,11 @@ sequenceDiagram
         deactivate DB
         Repository-->>Service: AuditLog
         deactivate Repository
+
+        Service-->>Controller: void
+        Controller-->>View: 200 OK { success: true }
     end
 
-    Service-->>Controller: void
-    Controller-->>View: 200 OK { success: true }
     deactivate Controller
     View->>View: xóa bài viết khỏi danh sách hiển thị
     deactivate View
@@ -1460,13 +1405,13 @@ sequenceDiagram
         Repository-->>Service: updated Post
         deactivate Repository
 
-        Service->>Repository: 1.1.1.3a: createApprovalHistory(postId, reviewerId, APPROVE)
+        Service->>Repository: 1.1.1.3a: createAuditLog(action=POST_APPROVED, targetType=Post, targetId=postId)
         activate Repository
-        Repository->>DB: query INSERT approval_histories
+        Repository->>DB: query INSERT audit_logs
         activate DB
-        DB-->>Repository: HistoryRecord
+        DB-->>Repository: AuditLog
         deactivate DB
-        Repository-->>Service: HistoryRecord
+        Repository-->>Service: AuditLog
         deactivate Repository
 
         Service->>Repository: 1.1.1.4a: createNotification(creatorId, POST_APPROVED)
@@ -1476,15 +1421,6 @@ sequenceDiagram
         DB-->>Repository: Notification
         deactivate DB
         Repository-->>Service: Notification
-        deactivate Repository
-
-        Service->>Repository: 1.1.1.5a: createAuditLog()
-        activate Repository
-        Repository->>DB: query INSERT audit_logs
-        activate DB
-        DB-->>Repository: AuditLog
-        deactivate DB
-        Repository-->>Service: AuditLog
         deactivate Repository
 
         Service-->>Controller: { status: APPROVED }
@@ -1500,13 +1436,13 @@ sequenceDiagram
         Repository-->>Service: updated Post
         deactivate Repository
 
-        Service->>Repository: 1.1.1.3b: createApprovalHistory(postId, reviewerId, REJECT, reason)
+        Service->>Repository: 1.1.1.3b: createAuditLog(action=POST_REJECTED, targetType=Post, targetId=postId, reason=reason)
         activate Repository
-        Repository->>DB: query INSERT approval_histories
+        Repository->>DB: query INSERT audit_logs
         activate DB
-        DB-->>Repository: HistoryRecord
+        DB-->>Repository: AuditLog
         deactivate DB
-        Repository-->>Service: HistoryRecord
+        Repository-->>Service: AuditLog
         deactivate Repository
 
         Service->>Repository: 1.1.1.4b: createNotification(creatorId, POST_REJECTED)
@@ -1516,15 +1452,6 @@ sequenceDiagram
         DB-->>Repository: Notification
         deactivate DB
         Repository-->>Service: Notification
-        deactivate Repository
-
-        Service->>Repository: 1.1.1.5b: createAuditLog()
-        activate Repository
-        Repository->>DB: query INSERT audit_logs
-        activate DB
-        DB-->>Repository: AuditLog
-        deactivate DB
-        Repository-->>Service: AuditLog
         deactivate Repository
 
         Service-->>Controller: { status: REJECTED }
@@ -1548,6 +1475,7 @@ sequenceDiagram
     participant Service as AI service
     participant Repository as AI repository
     participant DB as Database
+    participant Queue as QueueManager (BullMQ content-generation-queue)
     participant OpenAI as OpenAI API (External)
 
     User->>View: 1: Nhập ý tưởng & nhấn Sinh nội dung
@@ -1566,32 +1494,51 @@ sequenceDiagram
     Repository-->>Service: Workspace
     deactivate Repository
 
-    Service->>Repository: 1.1.1.2: findBrandVoiceByWorkspace(workspaceId)
+    Service->>Repository: 1.1.1.2: getWorkspaceBrandVoice(workspaceId)
     activate Repository
-    Repository->>DB: query SELECT brand_voices
+    Repository->>DB: query SELECT brandVoice FROM workspaces WHERE id=workspaceId
     activate DB
-    DB-->>Repository: BrandVoice
+    DB-->>Repository: Workspace (brandVoice)
     deactivate DB
-    Repository-->>Service: BrandVoice
+    Repository-->>Service: Workspace (brandVoice)
     deactivate Repository
 
-    Service->>OpenAI: 1.1.1.3: generateText(prompt)
-    activate OpenAI
+    Service->>Queue: 1.1.1.3: enqueueGenerateJob({ workspaceId, userId, type, prompt, creditCost })  (D10)
+    activate Queue
+    Queue-->>Service: jobId (trạng thái PENDING)
+    deactivate Queue
 
-    alt Trường hợp 1: Sinh nội dung thành công
-        OpenAI-->>Service: Generated Content
-        deactivate OpenAI
+    Service-->>Controller: { jobId, status: PENDING }
+    Controller-->>View: 202 Accepted { jobId, status: 'PENDING' }
+    deactivate Controller
+    View->>View: hiển thị "Đang xử lý..." & theo dõi trạng thái job
+    deactivate View
 
-        Service->>Repository: 1.1.1.4a: deductCredit(workspaceId, cost)
+    Note over Queue,OpenAI: ── Worker xử lý nền (content-generation-queue) ──
+    Queue->>Service: 2.1: processGenerateJob(job)
+    Service->>OpenAI: 2.1.1: generateText(prompt)
+    OpenAI-->>Service: Generated Content / Error
+
+    alt Worker: Sinh nội dung thành công
+        Service->>Repository: 2.1.2a: deductCredit + createAiGeneration({status: SUCCESS})
         activate Repository
-        Repository->>DB: query UPDATE workspaces SET credit = credit - cost
+        Repository->>DB: query UPDATE workspaces + INSERT ai_generations
         activate DB
-        DB-->>Repository: updated Workspace
+        DB-->>Repository: GenerationRecord
         deactivate DB
-        Repository-->>Service: updated Workspace
+        Repository-->>Service: GenerationRecord
         deactivate Repository
 
-        Service->>Repository: 1.1.1.5a: createAiGeneration({status: SUCCESS, ...})
+        Service->>Repository: 2.1.3a: createNotification(userId, AI_GENERATION_DONE)
+        activate Repository
+        Repository->>DB: query INSERT notifications
+        activate DB
+        DB-->>Repository: Notification
+        deactivate DB
+        Repository-->>Service: Notification
+        deactivate Repository
+    else Worker: Lỗi từ phía OpenAI
+        Service->>Repository: 2.1.2b: createAiGeneration({status: FAILED})
         activate Repository
         Repository->>DB: query INSERT ai_generations
         activate DB
@@ -1600,38 +1547,14 @@ sequenceDiagram
         Repository-->>Service: GenerationRecord
         deactivate Repository
 
-        Service->>Repository: 1.1.1.6a: createAuditLog()
+        Service->>Repository: 2.1.3b: createNotification(userId, AI_GENERATION_FAILED)
         activate Repository
-        Repository->>DB: query INSERT audit_logs
+        Repository->>DB: query INSERT notifications
         activate DB
-        DB-->>Repository: AuditLog
+        DB-->>Repository: Notification
         deactivate DB
-        Repository-->>Service: AuditLog
+        Repository-->>Service: Notification
         deactivate Repository
-
-        Service-->>Controller: { generationId, content }
-        Controller-->>View: 200 OK { content }
-        View->>View: hiển thị nội dung văn bản sinh ra từ AI
-    else Trường hợp 2: Lỗi từ phía OpenAI
-        activate OpenAI
-        OpenAI-->>Service: Error / Fail
-        deactivate OpenAI
-
-        Service->>Repository: 1.1.1.4b: createAiGeneration({status: FAILED, ...})
-        activate Repository
-        Repository->>DB: query INSERT ai_generations
-        activate DB
-        DB-->>Repository: GenerationRecord
-        deactivate DB
-        Repository-->>Service: GenerationRecord
-        deactivate Repository
-
-        Service-->>Controller: throw AppError ("AI generation failed")
-        activate Controller
-        Controller-->>View: 502 Bad Gateway
-        deactivate Controller
-        View->>View: hiển thị lỗi "Không thể sinh nội dung bằng AI"
-        deactivate View
     end
 ```
 
@@ -1684,7 +1607,7 @@ sequenceDiagram
     participant FB as Facebook API (External)
 
     alt Kịch bản 1: Kết nối Kênh Facebook thật (Nhập key thủ công)
-        Owner->>View: 1: Nhập Page ID, Page Access Token, App ID, App Secret & nhấn "Kết nối"
+        Owner->>View: 1: Nhập Page ID, Page Access Token & nhấn "Kết nối"
         activate View
         View->>View: 1.1: kiểm tra định dạng dữ liệu đầu vào
         View->>Controller: 1.2: Post:/channels/facebook/connect
@@ -1711,9 +1634,9 @@ sequenceDiagram
             deactivate Controller
             View->>View: hiển thị lỗi "Key không hợp lệ, vui lòng kiểm tra lại"
         else Trường hợp 2: Key hợp lệ, kết nối thành công
-            Service->>Service: encryptToken(accessToken), encryptSecret(appSecret)
+            Service->>Service: encryptPageAccessToken(accessToken)  (appId/appSecret lấy từ biến môi trường, KHÔNG lưu DB — D13)
 
-            Service->>Repository: 1.2.1.2b: upsertChannelConnection({platform: FB, encryptedToken, appId, ...})
+            Service->>Repository: 1.2.1.2b: upsertChannelConnection({platform: FB, encryptedAccessToken, ...})
             activate Repository
             Repository->>DB: query INSERT/UPDATE channel_connections
             activate DB
@@ -1833,69 +1756,69 @@ sequenceDiagram
 
 ### UC12 — Schedule content
 
+> Biểu đồ gộp cả 2 giai đoạn: **đặt lịch** (đồng bộ, trả `201`) và **tự động đăng khi tới giờ** (chạy nền, worker BullMQ). Các cột `Post Controller / Post Service / Post Repository / Queue-Worker` là các lớp trong code; `User`, `View`, `Database`, `Facebook` là ngoại lệ.
+>
+> `scheduledAt` lưu và truyền dưới dạng **UTC** (ISO-8601); FE tự chuyển sang giờ local (D19).
+
 ```mermaid
 sequenceDiagram
-    actor Owner as Workspace owner/Admin
-    participant View as View(Front-end)
-    participant Controller as Post controller
-    participant Service as Post service
-    participant Queue as BullMQ (Queue)
-    participant Repository as Post repository
+    actor User as Workspace Owner / Creator được ủy quyền
+    participant View as View (Front-end)
+    participant Controller as Post Controller
+    participant Service as Post Service
+    participant Queue as Queue / Worker (BullMQ)
+    participant Repository as Post Repository
     participant DB as Database
+    participant FB as Facebook (External)
 
-    Owner->>View: 1: Chọn kênh mạng xã hội, thiết lập ngày giờ & nhấn Lên lịch
-    activate View
-    View->>Controller: 1.1: Post:/posts/:id/schedule
-    activate Controller
-    Controller->>Service: 1.1.1: schedulePost(postId, input)
-    activate Service
+    User->>View: 1: Chọn bài đã duyệt, kênh & ngày giờ đăng
+    View->>Controller: 1.1: POST /posts/:id/schedule
+    Controller->>Service: 1.1.1: schedulePost(postId, actorId, input)
 
     Service->>Repository: 1.1.1.1: findPostById(postId)
-    activate Repository
-    Repository->>DB: query SELECT posts
-    activate DB
-    DB-->>Repository: Post (Status: APPROVED)
-    deactivate DB
+    Repository->>DB: SELECT post
+    DB-->>Repository: Post
     Repository-->>Service: Post
-    deactivate Repository
 
-    loop Lặp qua từng kênh được chọn
-        Service->>Repository: 1.1.1.2: createScheduledPost(data)
-        activate Repository
-        Repository->>DB: query INSERT scheduled_posts
-        activate DB
-        DB-->>Repository: ScheduledPost
-        deactivate DB
-        Repository-->>Service: ScheduledPost
-        deactivate Repository
+    Service->>Repository: 1.1.1.1b: findWorkspaceMember(workspaceId, actorId)
+    Repository->>DB: SELECT role, allowDirectPublish FROM workspace_members
+    DB-->>Repository: Member
+    Repository-->>Service: Member
 
-        Service->>Queue: 1.1.1.3: enqueuePublishJob(scheduledPostId, runAt)
+    alt Không hợp lệ (chưa APPROVED / sai thời gian / không có quyền / Creator có allowDirectPublish=false)
+        Service-->>Controller: 400 | 403
+        Controller-->>View: hiển thị lỗi
+    else Hợp lệ (Owner luôn được; Creator chỉ khi allowDirectPublish=true — D11)
+        Service->>Repository: 1.1.1.2: createScheduledPost() + updatePostStatus(SCHEDULED) + auditLog()
+        Repository->>DB: INSERT scheduled_posts, UPDATE posts, INSERT audit_logs
+        DB-->>Repository: ScheduledPosts
+        Repository-->>Service: ScheduledPosts
+
+        Service->>Queue: 1.1.1.3: enqueuePublishJob(scheduledPostId, scheduledAt)
         Queue-->>Service: Job Enqueued
+
+        Service-->>Controller: ScheduledPosts
+        Controller-->>View: 201 Created
+        View->>View: hiển thị "Đã lên lịch đăng bài"
     end
 
-    Service->>Repository: 1.1.1.4: updatePostStatus(postId, SCHEDULED)
-    activate Repository
-    Repository->>DB: query UPDATE posts SET status=SCHEDULED
-    activate DB
-    DB-->>Repository: updated Post
-    deactivate DB
-    Repository-->>Service: updated Post
-    deactivate Repository
+    Note over Queue,FB: ── Đến scheduledAt, hệ thống tự đăng (worker chạy nền) ──
 
-    Service->>Repository: 1.1.1.5: createAuditLog()
-    activate Repository
-    Repository->>DB: query INSERT audit_logs
-    activate DB
-    DB-->>Repository: AuditLog
-    deactivate DB
-    Repository-->>Service: AuditLog
-    deactivate Repository
+    Queue->>Service: 2.1: processPublishJob(scheduledPostId)
+    Service->>Repository: 2.1.1: findScheduledPost + findChannel
+    Repository->>DB: SELECT scheduled_post + channel
+    DB-->>Repository: dữ liệu
+    Repository-->>Service: dữ liệu
 
-    Service-->>Controller: ScheduledPostsList
-    Controller-->>View: 201 Created (Schedules)
-    deactivate Controller
-    View->>View: hiển thị trạng thái "Đã lên lịch đăng bài"
-    deactivate View
+    alt Kênh thật (Facebook)
+        Service->>FB: 2.1.2: POST /{page-id}/feed
+        FB-->>Service: externalPostId
+    else Kênh mô phỏng (Instagram/TikTok/Zalo)
+        Service->>Service: 2.1.2: simulatePublish() → ghi ScheduledPost (ChannelType.SIMULATED, status=PUBLISHED, externalPostId giả)  (D9)
+    end
+
+    Service->>Repository: 2.1.3: updateScheduledPostStatus(PUBLISHED | FAILED)
+    Repository->>DB: UPDATE scheduled_posts (+ posts, notification nếu lỗi)
 ```
 
 ### UC13 — View content schedule (Calendar)
@@ -2008,10 +1931,11 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    actor Owner as Workspace owner/Content creator
+    actor Owner as Workspace Owner / Creator được ủy quyền
     participant View as View(Front-end)
     participant Controller as Post controller
     participant Service as Post service
+    participant Queue as QueueManager (BullMQ publishing-queue)
     participant Repository as Post repository
     participant DB as Database
     participant FB as Facebook Graph API (External)
@@ -2020,7 +1944,7 @@ sequenceDiagram
     activate View
     View->>Controller: 1.1: Post:/posts/:id/publish
     activate Controller
-    Controller->>Service: 1.1.1: publishPostNow(postId, channelId)
+    Controller->>Service: 1.1.1: publishPostNow(postId, channelId, actorId)
     activate Service
 
     Service->>Repository: 1.1.1.1: findPostById(postId)
@@ -2041,60 +1965,55 @@ sequenceDiagram
     Repository-->>Service: Channel
     deactivate Repository
 
-    Service->>FB: 1.1.1.3: publishToFacebook(pageToken, content)
-    activate FB
+    Service->>Repository: 1.1.1.3: findWorkspaceMember(workspaceId, actorId)
+    activate Repository
+    Repository->>DB: query SELECT role, allowDirectPublish FROM workspace_members
+    activate DB
+    DB-->>Repository: Member
+    deactivate DB
+    Repository-->>Service: Member
+    deactivate Repository
 
-    alt Trường hợp 1: Đăng bài thành công
-        FB-->>Service: Facebook Post ID / Success Response
-        Service->>Repository: 1.1.1.4a: updatePostStatus(postId, PUBLISHED)
+    alt Không hợp lệ (Creator có allowDirectPublish=false — D11)
+        Service-->>Controller: throw ForbiddenError
+        Controller-->>View: 403 "Bạn không có quyền đăng trực tiếp"
+    else Hợp lệ (Owner luôn được; Creator chỉ khi allowDirectPublish=true)
+        Service->>Repository: 1.1.1.4: createScheduledPost({ status: SCHEDULED, scheduledAt: now(UTC) })
         activate Repository
-        Repository->>DB: query UPDATE posts SET status=PUBLISHED
+        Repository->>DB: query INSERT scheduled_posts
         activate DB
-        DB-->>Repository: updated Post
+        DB-->>Repository: ScheduledPost
         deactivate DB
-        Repository-->>Service: updated Post
+        Repository-->>Service: ScheduledPost
         deactivate Repository
 
-        Service->>Repository: 1.1.1.5a: createAuditLog()
-        activate Repository
-        Repository->>DB: query INSERT audit_logs
-        activate DB
-        DB-->>Repository: AuditLog
-        deactivate DB
-        Repository-->>Service: AuditLog
-        deactivate Repository
+        Service->>Queue: 1.1.1.5: enqueuePublishJob(scheduledPostId, delay=0)  (D10)
+        activate Queue
+        Queue-->>Service: jobId (trạng thái PENDING)
+        deactivate Queue
 
-        Service-->>Controller: updated Post
-        Controller-->>View: 200 OK { post }
-        View->>View: hiển thị trạng thái "Đã đăng"
-    else Trường hợp 2: Đăng bài thất bại (Lỗi API Facebook)
-        FB-->>Service: Error
-        Service->>Repository: 1.1.1.4b: updatePostStatus(postId, FAILED, errorMsg)
-        activate Repository
-        Repository->>DB: query UPDATE posts SET status=FAILED
-        activate DB
-        DB-->>Repository: updated Post
-        deactivate DB
-        Repository-->>Service: updated Post
-        deactivate Repository
-
-        Service->>Repository: 1.1.1.5b: createAuditLog()
-        activate Repository
-        Repository->>DB: query INSERT audit_logs
-        activate DB
-        DB-->>Repository: AuditLog
-        deactivate DB
-        Repository-->>Service: AuditLog
-        deactivate Repository
-
-        Service-->>Controller: throw AppError
-        Controller-->>View: 502 "Publish failed"
-        View->>View: hiển thị lỗi "Đăng bài thất bại, vui lòng thử lại"
+        Service-->>Controller: { jobId, status: PENDING }
+        Controller-->>View: 202 Accepted { jobId, status: 'PENDING' }
+        View->>View: hiển thị "Đang đăng bài..." & theo dõi trạng thái
     end
-    deactivate FB
     deactivate Controller
     deactivate Service
     deactivate View
+
+    Note over Queue,FB: ── Worker xử lý nền (publishing-queue, delay=0) ──
+    Queue->>Service: 2.1: processPublishJob(scheduledPostId)
+    Service->>Repository: 2.1.1: findScheduledPost + findChannel
+    Repository->>DB: query SELECT scheduled_post + channel
+    DB-->>Repository: dữ liệu
+    Repository-->>Service: dữ liệu
+
+    Service->>FB: 2.1.2: publishToFacebook(pageToken, content)
+    activate FB
+    FB-->>Service: externalPostId / Error
+    deactivate FB
+
+    Service->>Repository: 2.1.3: updateScheduledPostStatus(PUBLISHED | FAILED) (kèm posts, notification nếu lỗi)
+    Repository->>DB: query UPDATE scheduled_posts, posts, notifications
 ```
 
 ## Phân hệ 5 — Brand Voice
@@ -2117,18 +2036,18 @@ sequenceDiagram
     Controller->>Service: 1.1.1: upsertBrandVoice(workspaceId, input)
     activate Service
 
-    Service->>Repository: 1.1.1.1: findBrandVoiceByWorkspace(workspaceId)
+    Service->>Repository: 1.1.1.1: findWorkspaceById(workspaceId)
     activate Repository
-    Repository->>DB: query SELECT brand_voices
+    Repository->>DB: query SELECT brandVoice FROM workspaces WHERE id=workspaceId
     activate DB
-    DB-->>Repository: BrandVoice (có thể null hoặc đã tồn tại)
+    DB-->>Repository: Workspace (brandVoice có thể null)
     deactivate DB
-    Repository-->>Service: BrandVoice
+    Repository-->>Service: Workspace
     deactivate Repository
 
-    Service->>Repository: 1.1.1.2: upsertBrandVoiceRecord(workspaceId, data)
+    Service->>Repository: 1.1.1.2: updateWorkspaceBrandVoice(workspaceId, data)
     activate Repository
-    Repository->>DB: query INSERT or UPDATE brand_voices
+    Repository->>DB: query UPDATE workspaces SET brandVoice = data
     activate DB
     DB-->>Repository: brandVoice
     deactivate DB
@@ -2169,13 +2088,13 @@ sequenceDiagram
     Controller->>Service: 1.1.1: getBrandVoice(workspaceId)
     activate Service
 
-    Service->>Repository: 1.1.1.1: findBrandVoiceByWorkspace(workspaceId)
+    Service->>Repository: 1.1.1.1: getWorkspaceBrandVoice(workspaceId)
     activate Repository
-    Repository->>DB: query SELECT brand_voices WHERE workspaceId=id
+    Repository->>DB: query SELECT brandVoice FROM workspaces WHERE id=workspaceId
     activate DB
-    DB-->>Repository: BrandVoice
+    DB-->>Repository: Workspace (brandVoice)
     deactivate DB
-    Repository-->>Service: BrandVoice
+    Repository-->>Service: Workspace (brandVoice)
     deactivate Repository
 
     Service-->>Controller: BrandVoice
@@ -2235,56 +2154,56 @@ sequenceDiagram
     View->>View: hiển thị mã QR thanh toán & bắt đầu polling trạng thái đơn
 
     note over View, PayOS: Webhook xác nhận thanh toán (Chạy song song khi khách chuyển khoản)
-    PayOS->>Controller: 2: Post:/payos/webhook (gửi mã đơn, số tiền...)
+    PayOS->>Controller: 2: Post:/payos/webhook (mã đơn, số tiền, chữ ký...)
     activate Controller
-    Controller->>Controller: verifyPayosSignature()
-    Controller->>Service: 2.1: confirmOrderPaid(orderCode, transactionId)
+    Controller->>Service: 2.1: confirmOrderPaid(orderCode, transactionId, signature)
     activate Service
 
-    Service->>Repository: 2.1.1: findOrderByCode(orderCode)
-    activate Repository
-    Repository->>DB: query SELECT orders
-    activate DB
-    DB-->>Repository: Order
-    deactivate DB
-    Repository-->>Service: Order
-    deactivate Repository
+    Service->>Service: 2.1.1: verifyPayosSignature(payload, signature)  (D12 — verify ở Service, không ở Controller)
+    alt Chữ ký không hợp lệ
+        Service-->>Controller: throw BadRequestError
+        Controller-->>PayOS: 400 "Invalid signature"
+    else Chữ ký hợp lệ
+        Service->>Repository: 2.1.2: $transaction updateMany({ where: { orderCode, status: 'PENDING' }, data: { status: PAID, paidAt, payosTransId } })  (idempotency — D12)
+        activate Repository
+        Repository->>DB: query SELECT/UPDATE orders WHERE orderCode AND status=PENDING
+        activate DB
+        DB-->>Repository: { count }
+        deactivate DB
+        Repository-->>Service: { count }
+        deactivate Repository
 
-    Service->>Repository: 2.1.2: updateOrderStatus(orderCode, PAID)
-    activate Repository
-    Repository->>DB: query UPDATE orders SET status=PAID
-    activate DB
-    DB-->>Repository: updated Order
-    deactivate DB
-    Repository-->>Service: updated Order
-    deactivate Repository
+        alt count = 0 (đơn đã PAID/CANCELLED — PayOS retry)
+            Note over Service: Bỏ qua, không cộng credit lần 2
+        else count = 1 (lần xử lý đầu tiên)
+            Service->>Repository: 2.1.3: addCredit(workspaceId, creditAmount)
+            activate Repository
+            Repository->>DB: query UPDATE workspaces SET credit=credit+amount & INSERT credit_transactions
+            activate DB
+            DB-->>Repository: updated Workspace
+            deactivate DB
+            Repository-->>Service: updated Workspace
+            deactivate Repository
 
-    Service->>Repository: 2.1.3: addCredit(workspaceId, creditAmount)
-    activate Repository
-    Repository->>DB: query UPDATE workspaces SET credit=credit+amount & INSERT credit_transactions
-    activate DB
-    DB-->>Repository: updated Workspace
-    deactivate DB
-    Repository-->>Service: updated Workspace
-    deactivate Repository
+            Service->>Repository: 2.1.4: createNotification(ownerId, ORDER_COMPLETED)
+            activate Repository
+            Repository->>DB: query INSERT notifications
+            activate DB
+            DB-->>Repository: Notification
+            deactivate DB
+            Repository-->>Service: Notification
+            deactivate Repository
 
-    Service->>Repository: 2.1.4: createNotification(ownerId, ORDER_COMPLETED)
-    activate Repository
-    Repository->>DB: query INSERT notifications
-    activate DB
-    DB-->>Repository: Notification
-    deactivate DB
-    Repository-->>Service: Notification
-    deactivate Repository
-
-    Service->>Repository: 2.1.5: createAuditLog()
-    activate Repository
-    Repository->>DB: query INSERT audit_logs
-    activate DB
-    DB-->>Repository: AuditLog
-    deactivate DB
-    Repository-->>Service: AuditLog
-    deactivate Repository
+            Service->>Repository: 2.1.5: createAuditLog()
+            activate Repository
+            Repository->>DB: query INSERT audit_logs
+            activate DB
+            DB-->>Repository: AuditLog
+            deactivate DB
+            Repository-->>Service: AuditLog
+            deactivate Repository
+        end
+    end
 
     Service-->>Controller: void
     Controller-->>PayOS: 200 OK (Xác nhận nhận webhook)
@@ -2510,7 +2429,7 @@ sequenceDiagram
 
 ## Phân hệ 9 — Credit Package Management
 
-### UC42 — List Credit Packages
+### UC47 — List Credit Packages
 
 ```mermaid
 sequenceDiagram
@@ -2555,7 +2474,7 @@ sequenceDiagram
     deactivate View
 ```
 
-### UC43 — Create Credit Package
+### UC48 — Create Credit Package
 
 ```mermaid
 sequenceDiagram
@@ -2614,7 +2533,7 @@ sequenceDiagram
     deactivate View
 ```
 
-### UC44 — Update Credit Package
+### UC49 — Update Credit Package
 
 ```mermaid
 sequenceDiagram
@@ -2679,7 +2598,7 @@ sequenceDiagram
     deactivate View
 ```
 
-### UC45 — Delete Credit Package
+### UC50 — Delete Credit Package
 
 ```mermaid
 sequenceDiagram
@@ -2744,7 +2663,7 @@ sequenceDiagram
     deactivate View
 ```
 
-### UC46 — View Credit Balance & History
+### UC51 — View Credit Balance & History
 
 ```mermaid
 sequenceDiagram
@@ -2791,114 +2710,6 @@ sequenceDiagram
 
 ### Worker tự động đăng bài đã lên lịch (BullMQ Job Processor)
 
-Đây là tiến trình chạy nền do Queue (BullMQ) kích hoạt khi tới `runAt` của một `ScheduledPost` được tạo ở UC12 (Schedule content). Người dùng không trực tiếp thao tác với luồng này.
+Tiến trình nền này đã được **thể hiện chung trong biểu đồ UC12 — Schedule content** (phần sau mốc `── Đến scheduledAt`). Vì người dùng không thao tác trực tiếp, không tách thành biểu đồ riêng.
 
-```mermaid
-sequenceDiagram
-    participant Queue as BullMQ (Queue)
-    participant Worker as Background Worker
-    participant Service as Post service
-    participant Repository as Post repository
-    participant DB as Database
-    participant FB as Facebook Graph API (External)
-
-    Queue->>Worker: 1: trigger job (đến hạn runAt)
-    activate Worker
-    Worker->>Service: 1.1: processPublishJob(scheduledPostId)
-    activate Service
-    Service->>Repository: 1.1.1: findScheduledPostById(scheduledPostId)
-    activate Repository
-    Repository->>DB: query SELECT scheduled_posts
-    activate DB
-    DB-->>Repository: ScheduledPost
-    deactivate DB
-    Repository-->>Service: ScheduledPost
-    deactivate Repository
-
-    Service->>Repository: 1.1.2: findChannelById(channelId)
-    activate Repository
-    Repository->>DB: query SELECT channel_connections
-    activate DB
-    DB-->>Repository: Channel
-    deactivate DB
-    Repository-->>Service: Channel
-    deactivate Repository
-
-    alt Kịch bản 1: Kênh mạng xã hội thật (Facebook)
-        Service->>FB: 1.1.3a: publishToFacebook(pageToken, content)
-        activate FB
-        FB-->>Service: Facebook Post ID / Success Response
-        deactivate FB
-    else Kịch bản 2: Kênh mô phỏng (Simulated)
-        Service->>Service: 1.1.3b: simulatePublish(content) (delay 2s)
-    end
-
-    alt Trường hợp Đăng bài thành công
-        Service->>Repository: 1.1.4a: updateScheduledPostStatus(id, PUBLISHED)
-        activate Repository
-        Repository->>DB: query UPDATE scheduled_posts SET status=PUBLISHED
-        activate DB
-        DB-->>Repository: updated ScheduledPost
-        deactivate DB
-        Repository-->>Service: updated ScheduledPost
-        deactivate Repository
-
-        Service->>Repository: 1.1.5a: checkAndUpdatePostOverallStatus(postId)
-        activate Repository
-        Repository->>DB: query UPDATE posts SET status=PUBLISHED
-        activate DB
-        DB-->>Repository: updated Post
-        deactivate DB
-        Repository-->>Service: updated Post
-        deactivate Repository
-
-        Service->>Repository: 1.1.6a: createAuditLog()
-        activate Repository
-        Repository->>DB: query INSERT audit_logs
-        activate DB
-        DB-->>Repository: AuditLog
-        deactivate DB
-        Repository-->>Service: AuditLog
-        deactivate Repository
-    else Trường hợp Đăng bài thất bại (Lỗi API)
-        Service->>Repository: 1.1.4b: updateScheduledPostStatus(id, FAILED, errorMsg)
-        activate Repository
-        Repository->>DB: query UPDATE scheduled_posts SET status=FAILED
-        activate DB
-        DB-->>Repository: updated ScheduledPost
-        deactivate DB
-        Repository-->>Service: updated ScheduledPost
-        deactivate Repository
-
-        Service->>Repository: 1.1.5b: checkAndUpdatePostOverallStatus(postId)
-        activate Repository
-        Repository->>DB: query UPDATE posts SET status=FAILED
-        activate DB
-        DB-->>Repository: updated Post
-        deactivate DB
-        Repository-->>Service: updated Post
-        deactivate Repository
-
-        Service->>Repository: 1.1.6b: createNotification(ownerId, PUBLISH_FAILED)
-        activate Repository
-        Repository->>DB: query INSERT notifications
-        activate DB
-        DB-->>Repository: Notification
-        deactivate DB
-        Repository-->>Service: Notification
-        deactivate Repository
-
-        Service->>Repository: 1.1.7b: createAuditLog()
-        activate Repository
-        Repository->>DB: query INSERT audit_logs
-        activate DB
-        DB-->>Repository: AuditLog
-        deactivate DB
-        Repository-->>Service: AuditLog
-        deactivate Repository
-    end
-
-    Service-->>Worker: job complete
-    deactivate Service
-    deactivate Worker
-```
+Tóm tắt: BullMQ (Redis) giữ job với `delay = scheduledAt - now`. Khi tới hạn, Worker gọi `processPublishJob(scheduledPostId)` → Post Service đăng lên Facebook thật hoặc mô phỏng → cập nhật trạng thái `scheduled_posts` thành `PUBLISHED`/`FAILED`, cập nhật trạng thái tổng thể bài viết và gửi thông báo nếu lỗi. Thất bại được BullMQ tự động thử lại (retry + exponential backoff).

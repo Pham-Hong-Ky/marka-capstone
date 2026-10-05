@@ -1,0 +1,369 @@
+// DBML mô tả ERD — nguồn: backend/prisma/schema.prisma
+// Dùng để render tại https://dbdiagram.io (dán nội dung này vào)
+// File này được docs/database_spec.md tham chiếu.
+// Toàn hệ thống dùng UTC (D19): DB DateTime lưu UTC, API ISO-8601 UTC.
+
+Enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+Enum SystemRole {
+  SYSTEM_ADMIN
+  USER
+}
+
+Enum WorkspacePlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+Enum WorkspaceRole {
+  OWNER
+  CONTENT_CREATOR
+}
+
+Enum PostStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  ARCHIVED
+}
+
+Enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+Enum MediaSource {
+  UPLOADED
+  AI_GENERATED
+}
+
+Enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+  ZALO
+}
+
+Enum ChannelType {
+  REAL
+  SIMULATED
+}
+
+Enum ChannelStatus {
+  ACTIVE
+  EXPIRED
+}
+
+Enum PublishStatus {
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+Enum AiGenType {
+  TEXT
+  IMAGE
+  VIRAL_SCORE
+  REGENERATE
+}
+
+Enum AiGenStatus {
+  SUCCESS
+  FAILED
+}
+
+Enum CreditFlowType {
+  INFLOW
+  OUTFLOW
+}
+
+Enum CreditActionType {
+  GEN_TEXT
+  GEN_IMAGE
+  REGEN
+  SCORE
+  TOP_UP
+  RESET
+  REFUND
+}
+
+Enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+Table users {
+  id varchar(36) [pk]
+  email varchar(255) [unique, not null]
+  passwordHash varchar(255)
+  name varchar(255) [not null]
+  avatar varchar(255)
+  authProvider AuthProvider [default: 'LOCAL', not null]
+  googleId varchar(255)
+  emailVerified boolean [default: false, not null]
+  systemRole SystemRole [default: 'USER', not null]
+  tokenVersion int [default: 1, not null]
+  isSuspended boolean [default: false, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+
+  Note: 'Bảng người dùng hệ thống'
+}
+
+Table workspaces {
+  id varchar(36) [pk]
+  name varchar(255) [not null]
+  logo varchar(255)
+  plan WorkspacePlan [default: 'FREE', not null]
+  remainingCredit int [default: 100, not null]
+  monthlyQuota int [default: 100, not null]
+  planExpiresAt timestamp
+  billingCycleStart timestamp
+  nextResetAt timestamp
+  planExpiryWarningSentAt timestamp
+  creditWarningSentAt timestamp
+  brandVoice json
+  deletedAt timestamp
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+}
+
+Table workspace_members {
+  id varchar(36) [pk]
+  workspaceId varchar(36) [not null, ref: > workspaces.id]
+  userId varchar(36) [not null, ref: > users.id]
+  role WorkspaceRole [default: 'CONTENT_CREATOR', not null]
+  allowDirectPublish boolean [default: false, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+
+  indexes {
+    (userId, workspaceId) [unique]
+  }
+}
+
+Table workspace_invites {
+  id varchar(36) [pk]
+  email varchar(255) [not null]
+  workspaceId varchar(36) [not null, ref: > workspaces.id]
+  role WorkspaceRole [default: 'CONTENT_CREATOR', not null]
+  token varchar(255) [unique, not null]
+  isUsed boolean [default: false, not null]
+  expiresAt timestamp [not null]
+  invitedById varchar(36) [ref: > users.id]
+  createdAt timestamp [default: `now()`]
+
+  indexes {
+    workspaceId
+  }
+}
+
+Table posts {
+  id varchar(36) [pk]
+  workspaceId varchar(36) [not null, ref: > workspaces.id]
+  title varchar(255) [not null]
+  content json [not null]
+  status PostStatus [default: 'DRAFT', not null]
+  campaignTag varchar(255)
+  rejectReason varchar(255)
+  createdById varchar(36) [ref: > users.id]
+  submittedById varchar(36) [ref: > users.id]
+  submittedAt timestamp
+  reviewedById varchar(36) [ref: > users.id]
+  reviewedAt timestamp
+  deletedAt timestamp
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+
+  indexes {
+    (workspaceId, status, deletedAt)
+    createdById
+  }
+}
+
+Table media_assets {
+  id varchar(36) [pk]
+  workspaceId varchar(36) [not null, ref: > workspaces.id]
+  postId varchar(36) [ref: > posts.id]
+  url varchar(255) [not null]
+  type MediaType [not null]
+  mimeType varchar(100)
+  thumbnailUrl varchar(255)
+  size int [not null]
+  tags varchar(255)
+  source MediaSource [default: 'UPLOADED', not null]
+  createdById varchar(36) [ref: > users.id]
+  deletedAt timestamp
+  createdAt timestamp [default: `now()`]
+
+  indexes {
+    workspaceId
+    postId
+  }
+}
+
+Table channel_connections {
+  id varchar(36) [pk]
+  workspaceId varchar(36) [not null, ref: > workspaces.id]
+  platform SocialPlatform [not null]
+  type ChannelType [default: 'SIMULATED', not null]
+  name varchar(255) [not null]
+  avatar varchar(255)
+  externalAccountId varchar(255) [not null]
+  accessToken text
+  status ChannelStatus [default: 'ACTIVE', not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+
+  indexes {
+    (workspaceId, platform, externalAccountId) [unique]
+  }
+}
+
+Table scheduled_posts {
+  id varchar(36) [pk]
+  postId varchar(36) [not null, ref: > posts.id]
+  channelId varchar(36) [not null, ref: > channel_connections.id]
+  customContent json
+  scheduledAt timestamp
+  status PublishStatus [default: 'SCHEDULED', not null]
+  externalPostId varchar(255)
+  errorMessage text
+  retryCount int [default: 0, not null]
+  reminderSentAt timestamp
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+
+  indexes {
+    (status, scheduledAt)
+    channelId
+    postId
+  }
+}
+
+Table post_metrics {
+  id varchar(36) [pk]
+  scheduledPostId varchar(36) [unique, not null, ref: > scheduled_posts.id]
+  reactions int [default: 0, not null]
+  reactionsDetail json
+  comments int [default: 0, not null]
+  shares int [default: 0, not null]
+  reach int
+  impressions int
+  permalinkUrl varchar(255)
+  syncError varchar(255)
+  fetchedAt timestamp
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+}
+
+Table ai_generations {
+  id varchar(36) [pk]
+  workspaceId varchar(36) [not null, ref: > workspaces.id]
+  userId varchar(36) [ref: > users.id]
+  postId varchar(36) [ref: > posts.id]
+  type AiGenType [not null]
+  provider varchar(100) [not null]
+  model varchar(100) [not null]
+  status AiGenStatus [default: 'SUCCESS', not null]
+  prompt text [not null]
+  response text [not null]
+  creditCost int [not null]
+  createdAt timestamp [default: `now()`]
+
+  indexes {
+    (workspaceId, createdAt)
+  }
+}
+
+Table credit_transactions {
+  id varchar(36) [pk]
+  workspaceId varchar(36) [not null, ref: > workspaces.id]
+  type CreditFlowType [not null]
+  action CreditActionType [not null]
+  amount int [not null]
+  balanceBefore int [not null]
+  balanceAfter int [not null]
+  reason varchar(255)
+  createdById varchar(36) [ref: > users.id]
+  createdAt timestamp [default: `now()`]
+
+  indexes {
+    (workspaceId, createdAt)
+  }
+}
+
+Table credit_packages {
+  id varchar(36) [pk]
+  name varchar(255) [not null]
+  description varchar(500)
+  creditAmount int [not null]
+  price int [not null]
+  sortOrder int [default: 0, not null]
+  isActive boolean [default: true, not null]
+  deletedAt timestamp
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+}
+
+Table orders {
+  id varchar(36) [pk]
+  orderCode varchar(100) [unique, not null]
+  workspaceId varchar(36) [not null, ref: > workspaces.id]
+  packageId varchar(36) [ref: > credit_packages.id]
+  amount int [not null]
+  creditAmount int
+  targetPlan WorkspacePlan
+  payosTransId varchar(255) [unique]
+  paidAt timestamp
+  status OrderStatus [default: 'PENDING', not null]
+  createdById varchar(36) [ref: > users.id]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+
+  indexes {
+    workspaceId
+  }
+}
+
+Table notifications {
+  id varchar(36) [pk]
+  userId varchar(36) [not null, ref: > users.id]
+  workspaceId varchar(36) [ref: > workspaces.id]
+  type varchar(100) [not null]
+  payload json [not null]
+  isRead boolean [default: false, not null]
+  createdAt timestamp [default: `now()`]
+
+  indexes {
+    (userId, isRead, createdAt)
+  }
+}
+
+Table audit_logs {
+  id varchar(36) [pk]
+  workspaceId varchar(36) [ref: > workspaces.id]
+  actorId varchar(36) [ref: > users.id]
+  action varchar(100) [not null]
+  targetType varchar(100) [not null]
+  targetId varchar(255)
+  reason varchar(255)
+  metadata json
+  createdAt timestamp [default: `now()`]
+
+  indexes {
+    (targetType, targetId, createdAt)
+    (workspaceId, createdAt)
+    (actorId, createdAt)
+  }
+}
