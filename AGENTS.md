@@ -6,6 +6,7 @@
 
 - Trả lời bằng tiếng Việt.
 - **Không chắc sửa ở đâu → hỏi lại trước, không đoán.** Nêu rõ đang nghi ngờ gì và cần xác nhận gì.
+- **Trước khi commit và push → hỏi lại người dùng trước, chờ xác nhận rồi mới làm.**
 - **Sửa lỗi phải giải thích:** (1) nguyên nhân gốc, (2) cách khắc phục, (3) ảnh hưởng.
 - Báo tiến độ ngắn gọn: đổi file nào, vì sao.
 
@@ -33,7 +34,9 @@ Luồng: `route → validate(Zod) → controller → service → repository → 
 ## 3. Kiến trúc Frontend
 
 - Cấu trúc: `components/`, `pages/` (hoặc `features/`), `hooks/`, `services/`, `store/`, `types/`, `config/`.
-- Gọi API **chỉ** qua `services/httpClient` (axios đã cấu hình interceptor/refresh token). Không gọi axios thẳng trong component.
+- **Tách lớp gọi API ra khỏi component.** Mỗi feature có file API riêng (vd `services/<feature>.api.ts`), chứa hàm gọi endpoint và trả về data.
+- Component/hook **không** chứa URL hay gọi axios trực tiếp; chỉ gọi hook React Query (`useQuery`/`useMutation`) trỏ tới hàm trong lớp API.
+- `services/httpClient.ts` là instance axios dùng chung (đã có interceptor/refresh token); lớp API dùng nó, không tạo axios mới.
 - Data server dùng **React Query**; state toàn cục dùng **Zustand**; form dùng **react-hook-form + Zod**.
 - Styling Tailwind; gộp class bằng `clsx`/`tailwind-merge`.
 - Env qua `config/env.ts` (Zod), truy cập qua `env`; không đọc `import.meta.env` rải rác.
