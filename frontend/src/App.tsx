@@ -11,9 +11,9 @@ interface HealthData {
 
 const TABLES = [
   'users', 'workspaces', 'workspace_members', 'workspace_invites',
-  'brand_voices', 'posts', 'post_media', 'media_assets',
-  'channel_connections', 'scheduled_posts', 'approval_histories', 'ai_generations',
-  'credit_transactions', 'orders', 'notifications', 'refresh_tokens', 'audit_logs'
+  'posts', 'media_assets', 'channel_connections', 'scheduled_posts',
+  'ai_generations', 'credit_transactions', 'credit_packages', 'orders',
+  'notifications', 'audit_logs'
 ];
 
 export function App() {
@@ -90,7 +90,7 @@ export function App() {
                   ? 'Đã kết nối thành công'
                   : health?.database === 'error'
                   ? 'Lỗi kết nối cơ sở dữ liệu'
-                  : '17 Bảng đã sẵn sàng'}
+                  : '14 Bảng đã sẵn sàng'}
               </p>
             </div>
 
@@ -114,7 +114,7 @@ export function App() {
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-purple-400" />
-            <h2 className="text-sm font-semibold text-white">17 Bảng Cơ Sở Dữ Liệu (schema.prisma)</h2>
+            <h2 className="text-sm font-semibold text-white">14 Bảng Cơ Sở Dữ Liệu (schema.prisma)</h2>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">

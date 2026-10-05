@@ -79,7 +79,7 @@ httpClient.interceptors.response.use(
       try {
         // Call refresh token endpoint (withCredentials will send refreshToken cookie)
         const refreshResponse = await axios.post(
-          `${env.VITE_API_URL}/auth/refresh`,
+          `${env.VITE_API_URL}/auth/refresh-token`,
           {},
           { withCredentials: true }
         );
