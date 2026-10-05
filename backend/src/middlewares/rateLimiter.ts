@@ -27,6 +27,27 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const extractLoginEmail = (req: Request): string => {
+  const email = (req.body as { email?: unknown } | undefined)?.email;
+  return typeof email === 'string' ? email.trim().toLowerCase() : '';
+};
+
+// Chống brute-force đăng nhập: "sai quá 5 lần trong 15 phút cho cùng 1 IP/email" (UC02).
+// Chỉ đếm các lần THẤT BẠI (skipSuccessfulRequests) nên đăng nhập đúng không bị tính vào hạn mức.
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req: Request) => `${req.ip ?? 'unknown'}:${extractLoginEmail(req)}`,
+  validate: { keyGeneratorIpFallback: false },
+  message: {
+    status: 'fail',
+    message: 'Sai thông tin đăng nhập quá 5 lần. Vui lòng đợi 15 phút trước khi thử lại.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const createWorkspaceLimiter = ({
   windowMs = 60 * 1000,
   max = 60,
