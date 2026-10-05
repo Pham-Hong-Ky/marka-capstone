@@ -77,6 +77,7 @@ enum PublishStatus {
   SCHEDULED
   PUBLISHED
   FAILED
+  CANCELLED
 }
 
 enum AiGenType {
@@ -126,7 +127,6 @@ model User {
   authProvider      AuthProvider @default(LOCAL)
   googleId          String?      @db.VarChar(255)
   emailVerified     Boolean      @default(false)
-  verificationToken String?      @db.VarChar(255)
   systemRole        SystemRole   @default(USER)
   tokenVersion      Int          @default(1)
   isSuspended       Boolean      @default(false)
@@ -136,6 +136,7 @@ model User {
   // Relationships
   workspaceMembers   WorkspaceMember[]
   sentInvites        WorkspaceInvite[]   @relation("SentInvites")
+  createdPosts       Post[]              @relation("CreatedPosts")
   submittedPosts     Post[]              @relation("SubmittedPosts")
   reviewedPosts      Post[]              @relation("ReviewedPosts")
   createdMedia       MediaAsset[]        @relation("CreatedMedia")
@@ -158,7 +159,15 @@ model Workspace {
   monthlyQuota    Int           @default(100)
   planExpiresAt   DateTime?
 
-  brandVoice Json? // { industry, targetAudience, keywordsShouldUse, keywordsAvoid, fewShotExamples }
+  // Chu kỳ billing (D6) — mốc neo cho cron reset credit hằng tháng & hạ gói
+  billingCycleStart       DateTime?
+  nextResetAt             DateTime?
+
+  // Cờ chống gửi trùng email nhắc (D7)
+  planExpiryWarningSentAt DateTime?
+  creditWarningSentAt     DateTime?
+
+  brandVoice Json? // { industry, targetAudience, writingStyle, keywordsShouldUse, keywordsAvoid, fewShotExamples }
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -168,6 +177,7 @@ model Workspace {
   members            WorkspaceMember[]
   invites            WorkspaceInvite[]
   posts              Post[]
+  mediaAssets        MediaAsset[]
   channelConnections ChannelConnection[]
   aiGenerations      AiGeneration[]
   creditTransactions CreditTransaction[]
@@ -212,6 +222,7 @@ model WorkspaceInvite {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   invitedBy User?     @relation("SentInvites", fields: [invitedById], references: [id], onDelete: SetNull)
 
+  @@index([workspaceId])
   @@map("workspace_invites")
 }
 
@@ -225,6 +236,7 @@ model Post {
   campaignTag   String?    @db.VarChar(255)
   rejectReason  String?    @db.VarChar(255)
   submittedById String?    @db.VarChar(36)
+  createdById   String?    @db.VarChar(36)
   submittedAt   DateTime?
   reviewedById  String?    @db.VarChar(36)
   reviewedAt    DateTime?
@@ -234,19 +246,23 @@ model Post {
 
   // Relationships
   workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      User?           @relation("CreatedPosts", fields: [createdById], references: [id], onDelete: SetNull)
   submittedBy    User?           @relation("SubmittedPosts", fields: [submittedById], references: [id], onDelete: SetNull)
   reviewedBy     User?           @relation("ReviewedPosts", fields: [reviewedById], references: [id], onDelete: SetNull)
   mediaAssets    MediaAsset[]
   scheduledPosts ScheduledPost[]
   aiGenerations  AiGeneration[]
 
+  @@index([workspaceId, status, deletedAt])
+  @@index([createdById])
   @@map("posts")
 }
 
-/// 6. Media Assets table
+/// 6. Media Assets table (thư viện cấp Workspace, gắn bài viết là tùy chọn — D1)
 model MediaAsset {
   id           String      @id @default(uuid()) @db.VarChar(36)
-  postId       String      @db.VarChar(36)
+  workspaceId  String      @db.VarChar(36)
+  postId       String?     @db.VarChar(36)
   url          String      @db.VarChar(255)
   type         MediaType
   mimeType     String?     @db.VarChar(100)
@@ -255,12 +271,15 @@ model MediaAsset {
   tags         String?     @db.VarChar(255)
   source       MediaSource @default(UPLOADED)
   createdById  String?     @db.VarChar(36)
+  deletedAt    DateTime?
   createdAt    DateTime    @default(now())
 
   // Relationships
-  post      Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
-  createdBy User?  @relation("CreatedMedia", fields: [createdById], references: [id], onDelete: SetNull)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  post      Post?     @relation(fields: [postId], references: [id], onDelete: SetNull)
+  createdBy User?     @relation("CreatedMedia", fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@index([workspaceId])
   @@index([postId])
   @@map("media_assets")
 }
@@ -298,15 +317,41 @@ model ScheduledPost {
   externalPostId String?       @db.VarChar(255)
   errorMessage   String?       @db.Text
   retryCount     Int           @default(0)
+  reminderSentAt DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
   // Relationships
-  post    Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
-  channel ChannelConnection @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  post    Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
+  channel ChannelConnection  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  metric  PostMetric?
 
   @@index([status, scheduledAt])
+  @@index([channelId])
+  @@index([postId])
   @@map("scheduled_posts")
+}
+
+/// 15. Post Metrics table (Phân hệ 8 — Post Analytics)
+model PostMetric {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  scheduledPostId String   @unique @db.VarChar(36)
+  reactions       Int      @default(0)
+  reactionsDetail Json?
+  comments        Int      @default(0)
+  shares          Int      @default(0)
+  reach           Int?
+  impressions     Int?
+  permalinkUrl    String?  @db.VarChar(255)
+  syncError       String?  @db.VarChar(255)
+  fetchedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  scheduledPost ScheduledPost @relation(fields: [scheduledPostId], references: [id], onDelete: Cascade)
+
+  @@map("post_metrics")
 }
 
 /// 9. AI Generations table
@@ -329,6 +374,7 @@ model AiGeneration {
   user      User?     @relation("UserAiGenerations", fields: [userId], references: [id], onDelete: SetNull)
   post      Post?     @relation(fields: [postId], references: [id], onDelete: SetNull)
 
+  @@index([workspaceId, createdAt])
   @@map("ai_generations")
 }
 
@@ -349,6 +395,7 @@ model CreditTransaction {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy User?     @relation("CreatedCreditTransactions", fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@index([workspaceId, createdAt])
   @@map("credit_transactions")
 }
 
@@ -380,7 +427,7 @@ model Order {
   amount       Int
   creditAmount Int?
   targetPlan   WorkspacePlan?
-  payosTransId String?        @db.VarChar(255)
+  payosTransId String?        @unique @db.VarChar(255)
   paidAt       DateTime?
   status       OrderStatus    @default(PENDING)
   createdById  String?        @db.VarChar(36)
@@ -392,6 +439,7 @@ model Order {
   package   CreditPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
   createdBy User?          @relation("UserOrders", fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@index([workspaceId])
   @@map("orders")
 }
 
@@ -409,6 +457,7 @@ model Notification {
   user      User       @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@index([userId, isRead, createdAt])
   @@map("notifications")
 }
 
@@ -429,5 +478,7 @@ model AuditLog {
   actor     User?      @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([targetType, targetId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([actorId, createdAt])
   @@map("audit_logs")
 }
