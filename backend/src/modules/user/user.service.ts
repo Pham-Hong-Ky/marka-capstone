@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import userRepository, { UpdateUserData } from './user.repository.js';
+import userRepository from './user.repository.js';
 import { NotFoundError, UnauthorizedError, BadRequestError } from '../../utils/errors/index.js';
 
 export const hashPassword = async (password: string): Promise<string> => {

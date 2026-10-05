@@ -12,7 +12,6 @@ describe('Kiểm thử Module User (Profile & Password)', () => {
     name: 'Nguyễn Văn User Test',
   };
 
-  let userId = '';
   let token = '';
 
   beforeAll(async () => {
@@ -24,7 +23,6 @@ describe('Kiểm thử Module User (Profile & Password)', () => {
         name: testUser.name,
       },
     });
-    userId = created.id;
     token = generateAccessToken({
       id: created.id,
       email: created.email,
