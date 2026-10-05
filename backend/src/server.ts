@@ -11,9 +11,23 @@ const server = app.listen(PORT, () => {
   logger.info(`Swagger Docs: http://localhost:${PORT}/api-docs`);
 });
 
+// Chỉ nạp worker khi ENABLE_WORKERS=true để API và worker có thể scale độc lập.
+// Production nên đặt ENABLE_WORKERS=false và chạy `npm run worker` ở service riêng.
+let stopWorkers: (() => Promise<void>) | null = null;
+
+if (env.ENABLE_WORKERS && env.NODE_ENV !== 'test') {
+  const workers = await import('./workers/start.js');
+  await workers.startWorkers();
+  stopWorkers = workers.stopWorkers;
+  logger.info('Background workers: BẬT (chạy chung tiến trình API).');
+} else {
+  logger.info('Background workers: TẮT ở API (chạy riêng bằng `npm run worker`).');
+}
+
 const shutdown = async (signal: string) => {
   logger.info(`Nhận tín hiệu ${signal}. Đang đóng server...`);
   server.close(async () => {
+    if (stopWorkers) await stopWorkers();
     await prisma.$disconnect();
     if (redis.status === 'ready' || redis.status === 'connect') {
       await redis.quit();
