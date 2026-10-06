@@ -8,7 +8,9 @@ export const withTransaction = async <T>(
 ): Promise<T> => {
   try {
     return await prisma.$transaction(async (tx) => {
-      return await action(tx);
+      // Client đã bị mở rộng bởi Prisma extension nên kiểu tx khác Prisma.TransactionClient;
+      // cast để repository dùng chung chữ ký, extension vẫn được áp dụng trong transaction.
+      return await action(tx as unknown as Prisma.TransactionClient);
     }, options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
