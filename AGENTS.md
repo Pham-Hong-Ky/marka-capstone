@@ -78,3 +78,14 @@ Luồng: `route → validate(Zod) → controller → service → repository → 
 
 - Backend (`backend/`): `npm run dev`, `npm run worker`, `npm test`, `npm run typecheck`, `npm run lint`, `npm run prisma:migrate`.
 - Frontend (`frontend/`): `npm run dev`, `npm run build`, `npm run lint`.
+
+## 9. Kỷ luật khi viết/sửa code
+
+Bốn nguyên tắc bắt buộc, áp dụng cho mọi thay đổi (bổ sung cho mục 4 và 6):
+
+1. **Suy nghĩ trước khi code.** Không tự giả định rồi lao vào làm. Nếu mơ hồ: nêu rõ đang phân vân, đưa ra các cách hiểu khác nhau và trade-off, rồi hỏi lại. Gặp điều chưa rõ hoặc mâu thuẫn → dừng lại hỏi, không đoán.
+2. **Đơn giản trước tiên.** Viết lượng code tối thiểu đủ giải quyết vấn đề, không thêm thứ chưa được yêu cầu. Không abstraction cho code chỉ dùng một lần, không thêm "tính linh hoạt/cấu hình" ngoài yêu cầu, không xử lý lỗi cho tình huống không thể xảy ra. Nếu 200 dòng có thể rút còn 50 → viết lại. Tự hỏi: "một senior có thấy cái này rối không?".
+3. **Thay đổi phẫu thuật.** Chỉ chạm đúng phần cần thiết. Không "tiện tay" cải thiện code/comment/format xung quanh, không refactor thứ đang chạy tốt, giữ đúng style hiện có dù mình thích cách khác. Thấy code chết/đoạn không liên quan → **nêu ra, không tự xóa**. Khi thay đổi của mình làm mồ côi (import/biến/hàm): dọn phần **do mình tạo ra**, không xóa code chết có sẵn. Tiêu chí: mọi dòng đã đổi phải truy vết trực tiếp về yêu cầu.
+4. **Làm theo mục tiêu kiểm chứng được.** Biến việc mơ hồ thành mục tiêu có tiêu chí pass/fail, rồi lặp tới khi đạt. Ví dụ: "thêm validation" → "viết test cho input sai rồi làm cho pass"; "sửa bug" → "viết test tái hiện bug rồi làm cho pass"; "refactor X" → "đảm bảo test pass trước và sau". Với việc nhiều bước, nêu ngắn gọn kế hoạch dạng `bước → cách kiểm chứng` trước khi bắt tay.
+
+Ngoại lệ: việc tầm thường (sửa typo, đổi một dòng rõ ràng) không cần áp dụng đủ nghi thức; dùng phán đoán để không làm chậm việc đơn giản.
