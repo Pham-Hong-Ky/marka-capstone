@@ -33,6 +33,7 @@ const envSchema = z.object({
   PAYOS_CHECKSUM_KEY: z.string().default(''),
   FACEBOOK_APP_ID: z.string().default(''),
   FACEBOOK_APP_SECRET: z.string().default(''),
+  RESEND_API_KEY: z.string().default(''),
   SMTP_HOST: z.string().default(''),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().default(''),
