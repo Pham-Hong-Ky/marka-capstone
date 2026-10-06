@@ -10,54 +10,41 @@ skinparam class {
   ArrowColor #455A64
   FontSize 12
 }
-skinparam stereotypeCBackgroundColor #90CAF9
+hide circle
 title Channel — Class Diagram
 
-package "channel" #E0F2F1 {
-  class ChannelController <<Controller>> {
-    - channelService : ChannelService
-    + listChannels(workspaceId : string) : ChannelConnectionDTO[]
-    + connectFacebookChannel(input : ConnectChannelDTO) : ChannelConnectionDTO
-    + disconnectChannel(id : string) : void
-  }
-  class ChannelService <<Service>> {
-    - channelRepository : ChannelRepository
-    - facebookClient : FacebookClient
-    - encryptionService : EncryptionService
-    - queueManager : QueueManager
-    + listChannels(workspaceId : string) : ChannelConnectionDTO[]
-    + connectFacebookChannel(workspaceId : string, input : ConnectChannelDTO) : ChannelConnectionDTO
-    + disconnectChannel(channelId : string) : void
-  }
-  class ChannelRepository <<Repository>> {
-    - prisma : PrismaClient
-    + findChannelsByWorkspace(workspaceId : string) : ChannelConnection[]
-    + findChannelById(id : string) : ChannelConnection
-    + deleteChannelConnection(id : string) : void
-    + cancelScheduledPostsByChannel(id : string) : int
-    + createChannelConnection(workspaceId : string, input : ConnectChannelData) : ChannelConnection
-  }
+class ChannelController {
+  - channelService : ChannelService
+  + listChannels(workspaceId : string) : ChannelConnectionDTO[]
+  + connectFacebookChannel(input : ConnectChannelDTO) : ChannelConnectionDTO
+  + disconnectChannel(id : string) : void
+}
+class ChannelService {
+  - channelRepository : ChannelRepository
+  - facebookClient : FacebookClient
+  - encryptionService : EncryptionService
+  - queueManager : QueueManager
+  + listChannels(workspaceId : string) : ChannelConnectionDTO[]
+  + connectFacebookChannel(workspaceId : string, input : ConnectChannelDTO) : ChannelConnectionDTO
+  + disconnectChannel(channelId : string) : void
+}
+class ChannelRepository {
+  - prisma : PrismaClient
+  + findChannelsByWorkspace(workspaceId : string) : ChannelConnection[]
+  + findChannelById(id : string) : ChannelConnection
+  + deleteChannelConnection(id : string) : void
+  + cancelScheduledPostsByChannel(id : string) : int
+  + createChannelConnection(workspaceId : string, input : ConnectChannelData) : ChannelConnection
 }
 
-class FacebookClient <<Client>> {
+class FacebookClient {
   - graphApiBaseUrl : string
   - httpClient : HttpClient
   + verifyPageAccessToken(pageId : string, token : string) : PageInfo
   + publishToFacebook(pageToken : string, content : PublishContent) : PublishResult
 }
 
-class ChannelConnection <<Entity>> {
-  - id : string
-  - workspaceId : string
-  - platform : SocialPlatform
-  - type : ChannelType
-  - name : string
-  - externalAccountId : string
-  - accessToken : string
-  - status : ChannelStatus
-}
-
-class QueueManager <<Queue>> {
+class QueueManager {
   - connection : Redis
   + enqueue(queueName : string, jobName : string, data : Json) : Job
   + cancelJob(queueName : string, jobId : string) : void
@@ -67,13 +54,4 @@ ChannelController --> ChannelService
 ChannelService ..> ChannelRepository
 ChannelService ..> FacebookClient
 ChannelService ..> QueueManager
-ChannelRepository ..> ChannelConnection
-
-note bottom of FacebookClient
-  **Sua layering**: so do goc ve ChannelRepository -> FacebookClient.
-  Thuc te Repository khong goi API ngoai; chuyen sang
-  **ChannelService -> FacebookClient** cho dung Clean Architecture.
-  **D13**: nhap `pageId` + `pageAccessToken` thu cong (khong OAuth
-  redirect); `appId`/`appSecret` o **bien moi truong**, khong luu DB.
-end note
 @enduml

@@ -21,216 +21,27 @@ skinparam class {
   ArrowColor #455A64
   FontSize 12
 }
-skinparam stereotypeCBackgroundColor #90CAF9
+hide circle
 
 title Marka — Class Diagram (Business + Domain + Automation)
 
 ' ============================================================
-' 0. DOMAIN / ENTITY (nguon "thuoc tinh" du lieu)
+' 0. DOMAIN — ENUM (kieu du lieu dung chung)
 ' ============================================================
-package "domain — Entity/Model" #E8F5E9 {
-  class User <<Entity>> {
-    - id : string
-    - email : string
-    - passwordHash : string
-    - name : string
-    - avatar : string
-    - authProvider : AuthProvider
-    - googleId : string
-    - emailVerified : boolean
-    - systemRole : SystemRole
-    - tokenVersion : int
-    - isSuspended : boolean
-    - createdAt : DateTime
-    - updatedAt : DateTime
-  }
-  class Workspace <<Entity>> {
-    - id : string
-    - name : string
-    - logo : string
-    - plan : WorkspacePlan
-    - remainingCredit : int
-    - monthlyQuota : int
-    - planExpiresAt : DateTime
-    - brandVoice : Json
-    - deletedAt : DateTime
-    - createdAt : DateTime
-    - updatedAt : DateTime
-  }
-  class WorkspaceMember <<Entity>> {
-    - id : string
-    - workspaceId : string
-    - userId : string
-    - role : WorkspaceRole
-    - allowDirectPublish : boolean
-    - createdAt : DateTime
-    - updatedAt : DateTime
-  }
-  class WorkspaceInvite <<Entity>> {
-    - id : string
-    - email : string
-    - workspaceId : string
-    - role : WorkspaceRole
-    - token : string
-    - isUsed : boolean
-    - expiresAt : DateTime
-    - invitedById : string
-    - createdAt : DateTime
-  }
-  class Post <<Entity>> {
-    - id : string
-    - workspaceId : string
-    - title : string
-    - content : Json
-    - status : PostStatus
-    - campaignTag : string
-    - rejectReason : string
-    - submittedById : string
-    - createdById : string
-    - submittedAt : DateTime
-    - reviewedById : string
-    - reviewedAt : DateTime
-    - deletedAt : DateTime
-    - createdAt : DateTime
-    - updatedAt : DateTime
-  }
-  class MediaAsset <<Entity>> {
-    - id : string
-    - workspaceId : string
-    - postId : string?
-    - url : string
-    - type : MediaType
-    - mimeType : string
-    - thumbnailUrl : string
-    - size : int
-    - tags : string
-    - source : MediaSource
-    - createdById : string
-    - createdAt : DateTime
-  }
-  class ChannelConnection <<Entity>> {
-    - id : string
-    - workspaceId : string
-    - platform : SocialPlatform
-    - type : ChannelType
-    - name : string
-    - avatar : string
-    - externalAccountId : string
-    - accessToken : string
-    - status : ChannelStatus
-    - createdAt : DateTime
-    - updatedAt : DateTime
-  }
-  class ScheduledPost <<Entity>> {
-    - id : string
-    - postId : string
-    - channelId : string
-    - customContent : Json
-    - scheduledAt : DateTime
-    - status : PublishStatus
-    - externalPostId : string
-    - errorMessage : string
-    - retryCount : int
-    - createdAt : DateTime
-    - updatedAt : DateTime
-  }
-  class PostMetric <<Entity>> {
-    - id : string
-    - scheduledPostId : string
-    - reactions : int
-    - comments : int
-    - shares : int
-    - reach : int
-    - impressions : int
-    - permalinkUrl : string
-    - fetchedAt : DateTime
-  }
-  enum PublishStatus <<enum>> {
+together {
+  enum PublishStatus {
     SCHEDULED
     PUBLISHED
     FAILED
     CANCELLED
-  }
-  class AiGeneration <<Entity>> {
-    - id : string
-    - workspaceId : string
-    - userId : string
-    - postId : string
-    - type : AiGenType
-    - provider : string
-    - model : string
-    - status : AiGenStatus
-    - prompt : string
-    - response : string
-    - creditCost : int
-    - createdAt : DateTime
-  }
-  class CreditTransaction <<Entity>> {
-    - id : string
-    - workspaceId : string
-    - type : CreditFlowType
-    - action : CreditActionType
-    - amount : int
-    - balanceBefore : int
-    - balanceAfter : int
-    - reason : string
-    - createdById : string
-    - createdAt : DateTime
-  }
-  class CreditPackage <<Entity>> {
-    - id : string
-    - name : string
-    - description : string
-    - creditAmount : int
-    - price : int
-    - sortOrder : int
-    - isActive : boolean
-    - deletedAt : DateTime
-    - createdAt : DateTime
-    - updatedAt : DateTime
-  }
-  class Order <<Entity>> {
-    - id : string
-    - orderCode : string
-    - workspaceId : string
-    - packageId : string
-    - amount : int
-    - creditAmount : int
-    - targetPlan : WorkspacePlan
-    - payosTransId : string
-    - paidAt : DateTime
-    - status : OrderStatus
-    - createdById : string
-    - createdAt : DateTime
-    - updatedAt : DateTime
-  }
-  class Notification <<Entity>> {
-    - id : string
-    - userId : string
-    - workspaceId : string
-    - type : string
-    - payload : Json
-    - isRead : boolean
-    - createdAt : DateTime
-  }
-  class AuditLog <<Entity>> {
-    - id : string
-    - workspaceId : string
-    - actorId : string
-    - action : string
-    - targetType : string
-    - targetId : string
-    - reason : string
-    - metadata : Json
-    - createdAt : DateTime
   }
 }
 
 ' ============================================================
 ' 1. AUTH
 ' ============================================================
-package "auth" #E3F2FD {
-  class AuthController <<Controller>> {
+together {
+  class AuthController {
     - authService : AuthService
     + register(input : RegisterDTO) : AuthResult
     + login(email : string, password : string) : AuthResult
@@ -238,7 +49,7 @@ package "auth" #E3F2FD {
     + refreshToken(refreshToken : string) : AuthResult
     + logout(userId : string, refreshToken : string) : void
   }
-  class AuthService <<Service>> {
+  class AuthService {
     - userRepository : UserRepository
     - jwtConfig : JwtConfig
     - googleClient : GoogleOAuthClient
@@ -250,7 +61,7 @@ package "auth" #E3F2FD {
     - generateAccessToken(user : User) : string
     - generateRefreshToken(user : User) : string
   }
-  class GoogleOAuthClient <<Client>> {
+  class GoogleOAuthClient {
     - clientId : string
     - httpClient : HttpClient
     + verifyIdToken(idToken : string) : GooglePayload
@@ -260,14 +71,14 @@ package "auth" #E3F2FD {
 ' ============================================================
 ' 2. USER
 ' ============================================================
-package "user" #E3F2FD {
-  class UserController <<Controller>> {
+together {
+  class UserController {
     - userService : UserService
     + getProfile(userId : string) : UserProfileDTO
     + updateProfile(userId : string, input : UpdateProfileDTO) : UserDTO
     + changePassword(userId : string, old : string, newPwd : string) : boolean
   }
-  class UserService <<Service>> {
+  class UserService {
     - userRepository : UserRepository
     + getProfile(userId : string) : UserProfileDTO
     + updateProfile(userId : string, input : UpdateProfileDTO) : UserDTO
@@ -275,7 +86,7 @@ package "user" #E3F2FD {
     + hashPassword(password : string) : string
     + verifyPassword(password : string, hash : string) : boolean
   }
-  class UserRepository <<Repository>> {
+  class UserRepository {
     - prisma : PrismaClient
     + findUserByEmail(email : string) : User
     + findUserById(userId : string) : User
@@ -290,8 +101,8 @@ package "user" #E3F2FD {
 ' ============================================================
 ' 3. WORKSPACE
 ' ============================================================
-package "workspace" #E3F2FD {
-  class WorkspaceController <<Controller>> {
+together {
+  class WorkspaceController {
     - workspaceService : WorkspaceService
     + createWorkspace(input : CreateWorkspaceDTO) : WorkspaceDTO
     + updateWorkspace(id : string, input : UpdateWorkspaceDTO) : WorkspaceDTO
@@ -304,7 +115,7 @@ package "workspace" #E3F2FD {
     + removeMember(id : string, memberId : string) : void
     + changeMemberRole(id : string, memberId : string, role : WorkspaceRole) : void
   }
-  class WorkspaceService <<Service>> {
+  class WorkspaceService {
     - workspaceRepository : WorkspaceRepository
     - mailServiceClient : MailServiceClient
     - queueManager : QueueManager
@@ -320,7 +131,7 @@ package "workspace" #E3F2FD {
     + changeMemberRole(workspaceId : string, memberId : string, actorId : string, role : WorkspaceRole) : void
     - removeMemberInternal(workspaceId : string, memberId : string, action : string) : void
   }
-  class WorkspaceRepository <<Repository>> {
+  class WorkspaceRepository {
     - prisma : PrismaClient
     + findWorkspaceByNameAndOwner(userId : string, name : string) : Workspace
     + findWorkspacesByUserId(userId : string) : Workspace[]
@@ -342,7 +153,7 @@ package "workspace" #E3F2FD {
     + createNotification(data : NotificationData) : Notification
     + createAuditLog(data : AuditLogData) : AuditLog
   }
-  class MailServiceClient <<Client>> {
+  class MailServiceClient {
     - transporter : MailTransporter
     - fromEmail : string
     - appBaseUrl : string
@@ -356,50 +167,42 @@ package "workspace" #E3F2FD {
 ' ============================================================
 ' 4. BRAND VOICE
 ' ============================================================
-package "brandvoice" #E3F2FD {
-  class BrandVoiceController <<Controller>> {
+together {
+  class BrandVoiceController {
     - brandVoiceService : BrandVoiceService
     + getBrandVoice(workspaceId : string) : BrandVoiceDTO
     + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
     + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
     + deleteBrandVoice(workspaceId : string) : void
   }
-  class BrandVoiceService <<Service>> {
+  class BrandVoiceService {
     - brandVoiceRepository : BrandVoiceRepository
     + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
     + getBrandVoice(workspaceId : string) : BrandVoiceDTO
     + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
     + deleteBrandVoice(workspaceId : string) : void
   }
-  class BrandVoiceRepository <<Repository>> {
+  class BrandVoiceRepository {
     - prisma : PrismaClient
     + createBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
     + findBrandVoiceByWorkspace(workspaceId : string) : Json
     + updateBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
     + deleteBrandVoiceRecord(workspaceId : string) : Json
   }
-  class BrandVoiceDTO <<DTO>> {
-    - industry : string
-    - targetAudience : string
-    - writingStyle : string
-    - keywordsShouldUse : string[]
-    - keywordsAvoid : string[]
-    - fewShotExamples : string[]
-  }
 }
 
 ' ============================================================
 ' 5. CHANNEL
 ' ============================================================
-package "channel" #E3F2FD {
-  class ChannelController <<Controller>> {
+together {
+  class ChannelController {
     - channelService : ChannelService
     + listChannels(workspaceId : string) : ChannelConnectionDTO[]
     + connectFacebookChannel(input : ConnectChannelDTO) : ChannelConnectionDTO
     + connectSimulatedChannel(input : ConnectChannelDTO) : ChannelConnectionDTO
     + disconnectChannel(id : string) : void
   }
-  class ChannelService <<Service>> {
+  class ChannelService {
     - channelRepository : ChannelRepository
     - facebookClient : FacebookClient
     - encryptionService : EncryptionService
@@ -409,7 +212,7 @@ package "channel" #E3F2FD {
     + connectSimulatedChannel(workspaceId : string, input : ConnectChannelDTO) : ChannelConnectionDTO
     + disconnectChannel(channelId : string) : void
   }
-  class ChannelRepository <<Repository>> {
+  class ChannelRepository {
     - prisma : PrismaClient
     + findChannelsByWorkspace(workspaceId : string) : ChannelConnection[]
     + findChannelById(id : string) : ChannelConnection
@@ -419,7 +222,7 @@ package "channel" #E3F2FD {
     + deleteChannelConnection(id : string) : void
     + cancelScheduledPostsByChannel(id : string) : int
   }
-  class FacebookClient <<Client>> {
+  class FacebookClient {
     - graphApiBaseUrl : string
     - httpClient : HttpClient
     + verifyPageAccessToken(pageId : string, token : string) : PageInfo
@@ -431,14 +234,14 @@ package "channel" #E3F2FD {
 ' ============================================================
 ' 6. ORDER / BILLING (PayOS)
 ' ============================================================
-package "order — billing" #E3F2FD {
-  class OrderController <<Controller>> {
+together {
+  class OrderController {
     - orderService : OrderService
     + createOrder(workspaceId : string, input : CreateOrderDTO) : PaymentLinkDTO
     + handlePayosWebhook(payload : PayOSWebhookPayload) : void
     + getOrderStatus(code : string) : OrderStatusDTO
   }
-  class OrderService <<Service>> {
+  class OrderService {
     - orderRepository : OrderRepository
     - payosClient : PayOSClient
     - queueManager : QueueManager
@@ -448,7 +251,7 @@ package "order — billing" #E3F2FD {
     + handleWebhook(payload : PayOSWebhookPayload) : void
     - verifySignature(payload : PayOSWebhookPayload) : boolean
   }
-  class OrderRepository <<Repository>> {
+  class OrderRepository {
     - prisma : PrismaClient
     + createOrderRecord(data : CreateOrderData) : Order
     + findOrderByCode(code : string) : Order
@@ -457,7 +260,7 @@ package "order — billing" #E3F2FD {
     + updateWorkspacePlan(workspaceId : string, plan : WorkspacePlan) : Workspace
     + addCredit(workspaceId : string, amount : int) : CreditTransaction
   }
-  class PayOSClient <<Client>> {
+  class PayOSClient {
     - baseUrl : string
     - clientId : string
     - apiKey : string
@@ -473,8 +276,8 @@ package "order — billing" #E3F2FD {
 ' ============================================================
 ' 7. AI (Assistant + Brand Voice generation)
 ' ============================================================
-package "ai" #FFF8E1 {
-  class AIController <<Controller>> {
+together {
+  class AIController {
     - aiService : AIService
     + generateText(workspaceId : string, input : GenerateTextDTO) : JobAcceptedDTO
     + generateImage(workspaceId : string, input : GenerateImageDTO) : JobAcceptedDTO
@@ -482,7 +285,7 @@ package "ai" #FFF8E1 {
     + regenerate(workspaceId : string, input : RegenerateDTO) : JobAcceptedDTO
     + getGenerationStatus(jobId : string) : AiGeneration
   }
-  class AIService <<Service>> {
+  class AIService {
     - aiRepository : AIRepository
     - brandVoiceRepository : BrandVoiceRepository
     - openAIClient : OpenAIClient
@@ -492,7 +295,7 @@ package "ai" #FFF8E1 {
     - estimateCreditCost(type : AiGenType) : int
     - refundCredit(workspaceId : string, cost : int) : void
   }
-  class AIRepository <<Repository>> {
+  class AIRepository {
     - prisma : PrismaClient
     + deductCredit(workspaceId : string, cost : int) : CreditTransaction
     + refundCredit(workspaceId : string, cost : int) : CreditTransaction
@@ -500,7 +303,7 @@ package "ai" #FFF8E1 {
     + findGenerationByJobId(jobId : string) : AiGeneration
     + updateAiGenerationStatus(jobId : string, status : AiGenStatus) : AiGeneration
   }
-  class OpenAIClient <<Client>> {
+  class OpenAIClient {
     - apiKey : string
     - baseUrl : string
     - textModel : string
@@ -515,8 +318,8 @@ package "ai" #FFF8E1 {
 ' ============================================================
 ' 8. POST (Content + Approval + Schedule + Publish)
 ' ============================================================
-package "post" #FFF8E1 {
-  class PostController <<Controller>> {
+together {
+  class PostController {
     - postService : PostService
     + createPost(input : CreatePostDTO) : PostDTO
     + updatePost(id : string, input : UpdatePostDTO) : PostDTO
@@ -529,7 +332,7 @@ package "post" #FFF8E1 {
     + getSchedule(month : int, year : int) : ScheduledPostDTO[]
     + publishNow(id : string, channelId : string) : PublishResult
   }
-  class PostService <<Service>> {
+  class PostService {
     - postRepository : PostRepository
     - channelRepository : ChannelRepository
     - facebookClient : FacebookClient
@@ -547,7 +350,7 @@ package "post" #FFF8E1 {
     + processPublishJob(scheduledPostId : string) : void
     - assertTransition(from : PostStatus, to : PostStatus) : void
   }
-  class PostRepository <<Repository>> {
+  class PostRepository {
     - prisma : PrismaClient
     + createPost(data : CreatePostData) : Post
     + findPostById(id : string) : Post
@@ -569,8 +372,8 @@ package "post" #FFF8E1 {
 ' ============================================================
 ' 9. ADMIN
 ' ============================================================
-package "admin" #ECEFF1 {
-  class AdminController <<Controller>> {
+together {
+  class AdminController {
     - adminService : AdminService
     + getDashboardStats(workspaceId : string) : DashboardStatsDTO
     + listUsers(filters : AdminFilters) : PagedResult
@@ -578,7 +381,7 @@ package "admin" #ECEFF1 {
     + listWorkspaces(filters : AdminFilters) : PagedResult
     + getAuditLogs(filters : AdminFilters) : PagedResult
   }
-  class AdminService <<Service>> {
+  class AdminService {
     - adminRepository : AdminRepository
     + getDashboardStats(workspaceId : string) : DashboardStatsDTO
     + listUsers(filters : AdminFilters) : PagedResult
@@ -586,7 +389,7 @@ package "admin" #ECEFF1 {
     + listWorkspaces(filters : AdminFilters) : PagedResult
     + getAuditLogs(filters : AdminFilters) : PagedResult
   }
-  class AdminRepository <<Repository>> {
+  class AdminRepository {
     - prisma : PrismaClient
     + aggregateUsersAndWorkspaces() : UserWorkspaceStats
     + aggregateCreditAndRevenue(workspaceId : string) : CreditRevenueStats
@@ -601,8 +404,8 @@ package "admin" #ECEFF1 {
 ' 10. AUTOMATION — Queue (BullMQ) + Worker
 '     Dung cho: AI gen, Post publish, Email/Notification
 ' ============================================================
-package "automation — queue (BullMQ)" #F3E5F5 {
-  class QueueManager <<Queue>> {
+together {
+  class QueueManager {
     - connection : Redis
     - queues : Map~string,Queue~
     - defaultJobOptions : JobOptions
@@ -615,7 +418,7 @@ package "automation — queue (BullMQ)" #F3E5F5 {
     + resumeQueue(queueName : string) : void
     + closeAll() : void
   }
-  abstract class BaseWorker <<Worker>> {
+  abstract class BaseWorker {
     # queueName : string
     # connection : Redis
     # concurrency : int
@@ -626,39 +429,39 @@ package "automation — queue (BullMQ)" #F3E5F5 {
     + onFailed(job : Job, err : Error) : void
     + close() : void
   }
-  class ContentGenerationQueue <<Queue>> {
+  class ContentGenerationQueue {
     - name : string = "content-generation-queue"
     + addTextJob(payload : AiJobPayload) : Job
     + addImageJob(payload : AiJobPayload) : Job
   }
-  class PublishingQueue <<Queue>> {
+  class PublishingQueue {
     - name : string = "publishing-queue"
     + addPublishJob(scheduledPostId : string, runAt : DateTime) : Job
     + cancelJob(scheduledPostId : string) : void
   }
-  class EmailQueue <<Queue>> {
+  class EmailQueue {
     - name : string = "email-queue"
     + addInviteEmail(payload : EmailPayload) : Job
     + addReminderEmail(payload : EmailPayload) : Job
   }
-  class AiGenerationWorker <<Worker>> {
+  class AiGenerationWorker {
     - openAIClient : OpenAIClient
     - aiRepository : AIRepository
     - aiService : AIService
     + process(job : Job) : Json
   }
-  class PublishingWorker <<Worker>> {
+  class PublishingWorker {
     - postService : PostService
     - facebookClient : FacebookClient
     - postRepository : PostRepository
     + process(job : Job) : Json
     + simulatePublish(scheduledPost : ScheduledPost) : PublishResult
   }
-  class EmailWorker <<Worker>> {
+  class EmailWorker {
     - mailServiceClient : MailServiceClient
     + process(job : Job) : Json
   }
-  class ScheduledPostScanner <<Cron>> {
+  class ScheduledPostScanner {
     - cronExpression : string
     - publishingQueue : PublishingQueue
     - postRepository : PostRepository
@@ -674,8 +477,8 @@ package "automation — queue (BullMQ)" #F3E5F5 {
 '     Dang bai (publishing) dung BullMQ — n8n KHONG tham gia.
 '     Cac module khac (Admin, Order, AI, Workspace, Auth...) KHONG dung n8n.
 ' ============================================================
-package "automation — n8n (chi Post Analytics — dong bo metrics)" #FCE4EC {
-  class N8nClient <<Client>> {
+together {
+  class N8nClient {
     - baseUrl : string
     - apiKey : string
     - webhookSecret : string
@@ -687,13 +490,13 @@ package "automation — n8n (chi Post Analytics — dong bo metrics)" #FCE4EC {
     + registerWebhook(eventKey : string, targetUrl : string) : void
     + verifyWebhookSignature(signature : string, rawBody : string) : boolean
   }
-  class MetricsSyncWorkflow <<Service>> {
+  class MetricsSyncWorkflow {
     - n8nClient : N8nClient
     - postRepository : PostRepository
     + runMetricsSync(scheduledPostId : string) : ExecutionInfo
     + handleMetricsResult(payload : Json) : void
   }
-  class N8nWebhookController <<Controller>> {
+  class N8nWebhookController {
     - metricsWorkflow : MetricsSyncWorkflow
     + handleCallback(req : RawRequest) : void
   }
@@ -757,68 +560,5 @@ ScheduledPostScanner ..> PostRepository
 ' --- n8n orchestration (CHI Post Analytics — dong bo metrics) ---
 MetricsSyncWorkflow ..> N8nClient
 MetricsSyncWorkflow ..> PostRepository
-
-' --- Repository -> Domain ---
-UserRepository ..> User
-WorkspaceRepository ..> Workspace
-WorkspaceRepository ..> WorkspaceMember
-WorkspaceRepository ..> WorkspaceInvite
-WorkspaceRepository ..> Notification
-WorkspaceRepository ..> AuditLog
-BrandVoiceRepository ..> Workspace : brandVoice(Json)
-ChannelRepository ..> ChannelConnection
-ChannelRepository ..> ScheduledPost
-OrderRepository ..> Order
-OrderRepository ..> CreditTransaction
-AIRepository ..> AiGeneration
-AIRepository ..> CreditTransaction
-PostRepository ..> Post
-PostRepository ..> ScheduledPost
-PostRepository ..> PostMetric
-PostRepository ..> AuditLog
-AdminRepository ..> User
-AdminRepository ..> Workspace
-AdminRepository ..> AuditLog
-
-' --- Domain associations ---
-ScheduledPost "1" --> "0..1" PostMetric
-
-' ============================================================
-' NOTES
-' ============================================================
-note top of AuthService
-  **Khac biet so voi so do goc**
-  So do goc co revokeRefreshToken()/revokeAllRefreshTokens()
-  (gia dinh co bang refresh_tokens).
-  Theo docs/architecture.md muc 2.4: token la stateless,
-  KHONG co bang refresh_tokens -> dung **tokenVersion**.
-  Vi vay UserRepository dung incrementTokenVersion().
-end note
-
-note right of QueueManager
-  **Queue (BullMQ)** dung cho 3 module:
-  - AI: content-generation-queue
-  - Post: publishing-queue
-  - Workspace/Notification: email-queue
-  (khop voi workers/queues.ts hien co)
-end note
-
-note bottom of N8nClient
-  **n8n CHI dung cho Post Analytics** — dong bo metrics
-  Facebook (Phan he 8, D21). KHONG tham gia dang bai.
-  - Dang bai: BullMQ (`publishing-queue` + PublishingWorker).
-  - Admin/Order/AI/Workspace/Auth: KHONG dung n8n.
-    Admin = query DB dong bo; Order = cron + webhook;
-    AI/Email = da co BullMQ worker.
-  - MetricsSyncWorkflow chay dinh ky (n8n cron), goi
-    Facebook Graph API roi ghi/upsert `PostMetric`.
-end note
-
-note bottom of FacebookClient
-  **D13**: MVP nhap `pageId` + `pageAccessToken` thu cong
-  (khong OAuth redirect). `appId`/`appSecret` lay tu **bien
-  moi truong**, khong luu DB. Chi `accessToken` (Page Token)
-  duoc ma hoa AES-256 luu DB.
-end note
 
 @enduml

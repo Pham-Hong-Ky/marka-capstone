@@ -1,0 +1,106 @@
+@startuml 09-automation-queue-n8n
+!pragma layout smetana
+skinparam dpi 120
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #37474F
+  ArrowColor #455A64
+  FontSize 12
+}
+hide circle
+title Automation — Queue (BullMQ) & n8n — Class Diagram
+
+class QueueManager {
+  - connection : Redis
+  - queues : Map~string,Queue~
+  - defaultJobOptions : JobOptions
+  + enqueue(queueName : string, jobName : string, data : Json, opts : JobOptions) : Job
+  + addDelayed(queueName : string, jobName : string, data : Json, runAt : DateTime) : Job
+  + cancelJob(queueName : string, jobId : string) : void
+  + getJobStatus(queueName : string, jobId : string) : JobStatus
+  + pauseQueue(queueName : string) : void
+  + resumeQueue(queueName : string) : void
+}
+abstract class BaseWorker {
+  # queueName : string
+  # connection : Redis
+  # concurrency : int
+  + start() : void
+  + process(job : Job) : Json
+  + onFailed(job : Job, err : Error) : void
+  + close() : void
+}
+class ContentGenerationQueue {
+  - name : string
+  + addTextJob(payload : AiJobPayload) : Job
+  + addImageJob(payload : AiJobPayload) : Job
+}
+class PublishingQueue {
+  - name : string
+  + addPublishJob(scheduledPostId : string, runAt : DateTime) : Job
+  + cancelJob(scheduledPostId : string) : void
+}
+class EmailQueue {
+  - name : string
+  + addInviteEmail(payload : EmailPayload) : Job
+  + addReminderEmail(payload : EmailPayload) : Job
+}
+class AiGenerationWorker {
+  + process(job : Job) : Json
+}
+class PublishingWorker {
+  + process(job : Job) : Json
+  + simulatePublish(scheduledPost : ScheduledPost) : PublishResult
+}
+class EmailWorker {
+  + process(job : Job) : Json
+}
+class ScheduledPostScanner {
+  - cronExpression : string
+  + start() : void
+  + stop() : void
+  + scanDuePosts() : void
+}
+
+class N8nClient {
+  - baseUrl : string
+  - apiKey : string
+  - webhookSecret : string
+  - timeoutMs : int
+  + triggerWorkflow(workflowKey : string, payload : Json) : ExecutionInfo
+  + getExecution(executionId : string) : ExecutionInfo
+  + verifyWebhookSignature(signature : string, rawBody : string) : boolean
+}
+class MetricsSyncWorkflow {
+  - n8nClient : N8nClient
+  - postRepository : PostRepository
+  + runMetricsSync(scheduledPostId : string) : ExecutionInfo
+  + handleMetricsResult(payload : Json) : void
+}
+class N8nWebhookController {
+  - metricsWorkflow : MetricsSyncWorkflow
+  + handleCallback(req : RawRequest) : void
+}
+class PostRepository {
+  - prisma : PrismaClient
+  + upsertPostMetric(scheduledPostId : string, data : PostMetricData) : PostMetric
+}
+
+QueueManager --> ContentGenerationQueue
+QueueManager --> PublishingQueue
+QueueManager --> EmailQueue
+AiGenerationWorker --|> BaseWorker
+PublishingWorker --|> BaseWorker
+EmailWorker --|> BaseWorker
+ContentGenerationQueue ..> AiGenerationWorker
+PublishingQueue ..> PublishingWorker
+EmailQueue ..> EmailWorker
+ScheduledPostScanner --> PublishingQueue
+
+N8nWebhookController --> MetricsSyncWorkflow
+MetricsSyncWorkflow ..> N8nClient
+MetricsSyncWorkflow ..> PostRepository
+@enduml

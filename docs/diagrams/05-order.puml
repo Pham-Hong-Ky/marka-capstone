@@ -10,35 +10,33 @@ skinparam class {
   ArrowColor #455A64
   FontSize 12
 }
-skinparam stereotypeCBackgroundColor #90CAF9
+hide circle
 title Order / Billing — Class Diagram
 
-package "order — billing" #FFF8E1 {
-  class OrderController <<Controller>> {
-    - orderService : OrderService
-    + createOrder(workspaceId : string, input : CreateOrderDTO) : PaymentLinkDTO
-    + handlePayosWebhook(payload : PayOSWebhookPayload) : void
-    + getOrderStatus(code : string) : OrderStatusDTO
-  }
-  class OrderService <<Service>> {
-    - orderRepository : OrderRepository
-    - payosClient : PayOSClient
-    - queueManager : QueueManager
-    + createOrder(workspaceId : string, userId : string, input : CreateOrderDTO) : PaymentLinkDTO
-    + confirmOrderPaid(orderCode : string, transactionId : string) : Order
-    + getOrderStatus(code : string) : OrderStatusDTO
-    - verifySignature(payload : PayOSWebhookPayload) : boolean
-  }
-  class OrderRepository <<Repository>> {
-    - prisma : PrismaClient
-    + createOrderRecord(data : CreateOrderData) : Order
-    + findOrderByCode(code : string) : Order
-    + updateOrderStatus(code : string, status : OrderStatus) : Order
-    + addCredit(workspaceId : string, amount : int) : CreditTransaction
-  }
+class OrderController {
+  - orderService : OrderService
+  + createOrder(workspaceId : string, input : CreateOrderDTO) : PaymentLinkDTO
+  + handlePayosWebhook(payload : PayOSWebhookPayload) : void
+  + getOrderStatus(code : string) : OrderStatusDTO
+}
+class OrderService {
+  - orderRepository : OrderRepository
+  - payosClient : PayOSClient
+  - queueManager : QueueManager
+  + createOrder(workspaceId : string, userId : string, input : CreateOrderDTO) : PaymentLinkDTO
+  + confirmOrderPaid(orderCode : string, transactionId : string) : Order
+  + getOrderStatus(code : string) : OrderStatusDTO
+  - verifySignature(payload : PayOSWebhookPayload) : boolean
+}
+class OrderRepository {
+  - prisma : PrismaClient
+  + createOrderRecord(data : CreateOrderData) : Order
+  + findOrderByCode(code : string) : Order
+  + updateOrderStatus(code : string, status : OrderStatus) : Order
+  + addCredit(workspaceId : string, amount : int) : CreditTransaction
 }
 
-class PayOSClient <<Client>> {
+class PayOSClient {
   - baseUrl : string
   - clientId : string
   - apiKey : string
@@ -48,18 +46,7 @@ class PayOSClient <<Client>> {
   + verifySignature(payload : PayOSWebhookPayload) : boolean
 }
 
-class Order <<Entity>> {
-  - id : string
-  - orderCode : string
-  - workspaceId : string
-  - amount : int
-  - creditAmount : int
-  - targetPlan : WorkspacePlan
-  - payosTransId : string
-  - status : OrderStatus
-}
-
-class QueueManager <<Queue>> {
+class QueueManager {
   - connection : Redis
   + enqueue(queueName : string, jobName : string, data : Json) : Job
   + cancelJob(queueName : string, jobId : string) : void
@@ -69,11 +56,4 @@ OrderController --> OrderService
 OrderService ..> OrderRepository
 OrderService ..> PayOSClient
 OrderService ..> QueueManager
-OrderRepository ..> Order
-
-note bottom of PayOSClient
-  **Sua layering**: so do goc ve OrderRepository -> PayOSClient.
-  Chuyen sang **OrderService -> PayOSClient**.
-  Webhook xu ly **dong bo + verify chu ky** (khong qua n8n).
-end note
 @enduml

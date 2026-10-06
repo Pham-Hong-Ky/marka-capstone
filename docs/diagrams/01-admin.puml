@@ -10,38 +10,23 @@ skinparam class {
   ArrowColor #455A64
   FontSize 12
 }
-skinparam stereotypeCBackgroundColor #90CAF9
+hide circle
 title Admin — Class Diagram
 
-package "admin" #ECEFF1 {
-  class AdminController <<Controller>> {
-    - adminService : AdminService
-    + getDashboardStats(workspaceId : string) : DashboardStatsDTO
-  }
-  class AdminService <<Service>> {
-    - adminRepository : AdminRepository
-    + getDashboardStats(workspaceId : string) : DashboardStatsDTO
-  }
-  class AdminRepository <<Repository>> {
-    - prisma : PrismaClient
-    + aggregateUsersAndWorkspaces() : UserWorkspaceStats
-    + aggregateCreditAndRevenue(workspaceId : string) : CreditRevenueStats
-  }
+class AdminController {
+  - adminService : AdminService
+  + getDashboardStats(workspaceId : string) : DashboardStatsDTO
 }
-
-class DashboardStatsDTO <<DTO>> {
-  - totalUsers : int
-  - totalWorkspaces : int
-  - totalCreditUsed : int
-  - totalRevenue : int
+class AdminService {
+  - adminRepository : AdminRepository
+  + getDashboardStats(workspaceId : string) : DashboardStatsDTO
+}
+class AdminRepository {
+  - prisma : PrismaClient
+  + aggregateUsersAndWorkspaces() : UserWorkspaceStats
+  + aggregateCreditAndRevenue(workspaceId : string) : CreditRevenueStats
 }
 
 AdminController --> AdminService
 AdminService ..> AdminRepository
-AdminRepository ..> DashboardStatsDTO
-
-note bottom of AdminRepository
-  Admin la truy van DB **dong bo** (Prisma aggregate).
-  KHONG dung queue, KHONG dung n8n.
-end note
 @enduml

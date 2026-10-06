@@ -1,0 +1,82 @@
+@startuml 07-post
+!pragma layout smetana
+skinparam dpi 120
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #37474F
+  ArrowColor #455A64
+  FontSize 12
+}
+hide circle
+title Post — Class Diagram
+
+class PostController {
+  - postService : PostService
+  + createPost(input : CreatePostDTO) : PostDTO
+  + updatePost(id : string, input : UpdatePostDTO) : PostDTO
+  + getPostDetail(id : string) : PostDetailDTO
+  + searchPosts(filters : PostFilters) : PagedResult
+  + deletePost(id : string) : void
+  + submitForApproval(id : string) : PostDTO
+  + reviewPost(id : string, action : ReviewAction, reason : string) : PostDTO
+  + schedulePost(id : string, input : SchedulePostDTO) : ScheduledPostDTO[]
+  + getSchedule(month : int, year : int) : ScheduledPostDTO[]
+  + publishNow(id : string, channelId : string) : PublishResult
+}
+class PostService {
+  - postRepository : PostRepository
+  - channelRepository : ChannelRepository
+  - facebookClient : FacebookClient
+  - queueManager : QueueManager
+  + createPost(workspaceId : string, creatorId : string, input : CreatePostDTO) : PostDTO
+  + updatePost(postId : string, input : UpdatePostDTO) : PostDTO
+  + getPostDetail(postId : string) : PostDetailDTO
+  + searchPosts(workspaceId : string, filters : PostFilters) : PagedResult
+  + deletePost(postId : string, actorId : string) : void
+  + submitPostForApproval(postId : string, submitterId : string) : PostDTO
+  + reviewPost(postId : string, reviewerId : string, action : ReviewAction, reason : string) : PostDTO
+  + schedulePost(postId : string, input : SchedulePostDTO) : ScheduledPostDTO[]
+  + getScheduleByMonth(workspaceId : string, month : int, year : int) : ScheduledPostDTO[]
+  + publishPostNow(postId : string, channelId : string) : PublishResult
+  + processPublishJob(scheduledPostId : string) : void
+}
+class PostRepository {
+  - prisma : PrismaClient
+  + createPost(data : CreatePostData) : Post
+  + findPostById(id : string) : Post
+  + updatePost(id : string, data : UpdatePostData) : Post
+  + softDeletePost(id : string) : Post
+  + findPostsByFilters(workspaceId : string, filters : PostFilters) : PagedResult
+  + updatePostStatus(id : string, status : PostStatus, details : Json) : Post
+  + createApprovalHistory(data : ApprovalHistoryData) : AuditLog
+  + findApprovalHistoryByPost(id : string) : AuditLog[]
+  + createScheduledPost(data : CreateScheduledPostData) : ScheduledPost
+  + findScheduledPostsByPost(id : string) : ScheduledPost[]
+  + findScheduledPostsByRange(workspaceId : string, from : DateTime, to : DateTime) : ScheduledPost[]
+  + updateScheduledPostStatus(id : string, status : PublishStatus, err : string) : ScheduledPost
+  + checkAndUpdatePostOverallStatus(postId : string) : Post
+  + createNotification(data : NotificationData) : Notification
+  + upsertPostMetric(scheduledPostId : string, data : PostMetricData) : PostMetric
+}
+
+class FacebookClient {
+  - graphApiBaseUrl : string
+  - httpClient : HttpClient
+  + verifyPageAccessToken(pageId : string, token : string) : PageInfo
+  + publishToFacebook(pageToken : string, content : PublishContent) : PublishResult
+}
+
+class QueueManager {
+  - connection : Redis
+  + enqueue(queueName : string, jobName : string, data : Json) : Job
+  + cancelJob(queueName : string, jobId : string) : void
+}
+
+PostController --> PostService
+PostService ..> PostRepository
+PostService ..> FacebookClient
+PostService ..> QueueManager
+@enduml

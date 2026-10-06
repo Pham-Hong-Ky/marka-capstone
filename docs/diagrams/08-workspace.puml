@@ -1,0 +1,71 @@
+@startuml 08-workspace
+!pragma layout smetana
+skinparam dpi 120
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #37474F
+  ArrowColor #455A64
+  FontSize 12
+}
+hide circle
+title Workspace — Class Diagram
+
+class WorkspaceController {
+  - workspaceService : WorkspaceService
+  + createWorkspace(input : CreateWorkspaceDTO) : WorkspaceDTO
+  + updateWorkspace(id : string, input : UpdateWorkspaceDTO) : WorkspaceDTO
+  + deleteWorkspace(id : string) : void
+  + listMember(id : string) : MemberListDTO
+  + inviteMember(id : string, input : InviteMemberDTO) : WorkspaceInvite
+  + acceptInvite(token : string) : AcceptInviteResult
+  + leaveWorkspace(id : string) : void
+  + removeMember(id : string, memberId : string) : void
+}
+class WorkspaceService {
+  - workspaceRepository : WorkspaceRepository
+  - mailServiceClient : MailServiceClient
+  + createWorkspace(userId : string, input : CreateWorkspaceDTO) : WorkspaceDTO
+  + updateWorkspace(id : string, input : UpdateWorkspaceDTO) : WorkspaceDTO
+  + deleteWorkspace(id : string) : void
+  + listMembers(id : string) : MemberListDTO
+  + inviteMember(workspaceId : string, inviterId : string, input : InviteMemberDTO) : WorkspaceInvite
+  + verifyInvite(token : string) : VerifyInviteResult
+  + leaveWorkspace(workspaceId : string, userId : string) : void
+  + removeMember(workspaceId : string, memberId : string, actorId : string) : void
+  - removeMemberInternal(workspaceId : string, memberId : string, action : string) : void
+}
+class WorkspaceRepository {
+  - prisma : PrismaClient
+  + findWorkspaceByNameAndOwner(userId : string, name : string) : Workspace
+  + createWorkspaceRecord(data : CreateWorkspaceData) : Workspace
+  + updateWorkspaceRecord(id : string, data : UpdateWorkspaceData) : Workspace
+  + softDeleteWorkspace(id : string) : Workspace
+  + findMembersByWorkspace(id : string) : WorkspaceMember[]
+  + findMemberByEmail(workspaceId : string, email : string) : WorkspaceMember
+  + findMember(workspaceId : string, userId : string) : WorkspaceMember
+  + createWorkspaceMember(workspaceId : string, userId : string, role : WorkspaceRole) : WorkspaceMember
+  + deleteWorkspaceMember(workspaceId : string, userId : string) : void
+  + removeAllWorkspaceMembers(workspaceId : string) : int
+  + countOwners(workspaceId : string) : int
+  + createInvite(data : CreateInviteData) : WorkspaceInvite
+  + findInviteByToken(token : string) : WorkspaceInvite
+  + markInviteUsed(id : string) : WorkspaceInvite
+  + findPendingInvitesByWorkspace(id : string) : WorkspaceInvite[]
+  + createNotification(data : NotificationData) : Notification
+  + createAuditLog(data : AuditLogData) : AuditLog
+}
+
+class MailServiceClient {
+  - transporter : MailTransporter
+  - fromEmail : string
+  - appBaseUrl : string
+  + sendInviteEmail(email : string, token : string) : void
+}
+
+WorkspaceController --> WorkspaceService
+WorkspaceService ..> WorkspaceRepository
+WorkspaceService ..> MailServiceClient
+@enduml

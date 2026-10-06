@@ -10,48 +10,31 @@ skinparam class {
   ArrowColor #455A64
   FontSize 12
 }
-skinparam stereotypeCBackgroundColor #90CAF9
+hide circle
 title Brand Voice — Class Diagram
 
-package "brandvoice" #FFF3E0 {
-  class BrandVoiceController <<Controller>> {
-    - brandVoiceService : BrandVoiceService
-    + getBrandVoice(workspaceId : string) : BrandVoiceDTO
-    + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-    + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-    + deleteBrandVoice(workspaceId : string) : void
-  }
-  class BrandVoiceService <<Service>> {
-    - brandVoiceRepository : BrandVoiceRepository
-    + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-    + getBrandVoice(workspaceId : string) : BrandVoiceDTO
-    + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-    + deleteBrandVoice(workspaceId : string) : void
-  }
-  class BrandVoiceRepository <<Repository>> {
-    - prisma : PrismaClient
-    + createBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
-    + findBrandVoiceByWorkspace(workspaceId : string) : Json
-    + updateBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
-    + deleteBrandVoiceRecord(workspaceId : string) : Json
-  }
+class BrandVoiceController {
+  - brandVoiceService : BrandVoiceService
+  + getBrandVoice(workspaceId : string) : BrandVoiceDTO
+  + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
+  + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
+  + deleteBrandVoice(workspaceId : string) : void
 }
-
-class BrandVoiceDTO <<DTO>> {
-  - industry : string
-  - targetAudience : string
-  - writingStyle : string
-  - keywordsShouldUse : string[]
-  - keywordsAvoid : string[]
-  - fewShotExamples : string[]
+class BrandVoiceService {
+  - brandVoiceRepository : BrandVoiceRepository
+  + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
+  + getBrandVoice(workspaceId : string) : BrandVoiceDTO
+  + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
+  + deleteBrandVoice(workspaceId : string) : void
+}
+class BrandVoiceRepository {
+  - prisma : PrismaClient
+  + createBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
+  + findBrandVoiceByWorkspace(workspaceId : string) : Json
+  + updateBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
+  + deleteBrandVoiceRecord(workspaceId : string) : Json
 }
 
 BrandVoiceController --> BrandVoiceService
 BrandVoiceService ..> BrandVoiceRepository
-BrandVoiceRepository ..> BrandVoiceDTO
-
-note bottom of BrandVoiceRepository
-  Brand Voice duoc luu trong **Workspace.brandVoice (Json)**,
-  khong co bang rieng.
-end note
 @enduml

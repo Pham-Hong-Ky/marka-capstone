@@ -1,0 +1,59 @@
+@startuml 06-ai
+!pragma layout smetana
+skinparam dpi 120
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #37474F
+  ArrowColor #455A64
+  FontSize 12
+}
+hide circle
+title AI — Class Diagram
+
+class AIController {
+  - aiService : AIService
+  + generateText(workspaceId : string, input : GenerateTextDTO) : JobAcceptedDTO
+}
+class AIService {
+  - aiRepository : AIRepository
+  - openAIClient : OpenAIClient
+  - queueManager : QueueManager
+  + addGenerateJob(workspaceId : string, userId : string, input : GenerateDTO) : JobAcceptedDTO
+}
+class AIWorker {
+  - openAIClient : OpenAIClient
+  - aiRepository : AIRepository
+  + process(job : Job) : Json
+}
+class AIRepository {
+  - prisma : PrismaClient
+  + deductCredit(workspaceId : string, cost : int) : CreditTransaction
+  + createAiGeneration(data : CreateAiGenerationData) : AiGeneration
+  + updateAiGenerationStatus(jobId : string, status : AiGenStatus) : AiGeneration
+}
+
+class OpenAIClient {
+  - apiKey : string
+  - baseUrl : string
+  - textModel : string
+  - imageModel : string
+  + generateText(prompt : string, options : AiOptions) : string
+  + generateImage(prompt : string, options : AiOptions) : string
+}
+
+class QueueManager {
+  - connection : Redis
+  + enqueue(queueName : string, jobName : string, data : Json) : Job
+  + cancelJob(queueName : string, jobId : string) : void
+}
+
+AIController --> AIService
+AIService ..> AIRepository
+AIService ..> OpenAIClient
+AIService ..> QueueManager
+AIWorker ..> AIRepository
+AIWorker ..> OpenAIClient
+@enduml

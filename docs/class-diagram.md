@@ -151,9 +151,10 @@ Tương ứng với 7 ảnh gốc, đã vẽ lại **đầy đủ attribute + me
 | 3 | Brand Voice | `docs/diagrams/03-brandvoice.puml` | `docs/diagrams/03-brandvoice.png` |
 | 4 | Channel (+ FacebookClient) | `docs/diagrams/04-channel.puml` | `docs/diagrams/04-channel.png` |
 | 5 | Order / Billing (+ PayOSClient) | `docs/diagrams/05-order.puml` | `docs/diagrams/05-order.png` |
-| 6 | AI & Post (+ FacebookClient, AIWorker) | `docs/diagrams/06-ai-post.puml` | `docs/diagrams/06-ai-post.png` |
-| 7 | Workspace (+ MailServiceClient) | `docs/diagrams/07-workspace.puml` | `docs/diagrams/07-workspace.png` |
-| 8 | Automation: Queue (BullMQ) & n8n | `docs/diagrams/08-automation-queue-n8n.puml` | `docs/diagrams/08-automation-queue-n8n.png` |
+| 6 | AI (+ OpenAIClient, AIWorker) | `docs/diagrams/06-ai.puml` | `docs/diagrams/06-ai.png` |
+| 7 | Post (+ FacebookClient) | `docs/diagrams/07-post.puml` | `docs/diagrams/07-post.png` |
+| 8 | Workspace (+ MailServiceClient) | `docs/diagrams/08-workspace.puml` | `docs/diagrams/08-workspace.png` |
+| 9 | Automation: Queue (BullMQ) & n8n | `docs/diagrams/09-automation-queue-n8n.puml` | `docs/diagrams/09-automation-queue-n8n.png` |
 
 ### 6.1. Admin
 
@@ -175,19 +176,23 @@ Tương ứng với 7 ảnh gốc, đã vẽ lại **đầy đủ attribute + me
 
 ![Order class diagram](diagrams/05-order.png)
 
-### 6.6. AI & Post
+### 6.6. AI
 
-![AI Post class diagram](diagrams/06-ai-post.png)
+![AI class diagram](diagrams/06-ai.png)
 
-### 6.7. Workspace
+### 6.7. Post
 
-![Workspace class diagram](diagrams/07-workspace.png)
+![Post class diagram](diagrams/07-post.png)
 
-### 6.8. Automation — Queue & n8n
+### 6.8. Workspace
 
-![Automation class diagram](diagrams/08-automation-queue-n8n.png)
+![Workspace class diagram](diagrams/08-workspace.png)
 
-### 6.9. Lệnh render lại toàn bộ ảnh
+### 6.9. Automation — Queue & n8n
+
+![Automation class diagram](diagrams/09-automation-queue-n8n.png)
+
+### 6.10. Lệnh render lại toàn bộ ảnh
 
 ```powershell
 java -jar plantuml.jar -tpng -charset UTF-8 -Playout=smetana docs/class-diagram.puml
