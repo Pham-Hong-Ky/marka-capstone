@@ -28,13 +28,19 @@ export const httpClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach Access Token if stored in localStorage / state
+// Request Interceptor: Attach Access Token + active workspace (multi-tenant) header
 httpClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const accessToken = localStorage.getItem('access_token');
     if (accessToken && config.headers && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
+
+    const workspaceId = localStorage.getItem('active_workspace_id');
+    if (workspaceId && config.headers && !config.headers['x-workspace-id']) {
+      config.headers['x-workspace-id'] = workspaceId;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
