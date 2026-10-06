@@ -3,6 +3,15 @@ import { z } from 'zod';
 import env from './env.js';
 import { registerBodySchema, loginBodySchema, refreshTokenBodySchema } from '../modules/auth/auth.validation.js';
 import { updateProfileBodySchema, changePasswordBodySchema } from '../modules/user/user.validation.js';
+import {
+  createWorkspaceBodySchema,
+  updateWorkspaceBodySchema,
+  workspaceIdParamSchema,
+  memberIdParamSchema,
+  inviteMemberBodySchema,
+  changeMemberRoleBodySchema,
+  inviteTokenParamSchema,
+} from '../modules/workspace/workspace.validation.js';
 
 extendZodWithOpenApi(z);
 
@@ -166,6 +175,137 @@ registry.registerPath({
   responses: {
     200: { description: 'Đổi mật khẩu thành công' },
     401: { description: 'Mật khẩu cũ không chính xác' },
+  },
+});
+
+// 5. Workspace
+registry.registerPath({
+  method: 'post',
+  path: '/workspaces',
+  tags: ['Workspace'],
+  summary: 'Tạo workspace mới (UC16)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    body: { content: { 'application/json': { schema: createWorkspaceBodySchema } } },
+  },
+  responses: {
+    201: { description: 'Tạo thành công' },
+    409: { description: 'Trùng tên workspace' },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/workspaces',
+  tags: ['Workspace'],
+  summary: 'Danh sách workspace của người dùng (UC35)',
+  security: [{ [bearerAuth.name]: [] }],
+  responses: { 200: { description: 'Thành công' } },
+});
+
+registry.registerPath({
+  method: 'patch',
+  path: '/workspaces/{workspaceId}',
+  tags: ['Workspace'],
+  summary: 'Cập nhật workspace (UC17)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: workspaceIdParamSchema,
+    body: { content: { 'application/json': { schema: updateWorkspaceBodySchema } } },
+  },
+  responses: {
+    200: { description: 'Cập nhật thành công' },
+    403: { description: 'Không đủ quyền' },
+  },
+});
+
+registry.registerPath({
+  method: 'delete',
+  path: '/workspaces/{workspaceId}',
+  tags: ['Workspace'],
+  summary: 'Xóa mềm workspace (UC18)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: workspaceIdParamSchema },
+  responses: { 200: { description: 'Xóa thành công' } },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/workspaces/{workspaceId}/members',
+  tags: ['Workspace'],
+  summary: 'Danh sách thành viên & lời mời chờ (UC19)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: workspaceIdParamSchema },
+  responses: { 200: { description: 'Thành công' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/workspaces/{workspaceId}/invites',
+  tags: ['Workspace'],
+  summary: 'Mời thành viên qua email (UC20)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: workspaceIdParamSchema,
+    body: { content: { 'application/json': { schema: inviteMemberBodySchema } } },
+  },
+  responses: {
+    201: { description: 'Đã gửi lời mời' },
+    409: { description: 'Email đã là thành viên' },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/invites/{token}',
+  tags: ['Workspace'],
+  summary: 'Xem / chấp nhận lời mời (UC21)',
+  request: { params: inviteTokenParamSchema },
+  responses: {
+    200: { description: 'Tham gia thành công hoặc cần đăng ký' },
+    409: { description: 'Lời mời đã dùng hoặc hết hạn' },
+  },
+});
+
+registry.registerPath({
+  method: 'delete',
+  path: '/workspaces/{workspaceId}/members/me',
+  tags: ['Workspace'],
+  summary: 'Rời workspace (UC22)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: workspaceIdParamSchema },
+  responses: {
+    200: { description: 'Rời thành công' },
+    409: { description: 'Owner duy nhất' },
+  },
+});
+
+registry.registerPath({
+  method: 'patch',
+  path: '/workspaces/{workspaceId}/members/{memberId}',
+  tags: ['Workspace'],
+  summary: 'Đổi vai trò thành viên (UC36)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: memberIdParamSchema,
+    body: { content: { 'application/json': { schema: changeMemberRoleBodySchema } } },
+  },
+  responses: {
+    200: { description: 'Cập nhật thành công' },
+    409: { description: 'Hạ Owner duy nhất' },
+  },
+});
+
+registry.registerPath({
+  method: 'delete',
+  path: '/workspaces/{workspaceId}/members/{memberId}',
+  tags: ['Workspace'],
+  summary: 'Xóa thành viên (UC23)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: memberIdParamSchema },
+  responses: {
+    200: { description: 'Xóa thành công' },
+    409: { description: 'Owner duy nhất' },
   },
 });
 

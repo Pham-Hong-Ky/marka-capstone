@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { UnauthorizedError, ForbiddenError, BadRequestError } from '../utils/errors/index.js';
 import prisma from '../config/db.js';
+import logger from '../utils/logger.js';
 
 export interface AuthenticatedUser {
   id: string;
@@ -32,6 +33,44 @@ declare global {
   }
 }
 
+export const loadUserFromToken = async (token: string): Promise<AuthenticatedUser> => {
+  let decoded;
+
+  try {
+    decoded = verifyAccessToken(token);
+  } catch {
+    throw new UnauthorizedError('Token không hợp lệ hoặc đã hết hạn');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.id },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+      systemRole: true,
+      tokenVersion: true,
+      isSuspended: true,
+      emailVerified: true,
+    },
+  });
+
+  if (!user) {
+    throw new UnauthorizedError('Tài khoản không tồn tại');
+  }
+
+  if (user.isSuspended) {
+    throw new ForbiddenError('Tài khoản của bạn đã bị tạm khóa');
+  }
+
+  if (user.tokenVersion !== decoded.tokenVersion) {
+    throw new UnauthorizedError('Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại');
+  }
+
+  return user as AuthenticatedUser;
+};
+
 export const requireAuth = async (req: Request, _res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
@@ -39,46 +78,26 @@ export const requireAuth = async (req: Request, _res: Response, next: NextFuncti
       throw new UnauthorizedError('Vui lòng đăng nhập để tiếp tục');
     }
 
-    const token = authHeader.split(' ')[1];
-    let decoded;
-
-    try {
-      decoded = verifyAccessToken(token);
-    } catch {
-      throw new UnauthorizedError('Token không hợp lệ hoặc đã hết hạn');
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        systemRole: true,
-        tokenVersion: true,
-        isSuspended: true,
-        emailVerified: true,
-      },
-    });
-
-    if (!user) {
-      throw new UnauthorizedError('Tài khoản không tồn tại');
-    }
-
-    if (user.isSuspended) {
-      throw new ForbiddenError('Tài khoản của bạn đã bị tạm khóa');
-    }
-
-    if (user.tokenVersion !== decoded.tokenVersion) {
-      throw new UnauthorizedError('Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại');
-    }
-
-    req.user = user as AuthenticatedUser;
+    req.user = await loadUserFromToken(authHeader.split(' ')[1]);
     next();
   } catch (error) {
     next(error);
   }
+};
+
+// Route công khai nhưng cần biết người gọi (nếu đã đăng nhập). Token sai/hết hạn
+// không làm hỏng request — coi như khách chưa đăng nhập.
+export const optionalAuth = async (req: Request, _res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      req.user = await loadUserFromToken(authHeader.split(' ')[1]);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`Bỏ qua token không hợp lệ ở optionalAuth: ${message}`);
+  }
+  next();
 };
 
 export const requireRoles = (...allowedRoles: string[]) => {
@@ -148,4 +167,5 @@ export default {
   requireAuth,
   requireRoles,
   requireWorkspaceRole,
+  optionalAuth,
 };
