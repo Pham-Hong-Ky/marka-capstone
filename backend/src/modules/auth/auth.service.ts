@@ -77,6 +77,7 @@ export const registerUser = async ({ email, password, name }: RegisterInput) => 
             {
               id: newUser.defaultWorkspace.id,
               name: newUser.defaultWorkspace.name,
+              logo: newUser.defaultWorkspace.logo,
               role: 'OWNER' as const,
               plan: newUser.defaultWorkspace.plan,
               remainingCredit: newUser.defaultWorkspace.remainingCredit,
@@ -128,6 +129,7 @@ export const login = async (email: string, password: string) => {
       workspaces: user.workspaceMembers.map((member) => ({
         id: member.workspace.id,
         name: member.workspace.name,
+        logo: member.workspace.logo,
         role: member.role,
         plan: member.workspace.plan,
         remainingCredit: member.workspace.remainingCredit,
@@ -251,6 +253,7 @@ export const googleLogin = async (idToken: string) => {
       workspaces: user.workspaceMembers.map((member) => ({
         id: member.workspace.id,
         name: member.workspace.name,
+        logo: member.workspace.logo,
         role: member.role,
         plan: member.workspace.plan,
         remainingCredit: member.workspace.remainingCredit,

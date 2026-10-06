@@ -91,6 +91,7 @@ export const createUser = async ({ email, passwordHash, name }: CreateUserData) 
       defaultWorkspace: {
         id: defaultWorkspace.id,
         name: defaultWorkspace.name,
+        logo: defaultWorkspace.logo,
         plan: defaultWorkspace.plan,
         remainingCredit: defaultWorkspace.remainingCredit,
       },

@@ -28,6 +28,7 @@ export const getProfile = async (userId: string) => {
     workspaces: user.workspaceMembers.map((m) => ({
       id: m.workspace.id,
       name: m.workspace.name,
+      logo: m.workspace.logo,
       role: m.role,
       plan: m.workspace.plan,
       remainingCredit: m.workspace.remainingCredit,
