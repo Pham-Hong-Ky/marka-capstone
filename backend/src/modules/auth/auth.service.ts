@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import userRepository from '../user/user.repository.js';
+import auditService from '../audit/audit.service.js';
 import prisma from '../../config/db.js';
 import env from '../../config/env.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../utils/jwt.js';
@@ -41,7 +42,7 @@ export const registerUser = async ({ email, password, name }: RegisterInput) => 
     name,
   });
 
-  await userRepository.createAuditLog({
+  await auditService.recordAuditLog({
     workspaceId: newUser.defaultWorkspace?.id,
     actorId: newUser.id,
     action: 'USER_REGISTER',
@@ -107,7 +108,7 @@ export const login = async (email: string, password: string) => {
   const accessToken = generateAccessToken(tokenPayload);
   const refreshToken = generateRefreshToken({ id: user.id, tokenVersion: user.tokenVersion });
 
-  await userRepository.createAuditLog({
+  await auditService.recordAuditLog({
     actorId: user.id,
     action: 'USER_LOGIN',
     targetType: 'User',
@@ -230,7 +231,7 @@ export const googleLogin = async (idToken: string) => {
   const accessToken = generateAccessToken(tokenPayload);
   const refreshToken = generateRefreshToken({ id: user.id, tokenVersion: user.tokenVersion });
 
-  await userRepository.createAuditLog({
+  await auditService.recordAuditLog({
     actorId: user.id,
     action: 'USER_GOOGLE_LOGIN',
     targetType: 'User',
@@ -261,7 +262,7 @@ export const googleLogin = async (idToken: string) => {
 export const logout = async (userId?: string) => {
   if (userId) {
     await userRepository.incrementTokenVersion(userId);
-    await userRepository.createAuditLog({
+    await auditService.recordAuditLog({
       actorId: userId,
       action: 'USER_LOGOUT',
       targetType: 'User',

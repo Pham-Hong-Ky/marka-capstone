@@ -1,5 +1,4 @@
 import prisma from '../../config/db.js';
-import { Prisma } from '@prisma/client';
 
 export interface CreateUserData {
   email: string;
@@ -13,16 +12,6 @@ export interface UpdateUserData {
   passwordHash?: string;
   emailVerified?: boolean;
   isSuspended?: boolean;
-}
-
-export interface AuditLogData {
-  workspaceId?: string | null;
-  actorId?: string | null;
-  action: string;
-  targetType: string;
-  targetId?: string | null;
-  reason?: string | null;
-  metadata?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
 }
 
 export const findUserById = async (userId: string) => {
@@ -136,39 +125,10 @@ export const incrementTokenVersion = async (userId: string) => {
   });
 };
 
-export const createAuditLog = async ({
-  workspaceId = null,
-  actorId = null,
-  action,
-  targetType,
-  targetId = null,
-  reason = null,
-  metadata = Prisma.DbNull,
-}: AuditLogData) => {
-  try {
-    return await prisma.auditLog.create({
-      data: {
-        workspaceId,
-        actorId,
-        action,
-        targetType,
-        targetId,
-        reason,
-        metadata,
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn('⚠️ Ghi Audit Log thất bại:', message);
-    return null;
-  }
-};
-
 export default {
   findUserById,
   findUserByEmail,
   createUser,
   updateUser,
   incrementTokenVersion,
-  createAuditLog,
 };

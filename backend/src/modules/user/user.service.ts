@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import userRepository from './user.repository.js';
+import auditService from '../audit/audit.service.js';
 import { NotFoundError, UnauthorizedError, BadRequestError } from '../../utils/errors/index.js';
 
 export const hashPassword = async (password: string): Promise<string> => {
@@ -37,7 +38,7 @@ export const getProfile = async (userId: string) => {
 export const updateProfile = async (userId: string, data: { name?: string; avatar?: string | null }) => {
   const updatedUser = await userRepository.updateUser(userId, data);
 
-  await userRepository.createAuditLog({
+  await auditService.recordAuditLog({
     actorId: userId,
     action: 'USER_UPDATE_PROFILE',
     targetType: 'User',
@@ -67,7 +68,7 @@ export const changePassword = async (userId: string, oldPassword: string, newPas
   await userRepository.updateUser(userId, { passwordHash });
   await userRepository.incrementTokenVersion(userId);
 
-  await userRepository.createAuditLog({
+  await auditService.recordAuditLog({
     actorId: userId,
     action: 'USER_CHANGE_PASSWORD',
     targetType: 'User',
