@@ -44,7 +44,12 @@ if (env.NODE_ENV !== 'test') {
 }
 
 app.use('/api/', apiLimiter);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Swagger chỉ phục vụ ngoài production để tránh lộ bề mặt API.
+if (env.NODE_ENV !== 'production') {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
+
 app.use('/api/v1', v1Routes);
 
 app.use((req: Request, _res: Response, next: NextFunction) => {
