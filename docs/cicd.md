@@ -1,6 +1,8 @@
 # Kế Hoạch CI/CD — Marka Capstone
 
-> **Stack triển khai:** GitHub Actions (CI) · Vercel (Frontend) · Render (Backend API + Background Worker) · Neon (PostgreSQL) · Upstash (Redis)
+> **Stack triển khai:** GitHub Actions (CI) · Vercel (Frontend) · Render **1 Web Service gộp worker** (Backend API + BullMQ) · Neon (PostgreSQL) · Upstash (Redis)
+>
+> **CD không dùng GitHub Actions**: Render và Vercel tự deploy khi push `main` (Auto-Deploy), còn CI được dùng làm **cổng chặn** qua *branch protection*. Nhờ vậy không cần secret hay deploy hook. Cấu hình hạ tầng Render nằm ở [`render.yaml`](../render.yaml).
 
 ---
 
@@ -21,23 +23,21 @@ Developer push / PR
 │  └──────────────────────┘   │  (PostgreSQL 16 + Redis 7 container tạm thời)
 └─────────────────────────────┘
         │
-        │ merge vào main
+        │ merge vào main (đã qua branch protection + CI)
         ▼
-┌─────────────────────────────┐
-│   GitHub Actions — CD       │  Chỉ chạy khi merge vào main
-│                             │
-│  ┌──────────────────────┐   │
-│  │  Deploy Frontend     │───┼──► Vercel (vercel.com)
-│  └──────────────────────┘   │
-│  ┌──────────────────────┐   │
-│  │  Deploy Backend      │───┼──► Render (render.com)
-│  └──────────────────────┘   │      │
-└─────────────────────────────┘      │
-                                     ▼
-                              ┌─────────────────┐
-                              │  Neon PostgreSQL │  (neon.tech — free tier)
-                              │  Upstash Redis   │  (upstash.com — free tier)
-                              └─────────────────┘
+┌───────────────────────────────────────────────┐
+│   CD — Auto-deploy nền tảng (không cần hook)   │
+│                                               │
+│   Render  ──► tự build & deploy Backend API   │
+│               (gộp worker, ENABLE_WORKERS)    │
+│   Vercel  ──► tự build & deploy Frontend      │
+└───────────────────────────────────────────────┘
+        │
+        ▼
+   ┌────────────────────┐
+   │  Neon PostgreSQL   │  (neon.tech — free tier)
+   │  Upstash Redis     │  (upstash.com — free tier)
+   └────────────────────┘
 ```
 
 ---
@@ -48,7 +48,7 @@ Developer push / PR
 |---|---|---|
 | **Làm khi nào?** | **Ngay bây giờ** | Sau khi xong module Auth |
 | **Tốn bao lâu?** | ~20 phút | ~1–2 giờ |
-| **Cần secrets?** | ❌ Không (dùng DB tạm thời) | ✅ Có (keys của Vercel, Render, Neon, Upstash) |
+| **Cần secrets GitHub?** | ❌ Không (dùng DB tạm thời) | ❌ Không (dùng Auto-Deploy + branch protection, không cần deploy hook) |
 | **Lợi ích** | Chặn code lỗi trước khi merge | Có URL live demo tự động |
 | **Rủi ro nếu bỏ qua** | Code vỡ build mà không ai biết | Cần config lại khi env thay đổi |
 
@@ -190,9 +190,13 @@ Sau khi push, vào tab **Actions** trên GitHub để xem CI chạy trong khoả
 | Dịch vụ | Mục đích | URL | Gói miễn phí |
 |---|---|---|---|
 | **Vercel** | Host Frontend | [vercel.com](https://vercel.com) | ✅ Unlimited |
-| **Render** | Host Backend API | [render.com](https://render.com) | ✅ 750 giờ/tháng |
+| **Render** | Host Backend API + worker BullMQ (chạy **gộp** 1 service) | [render.com](https://render.com) | ✅ 750 giờ/tháng |
 | **Neon** | PostgreSQL Cloud | [neon.tech](https://neon.tech) | ✅ 512MB DB |
 | **Upstash** | Redis Cloud | [upstash.com](https://upstash.com) | ✅ 10K cmd/ngày |
+
+> ⚠️ **Lưu ý về gói free của Render:** *Background Worker* là dịch vụ **trả phí** (không có gói free). Vì vậy kế hoạch này gộp worker vào chính Web Service API bằng `ENABLE_WORKERS=true`. Đổi lại, khi service "ngủ" sau ~15 phút thì job trong queue bị hoãn cho tới khi có request đánh thức — chấp nhận được cho đồ án.
+>
+> Cấu hình Web Service cũng có thể khai báo sẵn trong [`render.yaml`](../render.yaml) (Render Blueprint) thay vì click tay.
 
 ### 4.2. Bước cấu hình từng dịch vụ
 
@@ -219,13 +223,17 @@ Sau khi push, vào tab **Actions** trên GitHub để xem CI chạy trong khoả
    ```
    *(Lưu ý: `rediss://` có 2 chữ s vì dùng TLS)*
 
-#### Bước 3: Render — Backend API
+#### Bước 3: Render — Backend API (gộp worker)
+
+Chạy **một** service duy nhất cho cả API và worker BullMQ. Không cần Docker, không cần service worker trả phí.
 
 1. Đăng ký tại [render.com](https://render.com) bằng GitHub.
 2. **New → Web Service** → Chọn repo `marka-capstone`.
+   - Name: `marka-api`
    - Root Directory: `backend`
-   - Build Command: `npm ci --include=dev && npx prisma generate`
+   - Build Command: `npm ci --include=dev && npx prisma generate && npx prisma migrate deploy`
    - Start Command: `npm start`  *(chạy bằng `tsx` — `tsx` là devDependency nên Build phải có `--include=dev`)*
+   - Health Check Path: `/api/v1/health`
    - Environment: `Node 20`
 3. Thêm toàn bộ biến môi trường trong tab **Environment**:
    ```
@@ -237,26 +245,16 @@ Sau khi push, vào tab **Actions** trên GitHub để xem CI chạy trong khoả
    AES_SECRET_KEY=<32-char-key>
    CLIENT_URL=https://<your-app>.vercel.app
    APP_BASE_URL=https://<your-app>.vercel.app
-   ENABLE_WORKERS=false
+   ENABLE_WORKERS=true
    ... (các key 3rd party khác)
    ```
-   > `ENABLE_WORKERS=false` để API **không** chạy queue tại đây; worker chạy ở service riêng (Bước 3b) → API và worker scale độc lập.
+   > `ENABLE_WORKERS=true` để worker BullMQ chạy **chung tiến trình API** (đúng mặc định trong `server.ts`). Job AI/đăng bài/gửi email vẫn xử lý bình thường, không cần service riêng.
 4. Deploy lần đầu thủ công → Test `/api/v1/health` trả về `connected`.
 5. Copy **Service URL** của Render (dạng `https://marka-api.onrender.com`).
 
-#### Bước 3b: Render — Background Worker (BullMQ)
-
-Tách worker ra khỏi API để job AI/đăng bài/gửi email không chiếm CPU của web server. Không cần Docker.
-
-1. **New → Background Worker** → cùng repo `marka-capstone`.
-   - Root Directory: `backend`
-   - Build Command: `npm ci --include=dev && npx prisma generate`
-   - Start Command: `npm run worker`
-   - Environment: `Node 20`
-2. Thêm cùng nhóm biến môi trường như Bước 3 (đặc biệt `DATABASE_URL`, `REDIS_URL`, `OPENAI_API_KEY`), **không** cần `PORT`.
-3. Deploy → log sẽ hiện `[Workers] Đang lắng nghe job...`.
-
 > **Không dùng Docker ở local:** chỉ cần PostgreSQL + Redis chạy trực tiếp (hoặc dùng Neon + Upstash cloud). Trên Render, service được cấu hình bằng Root Directory + Build/Start Command, không cần Dockerfile.
+>
+> **Nếu sau này cần tách worker:** phải dùng *Render Background Worker* (dịch vụ **trả phí**, Start Command `npm run worker`) và đặt `ENABLE_WORKERS=false` ở service API. Chưa cần cho đồ án.
 
 #### Bước 4: Vercel (Frontend)
 
@@ -269,91 +267,36 @@ Tách worker ra khỏi API để job AI/đăng bài/gửi email không chiếm C
 3. Thêm biến môi trường:
    ```
    VITE_API_URL=https://marka-api.onrender.com/api/v1
+   VITE_GOOGLE_CLIENT_ID=<nếu dùng Google login>
    ```
 4. Deploy → Nhận URL live dạng `https://marka-capstone.vercel.app`.
+5. **Nối dây lại (đừng bỏ):** quay sang Render, cập nhật `CLIENT_URL` và `APP_BASE_URL` = đúng domain Vercel vừa nhận. Nếu quên, CORS sẽ chặn toàn bộ request từ frontend. Nếu dùng Google login, thêm domain này vào *Authorized JavaScript origins* trong Google Cloud Console.
 
-### 4.3. Cấu hình GitHub Secrets cho CD
+### 4.3. Bật Auto-Deploy (CD không cần GitHub Actions)
 
-Vào **GitHub repo → Settings → Secrets and variables → Actions** → Thêm:
+CD dùng cơ chế **Auto-Deploy của nền tảng** — không cần deploy hook, không cần secret.
 
-| Secret Name | Lấy từ đâu |
-|---|---|
-| `RENDER_DEPLOY_HOOK_URL` | Render → Service → Settings → Deploy Hooks → Copy URL |
-| `VERCEL_TOKEN` | vercel.com → Account Settings → Tokens |
-| `VERCEL_ORG_ID` | `vercel whoami --json` hoặc Project Settings |
-| `VERCEL_PROJECT_ID` | Vercel → Project → Settings → General |
+- **Render**: service đã bật `autoDeploy: true` (khai báo trong `render.yaml`, hoặc **Settings → Build & Deploy → Auto-Deploy: Yes**). Mỗi lần push vào `main`, Render tự build và deploy.
+- **Vercel**: Project → **Settings → Git** → Production Branch = `main`. Mỗi lần push vào `main`, Vercel tự deploy frontend. PR sẽ tạo bản *preview* (xem cảnh báo CORS bên dưới).
 
-### 4.4. Tạo file `.github/workflows/deploy.yml`
+> **Vì sao không dùng `.github/workflows/deploy.yml`?** Auto-Deploy bớt được 4 secret, không cần gọi deploy hook bằng `curl`, và tránh bước health-check bị fail oan khi Web Service free đang "ngủ". Cổng kiểm soát chất lượng được đặt ở bước merge (4.4).
 
-```yaml
-name: CD — Deploy to Production
+### 4.4. Branch protection trên `main` — cổng chặn CI
 
-on:
-  push:
-    branches: [main]
+Bước **bắt buộc** để Auto-Deploy không đẩy code lỗi lên production.
 
-jobs:
-  # ──────────────────────────────────────────────
-  # JOB 1: Deploy Frontend lên Vercel
-  # ──────────────────────────────────────────────
-  deploy-frontend:
-    name: Deploy Frontend → Vercel
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
+Vào **GitHub repo → Settings → Branches → Add branch protection rule**:
 
-    steps:
-      - uses: actions/checkout@v4
+- Branch name pattern: `main`
+- ✅ **Require a pull request before merging**
+- ✅ **Require status checks to pass before merging** → chọn:
+  - `Frontend — Lint & Build`
+  - `Backend — Lint, Schema & Automated Tests`
+- ✅ (khuyến nghị) **Require branches to be up to date before merging**
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+Nhờ vậy không thể merge vào `main` khi CI còn đỏ, nên Auto-Deploy luôn deploy code đã qua kiểm tra.
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./frontend
-          vercel-args: '--prod'
-
-  # ──────────────────────────────────────────────
-  # JOB 2: Trigger Render Deploy Backend
-  # ──────────────────────────────────────────────
-  deploy-backend:
-    name: Deploy Backend → Render
-    runs-on: ubuntu-latest
-    needs: deploy-frontend  # Đợi frontend deploy xong mới deploy backend
-
-    steps:
-      - name: Trigger Render Deploy Hook
-        run: |
-          curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
-
-      - name: Wait for Render to be healthy
-        run: |
-          echo "Waiting 60s for Render to restart..."
-          sleep 60
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://marka-api.onrender.com/api/v1/health)
-          echo "Health check status: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "❌ Health check failed!"
-            exit 1
-          fi
-          echo "✅ Backend deployed successfully!"
-```
+> **Cảnh báo CORS:** `CLIENT_URL` trong `app.ts` chỉ nhận **một** origin, nên domain *preview* của Vercel (mỗi PR một URL) sẽ bị chặn. Chỉ domain production hoạt động.
 
 ---
 
@@ -366,12 +309,12 @@ Hôm nay — Giai đoạn Scaffold hoàn thành
 
 Sau khi xong module Auth (1-2 tuần tới)
   └── [LÀM SAU] Cấu hình CD
-       ├── 1. Tạo Neon project + chạy prisma migrate deploy
+       ├── 1. Tạo Neon project (Singapore, pooled connection string)
        ├── 2. Tạo Upstash Redis (Singapore, TLS)
-       ├── 3. Tạo Render Web Service + set env vars
+       ├── 3. Tạo Render Web Service từ render.yaml (ENABLE_WORKERS=true, gộp worker)
        ├── 4. Tạo Vercel project + set VITE_API_URL
-       ├── 5. Thêm 4 GitHub Secrets
-       └── 6. Tạo .github/workflows/deploy.yml
+       ├── 5. Cập nhật CLIENT_URL/APP_BASE_URL trên Render = domain Vercel
+       └── 6. Bật branch protection cho main (chọn 2 status check của CI)
 ```
 
 ---
@@ -387,12 +330,12 @@ Feature branch (feat/auth-login)
         │ ✅ pass → Merge vào dev
         ▼
   PR: dev → main (mỗi sprint/milestone)
-        │ CI tự chạy lần nữa
+        │ CI tự chạy lần nữa + branch protection bắt buộc xanh mới merge được
         │ ✅ pass → Merge vào main
         ▼
-  GitHub Actions CD tự kích hoạt
-        │ Deploy Frontend → Vercel
-        │ Deploy Backend → Render
+  Auto-Deploy tự kích hoạt (KHÔNG cần GitHub Actions CD)
+        │ Render → Backend API (gộp worker)
+        │ Vercel → Frontend
         ▼
   https://marka-capstone.vercel.app ✅ live
 ```

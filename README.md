@@ -90,7 +90,7 @@ npm run test:connection  # kiểm tra kết nối PostgreSQL + Redis
 ## 5. CI/CD
 
 - CI: `.github/workflows/ci.yml` (frontend build + backend prisma/connection test).
-- CD: xem [`docs/cicd.md`](./docs/cicd.md) — Vercel (frontend) + Render (backend API + **Background Worker**) + Neon + Upstash. Không dùng Docker.
+- CD: xem [`docs/cicd.md`](./docs/cicd.md) — Vercel (frontend) + Render (backend API **gộp worker BullMQ**, `ENABLE_WORKERS=true`) + Neon + Upstash. Auto-Deploy khi push `main`, chặn bằng branch protection. Không dùng Docker.
 
 ---
 
