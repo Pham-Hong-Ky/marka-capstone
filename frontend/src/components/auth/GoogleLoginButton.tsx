@@ -34,8 +34,9 @@ export const GoogleLoginButton = ({ onSuccess }: GoogleLoginButtonProps) => {
     onSuccess(response.credential);
   };
 
+  // GIS render nút trong iframe lớn hơn nút; ép color-scheme sáng để iframe không vẽ nền trắng ở dark mode
   return (
-    <div ref={containerRef} className="flex w-full justify-center">
+    <div ref={containerRef} className="flex w-full justify-center" style={{ colorScheme: 'light' }}>
       {width > 0 && (
         <GoogleLogin
           onSuccess={handleSuccess}

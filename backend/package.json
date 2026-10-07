@@ -1,7 +1,7 @@
 {
   "name": "marka-backend",
   "version": "1.0.0",
-  "description": "Backend API for Marka AI Omnichannel Marketing platform",
+  "description": "Backend API for Marka AI Marketing platform",
   "main": "src/server.ts",
   "type": "module",
   "scripts": {
