@@ -1,0 +1,57 @@
+# Render Blueprint — Marka Capstone
+# Khai báo hạ tầng backend trên Render (không dùng Docker).
+# Tài liệu: https://render.com/docs/blueprint-spec
+#
+# Cách dùng: Render Dashboard → New → Blueprint → chọn repo này.
+# Các biến đánh dấu `sync: false` sẽ được Render yêu cầu điền khi tạo service
+# (giá trị mật / phụ thuộc môi trường, KHÔNG lưu trong git).
+#
+# API và worker BullMQ chạy CHUNG một service (ENABLE_WORKERS=true) vì
+# Background Worker riêng là dịch vụ trả phí trên Render.
+
+services:
+  - type: web
+    name: marka-api
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: backend
+    autoDeploy: true
+    buildCommand: npm ci --include=dev && npx prisma generate && npx prisma migrate deploy
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # true = chạy worker BullMQ chung tiến trình API (không cần service worker riêng, tốn phí)
+      - key: ENABLE_WORKERS
+        value: "true"
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+
+      # ----- Bắt buộc (điền khi tạo Blueprint) -----
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: AES_SECRET_KEY
+        sync: false
+      # Domain frontend trên Vercel (CORS + link trong email)
+      - key: CLIENT_URL
+        sync: false
+      - key: APP_BASE_URL
+        sync: false
+
+      # ----- Tuỳ chọn (thêm trong Dashboard khi cần) -----
+      # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+      # OPENAI_API_KEY, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+      # PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY
+      # FACEBOOK_APP_ID, FACEBOOK_APP_SECRET
+      # RESEND_API_KEY, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
