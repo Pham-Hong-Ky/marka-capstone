@@ -32,37 +32,37 @@ export const DashboardPage = () => {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight text-white">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Xin chào, {user?.name ?? 'bạn'} 👋
         </h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Kiến trúc phân tầng: Client → Router → Controller → Service → PostgreSQL.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-[#11131c] p-6">
+      <div className="rounded-2xl border border-border bg-surface p-6">
         <div className="mb-4 flex items-center gap-2">
           <Activity className="h-4 w-4 text-indigo-400" />
-          <h2 className="text-sm font-semibold text-white">Trạng thái kết nối hệ thống</h2>
+          <h2 className="text-sm font-semibold text-foreground">Trạng thái kết nối hệ thống</h2>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="flex items-center justify-between text-xs text-slate-400">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
+            <div className="flex items-center justify-between text-xs text-muted">
               <span>Máy chủ API Express</span>
-              <Server className="h-4 w-4 text-slate-500" />
+              <Server className="h-4 w-4 text-subtle" />
             </div>
             <p className="mt-2 text-sm font-semibold text-emerald-400">
               {isLoading ? 'Đang kiểm tra...' : `Cổng 5000 · uptime ${health ? formatUptime(health.uptime) : '—'}`}
             </p>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="flex items-center justify-between text-xs text-slate-400">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
+            <div className="flex items-center justify-between text-xs text-muted">
               <span>PostgreSQL (Prisma)</span>
-              <Database className="h-4 w-4 text-slate-500" />
+              <Database className="h-4 w-4 text-subtle" />
             </div>
-            <p className="mt-2 text-sm font-semibold text-slate-200">
+            <p className="mt-2 text-sm font-semibold text-foreground">
               {health?.database === 'connected'
                 ? 'Đã kết nối thành công'
                 : health?.database === 'error'
@@ -71,12 +71,12 @@ export const DashboardPage = () => {
             </p>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="flex items-center justify-between text-xs text-slate-400">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
+            <div className="flex items-center justify-between text-xs text-muted">
               <span>Hàng đợi BullMQ & Redis</span>
-              <Layers className="h-4 w-4 text-slate-500" />
+              <Layers className="h-4 w-4 text-subtle" />
             </div>
-            <p className="mt-2 text-sm font-semibold text-slate-200">
+            <p className="mt-2 text-sm font-semibold text-foreground">
               {health?.redis === 'connected'
                 ? 'Đã kết nối thành công'
                 : health?.redis === 'error'
@@ -90,7 +90,7 @@ export const DashboardPage = () => {
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-purple-400" />
-          <h2 className="text-sm font-semibold text-white">
+          <h2 className="text-sm font-semibold text-foreground">
             14 bảng cơ sở dữ liệu (schema.prisma)
           </h2>
         </div>
@@ -99,12 +99,12 @@ export const DashboardPage = () => {
           {TABLES.map((table, index) => (
             <div
               key={table}
-              className="flex items-center gap-2 rounded-xl border border-slate-800/80 bg-[#11131c] p-3"
+              className="flex items-center gap-2 rounded-xl border border-border bg-surface p-3"
             >
               <span className="rounded bg-indigo-500/10 px-1.5 py-0.5 font-mono text-[11px] text-indigo-400">
                 #{index + 1}
               </span>
-              <span className="truncate font-mono text-xs text-slate-300">{table}</span>
+              <span className="truncate font-mono text-xs text-foreground">{table}</span>
             </div>
           ))}
         </div>

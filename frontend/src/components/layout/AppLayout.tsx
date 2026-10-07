@@ -39,9 +39,9 @@ export const AppLayout = () => {
     workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0];
 
   return (
-    <div className="flex min-h-screen bg-[#0b0c10] text-slate-100">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-800 bg-[#0e1017] lg:flex">
-        <div className="flex h-16 items-center gap-2.5 border-b border-slate-800 px-5">
+    <div className="flex min-h-screen bg-background text-foreground">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-sidebar lg:flex">
+        <div className="flex h-16 items-center gap-2.5 border-b border-border px-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-tr from-indigo-600 to-purple-500">
             <Sparkles className="h-5 w-5 text-white" />
           </div>
@@ -58,8 +58,8 @@ export const AppLayout = () => {
                 cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition',
                   isActive
-                    ? 'bg-indigo-500/10 text-indigo-300'
-                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
+                    ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+                    : 'text-muted hover:bg-surface-2 hover:text-foreground'
                 )
               }
             >
@@ -71,12 +71,12 @@ export const AppLayout = () => {
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-[#0e1017]/80 px-5 backdrop-blur">
+        <header className="flex h-16 items-center justify-between border-b border-border bg-sidebar/80 px-5 backdrop-blur">
           <select
             value={activeWorkspace?.id ?? ''}
             onChange={(event) => setActiveWorkspace(event.target.value)}
             disabled={workspaces.length <= 1}
-            className="max-w-64 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500 disabled:opacity-70"
+            className="max-w-64 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-500 disabled:opacity-70"
           >
             {workspaces.map((workspace) => (
               <option key={workspace.id} value={workspace.id}>
@@ -87,22 +87,22 @@ export const AppLayout = () => {
 
           <div className="flex items-center gap-4">
             {activeWorkspace ? (
-              <span className="hidden text-xs text-slate-400 sm:inline">
+              <span className="hidden text-xs text-muted sm:inline">
                 {activeWorkspace.plan} · {activeWorkspace.remainingCredit} credit
               </span>
             ) : null}
 
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 text-xs font-semibold">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-xs font-semibold">
                 {user?.name?.charAt(0)?.toUpperCase() ?? '?'}
               </div>
-              <span className="hidden text-sm text-slate-200 md:inline">{user?.name}</span>
+              <span className="hidden text-sm text-foreground md:inline">{user?.name}</span>
             </div>
 
             <button
               type="button"
               onClick={() => logout.mutate()}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-muted transition hover:bg-surface-2 hover:text-foreground"
             >
               <LogOut className="h-3.5 w-3.5" />
               Đăng xuất

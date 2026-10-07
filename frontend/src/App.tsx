@@ -10,9 +10,9 @@ export function App() {
         position="top-right"
         toastOptions={{
           style: {
-            background: '#11131c',
-            color: '#f3f4f6',
-            border: '1px solid #1e293b',
+            background: 'var(--surface)',
+            color: 'var(--foreground)',
+            border: '1px solid var(--border)',
           },
         }}
       />

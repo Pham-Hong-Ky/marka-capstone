@@ -6,6 +6,7 @@ import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import DashboardPage from '@/pages/DashboardPage';
 import ComingSoonPage from '@/pages/ComingSoonPage';
+import SettingsPage from '@/pages/SettingsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -28,7 +29,7 @@ export const router = createBrowserRouter([
           { path: 'ai', element: <ComingSoonPage title="Trợ lý AI" /> },
           { path: 'publishing', element: <ComingSoonPage title="Đăng bài đa kênh" /> },
           { path: 'billing', element: <ComingSoonPage title="Credit & Gói dịch vụ" /> },
-          { path: 'settings', element: <ComingSoonPage title="Cài đặt" /> },
+          { path: 'settings', element: <SettingsPage /> },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

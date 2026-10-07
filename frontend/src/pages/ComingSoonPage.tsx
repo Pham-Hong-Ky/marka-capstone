@@ -10,8 +10,8 @@ export const ComingSoonPage = ({ title }: ComingSoonPageProps) => (
     <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10">
       <Sparkles className="h-7 w-7 text-indigo-400" />
     </div>
-    <h1 className="text-2xl font-bold text-white">{title}</h1>
-    <p className="mt-2 text-sm text-slate-400">
+    <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+    <p className="mt-2 text-sm text-muted">
       Phân hệ này chưa được triển khai. Sẽ được bổ sung theo lộ trình.
     </p>
     <Link

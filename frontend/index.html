@@ -5,6 +5,20 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Marka — AI Omnichannel Marketing Platform</title>
+    <script>
+      (function () {
+        try {
+          var stored = JSON.parse(localStorage.getItem('marka-theme') || 'null');
+          var theme = (stored && stored.state && stored.state.theme) || 'system';
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = theme === 'dark' || (theme === 'system' && prefersDark);
+          document.documentElement.classList.toggle('dark', isDark);
+          document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+        } catch (error) {
+          console.warn('Không đọc được theme đã lưu', error);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
