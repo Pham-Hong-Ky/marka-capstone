@@ -5,7 +5,8 @@ import { z } from 'zod';
 import AuthLayout from '@/components/layout/AuthLayout';
 import TextField from '@/components/ui/TextField';
 import Button from '@/components/ui/Button';
-import { useLogin } from '@/hooks/useAuth';
+import GoogleLoginButton from '@/components/auth/GoogleLoginButton';
+import { useLogin, useGoogleLogin } from '@/hooks/useAuth';
 
 const loginSchema = z.object({
   email: z.email('Email không hợp lệ'),
@@ -16,6 +17,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export const LoginPage = () => {
   const login = useLogin();
+  const googleLogin = useGoogleLogin();
   const {
     register,
     handleSubmit,
@@ -32,7 +34,7 @@ export const LoginPage = () => {
           label="Email"
           type="email"
           autoComplete="email"
-          placeholder="user@marka.vn"
+          placeholder="Nhập email"
           error={errors.email?.message}
           {...register('email')}
         />
@@ -51,9 +53,17 @@ export const LoginPage = () => {
         </Button>
       </form>
 
-      <p className="mt-4 text-center text-sm text-slate-400">
+      <div className="my-4 flex items-center gap-3 text-xs text-muted">
+        <span className="h-px flex-1 bg-border" />
+        hoặc
+        <span className="h-px flex-1 bg-border" />
+      </div>
+
+      <GoogleLoginButton onSuccess={(idToken) => googleLogin.mutate({ idToken })} />
+
+      <p className="mt-4 text-center text-sm text-muted">
         Chưa có tài khoản?{' '}
-        <Link to="/register" className="text-indigo-400 hover:text-indigo-300">
+        <Link to="/register" className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
           Đăng ký ngay
         </Link>
       </p>

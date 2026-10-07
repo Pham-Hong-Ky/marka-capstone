@@ -30,6 +30,19 @@ export const useRegister = () => {
   });
 };
 
+export const useGoogleLogin = () => {
+  const setSession = useAuthStore((state) => state.setSession);
+
+  return useMutation({
+    mutationFn: authApi.googleLogin,
+    onSuccess: (session) => {
+      setSession(session);
+      toast.success('Đăng nhập Google thành công');
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+};
+
 export const useLogout = () => {
   const queryClient = useQueryClient();
   const clearSession = useAuthStore((state) => state.clearSession);
