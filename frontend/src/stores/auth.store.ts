@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AuthSession, AuthUser } from '@/types';
+import type { AuthSession, AuthUser } from '@/services/auth';
 
 const ACCESS_TOKEN_KEY = 'access_token';
 const ACTIVE_WORKSPACE_KEY = 'active_workspace_id';
@@ -37,8 +37,18 @@ export const useAuthStore = create<AuthState>()(
 
       updateUser: (user) =>
         set((state) => {
-          const workspaceId = state.activeWorkspaceId ?? user.workspaces[0]?.id ?? null;
-          if (workspaceId) localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspaceId);
+          const stillMember = user.workspaces.some(
+            (workspace) => workspace.id === state.activeWorkspaceId
+          );
+          const workspaceId =
+            (stillMember ? state.activeWorkspaceId : null) ?? user.workspaces[0]?.id ?? null;
+
+          if (workspaceId) {
+            localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspaceId);
+          } else {
+            localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
+          }
+
           return { user, activeWorkspaceId: workspaceId };
         }),
 

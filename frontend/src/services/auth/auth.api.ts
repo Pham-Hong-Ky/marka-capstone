@@ -1,13 +1,13 @@
-import httpClient from './httpClient';
-import { unwrap } from './http';
+import httpClient from '../httpClient';
+import { unwrap } from '../http';
+import type { ApiResponse } from '@/types';
 import type {
-  ApiResponse,
   AuthSession,
   AuthUser,
   GoogleLoginPayload,
   LoginPayload,
   RegisterPayload,
-} from '@/types';
+} from './auth.types';
 
 export const login = async (payload: LoginPayload): Promise<AuthSession> =>
   unwrap(await httpClient.post<ApiResponse<AuthSession>>('/auth/login', payload));

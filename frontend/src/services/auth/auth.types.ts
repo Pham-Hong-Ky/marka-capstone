@@ -7,6 +7,7 @@ export type WorkspacePlan = 'FREE' | 'PRO' | 'ENTERPRISE';
 export interface UserWorkspace {
   id: string;
   name: string;
+  logo: string | null;
   role: WorkspaceRole;
   plan: WorkspacePlan;
   remainingCredit: number;
