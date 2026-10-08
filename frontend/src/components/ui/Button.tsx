@@ -3,18 +3,16 @@ import { cn } from '@/utils/cn';
 
 type ButtonVariant = 'primary' | 'ghost' | 'outline';
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  isLoading?: boolean;
-}
-
 const variantClasses: Record<ButtonVariant, string> = {
   primary: 'bg-indigo-600 hover:bg-indigo-500 text-white',
   ghost: 'bg-transparent hover:bg-surface-2 text-foreground',
   outline: 'bg-transparent border border-border hover:bg-surface-2 text-foreground',
 };
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+export const Button = forwardRef<
+  HTMLButtonElement,
+  { variant?: ButtonVariant; isLoading?: boolean } & ButtonHTMLAttributes<HTMLButtonElement>
+>(
   ({ variant = 'primary', isLoading = false, className, disabled, children, ...props }, ref) => (
     <button
       ref={ref}

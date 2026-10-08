@@ -1,10 +1,6 @@
 import { cn } from '@/utils/cn';
 
-interface BrandLogoProps {
-  className?: string;
-}
-
-export const BrandLogo = ({ className }: BrandLogoProps) => (
+export const BrandLogo = ({ className }: { className?: string }) => (
   <span
     className={cn(
       'inline-flex shrink-0 items-center justify-center rounded-xl bg-indigo-600',

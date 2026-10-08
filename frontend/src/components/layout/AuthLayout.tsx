@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react';
 import BrandLogo from '@/components/shared/BrandLogo';
 
-interface AuthLayoutProps {
+export const AuthLayout = ({
+  title,
+  subtitle,
+  children,
+}: {
   title: string;
   subtitle: string;
   children: ReactNode;
-}
-
-export const AuthLayout = ({ title, subtitle, children }: AuthLayoutProps) => (
+}) => (
   <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
     <div className="w-full max-w-md">
       <div className="mb-8 flex flex-col items-center gap-3">

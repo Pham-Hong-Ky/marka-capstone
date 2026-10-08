@@ -1,11 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Construction } from 'lucide-react';
 
-interface ComingSoonPageProps {
-  title: string;
-}
-
-export const ComingSoonPage = ({ title }: ComingSoonPageProps) => (
+export const ComingSoonPage = ({ title }: { title: string }) => (
   <div className="mx-auto max-w-2xl py-20 text-center">
     <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10">
       <Construction className="h-7 w-7 text-indigo-400" />

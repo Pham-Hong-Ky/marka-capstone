@@ -9,11 +9,7 @@ const applyTheme = (theme: Theme) => {
   root.style.colorScheme = isDark ? 'dark' : 'light';
 };
 
-interface ThemeProviderProps {
-  children: ReactNode;
-}
-
-export const ThemeProvider = ({ children }: ThemeProviderProps) => {
+export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const theme = useThemeStore((state) => state.theme);
 
   useEffect(() => {
