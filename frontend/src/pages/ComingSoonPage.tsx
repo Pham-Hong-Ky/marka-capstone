@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Construction } from 'lucide-react';
 
 interface ComingSoonPageProps {
   title: string;
@@ -8,7 +8,7 @@ interface ComingSoonPageProps {
 export const ComingSoonPage = ({ title }: ComingSoonPageProps) => (
   <div className="mx-auto max-w-2xl py-20 text-center">
     <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10">
-      <Sparkles className="h-7 w-7 text-indigo-400" />
+      <Construction className="h-7 w-7 text-indigo-400" />
     </div>
     <h1 className="text-2xl font-bold text-foreground">{title}</h1>
     <p className="mt-2 text-sm text-muted">
