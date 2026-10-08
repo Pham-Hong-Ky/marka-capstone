@@ -63,6 +63,9 @@ out
 **/.env.*
 !**/.env.example
 
+# superpowers scratch (ledger/briefs)
+.superpowers/
+
 # vercel
 .vercel
 
