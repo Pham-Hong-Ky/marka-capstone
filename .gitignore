@@ -66,6 +66,9 @@ out
 # superpowers scratch (ledger/briefs)
 .superpowers/
 
+# tài liệu (không commit)
+docs/
+
 # vercel
 .vercel
 
