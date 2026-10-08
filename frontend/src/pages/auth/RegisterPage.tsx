@@ -1,47 +1,36 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import AuthLayout from '@/components/layout/AuthLayout';
 import TextField from '@/components/ui/TextField';
 import Button from '@/components/ui/Button';
 import GoogleLoginButton from '@/components/auth/GoogleLoginButton';
 import { useRegister, useGoogleLogin } from '@/hooks/useAuth';
-
-const registerSchema = z
-  .object({
-    name: z.string().trim().min(2, 'Tên tối thiểu 2 ký tự'),
-    email: z.email('Email không hợp lệ'),
-    password: z
-      .string()
-      .min(8, 'Mật khẩu tối thiểu 8 ký tự')
-      .regex(
-        /^(?=.*[A-Za-z])(?=.*\d).+$/,
-        'Mật khẩu phải chứa ít nhất một chữ cái và một chữ số'
-      ),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Mật khẩu xác nhận không khớp',
-    path: ['confirmPassword'],
-  });
-
-type RegisterFormValues = z.infer<typeof registerSchema>;
+import { registerSchema, type RegisterFormValues } from '@/services/auth';
+import { getSafeRedirect } from '@/utils/redirect';
 
 export const RegisterPage = () => {
   const registerAccount = useRegister();
   const googleLogin = useGoogleLogin();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = getSafeRedirect(searchParams.get('redirect'));
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
+    defaultValues: {
+      name: '',
+      email: searchParams.get('email') ?? '',
+      password: '',
+      confirmPassword: '',
+    },
   });
 
   const onSubmit = handleSubmit(({ name, email, password }) => {
-    registerAccount.mutate({ name, email, password });
+    registerAccount.mutate({ name, email, password }, { onSuccess: () => navigate(redirectTo) });
   });
 
   return (
@@ -96,7 +85,11 @@ export const RegisterPage = () => {
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      <GoogleLoginButton onSuccess={(idToken) => googleLogin.mutate({ idToken })} />
+      <GoogleLoginButton
+        onSuccess={(idToken) =>
+          googleLogin.mutate({ idToken }, { onSuccess: () => navigate(redirectTo) })
+        }
+      />
 
       <p className="mt-4 text-center text-sm text-muted">
         Đã có tài khoản?{' '}
