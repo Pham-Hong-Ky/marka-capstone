@@ -31,6 +31,8 @@
 
 **Mô tả**: Upload, lọc, quản lý ảnh/video dùng chung cho workspace.
 
+> **Ghi chú phạm vi (2026-10-10)**: Trong giai đoạn làm backend bản nháp, ảnh được xử lý **theo từng post** — upload trong ngữ cảnh bài viết, `MediaAsset.postId` gắn ngay khi tạo, chỉ `jpeg/png/webp` ≤ 10MB, không có thư viện dùng chung (lệch D1). Thư viện media cấp Workspace đầy đủ (`postId` nullable, quota, tag, lọc nâng cao) để giai đoạn sau. API đã có: `POST/DELETE /workspaces/:workspaceId/posts/:postId/media`.
+
 **Tác nhân (Actors)**: Content Creator, Workspace Owner
 
 **Luồng hoạt động**:

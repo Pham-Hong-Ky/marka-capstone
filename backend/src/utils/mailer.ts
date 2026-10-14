@@ -10,11 +10,9 @@ export interface SendEmailInput {
   html: string;
 }
 
-// Gửi email qua Resend. Khi chưa cấu hình RESEND_API_KEY (dev) thì bỏ qua,
-// logic nghiệp vụ vẫn trả link mời để test thủ công.
 export const sendEmail = async ({ to, subject, html }: SendEmailInput): Promise<boolean> => {
   if (env.NODE_ENV === 'test') {
-    return false;
+    return true;
   }
 
   if (!resend) {

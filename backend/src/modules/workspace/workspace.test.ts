@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../app.js';
 import prisma from '../../config/db.js';
+import { sendEmail } from '../../utils/mailer.js';
+
+vi.mock('../../utils/mailer.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/mailer.js')>();
+  return { ...actual, sendEmail: vi.fn(actual.sendEmail) };
+});
 
 const password = 'password123';
 
@@ -129,6 +135,27 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     expect(oldRes.status).toBe(404);
 
     inviteToken = newToken;
+  });
+
+  it('UC20 — Gửi email thất bại: báo lỗi 502 và không lưu lời mời', async () => {
+    const failingEmail = `test_ws_fail_${stamp}@marka.vn`;
+    vi.mocked(sendEmail).mockResolvedValueOnce(false);
+
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${createdWorkspaceId}/invites`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ email: failingEmail, role: 'CONTENT_CREATOR' });
+
+    expect(res.status).toBe(502);
+
+    const membersRes = await request(app)
+      .get(`/api/v1/workspaces/${createdWorkspaceId}/members`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    const pendingEmails = membersRes.body.data.pendingInvites.map(
+      (invite: { email: string }) => invite.email
+    );
+    expect(pendingEmails).not.toContain(failingEmail);
   });
 
   it('UC21 — Khách chưa đăng nhập xem lời mời cần đăng ký', async () => {

@@ -90,7 +90,6 @@ export const useInviteMember = () => {
       workspaceService.inviteMember(id, payload),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: workspaceKeys.members(variables.id) });
-      toast.success('Đã gửi lời mời tham gia workspace');
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });

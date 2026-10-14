@@ -7,6 +7,7 @@ import { sendEmail } from '../../utils/mailer.js';
 import { uploadImageBuffer } from '../../utils/cloudinary.js';
 import { buildWorkspaceInviteEmail } from '../../templates/workspaceInviteEmail.js';
 import {
+  AppError,
   BadRequestError,
   ConflictError,
   ForbiddenError,
@@ -219,6 +220,20 @@ export const inviteMember = async (
   const token = randomUUID();
   const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
 
+  const inviteUrl = `${env.APP_BASE_URL}/invites/${token}`;
+  const { subject, html } = buildWorkspaceInviteEmail({
+    workspaceName: workspace.name,
+    inviterName: inviter.name,
+    roleLabel: ROLE_LABELS[data.role],
+    inviteUrl,
+  });
+
+  // Chỉ lưu lời mời sau khi gửi mail thành công, tránh tạo lời mời "treo" khi gửi lỗi.
+  const emailSent = await sendEmail({ to: data.email, subject, html });
+  if (!emailSent) {
+    throw new AppError('Gửi email mời thất bại. Vui lòng thử lại.', 502);
+  }
+
   // Đã có lời mời đang chờ → cấp lại token/hạn mới (token cũ hết hiệu lực) thay vì chặn.
   const invite = activeInvite
     ? await workspaceRepository.refreshInvite(activeInvite.id, { token, expiresAt, role: data.role })
@@ -230,16 +245,6 @@ export const inviteMember = async (
         expiresAt,
         invitedById: inviter.id,
       });
-
-  const inviteUrl = `${env.APP_BASE_URL}/invites/${token}`;
-  const { subject, html } = buildWorkspaceInviteEmail({
-    workspaceName: workspace.name,
-    inviterName: inviter.name,
-    roleLabel: ROLE_LABELS[data.role],
-    inviteUrl,
-  });
-
-  await sendEmail({ to: data.email, subject, html });
 
   await auditService.recordAuditLog({
     workspaceId,
