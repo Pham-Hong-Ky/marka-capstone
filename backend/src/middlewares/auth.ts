@@ -131,6 +131,13 @@ export const requireWorkspaceRole = (...allowedRoles: ('OWNER' | 'CONTENT_CREATO
         throw new BadRequestError('Vui lòng cung cấp Workspace ID (qua header x-workspace-id hoặc params)');
       }
 
+      // Chặn lệch workspace giữa header và URL: quyền được kiểm theo một workspace
+      // nhưng thao tác lại nhắm workspace khác là lỗ hổng vượt tenant.
+      const headerWorkspaceId = req.headers['x-workspace-id'] as string | undefined;
+      if (headerWorkspaceId && req.params.workspaceId && headerWorkspaceId !== req.params.workspaceId) {
+        throw new ForbiddenError('Workspace ID không khớp giữa header và URL');
+      }
+
       // System Admin có toàn quyền truy cập
       if (req.user.systemRole === 'SYSTEM_ADMIN') {
         req.workspaceId = workspaceId;
