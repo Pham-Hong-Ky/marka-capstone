@@ -19,6 +19,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
   let ownerId = '';
   let wsId = '';
   let creatorAToken = '';
+  let creatorAId = '';
   let creatorAOwnWorkspaceId = '';
   let creatorBToken = '';
   let creatorBOwnWorkspaceId = '';
@@ -46,7 +47,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
 
     await request(app).get(`/api/v1/invites/${token}`).set('Authorization', `Bearer ${userToken}`);
 
-    return { userToken, defaultWorkspaceId };
+    return { userToken, defaultWorkspaceId, userId: registerRes.body.data.user.id as string };
   };
 
   beforeAll(async () => {
@@ -61,6 +62,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
 
     const a = await joinWorkspace(ownerToken, wsId, creatorA);
     creatorAToken = a.userToken;
+    creatorAId = a.userId;
     creatorAOwnWorkspaceId = a.defaultWorkspaceId;
 
     const b = await joinWorkspace(ownerToken, wsId, creatorB);
@@ -391,5 +393,164 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
 
     expect(res.status).toBe(422);
+  });
+
+  // ---- UC11 (Gửi duyệt) & UC14 (Duyệt/Từ chối) ----
+
+  let approvalPostId = '';
+
+  it('setup — Creator A tạo bài để gửi duyệt', async () => {
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ title: 'Bài chờ gửi duyệt', content: { type: 'doc', content: [] } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.status).toBe('DRAFT');
+    approvalPostId = res.body.data.id;
+  });
+
+  it('UC11 — Creator khác gửi duyệt bài của người khác trả 403', async () => {
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}/submit`)
+      .set('Authorization', `Bearer ${creatorBToken}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('UC11 — Gửi duyệt bài của workspace khác trả 404', async () => {
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${creatorAOwnWorkspaceId}/posts/${postId}/submit`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('UC11 — Tác giả gửi duyệt bài của mình (200) → PENDING', async () => {
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}/submit`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('PENDING');
+    expect(res.body.data.submittedById).toBe(creatorAId);
+    expect(res.body.data.submittedAt).toBeTruthy();
+  });
+
+  it('UC11 — Gửi duyệt thông báo cho Owner', async () => {
+    const count = await prisma.notification.count({
+      where: { workspaceId: wsId, userId: ownerId, type: 'POST_SUBMITTED' },
+    });
+
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+
+  it('UC11 — Gửi duyệt lại khi bài đang PENDING trả 409', async () => {
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}/submit`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+
+    expect(res.status).toBe(409);
+  });
+
+  it('UC14 — Creator gọi duyệt bài trả 403', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}/review`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ decision: 'APPROVED' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('UC14 — Từ chối thiếu lý do trả 422', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}/review`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ decision: 'REJECTED' });
+
+    expect(res.status).toBe(422);
+  });
+
+  it('UC14 — Owner từ chối kèm lý do (200) → REJECTED', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}/review`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ decision: 'REJECTED', rejectReason: 'Thiếu thông tin sản phẩm' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('REJECTED');
+    expect(res.body.data.rejectReason).toBe('Thiếu thông tin sản phẩm');
+    expect(res.body.data.reviewedById).toBe(ownerId);
+    expect(res.body.data.reviewedAt).toBeTruthy();
+  });
+
+  it('UC14 — Từ chối thông báo cho tác giả', async () => {
+    const count = await prisma.notification.count({
+      where: { workspaceId: wsId, userId: creatorAId, type: 'POST_REJECTED' },
+    });
+
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+
+  it('UC07 — Sửa được bài đã bị từ chối (200)', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ title: 'Đã bổ sung thông tin' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.title).toBe('Đã bổ sung thông tin');
+  });
+
+  it('UC11 — Gửi lại bài bị từ chối (200) → PENDING, xoá lý do cũ', async () => {
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}/submit`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('PENDING');
+    expect(res.body.data.rejectReason).toBeNull();
+  });
+
+  it('UC14 — Owner duyệt bài (200) → APPROVED', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}/review`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ decision: 'APPROVED' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('APPROVED');
+    expect(res.body.data.reviewedById).toBe(ownerId);
+  });
+
+  it('UC14 — Duyệt thông báo cho tác giả', async () => {
+    const count = await prisma.notification.count({
+      where: { workspaceId: wsId, userId: creatorAId, type: 'POST_APPROVED' },
+    });
+
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+
+  it('UC14 — Duyệt lại bài đã APPROVED trả 409', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${approvalPostId}/review`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ decision: 'APPROVED' });
+
+    expect(res.status).toBe(409);
+  });
+
+  it('UC11 — Owner gửi duyệt bài của Creator (200)', async () => {
+    const created = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ title: 'Bài để Owner gửi duyệt', content: { type: 'doc', content: [] } });
+
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${created.body.data.id}/submit`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('PENDING');
   });
 });

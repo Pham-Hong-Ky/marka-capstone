@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, PostStatus } from '@prisma/client';
 import prisma from '../../config/db.js';
 
 export const createPost = async (data: {
@@ -58,6 +58,20 @@ export const updatePost = async (postId: string, data: { title?: string; content
   return prisma.post.update({ where: { id: postId }, data });
 };
 
+export const updatePostStatus = async (
+  postId: string,
+  data: {
+    status: PostStatus;
+    submittedById?: string;
+    submittedAt?: Date;
+    reviewedById?: string;
+    reviewedAt?: Date;
+    rejectReason?: string | null;
+  }
+) => {
+  return prisma.post.update({ where: { id: postId }, data });
+};
+
 export const softDeletePost = async (postId: string) => {
   return prisma.post.update({ where: { id: postId }, data: { deletedAt: new Date() } });
 };
@@ -86,6 +100,7 @@ export default {
   findPostWithMedia,
   listPostsAndCount,
   updatePost,
+  updatePostStatus,
   softDeletePost,
   createMedia,
   findMediaByIdAndPost,

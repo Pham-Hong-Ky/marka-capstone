@@ -1,8 +1,27 @@
-import type { Prisma, WorkspaceRole } from '@prisma/client';
+import type { PostStatus, Prisma, WorkspaceRole } from '@prisma/client';
 import postRepository from './post.repository.js';
+import postNotification from './post.notification.js';
 import type { ListPostsQuery } from './post.validation.js';
+import auditService from '../audit/audit.service.js';
 import { uploadImageBuffer } from '../../utils/cloudinary.js';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../utils/errors/index.js';
+
+const ALLOWED_TRANSITIONS: Record<PostStatus, PostStatus[]> = {
+  DRAFT: ['PENDING'],
+  PENDING: ['APPROVED', 'REJECTED'],
+  REJECTED: ['PENDING'],
+  APPROVED: [],
+  SCHEDULED: [],
+  PUBLISHED: [],
+  FAILED: [],
+  ARCHIVED: [],
+};
+
+const assertTransition = (from: PostStatus, to: PostStatus) => {
+  if (!ALLOWED_TRANSITIONS[from].includes(to)) {
+    throw new ConflictError('Không thể chuyển trạng thái bài viết này');
+  }
+};
 
 export const createPost = async (
   workspaceId: string,
@@ -42,9 +61,9 @@ export const listPosts = async (workspaceId: string, query: ListPostsQuery) => {
   };
 };
 
-export const assertDraft = (post: { status: string }) => {
-  if (post.status !== 'DRAFT') {
-    throw new ConflictError('Chỉ có thể thay đổi bản nháp');
+export const assertEditable = (post: { status: string }) => {
+  if (post.status !== 'DRAFT' && post.status !== 'REJECTED') {
+    throw new ConflictError('Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối');
   }
 };
 
@@ -70,7 +89,7 @@ export const updatePost = async (
 ) => {
   const post = await getPost(workspaceId, postId);
   assertCanModify(post, userId, role);
-  assertDraft(post);
+  assertEditable(post);
 
   return postRepository.updatePost(postId, data);
 };
@@ -78,7 +97,7 @@ export const updatePost = async (
 export const deletePost = async (workspaceId: string, userId: string, role: WorkspaceRole, postId: string) => {
   const post = await getPost(workspaceId, postId);
   assertCanModify(post, userId, role);
-  assertDraft(post);
+  assertEditable(post);
 
   await postRepository.softDeletePost(postId);
   return { success: true as const };
@@ -97,7 +116,7 @@ export const uploadPostMedia = async (
 
   const post = await getPost(workspaceId, postId);
   assertCanModify(post, userId, role);
-  assertDraft(post);
+  assertEditable(post);
 
   const url = await uploadImageBuffer(file.buffer, `marka/workspaces/${workspaceId}/posts/${postId}`);
 
@@ -120,7 +139,7 @@ export const deletePostMedia = async (
 ) => {
   const post = await getPost(workspaceId, postId);
   assertCanModify(post, userId, role);
-  assertDraft(post);
+  assertEditable(post);
 
   const media = await postRepository.findMediaByIdAndPost(postId, mediaId);
   if (!media) {
@@ -131,4 +150,93 @@ export const deletePostMedia = async (
   return { success: true as const };
 };
 
-export default { createPost, getPost, listPosts, updatePost, deletePost, uploadPostMedia, deletePostMedia };
+export const submitPost = async (
+  workspaceId: string,
+  userId: string,
+  userName: string,
+  role: WorkspaceRole,
+  postId: string
+) => {
+  const post = await getPost(workspaceId, postId);
+  assertCanModify(post, userId, role);
+  assertTransition(post.status, 'PENDING');
+
+  const updated = await postRepository.updatePostStatus(postId, {
+    status: 'PENDING',
+    submittedById: userId,
+    submittedAt: new Date(),
+    rejectReason: null,
+  });
+
+  await postNotification.notifyPostSubmitted({
+    workspaceId,
+    postId,
+    postTitle: post.title,
+    actorId: userId,
+    actorName: userName,
+  });
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId: userId,
+    action: 'POST_SUBMITTED',
+    targetType: 'Post',
+    targetId: postId,
+    metadata: { title: post.title },
+  });
+
+  return updated;
+};
+
+export const reviewPost = async (
+  workspaceId: string,
+  reviewerId: string,
+  postId: string,
+  data: { decision: 'APPROVED' | 'REJECTED'; rejectReason?: string }
+) => {
+  const post = await getPost(workspaceId, postId);
+  assertTransition(post.status, data.decision);
+
+  const approved = data.decision === 'APPROVED';
+  const rejectReason = approved ? null : data.rejectReason ?? null;
+
+  const updated = await postRepository.updatePostStatus(postId, {
+    status: data.decision,
+    reviewedById: reviewerId,
+    reviewedAt: new Date(),
+    rejectReason,
+  });
+
+  await postNotification.notifyPostReviewed({
+    workspaceId,
+    postId,
+    postTitle: post.title,
+    authorId: post.createdById,
+    approved,
+    rejectReason,
+  });
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId: reviewerId,
+    action: approved ? 'POST_APPROVED' : 'POST_REJECTED',
+    targetType: 'Post',
+    targetId: postId,
+    reason: rejectReason,
+    metadata: { title: post.title },
+  });
+
+  return updated;
+};
+
+export default {
+  createPost,
+  getPost,
+  listPosts,
+  updatePost,
+  deletePost,
+  uploadPostMedia,
+  deletePostMedia,
+  submitPost,
+  reviewPost,
+};

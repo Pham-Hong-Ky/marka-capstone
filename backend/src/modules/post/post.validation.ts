@@ -65,6 +65,24 @@ export const postMediaParamSchema = z.object({
 
 export const deletePostMediaSchema = { params: postMediaParamSchema };
 
+export const reviewPostBodySchema = z
+  .object({
+    decision: z.enum(['APPROVED', 'REJECTED']),
+    rejectReason: z
+      .string()
+      .trim()
+      .min(3, 'Lý do từ chối tối thiểu 3 ký tự')
+      .max(255, 'Lý do từ chối tối đa 255 ký tự')
+      .optional(),
+  })
+  .refine((data) => data.decision !== 'REJECTED' || Boolean(data.rejectReason), {
+    message: 'Cần nhập lý do khi từ chối bài viết',
+    path: ['rejectReason'],
+  });
+
+export const reviewPostSchema = { body: reviewPostBodySchema, params: postIdParamSchema };
+export type ReviewPostBody = z.infer<typeof reviewPostBodySchema>;
+
 export default {
   createPostSchema,
   postIdSchema,
@@ -72,6 +90,7 @@ export default {
   updatePostSchema,
   postMediaSchema,
   deletePostMediaSchema,
+  reviewPostSchema,
   workspaceIdParamSchema,
   postIdParamSchema,
 };

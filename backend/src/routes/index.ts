@@ -35,6 +35,7 @@ import {
   updatePostSchema,
   postMediaSchema,
   deletePostMediaSchema,
+  reviewPostSchema,
 } from '../modules/post/post.validation.js';
 import env from '../config/env.js';
 
@@ -175,6 +176,22 @@ router.delete(
   validate(deletePostMediaSchema),
   requireWorkspaceRole(),
   postController.deletePostMedia
+);
+
+// Approval flow (UC11, UC14)
+router.post(
+  '/workspaces/:workspaceId/posts/:postId/submit',
+  requireAuth,
+  validate(postIdSchema),
+  requireWorkspaceRole(),
+  postController.submitPost
+);
+router.patch(
+  '/workspaces/:workspaceId/posts/:postId/review',
+  requireAuth,
+  validate(reviewPostSchema),
+  requireWorkspaceRole('OWNER'),
+  postController.reviewPost
 );
 
 export default router;

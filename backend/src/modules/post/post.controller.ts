@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import postService from './post.service.js';
-import type { ListPostsQuery } from './post.validation.js';
+import type { ListPostsQuery, ReviewPostBody } from './post.validation.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
 
@@ -98,4 +98,44 @@ export const deletePostMedia = catchAsync(async (req: Request, res: Response) =>
   });
 });
 
-export default { createPost, getPost, listPosts, updatePost, deletePost, uploadPostMedia, deletePostMedia };
+export const submitPost = catchAsync(async (req: Request, res: Response) => {
+  const workspaceId = req.workspaceId as string;
+  const role = req.workspaceMember?.role ?? 'OWNER';
+  const post = await postService.submitPost(
+    workspaceId,
+    req.user!.id,
+    req.user!.name,
+    role,
+    req.params.postId as string
+  );
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Gửi duyệt bài viết thành công',
+    data: post,
+  });
+});
+
+export const reviewPost = catchAsync(async (req: Request, res: Response) => {
+  const workspaceId = req.workspaceId as string;
+  const { decision } = req.body as ReviewPostBody;
+  const post = await postService.reviewPost(workspaceId, req.user!.id, req.params.postId as string, req.body);
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: decision === 'APPROVED' ? 'Duyệt bài viết thành công' : 'Từ chối bài viết thành công',
+    data: post,
+  });
+});
+
+export default {
+  createPost,
+  getPost,
+  listPosts,
+  updatePost,
+  deletePost,
+  uploadPostMedia,
+  deletePostMedia,
+  submitPost,
+  reviewPost,
+};
