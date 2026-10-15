@@ -4,7 +4,7 @@ import userController from '../modules/user/user.controller.js';
 import healthController from '../modules/health/health.controller.js';
 import { validate } from '../middlewares/validate.js';
 import { requireAuth, requireWorkspaceRole, optionalAuth } from '../middlewares/auth.js';
-import uploadWorkspaceLogo from '../middlewares/upload.js';
+import uploadWorkspaceLogo, { uploadPostMedia } from '../middlewares/upload.js';
 import { authLimiter, loginLimiter } from '../middlewares/rateLimiter.js';
 import {
   registerSchema,
@@ -27,6 +27,15 @@ import {
   inviteTokenSchema,
 } from '../modules/workspace/workspace.validation.js';
 import workspaceController from '../modules/workspace/workspace.controller.js';
+import postController from '../modules/post/post.controller.js';
+import {
+  createPostSchema,
+  postIdSchema,
+  listPostsSchema,
+  updatePostSchema,
+  postMediaSchema,
+  deletePostMediaSchema,
+} from '../modules/post/post.validation.js';
 import env from '../config/env.js';
 
 const router = Router();
@@ -115,5 +124,57 @@ router.post(
   workspaceController.inviteMember
 );
 router.get('/invites/:token', optionalAuth, validate(inviteTokenSchema), workspaceController.acceptInvite);
+
+// Posts (UC05, UC07, UC08, UC09, UC10, UC37)
+router.post(
+  '/workspaces/:workspaceId/posts',
+  requireAuth,
+  validate(createPostSchema),
+  requireWorkspaceRole(),
+  postController.createPost
+);
+router.get(
+  '/workspaces/:workspaceId/posts',
+  requireAuth,
+  validate(listPostsSchema),
+  requireWorkspaceRole(),
+  postController.listPosts
+);
+router.get(
+  '/workspaces/:workspaceId/posts/:postId',
+  requireAuth,
+  validate(postIdSchema),
+  requireWorkspaceRole(),
+  postController.getPost
+);
+router.patch(
+  '/workspaces/:workspaceId/posts/:postId',
+  requireAuth,
+  validate(updatePostSchema),
+  requireWorkspaceRole(),
+  postController.updatePost
+);
+router.delete(
+  '/workspaces/:workspaceId/posts/:postId',
+  requireAuth,
+  validate(postIdSchema),
+  requireWorkspaceRole(),
+  postController.deletePost
+);
+router.post(
+  '/workspaces/:workspaceId/posts/:postId/media',
+  requireAuth,
+  validate(postMediaSchema),
+  requireWorkspaceRole(),
+  uploadPostMedia,
+  postController.uploadPostMedia
+);
+router.delete(
+  '/workspaces/:workspaceId/posts/:postId/media/:mediaId',
+  requireAuth,
+  validate(deletePostMediaSchema),
+  requireWorkspaceRole(),
+  postController.deletePostMedia
+);
 
 export default router;

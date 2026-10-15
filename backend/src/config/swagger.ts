@@ -12,6 +12,13 @@ import {
   changeMemberRoleBodySchema,
   inviteTokenParamSchema,
 } from '../modules/workspace/workspace.validation.js';
+import {
+  createPostBodySchema,
+  updatePostBodySchema,
+  listPostsQuerySchema,
+  postIdParamSchema,
+  postMediaParamSchema,
+} from '../modules/post/post.validation.js';
 
 extendZodWithOpenApi(z);
 
@@ -306,6 +313,123 @@ registry.registerPath({
   responses: {
     200: { description: 'Xóa thành công' },
     409: { description: 'Owner duy nhất' },
+  },
+});
+
+// 6. Posts (UC05, UC07, UC08, UC09, UC10, UC37)
+const postMediaUploadBodySchema = z.object({
+  file: z.any().openapi({ type: 'string', format: 'binary', description: 'Ảnh JPG/PNG/WEBP, tối đa 10MB' }),
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/workspaces/{workspaceId}/posts',
+  tags: ['Post'],
+  summary: 'Tạo bản nháp bài viết (UC05)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: workspaceIdParamSchema,
+    body: { content: { 'application/json': { schema: createPostBodySchema } } },
+  },
+  responses: {
+    201: { description: 'Tạo bản nháp thành công' },
+    403: { description: 'Không phải thành viên workspace' },
+    422: { description: 'Dữ liệu không hợp lệ' },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/workspaces/{workspaceId}/posts',
+  tags: ['Post'],
+  summary: 'Danh sách bài viết: phân trang, tìm kiếm, lọc (UC09)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: workspaceIdParamSchema,
+    query: listPostsQuerySchema,
+  },
+  responses: {
+    200: { description: 'Thành công (posts + meta phân trang)' },
+    403: { description: 'Không phải thành viên workspace' },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/workspaces/{workspaceId}/posts/{postId}',
+  tags: ['Post'],
+  summary: 'Chi tiết bài viết kèm ảnh (UC07)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: postIdParamSchema },
+  responses: {
+    200: { description: 'Thành công' },
+    404: { description: 'Bài viết không tồn tại' },
+  },
+});
+
+registry.registerPath({
+  method: 'patch',
+  path: '/workspaces/{workspaceId}/posts/{postId}',
+  tags: ['Post'],
+  summary: 'Cập nhật bản nháp (UC10)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: postIdParamSchema,
+    body: { content: { 'application/json': { schema: updatePostBodySchema } } },
+  },
+  responses: {
+    200: { description: 'Cập nhật thành công' },
+    403: { description: 'Không có quyền thay đổi bài viết' },
+    404: { description: 'Bài viết không tồn tại' },
+    409: { description: 'Chỉ có thể thay đổi bản nháp' },
+  },
+});
+
+registry.registerPath({
+  method: 'delete',
+  path: '/workspaces/{workspaceId}/posts/{postId}',
+  tags: ['Post'],
+  summary: 'Xóa mềm bài viết (UC08)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: postIdParamSchema },
+  responses: {
+    200: { description: 'Xóa thành công' },
+    403: { description: 'Không có quyền xóa bài viết' },
+    404: { description: 'Bài viết không tồn tại' },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/workspaces/{workspaceId}/posts/{postId}/media',
+  tags: ['Post'],
+  summary: 'Tải ảnh lên cho bài viết (UC37)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: postIdParamSchema,
+    body: { content: { 'multipart/form-data': { schema: postMediaUploadBodySchema } } },
+  },
+  responses: {
+    201: { description: 'Tải ảnh lên thành công' },
+    400: { description: 'Chưa chọn ảnh, sai định dạng hoặc quá 10MB' },
+    403: { description: 'Không có quyền thay đổi bài viết' },
+    404: { description: 'Bài viết không tồn tại' },
+    409: { description: 'Chỉ có thể thay đổi bản nháp' },
+  },
+});
+
+registry.registerPath({
+  method: 'delete',
+  path: '/workspaces/{workspaceId}/posts/{postId}/media/{mediaId}',
+  tags: ['Post'],
+  summary: 'Xóa ảnh của bài viết',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: postMediaParamSchema },
+  responses: {
+    200: { description: 'Xóa thành công' },
+    403: { description: 'Không có quyền thay đổi bài viết' },
+    404: { description: 'Bài viết hoặc ảnh không tồn tại' },
+    409: { description: 'Chỉ có thể thay đổi bản nháp' },
   },
 });
 
