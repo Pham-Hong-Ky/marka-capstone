@@ -908,7 +908,7 @@ Workspace owner ra quyết định phê duyệt hoặc từ chối bài viết. 
 
 ---
 
-### UC52 — Assign Content Task (Giao việc cho thành viên)
+### UC49 — Assign Content Task (Giao việc cho thành viên)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -950,7 +950,7 @@ Owner phân công bài viết cho một thành viên kèm hạn và độ ưu ti
 
 ---
 
-### UC53 — Update Task Status (Cập nhật trạng thái công việc)
+### UC50 — Update Task Status (Cập nhật trạng thái công việc)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1609,7 +1609,7 @@ Trả về danh sách thông báo của user kèm số lượng chưa đọc. H�
 
 ---
 
-### UC47 — List Credit Packages (Xem danh sách gói credit)
+### UC44 — List Credit Packages (Xem danh sách gói credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1639,7 +1639,7 @@ Trả về danh sách gói credit để hiển thị trên trang nạp tiền. A
 
 ---
 
-### UC48 — Create Credit Package (Tạo gói credit mới)
+### UC45 — Create Credit Package (Tạo gói credit mới)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1678,7 +1678,7 @@ System Admin tạo gói credit mới để người dùng có thể mua. Mỗi g
 
 ---
 
-### UC49 — Update Credit Package (Cập nhật gói credit)
+### UC46 — Update Credit Package (Cập nhật gói credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1719,7 +1719,7 @@ Cho phép Admin chỉnh sửa tên, mô tả, giá tiền, số credit, thứ t�
 
 ---
 
-### UC50 — Delete Credit Package (Xoá gói credit)
+### UC47 — Delete Credit Package (Xoá gói credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1749,7 +1749,7 @@ Xoá mềm gói credit. Gói đã xoá sẽ không hiển thị cho người dù
 
 ---
 
-### UC51 — View Credit Balance & History (Xem số dư và lịch sử credit)
+### UC48 — View Credit Balance & History (Xem số dư và lịch sử credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1842,8 +1842,8 @@ Thực hiện đăng bài tự động theo lịch đã đặt. Hỗ trợ cả 
 | UC09 | GET | `/posts` | Tìm kiếm bài viết |
 | UC10 | DELETE | `/posts/:id` | Xoá bài viết |
 | UC37 | POST | `/workspaces/:id/media` | Upload file media |
-| UC52 | PATCH | `/workspaces/:id/posts/:postId/assignment` | Giao việc cho thành viên |
-| UC53 | PATCH | `/workspaces/:id/posts/:postId/task-status` | Cập nhật trạng thái công việc |
+| UC49 | PATCH | `/workspaces/:id/posts/:postId/assignment` | Giao việc cho thành viên |
+| UC50 | PATCH | `/workspaces/:id/posts/:postId/task-status` | Cập nhật trạng thái công việc |
 | UC11 | POST | `/posts/:id/submit` | Gửi bài viết lên duyệt |
 | UC14 | POST | `/posts/:id/review` | Duyệt / Từ chối bài viết |
 | UC12 | POST | `/posts/:id/schedule` | Lên lịch đăng bài |
@@ -1860,11 +1860,11 @@ Thực hiện đăng bài tự động theo lịch đã đặt. Hỗ trợ cả 
 | UC30a | POST | `/workspaces/:id/orders` | Tạo đơn mua credit |
 | UC30b | POST | `/payos/webhook` | Webhook xác nhận thanh toán |
 | UC30c | GET | `/orders/:code` | Polling trạng thái đơn hàng |
-| UC51 | GET | `/workspaces/:id/credits` | Xem số dư & lịch sử credit |
-| UC47 | GET | `/credit-packages` | Xem danh sách gói credit |
-| UC48 | POST | `/credit-packages` | Tạo gói credit |
-| UC49 | PATCH | `/credit-packages/:id` | Cập nhật gói credit |
-| UC50 | DELETE | `/credit-packages/:id` | Xoá gói credit |
+| UC48 | GET | `/workspaces/:id/credits` | Xem số dư & lịch sử credit |
+| UC44 | GET | `/credit-packages` | Xem danh sách gói credit |
+| UC45 | POST | `/credit-packages` | Tạo gói credit |
+| UC46 | PATCH | `/credit-packages/:id` | Cập nhật gói credit |
+| UC47 | DELETE | `/credit-packages/:id` | Xoá gói credit |
 | UC31a | GET | `/admin/dashboard` | Xem thống kê Dashboard |
 | UC31b | GET | `/admin/audit-logs` | Xem nhật ký hệ thống |
 | UC39 | GET | `/notifications` | Xem danh sách thông báo |

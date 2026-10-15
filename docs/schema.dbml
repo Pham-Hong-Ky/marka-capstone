@@ -102,7 +102,7 @@ Enum OrderStatus {
   CANCELLED
 }
 
-// Kế hoạch — Giao việc (UC52/UC53), chưa triển khai trong schema.prisma
+// Kế hoạch — Giao việc (UC49/UC50), chưa triển khai trong schema.prisma
 Enum TaskStatus {
   TODO
   IN_PROGRESS
@@ -194,7 +194,7 @@ Table posts {
   submittedAt timestamp
   reviewedById varchar(36) [ref: > users.id]
   reviewedAt timestamp
-  // Kế hoạch — Giao việc (UC52/UC53), chưa triển khai trong schema.prisma
+  // Kế hoạch — Giao việc (UC49/UC50), chưa triển khai trong schema.prisma
   assigneeId varchar(36) [ref: > users.id]
   dueAt timestamp
   priority TaskPriority [default: 'MEDIUM', not null]

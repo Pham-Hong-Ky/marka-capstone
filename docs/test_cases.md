@@ -375,11 +375,11 @@
 | 33.3 | Job đăng bài thất bại — lỗi Facebook API | Facebook API trả về lỗi | `scheduledPost.status = FAILED`, owner nhận thông báo lỗi | | |
 | 33.4 | Kiểm tra trạng thái post tổng thể khi tất cả kênh xong | Tất cả `scheduledPost` của post đều PUBLISHED | `post.status = PUBLISHED` | | |
 
-## Phân hệ 2.4 — Giao việc (UC52, UC53)
+## Phân hệ 2.4 — Giao việc (UC49, UC50)
 
 > Tính năng ngoài roadmap gốc (2026-10-15) — xem `docs/superpowers/specs/2026-10-15-post-task-assignment-design.md`.
 
-### UC52 — Giao việc cho thành viên (`PATCH /workspaces/:id/posts/:postId/assignment`)
+### UC49 — Giao việc cho thành viên (`PATCH /workspaces/:id/posts/:postId/assignment`)
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
@@ -390,7 +390,7 @@
 
 ---
 
-### UC53 — Cập nhật trạng thái công việc (`PATCH /workspaces/:id/posts/:postId/task-status`)
+### UC50 — Cập nhật trạng thái công việc (`PATCH /workspaces/:id/posts/:postId/task-status`)
 
 | STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
 |-----|-------|----------------|--------------------------|------------------------|------------|
@@ -412,7 +412,7 @@
 | Brand Voice (UC24–26) | 6 | | | |
 | Credit & PayOS (UC30) | 6 | | | |
 | Admin (UC31) | 9 | | | |
-| Giao việc (UC52, UC53) | 6 | | | |
+| Giao việc (UC49, UC50) | 6 | | | |
 | Background Worker | 4 | | | |
 | **Tổng** | **110** | | | |
 

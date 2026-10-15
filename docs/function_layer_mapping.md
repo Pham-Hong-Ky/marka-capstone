@@ -2429,7 +2429,7 @@ sequenceDiagram
 
 ## Phân hệ 9 — Credit Package Management
 
-### UC47 — List Credit Packages
+### UC44 — List Credit Packages
 
 ```mermaid
 sequenceDiagram
@@ -2474,7 +2474,7 @@ sequenceDiagram
     deactivate View
 ```
 
-### UC48 — Create Credit Package
+### UC45 — Create Credit Package
 
 ```mermaid
 sequenceDiagram
@@ -2533,7 +2533,7 @@ sequenceDiagram
     deactivate View
 ```
 
-### UC49 — Update Credit Package
+### UC46 — Update Credit Package
 
 ```mermaid
 sequenceDiagram
@@ -2598,7 +2598,7 @@ sequenceDiagram
     deactivate View
 ```
 
-### UC50 — Delete Credit Package
+### UC47 — Delete Credit Package
 
 ```mermaid
 sequenceDiagram
@@ -2663,7 +2663,7 @@ sequenceDiagram
     deactivate View
 ```
 
-### UC51 — View Credit Balance & History
+### UC48 — View Credit Balance & History
 
 ```mermaid
 sequenceDiagram

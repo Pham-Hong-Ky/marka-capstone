@@ -55,7 +55,7 @@
 | UC31a/b | Admin dashboard & audit log |
 | UC39–UC41 | Notifications |
 | **UC42, UC42b, UC43** | **Post Analytics** |
-| **UC47–UC51** | **Credit Package (List/Create/Update/Delete) + Credit Balance** *(đổi từ UC42–UC46 để hết trùng)* |
+| **UC44–UC48** | **Credit Package (List/Create/Update/Delete) + Credit Balance** |
 | UC34 | Gửi email xác thực tài khoản — **dời Phase 5**, chưa triển khai |
 
 ---
