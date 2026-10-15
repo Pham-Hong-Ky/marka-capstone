@@ -902,6 +902,89 @@ Workspace owner ra quyết định phê duyệt hoặc từ chối bài viết. 
 
 ---
 
+## Phân hệ 2.4 — Giao việc (Task Assignment)
+
+> Tính năng **ngoài roadmap gốc** (2026-10-15) — ghi lại để triển khai sau. Chi tiết: `docs/superpowers/specs/2026-10-15-post-task-assignment-design.md`.
+
+---
+
+### UC52 — Assign Content Task (Giao việc cho thành viên)
+
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `PATCH` |
+| **Path** | `/workspaces/:workspaceId/posts/:postId/assignment` |
+| **Controller** | Post Controller |
+| **Service** | Post Service |
+| **Actors** | Workspace Owner |
+
+#### Đầu vào
+- **Path param**: `workspaceId`, `postId`
+- **Request Body** (cần ít nhất một trường):
+```json
+{
+  "assigneeId": "string | null",
+  "dueAt": "ISO-8601 | null",
+  "priority": "LOW | MEDIUM | HIGH"
+}
+```
+
+#### Xử lý nội bộ
+1. `findPostById(postId)` — kiểm tra bài thuộc workspace.
+2. Nếu `assigneeId` khác null → kiểm tra người nhận là **thành viên của workspace** (`findMember`).
+3. `assignPost(postId, data)` — cập nhật `assigneeId`, `dueAt`, `priority`.
+4. Nếu người nhận thay đổi → `createNotification(assigneeId, POST_ASSIGNED)`.
+5. `createAuditLog(POST_ASSIGNED)`.
+
+#### Kết quả trả về
+
+| Trường hợp | HTTP Status | Body |
+|---|---|---|
+| ✅ Giao việc thành công | `200 OK` | `Post` (kèm `assignee`, `dueAt`, `priority`, `taskStatus`) |
+| ❌ Không phải Owner | `403 Forbidden` | `{ message: "Chỉ Owner được giao việc" }` |
+| ❌ Người nhận không thuộc workspace | `400 Bad Request` | `{ message: "Người nhận không thuộc workspace" }` |
+| ❌ Bài viết không tồn tại | `404 Not Found` | `{ message: "Post not found" }` |
+
+#### Ý nghĩa
+Owner phân công bài viết cho một thành viên kèm hạn và độ ưu tiên; người nhận được thông báo ngay.
+
+---
+
+### UC53 — Update Task Status (Cập nhật trạng thái công việc)
+
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `PATCH` |
+| **Path** | `/workspaces/:workspaceId/posts/:postId/task-status` |
+| **Controller** | Post Controller |
+| **Service** | Post Service |
+| **Actors** | Người nhận (assignee) / Workspace Owner |
+
+#### Đầu vào (Request Body)
+```json
+{ "taskStatus": "TODO | IN_PROGRESS | DONE" }
+```
+
+#### Xử lý nội bộ
+1. `findPostById(postId)`.
+2. Kiểm tra actor là `post.assigneeId` **hoặc** Owner.
+3. `updatePostTaskStatus(postId, taskStatus)`.
+4. `createAuditLog(POST_TASK_STATUS_CHANGED)`.
+
+#### Kết quả trả về
+
+| Trường hợp | HTTP Status | Body |
+|---|---|---|
+| ✅ Cập nhật thành công | `200 OK` | `{ taskStatus }` |
+| ❌ Không phải người nhận/Owner | `403 Forbidden` | `{ message: "Bạn không phụ trách bài viết này" }` |
+
+#### Ý nghĩa
+Người phụ trách báo tiến độ công việc (`TODO → IN_PROGRESS → DONE`). Trạng thái này **độc lập** với trạng thái duyệt/đăng của bài viết.
+
+> **Việc của tôi**: `GET /workspaces/:workspaceId/posts` bổ sung query `assigneeId`, `mine=true`, `taskStatus` để lọc danh sách bài được giao cho bản thân.
+
+---
+
 ## Phân hệ 3 — AI Content
 
 ---
@@ -1759,6 +1842,8 @@ Thực hiện đăng bài tự động theo lịch đã đặt. Hỗ trợ cả 
 | UC09 | GET | `/posts` | Tìm kiếm bài viết |
 | UC10 | DELETE | `/posts/:id` | Xoá bài viết |
 | UC37 | POST | `/workspaces/:id/media` | Upload file media |
+| UC52 | PATCH | `/workspaces/:id/posts/:postId/assignment` | Giao việc cho thành viên |
+| UC53 | PATCH | `/workspaces/:id/posts/:postId/task-status` | Cập nhật trạng thái công việc |
 | UC11 | POST | `/posts/:id/submit` | Gửi bài viết lên duyệt |
 | UC14 | POST | `/posts/:id/review` | Duyệt / Từ chối bài viết |
 | UC12 | POST | `/posts/:id/schedule` | Lên lịch đăng bài |

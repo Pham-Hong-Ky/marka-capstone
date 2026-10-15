@@ -18,7 +18,7 @@ Không có vai trò tùy chỉnh, không có Reviewer/Social Media Manager/Viewe
 
 ---
 
-## Danh mục Phân hệ & Danh sách Use Cases (UC01 – UC51)
+## Danh mục Phân hệ & Danh sách Use Cases (UC01 – UC53)
 
 | Mã UC | Tên chức năng (Use Case) | Tác nhân chính (Actor) | Phân hệ / Tài liệu chi tiết | Ghi chú |
 | :--- | :--- | :--- | :--- | :--- |
@@ -79,6 +79,8 @@ Không có vai trò tùy chỉnh, không có Reviewer/Social Media Manager/Viewe
 | **UC49** | Update Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Cập nhật gói credit (giá, credit, `isActive`) |
 | **UC50** | Delete Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xoá mềm gói credit (`deletedAt`) |
 | **UC51** | View Credit Balance & History | Workspace member | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xem số dư và lịch sử giao dịch credit |
+| **UC52** | Assign Content Task | Workspace Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#27-giao-việc-cho-thành-viên-task-assignment---uc52-uc53) | Giao việc cho thành viên (người nhận, hạn, độ ưu tiên) — **ngoài roadmap gốc** |
+| **UC53** | Update Task Status | Người nhận (assignee), Workspace Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#27-giao-việc-cho-thành-viên-task-assignment---uc52-uc53) | Cập nhật trạng thái công việc (`TODO`/`IN_PROGRESS`/`DONE`) |
 
 ---
 
