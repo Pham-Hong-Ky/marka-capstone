@@ -5,6 +5,8 @@ import AppLayout from '@/components/layout/AppLayout';
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import DashboardPage from '@/pages/DashboardPage';
+import PostsPage from '@/pages/PostsPage';
+import PostEditorPage from '@/pages/PostEditorPage';
 import ComingSoonPage from '@/pages/ComingSoonPage';
 import InvitePage from '@/pages/InvitePage';
 import SettingsLayout from '@/pages/settings/SettingsLayout';
@@ -33,7 +35,9 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { index: true, element: <DashboardPage /> },
-          { path: 'posts', element: <ComingSoonPage title="Nội dung" /> },
+          { path: 'posts', element: <PostsPage /> },
+          { path: 'posts/new', element: <PostEditorPage /> },
+          { path: 'posts/:postId/edit', element: <PostEditorPage /> },
           { path: 'ai', element: <ComingSoonPage title="Trợ lý AI" /> },
           { path: 'publishing', element: <ComingSoonPage title="Đăng bài đa kênh" /> },
           { path: 'billing', element: <ComingSoonPage title="Credit & Gói dịch vụ" /> },
