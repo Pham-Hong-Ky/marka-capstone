@@ -1,4 +1,5 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import { PostStatus } from '@prisma/client';
 import { z } from 'zod';
 
 extendZodWithOpenApi(z);
@@ -32,6 +33,7 @@ export const listPostsQuerySchema = z
     page: z.coerce.number().int().min(1).max(100000).default(1),
     limit: z.coerce.number().int().min(1).max(50).default(10),
     search: z.string().trim().min(1).optional(),
+    status: z.nativeEnum(PostStatus).optional(),
     createdById: z.string().uuid('Người tạo không hợp lệ').optional(),
     dateFrom: z.coerce.date().optional(),
     dateTo: z.coerce.date().optional(),

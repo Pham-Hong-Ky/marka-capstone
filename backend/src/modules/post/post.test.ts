@@ -149,6 +149,24 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.body.data.posts.every((p: { createdById: string }) => p.createdById === ownerId)).toBe(true);
   });
 
+  it('UC09 — Lọc theo trạng thái', async () => {
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/posts?status=DRAFT`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.posts.every((p: { status: string }) => p.status === 'DRAFT')).toBe(true);
+    expect(res.body.data.posts.some((p: { id: string }) => p.id === postId)).toBe(true);
+  });
+
+  it('UC09 — Trạng thái không hợp lệ trả 422', async () => {
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/posts?status=KHONGCO`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(422);
+  });
+
   it('UC09 — Query sai trả 422 (page=0, limit=99, dateTo<dateFrom)', async () => {
     const bad1 = await request(app)
       .get(`/api/v1/workspaces/${wsId}/posts?page=0`)

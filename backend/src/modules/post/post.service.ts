@@ -50,6 +50,7 @@ export const listPosts = async (workspaceId: string, query: ListPostsQuery) => {
     skip: (query.page - 1) * query.limit,
     take: query.limit,
     search: query.search,
+    status: query.status,
     createdById: query.createdById,
     dateFrom: query.dateFrom,
     dateTo: query.dateTo,

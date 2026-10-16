@@ -22,6 +22,7 @@ export interface ListPostsParams {
   skip: number;
   take: number;
   search?: string;
+  status?: PostStatus;
   createdById?: string;
   dateFrom?: Date;
   dateTo?: Date;
@@ -31,6 +32,7 @@ export const listPostsAndCount = async (params: ListPostsParams) => {
   const where: Prisma.PostWhereInput = {
     workspaceId: params.workspaceId,
     ...(params.search ? { title: { contains: params.search, mode: 'insensitive' } } : {}),
+    ...(params.status ? { status: params.status } : {}),
     ...(params.createdById ? { createdById: params.createdById } : {}),
     ...(params.dateFrom || params.dateTo
       ? {
