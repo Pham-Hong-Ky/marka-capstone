@@ -8,6 +8,7 @@ export const ImageUploadField = ({
   label,
   hint = 'JPG, PNG hoặc WEBP, tối đa 2MB.',
   accept = 'image/png,image/jpeg,image/webp',
+  maxSize,
   disabled = false,
   onSelect,
   className,
@@ -16,6 +17,7 @@ export const ImageUploadField = ({
   label?: string;
   hint?: string;
   accept?: string;
+  maxSize?: number;
   disabled?: boolean;
   onSelect: (file: File) => void;
   className?: string;
@@ -25,7 +27,7 @@ export const ImageUploadField = ({
     event.target.value = '';
     if (!file) return;
 
-    const error = validateImageFile(file);
+    const error = validateImageFile(file, { maxSize });
     if (error) {
       toast.error(error);
       return;

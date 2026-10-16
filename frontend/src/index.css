@@ -44,3 +44,66 @@
     -webkit-font-smoothing: antialiased;
   }
 }
+
+@layer components {
+  .marka-editor {
+    outline: none;
+  }
+
+  .marka-editor--editable {
+    min-height: 14rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .marka-editor > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .marka-editor p {
+    @apply text-foreground;
+  }
+
+  .marka-editor h2 {
+    @apply text-xl font-bold text-foreground;
+  }
+
+  .marka-editor h3 {
+    @apply text-lg font-semibold text-foreground;
+  }
+
+  .marka-editor ul {
+    @apply list-disc pl-5;
+  }
+
+  .marka-editor ol {
+    @apply list-decimal pl-5;
+  }
+
+  .marka-editor blockquote {
+    @apply border-l-2 border-border pl-3 text-muted;
+  }
+
+  .marka-editor a {
+    @apply text-indigo-600 underline dark:text-indigo-400;
+  }
+
+  .marka-editor code {
+    @apply rounded bg-surface-2 px-1 py-0.5 text-[0.85em];
+  }
+
+  .marka-editor pre {
+    @apply overflow-x-auto rounded-lg bg-surface-2 p-3;
+  }
+
+  .marka-editor pre code {
+    @apply bg-transparent p-0;
+  }
+
+  .marka-editor mark {
+    @apply rounded-sm px-0.5;
+  }
+
+  .marka-editor hr {
+    @apply my-4 border-border;
+  }
+}
