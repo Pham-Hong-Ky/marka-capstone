@@ -8,7 +8,7 @@ import { cn } from '@/utils/cn';
 
 const MENU_ITEM_SELECTOR = '[role="menuitemradio"], [role="menuitem"]';
 
-export const WorkspaceSwitcher = () => {
+export const WorkspaceSwitcher = ({ collapsed = false }: { collapsed?: boolean }) => {
   const user = useAuthStore((state) => state.user);
   const activeWorkspaceId = useAuthStore((state) => state.activeWorkspaceId);
   const setActiveWorkspace = useAuthStore((state) => state.setActiveWorkspace);
@@ -82,35 +82,44 @@ export const WorkspaceSwitcher = () => {
   };
 
   return (
-    <div ref={containerRef} className="relative px-3 pt-3">
+    <div ref={containerRef} className="relative w-full min-w-0">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Chuyển workspace"
-        className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-left transition hover:border-indigo-400/60"
+        title={collapsed ? (activeWorkspace?.name ?? 'Chọn workspace') : undefined}
+        className={cn(
+          'flex w-full items-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-left transition hover:border-indigo-400/60',
+          collapsed ? 'justify-center px-1 py-2' : 'gap-2.5 px-3 py-2.5'
+        )}
       >
         {activeWorkspace?.logo ? (
           <img
             src={activeWorkspace.logo}
             alt=""
-            className="h-7 w-7 shrink-0 rounded-lg object-cover"
+            className="h-10 w-10 shrink-0 rounded-lg object-cover"
           />
         ) : (
-          <BrandLogo className="h-7 w-7 rounded-lg" />
+          <BrandLogo className="h-10 w-10 rounded-lg" />
         )}
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-foreground">
-            {activeWorkspace?.name ?? 'Chọn workspace'}
-          </span>
-          {activeWorkspace ? (
-            <span className="block truncate text-[11px] text-muted">
-              {activeWorkspace.plan} · {activeWorkspace.remainingCredit} credit
+
+        {collapsed ? null : (
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-foreground">
+                {activeWorkspace?.name ?? 'Chọn workspace'}
+              </span>
+              {activeWorkspace ? (
+                <span className="block truncate text-xs text-muted">{activeWorkspace.plan}</span>
+              ) : null}
             </span>
-          ) : null}
-        </span>
-        <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted transition', open && 'rotate-180')} />
+            <ChevronDown
+              className={cn('h-4 w-4 shrink-0 text-muted transition', open && 'rotate-180')}
+            />
+          </>
+        )}
       </button>
 
       {open ? (
@@ -119,7 +128,10 @@ export const WorkspaceSwitcher = () => {
           role="menu"
           aria-label="Chuyển workspace"
           onKeyDown={onMenuKeyDown}
-          className="absolute left-3 right-3 z-30 mt-1 overflow-hidden rounded-xl border border-border bg-surface shadow-xl"
+          className={cn(
+            'absolute z-30 overflow-hidden rounded-xl border border-border bg-surface shadow-xl',
+            collapsed ? 'left-full top-0 ml-2 w-64' : 'left-0 right-0 mt-1'
+          )}
         >
           <div className="max-h-64 overflow-y-auto p-1">
             {workspaces.map((workspace) => (
