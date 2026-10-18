@@ -27,6 +27,8 @@ import {
   inviteTokenSchema,
 } from '../modules/workspace/workspace.validation.js';
 import workspaceController from '../modules/workspace/workspace.controller.js';
+import { brandVoiceSchema } from '../modules/brandvoice/brandvoice.validation.js';
+import brandVoiceController from '../modules/brandvoice/brandvoice.controller.js';
 import postController from '../modules/post/post.controller.js';
 import {
   createPostSchema,
@@ -125,6 +127,22 @@ router.post(
   workspaceController.inviteMember
 );
 router.get('/invites/:token', optionalAuth, validate(inviteTokenSchema), workspaceController.acceptInvite);
+
+// Brand Voice (UC24, UC25, UC26)
+router.get(
+  '/workspaces/:workspaceId/brand-voice',
+  requireAuth,
+  validate(workspaceOnlySchema),
+  requireWorkspaceRole(),
+  brandVoiceController.getBrandVoice
+);
+router.put(
+  '/workspaces/:workspaceId/brand-voice',
+  requireAuth,
+  validate(brandVoiceSchema),
+  requireWorkspaceRole('OWNER'),
+  brandVoiceController.updateBrandVoice
+);
 
 // Posts (UC05, UC07, UC08, UC09, UC10, UC37)
 router.post(

@@ -12,6 +12,7 @@ import {
   changeMemberRoleBodySchema,
   inviteTokenParamSchema,
 } from '../modules/workspace/workspace.validation.js';
+import { brandVoiceBodySchema } from '../modules/brandvoice/brandvoice.validation.js';
 import {
   createPostBodySchema,
   updatePostBodySchema,
@@ -345,7 +346,40 @@ registry.registerPath({
   },
 });
 
-// 6. Posts (UC05, UC07, UC08, UC09, UC10, UC37)
+// 6. Brand Voice (UC24, UC25, UC26)
+registry.registerPath({
+  method: 'get',
+  path: '/workspaces/{workspaceId}/brand-voice',
+  tags: ['Workspace'],
+  summary: 'Xem cấu hình Brand Voice của workspace (UC26)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: workspaceIdParamSchema },
+  responses: {
+    200: { description: 'Thành công (brandVoice = null khi chưa thiết lập)' },
+    403: { description: 'Không phải thành viên workspace' },
+    404: { description: 'Workspace không tồn tại' },
+  },
+});
+
+registry.registerPath({
+  method: 'put',
+  path: '/workspaces/{workspaceId}/brand-voice',
+  tags: ['Workspace'],
+  summary: 'Tạo / cập nhật Brand Voice (UC24, UC25)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: workspaceIdParamSchema,
+    body: { content: { 'application/json': { schema: brandVoiceBodySchema } } },
+  },
+  responses: {
+    200: { description: 'Lưu Brand Voice thành công' },
+    403: { description: 'Chỉ Workspace Owner được chỉnh sửa Brand Voice' },
+    404: { description: 'Workspace không tồn tại' },
+    422: { description: 'Dữ liệu không hợp lệ' },
+  },
+});
+
+// 7. Posts (UC05, UC07, UC08, UC09, UC10, UC37)
 const postMediaUploadBodySchema = z.object({
   file: z.any().openapi({ type: 'string', format: 'binary', description: 'Ảnh JPG/PNG/WEBP, tối đa 10MB' }),
 });
@@ -463,7 +497,7 @@ registry.registerPath({
   },
 });
 
-// 7. Approval flow (UC11, UC14)
+// 8. Approval flow (UC11, UC14)
 registry.registerPath({
   method: 'post',
   path: '/workspaces/{workspaceId}/posts/{postId}/submit',
