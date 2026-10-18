@@ -7,6 +7,7 @@ import RegisterPage from '@/pages/auth/RegisterPage';
 import DashboardPage from '@/pages/DashboardPage';
 import PostsPage from '@/pages/PostsPage';
 import PostEditorPage from '@/pages/PostEditorPage';
+import BrandVoicePage from '@/pages/BrandVoicePage';
 import ComingSoonPage from '@/pages/ComingSoonPage';
 import InvitePage from '@/pages/InvitePage';
 import SettingsLayout from '@/pages/settings/SettingsLayout';
@@ -41,7 +42,7 @@ export const router = createBrowserRouter([
           { path: 'schedule', element: <ComingSoonPage title="Lịch xuất bản" /> },
           { path: 'channels', element: <ComingSoonPage title="Kênh kết nối" /> },
           { path: 'media', element: <ComingSoonPage title="Thư viện Media" /> },
-          { path: 'brand-voice', element: <ComingSoonPage title="Brand Voice" /> },
+          { path: 'brand-voice', element: <BrandVoicePage /> },
           { path: 'ai', element: <ComingSoonPage title="Trợ lý AI" /> },
           { path: 'publishing', element: <ComingSoonPage title="Đăng bài đa kênh" /> },
           { path: 'billing', element: <ComingSoonPage title="Gói Credit & Nạp" /> },
