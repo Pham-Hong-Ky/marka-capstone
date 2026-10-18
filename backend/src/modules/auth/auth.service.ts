@@ -81,6 +81,7 @@ export const registerUser = async ({ email, password, name }: RegisterInput) => 
               role: 'OWNER' as const,
               plan: newUser.defaultWorkspace.plan,
               remainingCredit: newUser.defaultWorkspace.remainingCredit,
+              monthlyQuota: newUser.defaultWorkspace.monthlyQuota,
             },
           ]
         : [],
@@ -133,6 +134,7 @@ export const login = async (email: string, password: string) => {
         role: member.role,
         plan: member.workspace.plan,
         remainingCredit: member.workspace.remainingCredit,
+        monthlyQuota: member.workspace.monthlyQuota,
       })),
     },
   };
@@ -257,6 +259,7 @@ export const googleLogin = async (idToken: string) => {
         role: member.role,
         plan: member.workspace.plan,
         remainingCredit: member.workspace.remainingCredit,
+        monthlyQuota: member.workspace.monthlyQuota,
       })),
     },
   };

@@ -11,6 +11,7 @@ export interface UserWorkspace {
   role: WorkspaceRole;
   plan: WorkspacePlan;
   remainingCredit: number;
+  monthlyQuota: number;
 }
 
 export interface AuthUser {

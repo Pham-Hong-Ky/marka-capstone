@@ -32,6 +32,7 @@ export const getProfile = async (userId: string) => {
       role: m.role,
       plan: m.workspace.plan,
       remainingCredit: m.workspace.remainingCredit,
+      monthlyQuota: m.workspace.monthlyQuota,
     })),
   };
 };

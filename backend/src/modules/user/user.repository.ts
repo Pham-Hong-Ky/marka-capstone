@@ -94,6 +94,7 @@ export const createUser = async ({ email, passwordHash, name }: CreateUserData) 
         logo: defaultWorkspace.logo,
         plan: defaultWorkspace.plan,
         remainingCredit: defaultWorkspace.remainingCredit,
+        monthlyQuota: defaultWorkspace.monthlyQuota,
       },
     };
   });
