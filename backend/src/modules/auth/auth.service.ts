@@ -1,14 +1,11 @@
-import { OAuth2Client } from 'google-auth-library';
 import type { User } from '@prisma/client';
 import userRepository from '../user/user.repository.js';
 import { toAuthUser } from '../user/user.mapper.js';
 import auditService from '../audit/audit.service.js';
-import env from '../../config/env.js';
+import { googleOAuthClient, type GoogleProfile } from './google-oauth.client.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../utils/jwt.js';
 import { hashPassword, verifyPassword } from '../../utils/password.js';
 import { ConflictError, UnauthorizedError, ForbiddenError } from '../../utils/errors/index.js';
-
-const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
 
 export interface RegisterInput {
   email: string;
@@ -32,32 +29,6 @@ const assertNotSuspended = (user: { isSuspended: boolean }) => {
   if (user.isSuspended) {
     throw new ForbiddenError('Tài khoản của bạn đã bị tạm khóa');
   }
-};
-
-const verifyGoogleIdToken = async (idToken: string) => {
-  let payload;
-  try {
-    const ticket = await googleClient.verifyIdToken({ idToken, audience: env.GOOGLE_CLIENT_ID });
-    payload = ticket.getPayload();
-  } catch {
-    throw new UnauthorizedError('Xác thực tài khoản Google không hợp lệ');
-  }
-
-  if (!payload?.email) {
-    throw new UnauthorizedError('Không thể lấy thông tin email từ Google');
-  }
-
-  // Liên kết theo email chỉ an toàn khi Google đã xác minh email đó, nếu không sẽ bị chiếm tài khoản.
-  if (!payload.email_verified) {
-    throw new UnauthorizedError('Email Google chưa được xác minh');
-  }
-
-  return {
-    email: payload.email.toLowerCase(),
-    name: payload.name,
-    avatar: payload.picture ?? null,
-    googleId: payload.sub,
-  };
 };
 
 export const registerUser = async ({ email, password, name }: RegisterInput) => {
@@ -103,7 +74,7 @@ export const login = async (email: string, password: string) => {
   return { ...issueTokens(user), user: toAuthUser(user) };
 };
 
-const findOrCreateGoogleUser = async (profile: Awaited<ReturnType<typeof verifyGoogleIdToken>>) => {
+const findOrCreateGoogleUser = async (profile: GoogleProfile) => {
   const existingUser = await userRepository.findUserByEmail(profile.email);
 
   if (!existingUser) {
@@ -130,7 +101,7 @@ const findOrCreateGoogleUser = async (profile: Awaited<ReturnType<typeof verifyG
 };
 
 export const googleLogin = async (idToken: string) => {
-  const profile = await verifyGoogleIdToken(idToken);
+  const profile = await googleOAuthClient.verifyIdToken(idToken);
   const user = await findOrCreateGoogleUser(profile);
 
   await auditService.recordAuditLog({

@@ -5,7 +5,7 @@ import { BadRequestError, NotFoundError } from '../../utils/errors/index.js';
 import { decrypt, encrypt } from '../../utils/encryption.js';
 import auditService from '../audit/audit.service.js';
 import channelRepository, { type ChannelSummary } from './channel.repository.js';
-import * as facebook from './channel.facebook.js';
+import { facebookClient } from './facebook.client.js';
 import * as oauthStore from './channel.oauth-store.js';
 import type { OauthSession, OauthSessionPage } from './channel.oauth-store.js';
 
@@ -34,14 +34,14 @@ export const createFacebookAuthUrl = async (
   workspaceId: string,
   userId: string
 ): Promise<{ url: string }> => {
-  if (!facebook.isFacebookConfigured()) {
+  if (!facebookClient.isFacebookConfigured()) {
     throw new BadRequestError('Chưa cấu hình Facebook App. Vui lòng liên hệ quản trị viên.');
   }
 
   const state = randomBytes(32).toString('hex');
   await oauthStore.saveOauthState(state, { userId, workspaceId });
 
-  return { url: facebook.buildAuthorizationUrl(state) };
+  return { url: facebookClient.buildAuthorizationUrl(state) };
 };
 
 export const handleFacebookCallback = async (
@@ -70,9 +70,9 @@ export const handleFacebookCallback = async (
   }
 
   try {
-    const shortToken = await facebook.exchangeCodeForToken(query.code);
-    const userToken = await facebook.exchangeForLongLivedToken(shortToken);
-    const pages = await facebook.fetchManagedPages(userToken);
+    const shortToken = await facebookClient.exchangeCodeForToken(query.code);
+    const userToken = await facebookClient.exchangeForLongLivedToken(shortToken);
+    const pages = await facebookClient.fetchManagedPages(userToken);
 
     if (pages.length === 0) {
       return errorRedirect('no_pages');

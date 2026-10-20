@@ -3,8 +3,10 @@ import request from 'supertest';
 import app from '../../app.js';
 import prisma from '../../config/db.js';
 
-vi.mock('../../utils/cloudinary.js', () => ({
-  uploadImageBuffer: vi.fn().mockResolvedValue('https://res.cloudinary.com/demo/image/upload/fake.png'),
+vi.mock('../../utils/cloudinary.client.js', () => ({
+  cloudinaryClient: {
+    uploadImageBuffer: vi.fn().mockResolvedValue('https://res.cloudinary.com/demo/image/upload/fake.png'),
+  },
 }));
 
 const password = 'password123';

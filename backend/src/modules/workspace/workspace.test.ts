@@ -2,11 +2,11 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../app.js';
 import prisma from '../../config/db.js';
-import { sendEmail } from '../../utils/mailer.js';
+import { mailerClient } from '../../utils/mailer.client.js';
 
-vi.mock('../../utils/mailer.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../utils/mailer.js')>();
-  return { ...actual, sendEmail: vi.fn(actual.sendEmail) };
+vi.mock('../../utils/mailer.client.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/mailer.client.js')>();
+  return { ...actual, mailerClient: { sendEmail: vi.fn(actual.mailerClient.sendEmail) } };
 });
 
 const password = 'password123';
@@ -139,7 +139,7 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
 
   it('UC20 — Gửi email thất bại: báo lỗi 502 và không lưu lời mời', async () => {
     const failingEmail = `test_ws_fail_${stamp}@marka.vn`;
-    vi.mocked(sendEmail).mockResolvedValueOnce(false);
+    vi.mocked(mailerClient.sendEmail).mockResolvedValueOnce(false);
 
     const res = await request(app)
       .post(`/api/v1/workspaces/${createdWorkspaceId}/invites`)

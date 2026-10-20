@@ -1,5 +1,5 @@
 import workspaceRepository from '../workspace/workspace.repository.js';
-import { sendEmail } from '../../utils/mailer.js';
+import { mailerClient } from '../../utils/mailer.client.js';
 import { buildPostSubmittedEmail, buildPostReviewedEmail } from '../../templates/postReviewEmail.js';
 
 export const notifyPostSubmitted = async (params: {
@@ -34,7 +34,7 @@ export const notifyPostSubmitted = async (params: {
       }
 
       const { subject, html } = buildPostSubmittedEmail({ workspaceName, postTitle, submitterName: actorName });
-      await sendEmail({ to: owner.email, subject, html });
+      await mailerClient.sendEmail({ to: owner.email, subject, html });
     })
   );
 };
@@ -68,7 +68,7 @@ export const notifyPostReviewed = async (params: {
   }
 
   const { subject, html } = buildPostReviewedEmail({ workspaceName, postTitle, approved, rejectReason });
-  await sendEmail({ to: author.email, subject, html });
+  await mailerClient.sendEmail({ to: author.email, subject, html });
 };
 
 export default { notifyPostSubmitted, notifyPostReviewed };

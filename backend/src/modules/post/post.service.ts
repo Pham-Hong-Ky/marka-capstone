@@ -3,7 +3,7 @@ import postRepository from './post.repository.js';
 import postNotification from './post.notification.js';
 import type { ListPostsQuery } from './post.validation.js';
 import auditService from '../audit/audit.service.js';
-import { uploadImageBuffer } from '../../utils/cloudinary.js';
+import { cloudinaryClient } from '../../utils/cloudinary.client.js';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../utils/errors/index.js';
 
 const ALLOWED_TRANSITIONS: Record<PostStatus, PostStatus[]> = {
@@ -130,7 +130,7 @@ export const uploadPostMedia = async (
   assertCanModify(post, userId, role);
   assertEditable(post);
 
-  const url = await uploadImageBuffer(file.buffer, `marka/workspaces/${workspaceId}/posts/${postId}`);
+  const url = await cloudinaryClient.uploadImageBuffer(file.buffer, `marka/workspaces/${workspaceId}/posts/${postId}`);
 
   return postRepository.createMedia({
     workspaceId,
