@@ -29,10 +29,10 @@
 **Luồng hoạt động**:
 
 - **Kết nối kênh (UC28)**:
-  - **Facebook Page (thật)**: Owner bấm "Kết nối Facebook" → hiển thị form **nhập thủ công `pageId` + `pageAccessToken`** (không dùng OAuth redirect ở MVP — D13). `appId`/`appSecret` đặt ở **biến môi trường**, **không** lưu DB; chỉ `accessToken` (Page Token) được **mã hóa AES-256** trước khi lưu vào `ChannelConnection`. Quyền cần cấp cho token: `pages_manage_posts`, `pages_read_engagement`.
+  - **Facebook Page (thật)**: Owner bấm "Kết nối Facebook" → chuyển sang Facebook để **đăng nhập và cấp quyền** (`pages_show_list`, `pages_read_engagement`, `pages_manage_posts`) → quay về Marka, hệ thống hiển thị danh sách Page Owner quản lý để **chọn Page cần kết nối**. Backend đổi `code` lấy long-lived token, gọi `/me/accounts`, rồi **mã hóa AES-256** Page Token trước khi lưu `ChannelConnection`. `appId`/`appSecret`/`redirectUri` đặt ở **biến môi trường**, **không** lưu DB. Callback production: `https://marka.phamhongky.dev/api/v1/channels/facebook/oauth/callback`.
   - **Instagram/TikTok/Zalo (giả lập)**: Owner bấm "Kết nối" → hiển thị form nhập thông tin giả lập (tên kênh, avatar demo) — **không** gọi OAuth thật → Lưu `ChannelConnection(type=SIMULATED, platform=INSTAGRAM/TIKTOK/ZALO)`.
 - **Cập nhật kênh liên kết (UC29)**:
-  - **Làm mới kết nối (Re-authenticate)**: Hệ thống định kỳ (cron) kiểm tra hiệu lực token (endpoint `debug_token`) → nếu hết hạn/sắp hết hạn, đánh dấu `status: EXPIRED`. Workspace Owner bấm nút "Kết nối lại" (Reconnect) trên UI để **nhập lại `pageAccessToken` thủ công** (D13) mà không làm thay đổi ID liên kết của kênh.
+  - **Làm mới kết nối (Re-authenticate)**: Hệ thống định kỳ (cron) kiểm tra hiệu lực token (endpoint `debug_token`) → nếu hết hạn/sắp hết hạn, đánh dấu `status: EXPIRED`. Workspace Owner bấm nút "Kết nối lại" (Reconnect) trên UI để **chạy lại OAuth và chọn lại Page**; kênh được upsert theo `workspaceId + platform + pageId` nên **giữ nguyên ID liên kết**.
   - **Cập nhật thông tin kênh giả lập**: Với kênh giả lập, cho phép Owner thay đổi tên hiển thị, hình ảnh avatar demo, hoặc tạm dừng hoạt động.
 - **Hủy kết nối kênh (Disconnect)**:
   - Workspace Owner truy cập trang quản lý kênh kết nối (UC27) và bấm "Hủy kết nối" bên cạnh kênh muốn xóa.

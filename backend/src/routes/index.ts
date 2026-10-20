@@ -29,6 +29,15 @@ import {
 import workspaceController from '../modules/workspace/workspace.controller.js';
 import { brandVoiceSchema } from '../modules/brandvoice/brandvoice.validation.js';
 import brandVoiceController from '../modules/brandvoice/brandvoice.controller.js';
+import {
+  listChannelsSchema,
+  facebookOauthUrlSchema,
+  facebookCallbackSchema,
+  oauthSessionSchema,
+  connectFacebookSchema,
+  channelIdSchema,
+} from '../modules/channel/channel.validation.js';
+import channelController from '../modules/channel/channel.controller.js';
 import postController from '../modules/post/post.controller.js';
 import {
   createPostSchema,
@@ -138,6 +147,48 @@ router.put(
   validate(brandVoiceSchema),
   requireWorkspaceRole('OWNER'),
   brandVoiceController.updateBrandVoice
+);
+
+// Channels (UC27, UC28, UC29)
+router.get(
+  '/workspaces/:workspaceId/channels',
+  requireAuth,
+  validate(listChannelsSchema),
+  requireWorkspaceRole(),
+  channelController.listChannels
+);
+router.get(
+  '/channels/facebook/oauth/url',
+  requireAuth,
+  validate(facebookOauthUrlSchema),
+  requireWorkspaceRole('OWNER'),
+  channelController.getFacebookAuthUrl
+);
+router.get(
+  '/channels/facebook/oauth/callback',
+  validate(facebookCallbackSchema),
+  channelController.facebookCallback
+);
+router.get(
+  '/channels/facebook/oauth/session/:sessionId',
+  requireAuth,
+  validate(oauthSessionSchema),
+  requireWorkspaceRole('OWNER'),
+  channelController.getPendingFacebookPages
+);
+router.post(
+  '/channels/facebook/oauth/session/:sessionId/connect',
+  requireAuth,
+  validate(connectFacebookSchema),
+  requireWorkspaceRole('OWNER'),
+  channelController.connectFacebookPages
+);
+router.delete(
+  '/channels/:channelId',
+  requireAuth,
+  validate(channelIdSchema),
+  requireWorkspaceRole('OWNER'),
+  channelController.disconnectChannel
 );
 
 // Posts (UC05, UC07, UC08, UC09, UC10, UC37)

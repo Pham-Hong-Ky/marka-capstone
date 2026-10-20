@@ -57,6 +57,7 @@ npm run worker
 | `ENABLE_WORKERS` | `true` (dev, chạy kèm API) / `false` (production, worker chạy riêng) |
 | `APP_BASE_URL` | URL frontend, dùng khi tạo link trong email |
 | `CLIENT_URL` | Origin được phép CORS |
+| `FACEBOOK_REDIRECT_URI` | Callback OAuth, phải khớp **Valid OAuth Redirect URI** của Facebook App |
 
 Các key 3rd party (`OPENAI_API_KEY`, `CLOUDINARY_*`, `PAYOS_*`, `FACEBOOK_*`, `SMTP_*`) là **tuỳ chọn** — để trống cũng chạy được phần lõi.
 

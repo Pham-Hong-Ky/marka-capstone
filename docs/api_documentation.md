@@ -1061,68 +1061,63 @@ Tích hợp OpenAI để sinh nội dung marketing theo brand voice của worksp
 
 ### UC28 — Connect Social Channel (Kết nối kênh mạng xã hội)
 
-Hỗ trợ **2 kịch bản**:
+Facebook Page dùng **Facebook Login (OAuth redirect)**. Kênh giả lập (Instagram/TikTok/Zalo) chưa triển khai trong đợt này.
 
-#### Kịch bản 1: Kết nối Facebook thật
+#### Bước 1: Lấy URL đăng nhập Facebook
 
 | Thuộc tính | Giá trị |
 |---|---|
-| **Method** | `POST` |
-| **Path** | `/channels/facebook/connect` |
+| **Method** | `GET` |
+| **Path** | `/channels/facebook/oauth/url?workspaceId=...` |
 | **Actors** | Workspace owner |
 
-##### Đầu vào (Request Body)
-```json
-{
-  "workspaceId": "string",
-  "pageId": "string",
-  "pageAccessToken": "string"
-}
-```
-> **App ID/Secret không truyền trong request và không lưu DB**: lấy từ biến môi trường `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` (D13).
+- Tạo `state` ngẫu nhiên, lưu Redis TTL 10 phút, gắn `userId + workspaceId`.
+- Trả `{ url }` để client chuyển hướng sang Facebook.
+- Scope: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
 
-##### Xử lý nội bộ
-1. `verifyPageAccessToken(pageId, pageAccessToken)` — Gọi **Facebook API** (App ID/Secret đọc từ env `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET`) để xác thực token.
-2. **Nếu token không hợp lệ**: Ghi log thất bại, trả về lỗi.
-3. `encryptToken(pageAccessToken)` — Mã hoá **Page Access Token** trước khi lưu.
-4. `upsertChannelConnection({ platform: FB, pageId, accessToken: encryptedToken, ... })` — Lưu kết nối (INSERT hoặc UPDATE nếu đã tồn tại); Page Token đã mã hoá lưu vào cột `ChannelConnection.accessToken`.
-5. `createAuditLog(CONNECT_SUCCESS)` — Ghi nhật ký.
+#### Bước 2: Facebook callback
 
-##### Kết quả trả về
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `GET` |
+| **Path** | `/channels/facebook/oauth/callback?code&state` |
 
-| Trường hợp | HTTP Status | Body |
-|---|---|---|
-| ✅ Kết nối thành công | `201 Created` | `ConnectionRecord` |
-| ❌ Token không hợp lệ | `400 Bad Request` | `{ message: "Invalid page access token" }` |
+- Đổi `code` lấy token, đổi sang long-lived token, gọi `/me/accounts`.
+- Lưu danh sách Page + token đã mã hoá vào Redis TTL 10 phút.
+- Redirect về `${CLIENT_URL}/channels?fb=select&session=...`.
+- Lỗi: redirect `/channels?fb=error&reason=access_denied|invalid_state|no_pages|token_exchange_failed`.
 
-#### Kịch bản 2: Kết nối kênh giả lập (Simulation)
+#### Bước 3: Lấy danh sách Page chờ chọn
+
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `GET` |
+| **Path** | `/channels/facebook/oauth/session/:sessionId` |
+| **Actors** | Workspace owner |
+
+Trả `{ pages: [{ id, name, avatar }] }`, không trả token.
+
+#### Bước 4: Kết nối các Page đã chọn
 
 | Thuộc tính | Giá trị |
 |---|---|
 | **Method** | `POST` |
-| **Path** | `/channels/simulate` |
+| **Path** | `/channels/facebook/oauth/session/:sessionId/connect` |
+| **Actors** | Workspace owner |
 
-##### Đầu vào (Request Body)
 ```json
 {
-  "workspaceId": "string",
-  "channelName": "string",
-  "platform": "string"
+  "pageIds": ["string"]
 }
 ```
 
-##### Xử lý nội bộ
-1. `upsertChannelConnection({ type: SIMULATED, ... })` — Tạo kênh giả lập, không cần xác thực API ngoài.
-2. `createAuditLog()` — Ghi nhật ký.
-
-##### Kết quả trả về
-
-| Trường hợp | HTTP Status | Body |
-|---|---|---|
-| ✅ Kết nối giả lập thành công | `201 Created` | `ConnectionRecord` |
+- Chỉ chấp nhận Page nằm trong session.
+- Mã hoá token AES-256, upsert theo `workspaceId + FACEBOOK + pageId`.
+- Kết nối lại cùng Page giữ nguyên channel id.
+- Trả `201 { channels }`, không có token.
 
 #### Ý nghĩa
-Cho phép kết nối tài khoản mạng xã hội thật hoặc tạo kênh giả lập phục vụ demo/kiểm thử mà không cần tài khoản Facebook thật. Facebook thật chỉ cần `pageId` + `pageAccessToken`; `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET` nằm ở biến môi trường, chỉ `pageAccessToken` được mã hoá AES-256 lưu trong `ChannelConnection.accessToken` (D13).
+Người dùng không phải lấy `pageId`/`pageAccessToken` thủ công. Backend xử lý OAuth, mã hoá token trước khi lưu và chỉ trả thông tin hiển thị của kênh.
 
 ---
 
@@ -1852,8 +1847,10 @@ Thực hiện đăng bài tự động theo lịch đã đặt. Hỗ trợ cả 
 | UC15 | POST | `/posts/:id/publish` | Đăng bài ngay |
 | UC06 | POST | `/workspaces/:id/ai/generate-text` | Sinh nội dung AI |
 | UC27 | GET | `/workspaces/:id/channels` | Xem kênh đã kết nối |
-| UC28a | POST | `/channels/facebook/connect` | Kết nối Facebook thật |
-| UC28b | POST | `/channels/simulate` | Kết nối kênh giả lập |
+| UC28 | GET | `/channels/facebook/oauth/url` | Lấy URL đăng nhập Facebook |
+| UC28 | GET | `/channels/facebook/oauth/callback` | Facebook callback |
+| UC28 | GET | `/channels/facebook/oauth/session/:sessionId` | Danh sách Page chờ chọn |
+| UC28 | POST | `/channels/facebook/oauth/session/:sessionId/connect` | Kết nối Page đã chọn |
 | UC29 | DELETE | `/channels/:id` | Ngắt kết nối kênh |
 | UC24/25 | PUT | `/workspaces/:id/brand-voice` | Tạo/Cập nhật Brand Voice |
 | UC26 | GET | `/workspaces/:id/brand-voice` | Xem Brand Voice |
