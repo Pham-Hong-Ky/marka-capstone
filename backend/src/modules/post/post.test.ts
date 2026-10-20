@@ -558,6 +558,31 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(409);
   });
 
+  it('UC14 — Hai lượt duyệt đồng thời chỉ một lượt thành công', async () => {
+    const created = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ title: 'Bài duyệt đồng thời', content: { type: 'doc', content: [] } });
+    const id = created.body.data.id;
+    await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${id}/submit`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+
+    const review = (decision: 'APPROVED' | 'REJECTED') =>
+      request(app)
+        .patch(`/api/v1/workspaces/${wsId}/posts/${id}/review`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(decision === 'REJECTED' ? { decision, rejectReason: 'Chưa đạt yêu cầu' } : { decision });
+
+    const results = await Promise.all([review('APPROVED'), review('REJECTED')]);
+
+    expect(results.map((res) => res.status).sort()).toEqual([200, 409]);
+    const auditCount = await prisma.auditLog.count({
+      where: { targetId: id, action: { in: ['POST_APPROVED', 'POST_REJECTED'] } },
+    });
+    expect(auditCount).toBe(1);
+  });
+
   it('UC11 — Owner gửi duyệt bài của Creator (200)', async () => {
     const created = await request(app)
       .post(`/api/v1/workspaces/${wsId}/posts`)

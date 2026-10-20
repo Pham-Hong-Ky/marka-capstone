@@ -1,26 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
+import type { SystemRole, WorkspaceRole } from '@prisma/client';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { UnauthorizedError, ForbiddenError, BadRequestError } from '../utils/errors/index.js';
 import prisma from '../config/db.js';
 import logger from '../utils/logger.js';
+import workspaceRepository from '../modules/workspace/workspace.repository.js';
 
 export interface AuthenticatedUser {
   id: string;
   email: string;
   name: string;
   avatar: string | null;
-  systemRole: string;
+  systemRole: SystemRole;
   tokenVersion: number;
   isSuspended: boolean;
   emailVerified: boolean;
-}
-
-export interface WorkspaceMemberInfo {
-  id: string;
-  workspaceId: string;
-  userId: string;
-  role: 'OWNER' | 'CONTENT_CREATOR';
-  allowDirectPublish: boolean;
 }
 
 declare global {
@@ -28,7 +22,7 @@ declare global {
     interface Request {
       user?: AuthenticatedUser;
       workspaceId?: string;
-      workspaceMember?: WorkspaceMemberInfo;
+      workspaceRole?: WorkspaceRole;
     }
   }
 }
@@ -68,7 +62,7 @@ export const loadUserFromToken = async (token: string): Promise<AuthenticatedUse
     throw new UnauthorizedError('Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại');
   }
 
-  return user as AuthenticatedUser;
+  return user;
 };
 
 export const requireAuth = async (req: Request, _res: Response, next: NextFunction) => {
@@ -100,7 +94,7 @@ export const optionalAuth = async (req: Request, _res: Response, next: NextFunct
   next();
 };
 
-export const requireRoles = (...allowedRoles: string[]) => {
+export const requireRoles = (...allowedRoles: SystemRole[]) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new UnauthorizedError('Yêu cầu xác thực'));
@@ -114,7 +108,7 @@ export const requireRoles = (...allowedRoles: string[]) => {
   };
 };
 
-export const requireWorkspaceRole = (...allowedRoles: ('OWNER' | 'CONTENT_CREATOR')[]) => {
+export const requireWorkspaceRole = (...allowedRoles: WorkspaceRole[]) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!req.user) {
@@ -138,31 +132,25 @@ export const requireWorkspaceRole = (...allowedRoles: ('OWNER' | 'CONTENT_CREATO
         throw new ForbiddenError('Workspace ID không khớp giữa header và URL');
       }
 
-      // System Admin có toàn quyền truy cập
+      // System Admin có toàn quyền như Owner trên mọi workspace.
       if (req.user.systemRole === 'SYSTEM_ADMIN') {
         req.workspaceId = workspaceId;
+        req.workspaceRole = 'OWNER';
         return next();
       }
 
-      const member = await prisma.workspaceMember.findUnique({
-        where: {
-          userId_workspaceId: {
-            userId: req.user.id,
-            workspaceId,
-          },
-        },
-      });
+      const member = await workspaceRepository.findMember(workspaceId, req.user.id);
 
       if (!member) {
         throw new ForbiddenError('Bạn không phải là thành viên của Workspace này');
       }
 
-      if (allowedRoles.length > 0 && !allowedRoles.includes(member.role as 'OWNER' | 'CONTENT_CREATOR')) {
+      if (allowedRoles.length > 0 && !allowedRoles.includes(member.role)) {
         throw new ForbiddenError('Bạn không có quyền thực hiện hành động này trong Workspace');
       }
 
       req.workspaceId = workspaceId;
-      req.workspaceMember = member as WorkspaceMemberInfo;
+      req.workspaceRole = member.role;
       next();
     } catch (error) {
       next(error);

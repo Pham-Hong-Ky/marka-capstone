@@ -17,10 +17,21 @@ const ALLOWED_TRANSITIONS: Record<PostStatus, PostStatus[]> = {
   ARCHIVED: [],
 };
 
-const assertTransition = (from: PostStatus, to: PostStatus) => {
-  if (!ALLOWED_TRANSITIONS[from].includes(to)) {
-    throw new ConflictError('Không thể chuyển trạng thái bài viết này');
+const TRANSITION_CONFLICT_MESSAGE = 'Không thể chuyển trạng thái bài viết này';
+
+const transitionPost = async (
+  post: { id: string; workspaceId: string; status: PostStatus },
+  data: Parameters<typeof postRepository.transitionPostStatus>[3]
+) => {
+  if (!ALLOWED_TRANSITIONS[post.status].includes(data.status)) {
+    throw new ConflictError(TRANSITION_CONFLICT_MESSAGE);
   }
+
+  const updated = await postRepository.transitionPostStatus(post.id, post.workspaceId, post.status, data);
+  if (!updated) {
+    throw new ConflictError(TRANSITION_CONFLICT_MESSAGE);
+  }
+  return updated;
 };
 
 export const createPost = async (
@@ -62,7 +73,7 @@ export const listPosts = async (workspaceId: string, query: ListPostsQuery) => {
   };
 };
 
-export const assertEditable = (post: { status: string }) => {
+export const assertEditable = (post: { status: PostStatus }) => {
   if (post.status !== 'DRAFT' && post.status !== 'REJECTED') {
     throw new ConflictError('Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối');
   }
@@ -160,9 +171,8 @@ export const submitPost = async (
 ) => {
   const post = await getPost(workspaceId, postId);
   assertCanModify(post, userId, role);
-  assertTransition(post.status, 'PENDING');
 
-  const updated = await postRepository.updatePostStatus(postId, {
+  const updated = await transitionPost(post, {
     status: 'PENDING',
     submittedById: userId,
     submittedAt: new Date(),
@@ -196,12 +206,10 @@ export const reviewPost = async (
   data: { decision: 'APPROVED' | 'REJECTED'; rejectReason?: string }
 ) => {
   const post = await getPost(workspaceId, postId);
-  assertTransition(post.status, data.decision);
-
   const approved = data.decision === 'APPROVED';
   const rejectReason = approved ? null : data.rejectReason ?? null;
 
-  const updated = await postRepository.updatePostStatus(postId, {
+  const updated = await transitionPost(post, {
     status: data.decision,
     reviewedById: reviewerId,
     reviewedAt: new Date(),

@@ -60,8 +60,11 @@ export const updatePost = async (postId: string, data: { title?: string; content
   return prisma.post.update({ where: { id: postId }, data });
 };
 
-export const updatePostStatus = async (
+// Cập nhật có điều kiện theo trạng thái cũ để hai thao tác đồng thời không cùng vượt qua kiểm tra.
+export const transitionPostStatus = async (
   postId: string,
+  workspaceId: string,
+  from: PostStatus,
   data: {
     status: PostStatus;
     submittedById?: string;
@@ -71,7 +74,8 @@ export const updatePostStatus = async (
     rejectReason?: string | null;
   }
 ) => {
-  return prisma.post.update({ where: { id: postId }, data });
+  const { count } = await prisma.post.updateMany({ where: { id: postId, workspaceId, status: from }, data });
+  return count === 0 ? null : prisma.post.findFirst({ where: { id: postId, workspaceId } });
 };
 
 export const softDeletePost = async (postId: string) => {
@@ -102,7 +106,7 @@ export default {
   findPostWithMedia,
   listPostsAndCount,
   updatePost,
-  updatePostStatus,
+  transitionPostStatus,
   softDeletePost,
   createMedia,
   findMediaByIdAndPost,

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import type { WorkspaceRole } from '@prisma/client';
 import postService from './post.service.js';
 import type { ListPostsQuery, ReviewPostBody } from './post.validation.js';
 import ApiResponse from '../../utils/ApiResponse.js';
@@ -40,7 +41,7 @@ export const listPosts = catchAsync(async (req: Request, res: Response) => {
 
 export const updatePost = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = req.workspaceId as string;
-  const role = req.workspaceMember?.role ?? 'OWNER';
+  const role = req.workspaceRole as WorkspaceRole;
   const post = await postService.updatePost(workspaceId, req.user!.id, role, req.params.postId as string, req.body);
 
   return ApiResponse.success(res, {
@@ -52,7 +53,7 @@ export const updatePost = catchAsync(async (req: Request, res: Response) => {
 
 export const deletePost = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = req.workspaceId as string;
-  const role = req.workspaceMember?.role ?? 'OWNER';
+  const role = req.workspaceRole as WorkspaceRole;
   await postService.deletePost(workspaceId, req.user!.id, role, req.params.postId as string);
 
   return ApiResponse.success(res, {
@@ -64,7 +65,7 @@ export const deletePost = catchAsync(async (req: Request, res: Response) => {
 
 export const uploadPostMedia = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = req.workspaceId as string;
-  const role = req.workspaceMember?.role ?? 'OWNER';
+  const role = req.workspaceRole as WorkspaceRole;
   const media = await postService.uploadPostMedia(
     workspaceId,
     req.user!.id,
@@ -82,7 +83,7 @@ export const uploadPostMedia = catchAsync(async (req: Request, res: Response) =>
 
 export const deletePostMedia = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = req.workspaceId as string;
-  const role = req.workspaceMember?.role ?? 'OWNER';
+  const role = req.workspaceRole as WorkspaceRole;
   await postService.deletePostMedia(
     workspaceId,
     req.user!.id,
@@ -100,7 +101,7 @@ export const deletePostMedia = catchAsync(async (req: Request, res: Response) =>
 
 export const submitPost = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = req.workspaceId as string;
-  const role = req.workspaceMember?.role ?? 'OWNER';
+  const role = req.workspaceRole as WorkspaceRole;
   const post = await postService.submitPost(
     workspaceId,
     req.user!.id,
