@@ -1,0 +1,66 @@
+@startuml 06-system
+hide circle
+hide stereotype
+!pragma layout smetana
+title Marka — Queue & Worker (BullMQ)
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 26
+skinparam ranksep 44
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "workerStart" as workerStart {
+  + startWorkers() : Promise<void>
+  + stopWorkers() : Promise<void>
+  + workers
+}
+
+class "workers" as workers {
+  - createProcessor(label)
+  - attachLifecycle(worker, label)
+  - createWorker(queueName, label)
+  + contentWorker : Worker
+  + publishingWorker : Worker
+  + emailWorker : Worker
+  + closeWorkers() : Promise<void>
+}
+
+class "queues" as queues {
+  + defaultJobOptions : DefaultJobOptions
+  + contentGenerationQueue : Queue
+  + publishingQueue : Queue
+  + emailQueue : Queue
+  + queues : Record<QueueName, Queue>
+}
+
+class "queueManager" as queueManager {
+  + getQueue(queueName)
+  + hasRemainingAttempts(job) : boolean
+  + enqueue(queueName, jobName, data, options)
+  + getJobStatus(queueName, jobId)
+  + cancelJob(queueName, jobId) : Promise<boolean>
+  + retryJob(queueName, jobId) : Promise<boolean>
+  + pauseQueue(queueName) : Promise<void>
+  + resumeQueue(queueName) : Promise<void>
+  + getQueueStats(queueName)
+  + closeQueues() : Promise<void>
+}
+
+class "BullMQ" as bullmq {
+  + Queue
+  + Worker
+}
+
+workerStart --> workers
+workers --> queues
+workers --> bullmq
+queueManager --> queues
+
+@enduml

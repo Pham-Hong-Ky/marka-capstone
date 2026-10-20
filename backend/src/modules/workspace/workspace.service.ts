@@ -4,12 +4,10 @@ import workspaceRepository from './workspace.repository.js';
 import { toWorkspaceSummary, type WorkspaceSummary } from './workspace.mapper.js';
 import auditService from '../audit/audit.service.js';
 import env from '../../config/env.js';
-import { sendEmail } from '../../utils/mailer.js';
-import { uploadImageBuffer } from '../../utils/cloudinary.js';
+import { mailerClient } from '../../utils/mailer.client.js';
 import { buildWorkspaceInviteEmail } from '../../templates/workspaceInviteEmail.js';
 import {
   AppError,
-  BadRequestError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -55,7 +53,7 @@ const notifyOwners = async (workspaceId: string, actorId: string, payload: Recor
 
 export const createWorkspace = async (
   userId: string,
-  data: { name: string; logo?: string | null }
+  data: { name: string }
 ) => {
   const existing = await workspaceRepository.findWorkspaceByNameAndOwner(userId, data.name);
   if (existing) {
@@ -85,7 +83,7 @@ export const listMyWorkspaces = async (userId: string): Promise<WorkspaceSummary
 export const updateWorkspace = async (
   workspaceId: string,
   userId: string,
-  data: { name?: string; logo?: string | null }
+  data: { name?: string }
 ) => {
   await assertWorkspaceExists(workspaceId);
 
@@ -103,7 +101,6 @@ export const updateWorkspace = async (
   return {
     id: workspace.id,
     name: workspace.name,
-    logo: workspace.logo,
     plan: workspace.plan,
     remainingCredit: workspace.remainingCredit,
     monthlyQuota: workspace.monthlyQuota,
@@ -123,32 +120,6 @@ export const deleteWorkspace = async (workspaceId: string, userId: string) => {
   });
 
   return { success: true };
-};
-
-export const uploadWorkspaceLogo = async (
-  workspaceId: string,
-  userId: string,
-  file?: Express.Multer.File
-) => {
-  if (!file) {
-    throw new BadRequestError('Vui lòng chọn ảnh logo');
-  }
-
-  await assertWorkspaceExists(workspaceId);
-
-  const logo = await uploadImageBuffer(file.buffer, `marka/workspaces/${workspaceId}`);
-
-  await workspaceRepository.updateWorkspace(workspaceId, { logo });
-
-  await auditService.recordAuditLog({
-    workspaceId,
-    actorId: userId,
-    action: 'WORKSPACE_LOGO_UPDATE',
-    targetType: 'Workspace',
-    targetId: workspaceId,
-  });
-
-  return { logo };
 };
 
 export const listMembers = async (workspaceId: string) => {
@@ -211,7 +182,7 @@ export const inviteMember = async (
   });
 
   // Chỉ lưu lời mời sau khi gửi mail thành công, tránh tạo lời mời "treo" khi gửi lỗi.
-  const emailSent = await sendEmail({ to: data.email, subject, html });
+  const emailSent = await mailerClient.sendEmail({ to: data.email, subject, html });
   if (!emailSent) {
     throw new AppError('Gửi email mời thất bại. Vui lòng thử lại.', 502);
   }
@@ -393,7 +364,6 @@ export default {
   listMyWorkspaces,
   updateWorkspace,
   deleteWorkspace,
-  uploadWorkspaceLogo,
   listMembers,
   inviteMember,
   acceptInvite,

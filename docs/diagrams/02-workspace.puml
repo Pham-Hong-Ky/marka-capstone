@@ -1,0 +1,89 @@
+@startuml 02-workspace
+hide circle
+hide stereotype
+!pragma layout smetana
+title Marka — Workspace & Member
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 24
+skinparam ranksep 40
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "workspaceController" as workspaceController {
+  - workspaceService : workspaceService
+  + createWorkspace(req, res)
+  + listWorkspaces(req, res)
+  + updateWorkspace(req, res)
+  + deleteWorkspace(req, res)
+  + listMembers(req, res)
+  + inviteMember(req, res)
+  + acceptInvite(req, res)
+  + leaveWorkspace(req, res)
+  + removeMember(req, res)
+  + changeMemberRole(req, res)
+}
+
+class "workspaceService" as workspaceService {
+  - workspaceRepository : workspaceRepository
+  - mailerClient : MailerClient
+  - INVITE_TTL_DAYS : number = 7
+  - ROLE_LABELS : Record<WorkspaceRole, string>
+  - assertWorkspaceExists(workspaceId)
+  - assertNotLastOwner(workspaceId, message)
+  - notifyOwners(workspaceId, actorId, payload)
+  + createWorkspace(userId, { name })
+  + listMyWorkspaces(userId)
+  + updateWorkspace(workspaceId, userId, { name })
+  + deleteWorkspace(workspaceId, userId)
+  + listMembers(workspaceId)
+  + inviteMember(workspaceId, inviter, { email, role })
+  + acceptInvite(token, currentUser?)
+  + leaveWorkspace(workspaceId, userId)
+  + removeMember(workspaceId, actorId, targetUserId)
+  + changeMemberRole(workspaceId, actorId, targetUserId, role)
+}
+
+class "workspaceRepository" as workspaceRepository {
+  - prisma : PrismaClient
+  + findWorkspacesByUserId(userId)
+  + findWorkspaceByNameAndOwner(userId, name)
+  + findWorkspaceById(workspaceId)
+  + createWorkspaceWithOwner({ name }, ownerId)
+  + updateWorkspace(workspaceId, data)
+  + softDeleteWorkspace(workspaceId)
+  + findMembersByWorkspace(workspaceId)
+  + findMember(workspaceId, userId)
+  + countOwners(workspaceId)
+  + findOwnerIds(workspaceId)
+  + createMember(workspaceId, userId, role)
+  + deleteMember(workspaceId, userId)
+  + updateMemberRole(workspaceId, userId, role)
+  + findInviteByToken(token)
+  + findPendingInvitesByWorkspace(workspaceId)
+  + findActiveInviteByEmail(workspaceId, email)
+  + createInvite(data)
+  + refreshInvite(inviteId, data)
+  + markInviteUsed(inviteId)
+  + acceptInviteAsMember(inviteId, workspaceId, userId, role)
+  + findUserByEmail(email)
+  + findUserById(userId)
+  + createNotification(data)
+}
+
+class "MailerClient" as mailerClient {
+  - resend : Resend
+  + sendEmail({ to, subject, html }) : Promise<boolean>
+}
+
+workspaceController --> workspaceService
+workspaceService --> workspaceRepository
+workspaceService --> mailerClient
+
+@enduml

@@ -4,9 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import EmptyState from '@/components/ui/EmptyState';
-import ImageUploadField from '@/components/ui/ImageUploadField';
+import DefaultWorkspaceIcon from '@/components/shared/DefaultWorkspaceIcon';
 import DeleteWorkspaceModal from './DeleteWorkspaceModal';
-import { useUpdateWorkspace, useUploadWorkspaceLogo, useActiveWorkspace } from '@/hooks/useWorkspace';
+import { useUpdateWorkspace, useActiveWorkspace } from '@/hooks/useWorkspace';
 import { workspaceNameFormSchema, type WorkspaceNameFormValues } from '@/services/workspace';
 
 export const WorkspaceSettingsTab = () => {
@@ -14,7 +14,6 @@ export const WorkspaceSettingsTab = () => {
   const isOwner = activeWorkspace?.role === 'OWNER';
 
   const updateWorkspace = useUpdateWorkspace();
-  const uploadLogo = useUploadWorkspaceLogo();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const {
@@ -48,31 +47,13 @@ export const WorkspaceSettingsTab = () => {
         <h2 className="text-sm font-semibold text-foreground">Thông tin workspace</h2>
         <p className="mt-1 text-xs text-muted">
           {isOwner
-            ? 'Cập nhật tên và logo hiển thị của workspace.'
+            ? 'Cập nhật tên hiển thị của workspace.'
             : 'Chỉ chủ sở hữu mới chỉnh sửa được.'}
         </p>
 
         <div className="mt-4 flex items-center gap-4">
-          {activeWorkspace.logo ? (
-            <img
-              src={activeWorkspace.logo}
-              alt="Logo workspace"
-              className="h-16 w-16 rounded-xl border border-border object-cover"
-            />
-          ) : (
-            <div className="grid h-16 w-16 place-items-center rounded-xl border border-border bg-surface-2 text-xs text-subtle">
-              Chưa có
-            </div>
-          )}
-
-          <div className="flex-1">
-            <ImageUploadField
-              id="workspace-logo-input"
-              label="Logo"
-              disabled={!isOwner || uploadLogo.isPending}
-              onSelect={(file) => uploadLogo.mutate({ id: workspaceId, file })}
-            />
-          </div>
+          <DefaultWorkspaceIcon className="h-16 w-16 rounded-xl border border-border" />
+          <p className="text-xs text-subtle">Workspace dùng icon mặc định.</p>
         </div>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">

@@ -1,7 +1,9 @@
-# Marka — AI Omnichannel Marketing Platform
+# Marka — Nền tảng quản lý nội dung & cộng tác cho marketer Việt Nam
 
-Nền tảng AI Content đa kênh & quản lý chiến dịch tiếp thị cho marketer Việt Nam.
 Đồ án capstone (DATN). Monorepo gồm `backend` (Express + Prisma + BullMQ) và `frontend` (React + Vite).
+
+**Phạm vi đã triển khai:** xác thực (email/password + Google), workspace & thành viên, Brand Voice, kết nối Facebook Page qua OAuth, bài viết + media + luồng duyệt bài, audit log, health check.
+**Roadmap (chưa code):** AI sinh nội dung, credit/PayOS, admin, lịch đăng/publish, analytics, API notification — xem [`docs/PROJECT_OVERVIEW.md`](./docs/PROJECT_OVERVIEW.md).
 
 > Tài liệu đầy đủ nằm trong [`docs/`](./docs). **Không dùng Docker** — chạy trực tiếp trên PostgreSQL + Redis local hoặc cloud free tier.
 

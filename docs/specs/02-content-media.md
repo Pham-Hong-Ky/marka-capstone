@@ -1,165 +1,315 @@
-# Phân hệ 2: Soạn thảo & Thư viện Media
+# Phân hệ 2 — Nội dung, Media & Duyệt bài
 
-> [Quay lại Mục lục chính](file:///f:/DATN/marka-capstone/docs/specs/README.md)
-
----
-
-## 2.1. Soạn thảo & Cập nhật nội dung (Create & Update Content - UC05, UC07)
-
-**Mô tả**: Rich Text Editor cho Creator soạn bài và cập nhật nội dung bài viết/bản nháp, hỗ trợ template, gắn nhãn chiến dịch, tự động lưu nháp.
-
-**Tác nhân (Actors)**:
-- **UC05 (Create Content)**: Content Creator, Workspace Owner
-- **UC07 (Update Content)**: Content Creator, Workspace Owner
-
-**Luồng hoạt động**:
-
-1. Creator chọn "Tạo bài viết mới" → chọn template có sẵn (hoặc bắt đầu trống) → soạn nội dung trên editor (TipTap/React-Quill).
-2. Mỗi 30 giây (debounce), client tự động gửi PATCH lưu nháp (`status=DRAFT`) — không cần user bấm Save thủ công.
-3. Creator gắn nhãn chiến dịch (campaign tag), chọn media từ thư viện để đính kèm.
-4. Khi sẵn sàng, bấm **"Gửi duyệt"** → chuyển `status: DRAFT → PENDING`, ghi nhận `submittedAt`, `submittedBy`.
-
-**Lưu ý khi làm**:
-
-- Auto-save nên dùng debounce phía client (không gửi API mỗi keystroke) và so sánh diff/hash nội dung để tránh gọi API khi không có thay đổi thực sự.
-- Rich text nên lưu ở dạng JSON (ProseMirror doc) thay vì HTML thô để dễ transform sang nhiều định dạng kênh khác nhau ở Phân hệ AI.
-- Sanitize nội dung (dompurify hoặc tương đương) trước khi render lại, kể cả nội dung do chính user nhập, để chống stored-XSS.
+> [Quay lại Mục lục](README.md)
+>
+> **Phạm vi:** phần đã có trong code: CRUD bài viết, upload/xoá ảnh gắn với bài, luồng gửi duyệt – duyệt/từ chối, notification in-app và audit log phát sinh.
+> Mã nguồn: `backend/src/modules/post`, `middlewares/upload.ts`, `utils/cloudinary.client.ts`, `modules/workspace/workspace.repository.ts` (notification), `modules/audit`.
+>
+> **Không có trong code:** thư viện media độc lập cấp workspace, lịch đăng/publish, calendar, giao việc (UC49/UC50). Các mục này nằm ở Roadmap cuối file.
 
 ---
 
-## 2.2. Thư viện Media
+## 2.1. Mô hình bài viết & trạng thái
 
-**Mô tả**: Upload, lọc, quản lý ảnh/video dùng chung cho workspace.
+Bảng `posts` (`Post`):
 
-> **Ghi chú phạm vi (2026-10-10)**: Trong giai đoạn làm backend bản nháp, ảnh được xử lý **theo từng post** — upload trong ngữ cảnh bài viết, `MediaAsset.postId` gắn ngay khi tạo, chỉ `jpeg/png/webp` ≤ 10MB, không có thư viện dùng chung (lệch D1). Thư viện media cấp Workspace đầy đủ (`postId` nullable, quota, tag, lọc nâng cao) để giai đoạn sau. API đã có: `POST/DELETE /workspaces/:workspaceId/posts/:postId/media`.
+| Trường | Ghi chú |
+| :--- | :--- |
+| `id`, `workspaceId` | UUID; mọi truy vấn scope theo `workspaceId` |
+| `title` | 1–255 ký tự |
+| `content` | JSON tuỳ ý (`{ type: 'doc', content: [] }` là ví dụ), **không** lưu HTML thô ở tầng API |
+| `status` | `DRAFT` mặc định |
+| `campaignTag` | Có trong schema nhưng **chưa có API nào ghi/đọc**; luôn `null` |
+| `rejectReason` | Lý do từ chối, tối đa 255 ký tự |
+| `submittedById`, `submittedAt` | Ghi khi gửi duyệt |
+| `reviewedById`, `reviewedAt` | Ghi khi duyệt/từ chối |
+| `createdById` | Người tạo; dùng để phân quyền cho `CONTENT_CREATOR` |
+| `deletedAt` | Xoá mềm |
 
-**Tác nhân (Actors)**: Content Creator, Workspace Owner
+### State machine thực tế
 
-**Luồng hoạt động**:
+`PostStatus` trong schema có 8 giá trị, nhưng code **chỉ dùng 4**:
 
-1. User chọn file → client validate sơ bộ (đuôi file, kích thước) → upload thẳng lên S3/Cloudinary qua signed URL (không qua server để tránh nghẽn băng thông backend).
-2. Server nhận callback/metadata sau khi upload xong → lưu bản ghi `MediaAsset(workspaceId, postId?, url, type, size, tags, createdById)`. Media là **thư viện cấp Workspace** (D1): `workspaceId` bắt buộc, `postId` **nullable** — file có thể tồn tại độc lập trong thư viện và được gắn vào bài viết sau.
-3. Kiểm tra quota lưu trữ của workspace theo gói cước **trước khi** cấp signed URL — nếu vượt quota, chặn ngay từ bước 1.
-4. Lọc/tìm kiếm theo tên, loại file, tag, ngày tạo trên trang thư viện.
+```
+DRAFT ──submit──▶ PENDING ──approve──▶ APPROVED
+  ▲                 │
+  │                 └──reject──▶ REJECTED
+  │                                 │
+  └────────── (không có) ◀──────────┘
+                    REJECTED ──submit──▶ PENDING
+```
 
-**Lưu ý khi làm**:
+| Từ | Sang | Thao tác |
+| :--- | :--- | :--- |
+| `DRAFT` | `PENDING` | `POST .../submit` |
+| `REJECTED` | `PENDING` | `POST .../submit` (gửi duyệt lại, xoá `rejectReason`) |
+| `PENDING` | `APPROVED` / `REJECTED` | `PATCH .../review` |
+| khác | — | Không có transition; trả `409` `"Không thể chuyển trạng thái bài viết này"` |
 
-- Giới hạn: ảnh ≤ 10MB, video ≤ 100MB — validate **cả** phía client (UX nhanh) **và** phía server/S3 policy (bảo mật, không tin client).
-- Kiểm tra MIME type thực tế bằng đọc file signature (magic bytes), không chỉ dựa vào đuôi file hay `Content-Type` header do client gửi.
-- Video nên tạo thumbnail tự động (ffmpeg hoặc dịch vụ transcode của Cloudinary) để hiển thị preview nhanh trong thư viện.
-
-**Edge Cases**:
-
-- **Vượt dung lượng lưu trữ (Quota Exceeded)**: Chặn upload file mới, hiển thị cảnh báo và hướng dẫn user xóa bớt media cũ hoặc nâng cấp gói cước.
-- **File signature / Magic bytes không hợp lệ**: Trả về lỗi định dạng file không an toàn và từ chối xử lý, không cho phép lưu DB hay upload lên cloud.
-
----
-
-## 2.3. Quy trình duyệt bài (Submit for Approval & Review Content - UC11, UC14)
-
-**Mô tả**: Luồng chuyển trạng thái `Draft → Pending → Approved / Rejected`, Creator thực hiện gửi duyệt bài viết và Workspace Owner thực hiện duyệt hoặc từ chối bài viết kèm lý do.
-
-**Tác nhân (Actors)**:
-- **UC11 (Submit Content for Approval)**: Content Creator
-- **UC14 (Review Content)**: Workspace Owner
-
-**Luồng hoạt động**:
-
-1. Creator gửi duyệt → hệ thống tạo thông báo (in-app + email) đến tất cả Owner của workspace.
-2. Owner mở danh sách "Chờ duyệt" → xem Preview (hiển thị mô phỏng giao diện từng kênh: Facebook post, TikTok script...).
-3. Owner quyết định:
-   - **Approve** → `status: PENDING → APPROVED`, ghi `reviewedBy`, `reviewedAt`.
-   - **Reject** → bắt buộc nhập `rejectReason` (text, tối thiểu vài ký tự, không cho submit rỗng) → `status: PENDING → REJECTED`.
-4. Nếu Rejected: Creator nhận thông báo kèm lý do → chỉnh sửa bài → bấm "Gửi duyệt lại" → quay về `PENDING` (không tạo bài mới, giữ nguyên `postId`, chỉ tăng version/lịch sử chỉnh sửa).
-5. Nếu Approved: bài chuyển sang khả dụng ở Phân hệ 4 (chọn kênh, lên lịch/đăng ngay).
-
-**Lưu ý khi làm**:
-
-- Đây là state machine trung tâm của hệ thống — implement bằng enum + bảng chuyển trạng thái hợp lệ (validate transition ở tầng service, không để FE tự ý set status). Danh sách trạng thái/transition đầy đủ (gồm **`ARCHIVED`**, `REJECTED→PENDING`, `PENDING/APPROVED→DRAFT`) nằm ở `specs/README.md §8` (D15); `PUBLISHED` không xoá mà chỉ `ARCHIVED`.
-- Lưu lịch sử duyệt vào `audit_logs` (action `POST_APPROVED`/`POST_REJECTED`, `targetType="Post"`, kèm `reason`) phục vụ Audit Log và tránh tranh chấp "ai duyệt/từ chối bài này".
-- `Failed` (ở Phân hệ 4) quay lại `Scheduled` để retry, **không** quay lại `Pending` — bài đã duyệt nội dung thì không cần duyệt lại chỉ vì lỗi kỹ thuật khi đăng.
-- **Thông báo in-app**: Tất cả các thông báo in-app (như khi gửi duyệt bài, duyệt/từ chối bài, mời tham gia workspace) đều được lưu trữ trong bảng `Notification` để hiển thị trên UI chuông thông báo của người dùng và đánh dấu trạng thái đã đọc (`isRead`).
+- `SCHEDULED`, `PUBLISHED`, `FAILED`, `ARCHIVED` tồn tại trong enum nhưng **không có code nào set** và không có API riêng.
+- Không có API đổi trạng thái trực tiếp; mọi thay đổi đi qua submit/review.
+- Transition dùng `updateMany({ where: { id, workspaceId, status: from } })`; nếu bản ghi đã đổi trạng thái bởi request khác thì trả `409` (chống race).
 
 ---
 
-## 2.4. Xem, Tìm kiếm & Lọc nội dung (View & Search Content - UC08, UC09)
+## 2.2. Tạo, xem, tìm kiếm bài viết (UC05, UC08, UC09)
 
-**Mô tả**: Cho phép người dùng xem danh sách, xem chi tiết, tìm kiếm và lọc linh hoạt các bài viết, thư viện media, và workspace trong hệ thống.
+### `POST /workspaces/:workspaceId/posts` (UC05)
 
-**Tác nhân (Actors)**:
-- **UC08 (View Content)**: Content Creator, Workspace Owner
-- **UC09 (Search Content)**: Content Creator, Workspace Owner
+Yêu cầu `requireAuth` + là thành viên workspace (mọi vai trò).
 
-**Luồng hoạt động**:
+| Field | Ràng buộc |
+| :--- | :--- |
+| `title` | string, `trim`, 1–255 ký tự |
+| `content` | JSON object (`z.record(z.unknown())`), bắt buộc |
 
-1. **Xem chi tiết bài viết (UC08)**: Creator/Owner có thể bấm chọn một bài viết bất kỳ trong danh sách hoặc trên lịch đăng bài để xem toàn bộ nội dung chi tiết, các kênh liên kết, lịch sử chỉnh sửa, trạng thái duyệt và phản hồi từ Owner.
-2. **Tìm kiếm & Lọc bài viết (UC09)**: Hỗ trợ tìm kiếm bài viết theo tiêu đề/từ khóa và lọc theo trạng thái (Draft, Pending, Approved, Rejected, Scheduled, Published, Failed, **Archived**), ngày tạo/đăng, người tạo (`createdById`), và nhãn chiến dịch (campaign tag).
-3. **Lọc thư viện media**: Tìm kiếm theo tên file, loại định dạng (ảnh/video), nhãn tag đi kèm và khoảng thời gian tải lên.
-4. **Tìm kiếm workspace**: Dành cho cả người dùng (chuyển đổi nhanh qua workspace switcher) và Admin (quản lý danh sách workspace) để dễ dàng chuyển đổi không gian làm việc.
+- Tạo bản ghi với `status = DRAFT`, `createdById = req.user.id`.
+- **Không** ghi audit, **không** gửi notification.
+- Response `201` `"Tạo bản nháp thành công"`, `data` là bản ghi `Post` đầy đủ (gồm `id`, `workspaceId`, `title`, `content`, `status`, `createdById`, `createdAt`, `updatedAt`...).
+
+### `GET /workspaces/:workspaceId/posts` (UC09)
+
+Yêu cầu `requireAuth` + là thành viên. Trả bài viết **chưa xoá mềm** của workspace, sắp xếp `updatedAt` giảm dần.
+
+Query (Zod coerce):
+
+| Param | Ràng buộc | Ý nghĩa |
+| :--- | :--- | :--- |
+| `page` | int ≥ 1, mặc định 1 | Trang |
+| `limit` | int 1–50, mặc định 10 | Số bản ghi/trang |
+| `search` | string, `trim` | Tìm gần đúng theo **`title`** (không phân biệt hoa thường) |
+| `status` | một giá trị `PostStatus` | Lọc theo trạng thái (nhận cả 8 giá trị enum) |
+| `createdById` | UUID | Lọc theo người tạo |
+| `dateFrom`, `dateTo` | ngày | Lọc theo `createdAt`; `dateTo < dateFrom` → `422` `"Khoảng ngày không hợp lệ"` |
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "Lấy danh sách bài viết thành công",
+  "data": {
+    "posts": [
+      { "id": "uuid", "title": "...", "status": "DRAFT", "createdById": "uuid", "createdAt": "2026-10-20T12:00:00.000Z", "updatedAt": "2026-10-20T12:00:00.000Z" }
+    ]
+  },
+  "meta": { "page": 1, "limit": 10, "total": 1, "totalPages": 1 }
+}
+```
+
+- Danh sách chỉ trả các cột tóm tắt ở trên (không có `content`, không có media).
+- Không hỗ trợ lọc theo `campaignTag` hay theo người duyệt.
+
+### `GET /workspaces/:workspaceId/posts/:postId` (UC08)
+
+Yêu cầu `requireAuth` + là thành viên.
+
+- Tìm theo `id` + `workspaceId`, chưa xoá mềm; không thấy → `404` `"Bài viết không tồn tại"`.
+- `data` là bản ghi `Post` đầy đủ kèm `mediaAssets`: mảng media **chưa xoá**, sắp xếp `createdAt` tăng dần.
+
+```json
+{
+  "status": "success",
+  "message": "Lấy chi tiết bài viết thành công",
+  "data": {
+    "id": "uuid",
+    "workspaceId": "uuid",
+    "title": "...",
+    "content": { "type": "doc", "content": [] },
+    "status": "DRAFT",
+    "rejectReason": null,
+    "createdById": "uuid",
+    "submittedById": null,
+    "submittedAt": null,
+    "reviewedById": null,
+    "reviewedAt": null,
+    "mediaAssets": [
+      { "id": "uuid", "url": "https://res.cloudinary.com/...", "type": "IMAGE", "mimeType": "image/png", "size": 12345 }
+    ]
+  }
+}
+```
 
 ---
 
-## 2.5. Xuất bản báo cáo & Dữ liệu (Export & Report)
+## 2.3. Sửa & xoá bài viết (UC07, UC10)
 
-**Mô tả**: Cung cấp khả năng xuất dữ liệu lịch đăng bài và báo cáo hiệu suất cơ bản phục vụ báo cáo.
+Quyền chung cho cả sửa và xoá (`assertCanModify` + `assertEditable`):
 
-**Tác nhân (Actors)**: Content Creator, Workspace Owner
+- `OWNER`: được thao tác **mọi bài** trong workspace.
+- `CONTENT_CREATOR`: chỉ bài có `createdById` trùng user hiện tại; bài người khác → `403` `"Bạn không có quyền thay đổi bài viết này"`.
+- Chỉ bài `DRAFT` hoặc `REJECTED` mới được sửa/xoá; trạng thái khác → `409` `"Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối"`.
 
-**Luồng hoạt động**:
+### `PATCH /workspaces/:workspaceId/posts/:postId` (UC07)
 
-1. **Xuất lịch đăng bài**: Hỗ trợ xuất toàn bộ danh sách hoặc lịch đăng bài trong khoảng thời gian đã chọn ra định dạng CSV/Excel.
-2. **Báo cáo hiệu suất bài viết (Đồng bộ số liệu tương tác định kỳ)**: Thống kê các chỉ số tương tác thực tế của các bài viết từ Facebook Page (like, reactions, share, comment) qua Facebook Graph API để cập nhật lên dashboard. Chi tiết cơ chế đồng bộ (lịch chạy, endpoint, upsert `post_metrics`, xử lý rate limit/token) xem **`08-post-analytics.md`** — tiến trình đồng bộ do **n8n (Pattern A)** kích hoạt và **n8n không tham gia luồng đăng bài** (D21).
+| Field | Ràng buộc |
+| :--- | :--- |
+| `title` | tuỳ chọn, `trim`, 1–255 |
+| `content` | tuỳ chọn, JSON object |
 
----
+- Phải có ít nhất một field → nếu không `422` `"Cần cung cấp ít nhất một trường để cập nhật"`.
+- Không đổi được `status`, `campaignTag`, người duyệt.
+- Không ghi audit, không notification.
+- Response `200` `"Cập nhật bản nháp thành công"`, `data` là bản ghi sau cập nhật.
 
-## 2.6. Xóa bài viết (Delete Content - UC10)
+### `DELETE /workspaces/:workspaceId/posts/:postId` (UC10)
 
-**Mô tả**: Cho phép người dùng xóa bài viết/bản nháp trên hệ thống Marka để dọn dẹp không gian làm việc.
-
-**Tác nhân (Actors)**:
-- **UC10 (Delete Content)**: Content Creator, Workspace Owner
-
-**Quy tắc phân quyền & Luồng hoạt động**:
-
-1. **Điều kiện xóa bài viết**:
-   - Bài viết ở trạng thái `DRAFT` (Bản nháp), `REJECTED` (Bị từ chối) hoặc `FAILED` (Đăng lỗi): Có thể xóa được bởi chính Creator tạo ra bài viết đó hoặc bất kỳ Workspace Owner nào.
-   - Bài viết ở trạng thái `PENDING` (Chờ duyệt) hoặc `APPROVED` (Đã duyệt): Phải thu hồi về trạng thái `DRAFT` trước khi xóa, hoặc chỉ có Workspace Owner mới có quyền xóa trực tiếp.
-   - Bài viết ở trạng thái `SCHEDULED` (Đã lên lịch): Việc xóa bài viết sẽ đồng thời hủy Job lên lịch tương ứng trong BullMQ/Redis.
-   - Bài viết ở trạng thái `PUBLISHED` (Đã đăng): **Không cho phép xóa — trả `403 Forbidden`** (D16). Chỉ có thể ẩn bài viết trên UI Marka bằng cách chuyển trạng thái hiển thị nội bộ sang `ARCHIVED`, hoặc người dùng tự xóa thủ công trên Facebook Page thật.
-2. **Luồng thực hiện**:
-   - Người dùng bấm nút "Xóa" tại danh sách bài viết hoặc trang chi tiết bài viết.
-   - Hệ thống hiển thị popup xác nhận: "Bạn có chắc chắn muốn xóa bài viết này không?".
-   - Xác nhận xóa → Client gửi yêu cầu `DELETE /posts/{postId}` lên Server.
-   - Server kiểm tra quyền sở hữu và vai trò hiện tại của người dùng đối với bài viết và Workspace.
-   - Thực hiện xóa mềm (Soft Delete) bằng cách set trường `deletedAt` trong database (giúp khôi phục lại dữ liệu nếu lỡ tay xóa nhầm và phục vụ audit log truy vết), hoặc xóa cứng khỏi cơ sở dữ liệu nếu bài viết là bản nháp rỗng.
+- Chỉ xoá được `DRAFT`/`REJECTED`; bài `PENDING`/`APPROVED` (và các trạng thái khác) trả `409`.
+- **Xoá mềm**: set `deletedAt = now`; không xoá media, không xoá asset trên Cloudinary.
+- Không ghi audit.
+- Response `200`: `{ "success": true }`.
+- Hệ quả: bài đã xoá không còn trong list/detail và không thể khôi phục qua API. Đây là lý do UC10 được xếp **Một phần** (chưa có luồng thu hồi bài `PENDING`/`APPROVED` rồi xoá, chưa có xoá cứng).
 
 ---
 
-## 2.7. Giao việc cho thành viên (Task Assignment - UC49, UC50)
+## 2.4. Media gắn bài viết (UC37)
 
-> **Ghi chú phạm vi (2026-10-15)**: Tính năng này **nằm ngoài roadmap gốc** trong `PROJECT_OVERVIEW.md` — ghi lại để triển khai sau khi luồng duyệt bài (UC11/UC14) và UI bài viết đã hoàn thiện. Chi tiết đầy đủ: `docs/superpowers/specs/2026-10-15-post-task-assignment-design.md`.
+Media hiện chỉ tồn tại **trong ngữ cảnh một bài viết**; không có thư viện dùng chung, không có quota, tag, video hay tìm kiếm media.
 
-**Mô tả**: Workspace Owner **giao việc** trên một bài viết — chỉ định người nhận, hạn hoàn thành và độ ưu tiên; người nhận **cập nhật trạng thái công việc** để báo tiến độ.
+### `POST /workspaces/:workspaceId/posts/:postId/media`
 
-**Tác nhân (Actors)**:
-- **UC49 (Assign Content Task)**: Workspace Owner
-- **UC50 (Update Task Status)**: Người nhận (assignee) hoặc Workspace Owner
+Yêu cầu `requireAuth` + là thành viên + quyền sửa bài (Owner hoặc người tạo) + bài `DRAFT`/`REJECTED`.
+`multipart/form-data`, field **`file`**.
 
-**Luồng hoạt động**:
+| Ràng buộc | Giá trị |
+| :--- | :--- |
+| Định dạng | `image/jpeg`, `image/png`, `image/webp` |
+| Kích thước | ≤ **10MB** |
+| Số file | 1 file/request |
 
-1. **Giao việc (UC49)**: Owner mở bài viết → khối "Giao việc" → chọn **thành viên** (chỉ thành viên của workspace), **hạn** (`dueAt`) và **độ ưu tiên** (`priority`) → `PATCH /workspaces/:workspaceId/posts/:postId/assignment`. Hệ thống ghi nhận và gửi thông báo in-app cho người nhận (`POST_ASSIGNED`).
-2. **Cập nhật trạng thái công việc (UC50)**: Người nhận (hoặc Owner) chuyển `taskStatus`: `TODO → IN_PROGRESS → DONE` qua `PATCH /workspaces/:workspaceId/posts/:postId/task-status`.
-3. **Việc của tôi**: Danh sách bài được giao cho bản thân (lọc `mine=true` / `assigneeId` trên `GET .../posts`), kèm badge **quá hạn** khi `dueAt < now` và `taskStatus != DONE`.
+- Thứ tự kiểm tra: thiếu file → `400` `"Vui lòng chọn ảnh để tải lên"`; sau đó mới kiểm tra bài và quyền.
+- Upload Cloudinary vào folder `marka/workspaces/:workspaceId/posts/:postId`.
+- Tạo `MediaAsset`: `type = IMAGE`, `source = UPLOADED`, `url` (secure URL), `mimeType`, `size`, `createdById`.
+- Response `201` `"Tải ảnh lên thành công"`, `data` là bản ghi `MediaAsset`.
+- Lỗi upload: `400` `"Ảnh vượt quá 10MB"`, `"Chỉ chấp nhận ảnh JPG, PNG hoặc WEBP"`, `"Tải ảnh lên không hợp lệ"`, `"Chưa cấu hình Cloudinary để tải ảnh lên"`, `"Tải ảnh lên thất bại, vui lòng thử lại"`.
 
-**Lưu ý khi làm**:
+### `DELETE /workspaces/:workspaceId/posts/:postId/media/:mediaId`
 
-- **Chỉ Owner** được giao việc/đổi người nhận/hạn/ưu tiên; người nhận chỉ đổi được `taskStatus`. Người nhận bắt buộc là thành viên của workspace (`WorkspaceMember`).
-- `taskStatus` là **state thứ hai, độc lập** với `Post.status` (duyệt/đăng) — không tự đồng bộ, mọi thay đổi chỉ đi qua UC50. Điều này giữ đúng nguyên tắc "state machine ở một nơi" (D15).
-- Không tạo vai trò mới, không tạo bảng `Task` riêng — tái dùng `Notification`, `AuditLog`, `WorkspaceMember`.
-- Ghi `AuditLog` (`POST_ASSIGNED`, `POST_TASK_STATUS_CHANGED`) để truy vết phân công.
+- Cùng điều kiện quyền/trạng thái như upload.
+- Media phải thuộc đúng bài; không thấy → `404` `"Ảnh không tồn tại trong bài viết"`.
+- **Xoá mềm** `MediaAsset` (`deletedAt = now`); **không** xoá file trên Cloudinary.
+- Response `200`: `{ "success": true }`.
 
-**Edge Cases**:
+> Vì `postId` là bắt buộc khi tạo media, `MediaAsset.postId` trên thực tế luôn khác `null`, dù schema cho phép `null`.
 
-- **Gán người không thuộc workspace**: trả `400` — không cho giao việc ngoài workspace.
-- **Bài ở trạng thái `ARCHIVED`**: không cho giao việc.
-- **Bỏ giao việc** (`assigneeId = null`): giữ nguyên `taskStatus`, không tự reset.
+---
+
+## 2.5. Gửi duyệt & duyệt bài (UC11, UC14)
+
+### `POST /workspaces/:workspaceId/posts/:postId/submit` (UC11)
+
+- Quyền: Owner hoặc người tạo bài.
+- Chỉ từ `DRAFT` hoặc `REJECTED`; nếu không → `409` `"Không thể chuyển trạng thái bài viết này"`.
+- Cập nhật: `status = PENDING`, `submittedById`, `submittedAt = now`, `rejectReason = null`.
+- Sau khi đổi trạng thái (không cùng transaction):
+  1. Gửi notification in-app `POST_SUBMITTED` cho **các Owner khác** (trừ chính người gửi), payload `{ postId, postTitle, submittedById }`.
+  2. Gửi email `buildPostSubmittedEmail` cho từng Owner đó.
+  3. Ghi audit `POST_SUBMITTED` (`targetType = Post`, `metadata { title }`).
+- Nếu workspace chỉ có một Owner và chính Owner đó gửi duyệt → danh sách người nhận rỗng, **không** có notification/email.
+- Response `200` `"Gửi duyệt bài viết thành công"`, `data` là bản ghi sau cập nhật.
+
+### `PATCH /workspaces/:workspaceId/posts/:postId/review` (UC14)
+
+Yêu cầu `requireAuth` + `OWNER`.
+
+| Field | Ràng buộc |
+| :--- | :--- |
+| `decision` | `APPROVED` hoặc `REJECTED` |
+| `rejectReason` | Bắt buộc khi `REJECTED`; `trim`, 3–255 ký tự; bị bỏ qua khi `APPROVED` |
+
+- Chỉ từ `PENDING`; nếu không → `409` `"Không thể chuyển trạng thái bài viết này"`.
+- Cập nhật `status`, `reviewedById`, `reviewedAt = now`, `rejectReason` (`null` nếu approve).
+- Không chặn Owner tự duyệt bài do chính mình tạo.
+- Sau khi đổi trạng thái:
+  1. Notification in-app `POST_APPROVED` hoặc `POST_REJECTED` cho **tác giả** (`post.createdById`), payload `{ postId, postTitle, approved, reason }`. Nếu bài không còn `createdById` (user đã bị xoá) → không gửi.
+  2. Email `buildPostReviewedEmail` cho tác giả (nếu tìm thấy user).
+  3. Audit `POST_APPROVED` / `POST_REJECTED`, kèm `reason = rejectReason`, `metadata { title }`.
+- Response `200`: `"Duyệt bài viết thành công"` hoặc `"Từ chối bài viết thành công"`, `data` là bản ghi sau cập nhật.
+
+Chi tiết email & notification: xem [05](./05-notifications-email.md).
+
+---
+
+## 2.6. Notification & audit phát sinh
+
+### Notification in-app
+
+| Type | Người nhận | Khi nào | Payload |
+| :--- | :--- | :--- | :--- |
+| `POST_SUBMITTED` | Các Owner **trừ** người gửi duyệt | Submit thành công | `{ postId, postTitle, submittedById }` |
+| `POST_APPROVED` | Tác giả bài (`createdById`) | Duyệt thành công | `{ postId, postTitle, approved: true, reason: null }` |
+| `POST_REJECTED` | Tác giả bài | Từ chối | `{ postId, postTitle, approved: false, reason }` |
+
+- Bản ghi `Notification` có `isRead = false`; **chưa có API đọc/đánh dấu đã đọc**.
+- Notification/email chạy **sau** khi trạng thái đã đổi và **không** nằm trong cùng transaction; lỗi gửi email không làm fail request (xem 05), lỗi ghi notification có thể làm request trả lỗi dù trạng thái đã đổi.
+
+### Audit
+
+| Action | Khi nào | `reason` |
+| :--- | :--- | :--- |
+| `POST_SUBMITTED` | Gửi duyệt | — |
+| `POST_APPROVED` | Duyệt | — |
+| `POST_REJECTED` | Từ chối | Lý do từ chối |
+
+Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đọc audit (xem [07](./07-admin-analytics.md)).
+
+---
+
+## 2.7. Phân quyền tóm tắt
+
+| Thao tác | OWNER | CONTENT_CREATOR |
+| :--- | :--- | :--- |
+| Tạo bài | ✅ | ✅ |
+| Xem danh sách/chi tiết | ✅ | ✅ |
+| Sửa/xoá bài | ✅ mọi bài, chỉ `DRAFT`/`REJECTED` | ✅ bài của mình, chỉ `DRAFT`/`REJECTED` |
+| Upload/xoá media | ✅ mọi bài đang sửa được | ✅ bài của mình đang sửa được |
+| Gửi duyệt | ✅ mọi bài | ✅ bài của mình |
+| Duyệt/từ chối | ✅ | ❌ `403` |
+| Xem notification | Chưa có API | Chưa có API |
+
+---
+
+## 2.8. Bảng tổng hợp endpoint
+
+| Method | Path | Quyền | Response |
+| :--- | :--- | :--- | :--- |
+| POST | `/workspaces/:workspaceId/posts` | Thành viên | `201` + Post |
+| GET | `/workspaces/:workspaceId/posts` | Thành viên | `200` + `{ posts }` + `meta` |
+| GET | `/workspaces/:workspaceId/posts/:postId` | Thành viên | `200` + Post kèm `mediaAssets` |
+| PATCH | `/workspaces/:workspaceId/posts/:postId` | Chủ bài / OWNER | `200` + Post |
+| DELETE | `/workspaces/:workspaceId/posts/:postId` | Chủ bài / OWNER | `200` + `{ success: true }` |
+| POST | `/workspaces/:workspaceId/posts/:postId/media` | Chủ bài / OWNER | `201` + MediaAsset |
+| DELETE | `/workspaces/:workspaceId/posts/:postId/media/:mediaId` | Chủ bài / OWNER | `200` + `{ success: true }` |
+| POST | `/workspaces/:workspaceId/posts/:postId/submit` | Chủ bài / OWNER | `200` + Post |
+| PATCH | `/workspaces/:workspaceId/posts/:postId/review` | OWNER | `200` + Post |
+
+`workspaceId` có thể truyền qua header `x-workspace-id` thay cho path; nếu truyền cả hai và khác nhau → `403`.
+
+---
+
+## 2.9. Lỗi thường gặp
+
+| Mã | Message | Trường hợp |
+| :--- | :--- | :--- |
+| `400` | `Vui lòng chọn ảnh để tải lên` | Upload thiếu file |
+| `400` | `Ảnh vượt quá 10MB` | File quá lớn |
+| `400` | `Chỉ chấp nhận ảnh JPG, PNG hoặc WEBP` | Sai MIME |
+| `403` | `Bạn không có quyền thay đổi bài viết này` | Creator sửa bài người khác |
+| `404` | `Bài viết không tồn tại` | Sai id / khác workspace / đã xoá mềm |
+| `404` | `Ảnh không tồn tại trong bài viết` | Media không thuộc bài |
+| `409` | `Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối` | Sửa/xoá/upload media ở trạng thái khác |
+| `409` | `Không thể chuyển trạng thái bài viết này` | Submit/review sai trạng thái hoặc race |
+| `422` | `Cần cung cấp ít nhất một trường để cập nhật` | PATCH body rỗng |
+| `422` | `Cần nhập lý do khi từ chối bài viết` | Reject thiếu `rejectReason` |
+
+**Lưu ý về workspace đã xoá mềm:** các route bài viết chỉ kiểm tra membership qua `requireWorkspaceRole`, **không** kiểm tra `Workspace.deletedAt`. Vì vậy thành viên cũ vẫn có thể tạo/sửa/xem bài và media của workspace đã xoá mềm nếu còn giữ `workspaceId`. Đây là giới hạn hiện tại của code (xem [01 §1.9](./01-auth-workspace.md#delete-workspacesworkspaceid-uc18)).
+
+---
+
+## 2.10. Chưa triển khai (Roadmap)
+
+- **Thư viện media cấp workspace**: `MediaAsset.postId` nullable, upload độc lập, tag, quota, lọc/tìm kiếm, video/thumbnail. Hiện chỉ có ảnh gắn bài.
+- **Lên lịch & đăng bài**: `ScheduledPost`, calendar (UC12, UC13), publish worker, huỷ lịch (UC38) — xem [04](./04-social-publishing.md).
+- **Giao việc (UC49, UC50)**: chưa có cột `assigneeId`/`dueAt`/`taskStatus`, chưa có endpoint assignment/task-status, chưa có notification `POST_ASSIGNED`.
+- Lịch sử phiên bản bài viết, bình luận/góp ý theo bài, xuất CSV/Excel, lọc theo `campaignTag`, khôi phục bài đã xoá mềm.
+- Xoá cứng / xoá asset Cloudinary khi xoá media hoặc bài.

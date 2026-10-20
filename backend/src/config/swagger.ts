@@ -239,34 +239,6 @@ registry.registerPath({
 });
 
 registry.registerPath({
-  method: 'post',
-  path: '/workspaces/{workspaceId}/logo',
-  tags: ['Workspace'],
-  summary: 'Cập nhật logo workspace (UC17)',
-  security: [{ [bearerAuth.name]: [] }],
-  request: {
-    params: workspaceIdParamSchema,
-    body: {
-      content: {
-        'multipart/form-data': {
-          schema: z.object({
-            logo: z
-              .any()
-              .openapi({ type: 'string', format: 'binary', description: 'Ảnh JPG/PNG/WEBP, tối đa 2MB' }),
-          }),
-        },
-      },
-    },
-  },
-  responses: {
-    200: { description: 'Cập nhật logo thành công' },
-    400: { description: 'Chưa chọn ảnh, sai định dạng hoặc quá 2MB' },
-    403: { description: 'Không đủ quyền' },
-    404: { description: 'Workspace không tồn tại' },
-  },
-});
-
-registry.registerPath({
   method: 'get',
   path: '/workspaces/{workspaceId}/members',
   tags: ['Workspace'],

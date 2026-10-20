@@ -1,12 +1,10 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
-import ImageUploadField from '@/components/ui/ImageUploadField';
 import { useAuthStore } from '@/stores/auth.store';
-import { useCreateWorkspace, useUploadWorkspaceLogo } from '@/hooks/useWorkspace';
+import { useCreateWorkspace } from '@/hooks/useWorkspace';
 import { workspaceNameFormSchema, type WorkspaceNameFormValues } from '@/services/workspace';
 
 export const CreateWorkspaceModal = ({
@@ -18,8 +16,6 @@ export const CreateWorkspaceModal = ({
 }) => {
   const setActiveWorkspace = useAuthStore((state) => state.setActiveWorkspace);
   const createWorkspace = useCreateWorkspace();
-  const uploadLogo = useUploadWorkspaceLogo();
-  const [logoFile, setLogoFile] = useState<File | null>(null);
 
   const {
     register,
@@ -33,7 +29,6 @@ export const CreateWorkspaceModal = ({
 
   const close = () => {
     reset();
-    setLogoFile(null);
     onClose();
   };
 
@@ -43,16 +38,7 @@ export const CreateWorkspaceModal = ({
       {
         onSuccess: (workspace) => {
           setActiveWorkspace(workspace.id);
-
-          if (logoFile) {
-            // Workspace đã tạo xong: đóng modal bất kể upload logo thành công hay không.
-            uploadLogo.mutate(
-              { id: workspace.id, file: logoFile },
-              { onSettled: close }
-            );
-          } else {
-            close();
-          }
+          close();
         },
       }
     );
@@ -67,19 +53,13 @@ export const CreateWorkspaceModal = ({
           error={errors.name?.message}
           {...register('name')}
         />
-
-        <ImageUploadField id="create-workspace-logo" label="Logo" onSelect={setLogoFile} />
       </form>
 
       <div className="mt-6 flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={close}>
           Hủy
         </Button>
-        <Button
-          type="submit"
-          form="create-workspace-form"
-          isLoading={createWorkspace.isPending || uploadLogo.isPending}
-        >
+        <Button type="submit" form="create-workspace-form" isLoading={createWorkspace.isPending}>
           Tạo workspace
         </Button>
       </div>

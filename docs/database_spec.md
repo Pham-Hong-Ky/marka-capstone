@@ -2,6 +2,8 @@
 
 Tài liệu này đặc tả chi tiết thiết kế cơ sở dữ liệu vật lý của hệ thống Marka, bao gồm danh sách các bảng, kiểu dữ liệu, các ràng buộc và mối quan hệ giữa các bảng. Hệ thống sử dụng cơ sở dữ liệu quan hệ **PostgreSQL** và được quản lý thông qua **Prisma ORM**.
 
+> **Trạng thái:** nội dung khớp `backend/prisma/schema.prisma` (15 bảng). API hiện chỉ dùng 9 bảng; 6 bảng `scheduled_posts`, `post_metrics`, `ai_generations`, `credit_transactions`, `credit_packages`, `orders` chưa có endpoint/service tương ứng.
+
 ---
 
 ## 1. Biểu đồ Quan hệ Thực thể (ERD Overview)
@@ -12,7 +14,7 @@ Hệ thống bao gồm các nhóm thực thể chính:
 3. **Kênh liên kết**: `channel_connections`.
 4. **Credit, Giao dịch & Quản trị**: `orders`, `credit_packages`, `credit_transactions`, `ai_generations`, `notifications`, `audit_logs`.
 
-Chi tiết mối liên kết thực thể tham chiếu tại file thiết kế [schema.dbml](file:///f:/DATN/marka-capstone/docs/schema.dbml).
+Chi tiết mối liên kết thực thể tham chiếu tại file thiết kế [schema.dbml](./schema.dbml).
 
 ---
 
@@ -44,7 +46,6 @@ Mỗi Workspace đại diện cho một thương hiệu hoặc doanh nghiệp ri
 | :--- | :--- | :--- | :--- |
 | `id` | VARCHAR(36) | PK, Default: UUID | ID duy nhất của Workspace |
 | `name` | VARCHAR(255) | NOT NULL | Tên của Workspace |
-| `logo` | VARCHAR(255) | Nullable | URL ảnh logo của Workspace |
 | `plan` | ENUM | Default: 'FREE', NOT NULL | Gói cước hiện tại (`FREE`, `PRO`, `ENTERPRISE`) |
 | `remainingCredit` | INTEGER | Default: 100, NOT NULL | Số credit khả dụng dùng để gọi AI |
 | `monthlyQuota` | INTEGER | Default: 100, NOT NULL | Hạn mức credit mặc định được cấp mỗi tháng |
@@ -58,7 +59,7 @@ Mỗi Workspace đại diện cho một thương hiệu hoặc doanh nghiệp ri
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm khởi tạo Workspace |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật thông tin Workspace |
 
-* **Hạn mức theo gói**: `monthlyQuota` (credit/tháng) tương ứng `FREE = 100`, `PRO = 1000`, `ENTERPRISE = 5000`. Credit reset theo chu kỳ là **đặt lại về hạn mức, không cộng dồn** phần dư. Khi gói hết hạn (`planExpiresAt`/`nextResetAt`), Workspace tự động **hạ về `FREE`** (D6).
+* **Hạn mức theo gói (kế hoạch)**: `monthlyQuota` mặc định 100. Các cột `billingCycleStart`, `nextResetAt`, `planExpiryWarningSentAt`, `creditWarningSentAt` đã có trong schema nhưng **chưa có cron/service reset credit hay tự động hạ gói** trong code.
 
 ### 2.3. Bảng `workspace_members` (Thành viên của Workspace)
 Lưu trữ quan hệ phân quyền 2 cấp Workspace (RBAC).
@@ -102,21 +103,16 @@ Lưu trữ nội dung bài viết chính và vòng đời trạng thái của n�
 | `status` | ENUM | Default: 'DRAFT', NOT NULL | Trạng thái duyệt/xuất bản (`DRAFT`, `PENDING`, `APPROVED`, `REJECTED`, `SCHEDULED`, `PUBLISHED`, `FAILED`, `ARCHIVED`) |
 | `campaignTag` | VARCHAR(255) | Nullable | Thẻ gắn nhãn chiến dịch |
 | `rejectReason` | VARCHAR(255) | Nullable | Lý do từ chối phê duyệt từ Owner |
-| `createdById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người tạo bài viết (API truyền tham số `creatorId`, map thẳng vào `createdById` — D2) |
+| `createdById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người tạo bài viết (service nhận `userId` từ JWT rồi ghi vào `createdById`) |
 | `submittedById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người gửi duyệt bài viết |
 | `submittedAt` | TIMESTAMP | Nullable | Thời điểm gửi duyệt bài viết |
 | `reviewedById` | VARCHAR(36) | FK -> `users.id`, SetNull | Owner thực hiện phê duyệt/từ chối bài |
 | `reviewedAt` | TIMESTAMP | Nullable | Thời điểm đưa ra quyết định phê duyệt |
-| `assigneeId` | VARCHAR(36) | FK -> `users.id`, SetNull, Nullable | Thành viên được giao việc (UC49) |
-| `dueAt` | TIMESTAMP | Nullable | Hạn hoàn thành công việc (UC49) |
-| `priority` | ENUM | Default: 'MEDIUM', NOT NULL | Độ ưu tiên công việc (`LOW`, `MEDIUM`, `HIGH`) (UC49) |
-| `taskStatus` | ENUM | Default: 'TODO', NOT NULL | Trạng thái công việc (`TODO`, `IN_PROGRESS`, `DONE`) — **độc lập** với `status` duyệt/đăng (UC50) |
 | `deletedAt` | TIMESTAMP | Nullable | Thời điểm xóa mềm bài viết |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm tạo bài viết |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật bài viết lần cuối |
 
-* **Index**: Index trên cột `createdById` (phục vụ lọc UC09 / phân quyền xóa UC10) và trên `assigneeId` (phục vụ lọc "Việc của tôi" — UC49/UC50).
-* **Ghi chú (2026-10-15)**: 4 cột `assigneeId`/`dueAt`/`priority`/`taskStatus` thuộc tính năng **Giao việc (UC49/UC50)** — *kế hoạch, chưa triển khai* trong `schema.prisma`.
+* **Index**: composite `(workspaceId, status, deletedAt)` và index `createdById`.
 
 ### 2.6. Bảng `media_assets` (Thư viện hình ảnh và video)
 Thư viện tệp tin đa phương tiện **cấp Workspace**; việc gắn vào bài viết là **tùy chọn** (D1).
@@ -176,9 +172,13 @@ Lưu trữ thông tin xác thực/mã hóa các kênh phân phối bài viết.
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm khởi tạo lịch trình |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật lịch trình |
 
-* **Index**: Composite Index trên `(status, scheduledAt)` phục vụ tra cứu/đối soát lịch đăng; index trên `channelId` (huỷ theo kênh) và `postId`. Cơ chế đăng chính là **BullMQ delayed job** (đẩy job với `delay` tới hạn đăng), **không dựa vào cron quét mỗi phút**; cron chỉ chạy **đối soát phụ** (job mồ côi / quá hạn).
+* **Index**: Composite Index trên `(status, scheduledAt)`, index trên `channelId` và `postId`.
+* **Trạng thái code:** chưa có endpoint/service tạo lịch đăng. API hiện chỉ cập nhật bảng này khi ngắt kênh (`SCHEDULED → CANCELLED`).
 
 ### 2.9. Bảng `ai_generations` (Lịch sử sử dụng AI)
+
+> **Trạng thái code:** các bảng 2.9–2.12 (`ai_generations`, `credit_transactions`, `credit_packages`, `orders`) chỉ có trong schema, **chưa có module/service/endpoint** nào sử dụng (Roadmap AI & thanh toán).
+
 Lưu nhật ký prompts và logs để kiểm tra chi phí/dashboard của System Admin.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
@@ -297,6 +297,7 @@ Lưu chỉ số hiệu suất của một bài đã đăng trên kênh; quan h�
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật bản ghi |
 
 * **Index**: Unique Constraint trên `scheduledPostId` (đảm bảo quan hệ 1-1).
+* **Trạng thái code:** chưa có service đồng bộ metrics/n8n; bảng chưa được sử dụng.
 
 ---
 
@@ -306,13 +307,13 @@ Lưu chỉ số hiệu suất của một bài đã đăng trên kênh; quan h�
 Để phục vụ audit log lưu trữ và khôi phục dữ liệu khi lỡ tay, các thực thể chính gồm **Workspace**, **Post**, **CreditPackage** và **MediaAsset** không bao giờ bị xóa cứng (hard delete) khỏi database khi người dùng thao tác xóa.
 * Sử dụng trường `deletedAt` kiểu dữ liệu TIMESTAMP (mặc định là `null`).
 * Khi xóa: Hệ thống cập nhật `deletedAt = NOW()`.
-* Khi truy vấn: Mọi câu lệnh SELECT thông thường tại backend bắt buộc phải bổ sung điều kiện lọc `deletedAt: null` (đối với Prisma là `{ deletedAt: null }`).
+* Khi truy vấn: `backend/src/config/prismaExtensions.ts` tự thêm `deletedAt: null` cho các thao tác đọc trên 4 model này. Muốn đọc bản ghi đã xoá phải dùng `basePrisma` (export từ `config/db.ts`).
 
 ### 3.2. Mã hóa dữ liệu nhạy cảm (Field-Level Encryption)
-Các dữ liệu liên quan đến quyền truy cập tài khoản bên thứ ba (Page Access Token của Facebook Page, Client Secret) bắt buộc phải được mã hóa trước khi lưu xuống database nhằm phòng ngừa lộ lọt dữ liệu khi file backup DB bị rò rỉ.
-* Sử dụng thuật toán mã hóa đối xứng **AES-256-GCM** hoặc **AES-256-CBC**.
-* Khóa bảo mật `AES_SECRET_KEY` được lưu trong file cấu hình môi trường `.env` ở server và tuyệt đối không được đưa lên Git.
-* Dữ liệu trong database sẽ ở dạng chuỗi Hex/Base64 đã mã hóa. Backend thực hiện giải mã (decrypt) ngay khi truy vấn lên lớp Service để sử dụng.
+Page Access Token của Facebook được mã hoá trước khi lưu vào `ChannelConnection.accessToken`.
+* Thuật toán: **AES-256-GCM** (`backend/src/utils/encryption.ts`), khoá lấy từ `AES_SECRET_KEY` trong `.env`.
+* Giá trị lưu DB có dạng `<iv>:<authTag>:<ciphertext>` (hex).
+* Code hiện chỉ giải mã để kiểm tra token còn đọc được khi kết nối Page; **chưa có luồng dùng token để đăng bài**. Client Secret (Facebook/PayOS) chỉ nằm trong biến môi trường, không lưu DB.
 
 ### 3.3. Múi giờ (Timezone) — D19
 Toàn hệ thống dùng **UTC**: cột `DateTime` trong DB lưu UTC, API trao đổi theo **ISO-8601 UTC**, server/worker đặt `TZ=UTC`. Frontend tự chuyển đổi sang giờ địa phương khi hiển thị.

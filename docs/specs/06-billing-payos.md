@@ -1,77 +1,87 @@
-# Phân hệ 6: Credit & Thanh toán PayOS
+# Phân hệ 6 — Credit & Thanh toán PayOS (Roadmap)
 
-> [Quay lại Mục lục chính](file:///f:/DATN/marka-capstone/docs/specs/README.md)
-
----
-
-## 6.1. Nạp credit / nâng cấp gói (Purchase Credits - UC30)
-
-**Mô tả**: Cho phép Workspace Owner thực hiện nạp credit hoặc nâng cấp gói cước thông qua cổng thanh toán trực tuyến PayOS.
-
-**Tác nhân (Actors)**:
-- **UC30 (Purchase Credits)**: Workspace Owner
-
-**Luồng hoạt động**:
-
-1. User chọn gói (FREE/PRO/ENTERPRISE) hoặc gói credit lẻ → bấm "Thanh toán".
-2. Server tạo `Order(orderCode duy nhất, amount, status=PENDING)` → gọi API PayOS tạo link/QR thanh toán → trả về cho client hiển thị QR. `OrderStatus = { PENDING, PAID, CANCELLED }` — **không có `FAILED`**; đơn hỏng/hủy dùng `CANCELLED` (D4).
-3. Client polling API `GET /orders/{orderCode}/status` mỗi 5 giây để cập nhật UI (phòng khi webhook chậm).
-4. PayOS gửi Webhook về server khi giao dịch thành công → **Service verify chữ ký webhook** (HMAC theo secret key PayOS cấp) → nếu hợp lệ và `orderCode` chưa được xử lý trước đó → `updateMany({ where: { orderCode, status: 'PENDING' } })` **trong transaction**; chỉ cộng credit/nâng gói khi update thành công (idempotent theo `orderCode` — D12).
-5. Nếu webhook đến trễ nhưng client polling phát hiện `status = PAID` trước → UI vẫn cập nhật đúng vì cùng đọc từ 1 nguồn `Order.status`.
-
-**Lưu ý khi làm**:
-
-- **Không bao giờ** cộng credit chỉ dựa vào response redirect phía client (có thể bị giả mạo) — chỉ cộng credit khi webhook đã verify chữ ký hợp lệ.
-- Idempotency: dùng **`orderCode`** làm khóa duy nhất; nếu webhook gọi lại (PayOS có thể retry) mà `Order` đã `PAID` rồi thì bỏ qua, không cộng credit 2 lần (D12).
-- Nên có endpoint nội bộ để Admin xác nhận thủ công một giao dịch nếu webhook lỗi (dự phòng, vì không có hoàn tiền tự động).
+> [Quay lại Mục lục](README.md)
+>
+> **Trạng thái: CHƯA TRIỂN KHAI.** Không có module, service, controller hay route nào cho credit/thanh toán trong `backend/src`.
+> Tài liệu này giữ lại mục tiêu, phần schema đã có và các việc cần làm — **không** mô tả như chức năng đang hoạt động.
 
 ---
 
-## 6.2. Trừ/hoàn Credit
+## 6.1. Mục tiêu
 
-**Nguyên tắc**: **Trừ sau khi thành công, hoàn khi thất bại hoàn toàn sau retry**, luôn dùng transaction DB, log mọi thay đổi vào `CreditTransaction` (loại giao dịch, số lượng, số dư trước/sau, lý do) để phục vụ audit và tránh tranh chấp.
+| UC | Chức năng | Tác nhân |
+| :--- | :--- | :--- |
+| **UC30** | Nạp credit / nâng cấp gói qua PayOS | Owner |
+| **UC44** | Xem danh sách gói credit | Thành viên |
+| **UC45–UC47** | Tạo/sửa/xoá gói credit | System Admin |
+| **UC48** | Xem số dư & lịch sử giao dịch credit | Thành viên |
 
-**Xóa mềm**: `MediaAsset` (cùng `Workspace`, `Post`, `CreditPackage`) dùng **xóa mềm** qua `deletedAt` (D18, cưỡng chế bằng Prisma Client Extension) — không xóa cứng; dữ liệu vẫn được giữ để phục vụ audit/khôi phục và việc giải phóng dung lượng lưu trữ cần theo chính sách riêng.
-
-**Cấu hình Credit Cost & Bảng giá hệ thống**:
-
-Bảng giá credit cho từng hành động được quản lý tập trung thông qua biến môi trường để thuận tiện thay đổi mà không phải code lại logic trừ credit:
-
-```javascript
-// config/credit-cost.js hoặc qua process.env — khóa khớp enum CreditActionType (D14)
-export const CREDIT_COST = {
-  GEN_TEXT: parseInt(process.env.COST_GEN_TEXT) || 5, // Sinh bài viết mới (GEN_TEXT)
-  REGEN: parseInt(process.env.COST_REGEN) || 3, // Yêu cầu sinh lại bài viết (REGEN)
-  GEN_IMAGE: parseInt(process.env.COST_GEN_IMAGE) || 10, // Sinh ảnh minh họa bằng AI (GEN_IMAGE)
-  SCORE: parseInt(process.env.COST_SCORE) || 2, // Chấm điểm chất lượng bài viết (SCORE)
-};
-```
-
-| Hành động                      | Số Credit tiêu thụ | Khóa / Biến môi trường    |
-| :----------------------------- | :----------------: | :------------------------ |
-| Sinh 1 bài viết text           |         5          | `GEN_TEXT` / `COST_GEN_TEXT`   |
-| Sinh lại (Regenerate)          |         3          | `REGEN` / `COST_REGEN`         |
-| Sinh 1 ảnh (DALL-E 3)          |         10         | `GEN_IMAGE` / `COST_GEN_IMAGE` |
-| Chấm Viral Score / 1-Click Fix |         2          | `SCORE` / `COST_SCORE`         |
-
-**Hạn mức credit theo gói & mốc chu kỳ (D6)**:
-
-| Gói (WorkspacePlan) | Hạn mức credit mặc định / tháng |
-| :------------------ | :-----------------------------: |
-| `FREE`              | 100                             |
-| `PRO`               | 1000                            |
-| `ENTERPRISE`        | 5000                            |
-
-`Workspace` lưu **`billingCycleStart`** và **`nextResetAt`** làm mốc neo cho cron reset credit hằng tháng và hạ gói; `monthlyQuota` giữ giá trị hạn mức tương ứng gói hiện tại.
+Ngoài ra: trừ credit khi gọi AI, hoàn credit khi thất bại, reset credit theo chu kỳ tháng.
 
 ---
 
-## 6.3. Reset credit hàng tháng & hạ gói
+## 6.2. Hiện trạng trong code
 
-**Mô tả**: Tác vụ định kỳ quản lý hạn mức sử dụng theo chu kỳ thanh toán.
+- **Không có endpoint** nào dưới `/credits`, `/packages`, `/orders`, `/payments`, `/webhooks/payos`.
+- Không có service/repository credit; không gọi PayOS; không có cron reset credit.
+- `env.ts` có khai báo `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` nhưng **không nơi nào đọc**.
+- `aiLimiter` (20 request/phút/workspace) đã khai báo trong `middlewares/rateLimiter.ts` nhưng chưa gắn vào route nào.
+- **UC48 — Một phần:** `remainingCredit` và `monthlyQuota` chỉ xuất hiện trong response workspace:
+  - `GET /workspaces`
+  - `POST /workspaces`
+  - `PATCH /workspaces/:workspaceId`
+  - `GET /users/me` (trong từng workspace)
 
-**Tác nhân (Actors)**: Hệ thống (Background Cron Job)
+  Không có API xem lịch sử `CreditTransaction` hay số dư chi tiết.
 
-**Luồng hoạt động**: 
+---
 
-Cron job chạy đầu mỗi chu kỳ billing của từng workspace (mốc neo `billingCycleStart`/`nextResetAt` — D6) → reset `remainingCredit = monthlyQuota` theo gói hiện tại cho **cả ba gói `FREE`/`PRO`/`ENTERPRISE`** (không cộng dồn credit cũ) và ghi `CreditTransaction(action = RESET)` → nếu gói đã hết hạn mà không gia hạn, tự động chuyển `plan = FREE`.
+## 6.3. Schema đã có
+
+### `Workspace` — các trường phục vụ credit/gói
+
+| Trường | Kiểu / default | Ghi chú |
+| :--- | :--- | :--- |
+| `plan` | `WorkspacePlan` = `FREE` | `FREE` / `PRO` / `ENTERPRISE` |
+| `remainingCredit` | Int = 100 | Số dư hiện tại |
+| `monthlyQuota` | Int = 100 | Hạn mức tháng |
+| `planExpiresAt` | DateTime? | Hạn gói |
+| `billingCycleStart` | DateTime? | Mốc neo chu kỳ |
+| `nextResetAt` | DateTime? | Mốc reset kế tiếp |
+| `planExpiryWarningSentAt` | DateTime? | Cờ chống gửi trùng email nhắc hạn gói |
+| `creditWarningSentAt` | DateTime? | Cờ chống gửi trùng email cảnh báo credit |
+
+### `CreditTransaction`
+
+`id`, `workspaceId`, `type` (`CreditFlowType`: `INFLOW`/`OUTFLOW`), `action` (`CreditActionType`: `GEN_TEXT`, `GEN_IMAGE`, `REGEN`, `SCORE`, `TOP_UP`, `RESET`, `REFUND`), `amount`, `balanceBefore`, `balanceAfter`, `reason`, `createdById`, `createdAt`.
+
+### `CreditPackage`
+
+`id`, `name`, `description`, `creditAmount`, `price`, `sortOrder`, `isActive`, `deletedAt` (xoá mềm), `createdAt`, `updatedAt`.
+
+### `Order`
+
+`id`, `orderCode` (unique), `workspaceId`, `packageId?`, `amount`, `creditAmount?`, `targetPlan?`, `payosTransId?` (unique), `paidAt`, `status` (`OrderStatus`: `PENDING`/`PAID`/`CANCELLED` — **không có `FAILED`**), `createdById`, `createdAt`, `updatedAt`.
+
+---
+
+## 6.4. Chưa có endpoint/service
+
+Không có bất kỳ hàm/service nào cho:
+
+- Tạo link/QR PayOS, tạo `Order`, kiểm tra trạng thái đơn.
+- Webhook PayOS, xác thực chữ ký, cộng credit idempotent.
+- CRUD `CreditPackage` cho Admin.
+- Ghi/đọc `CreditTransaction`, trừ/hoàn credit khi gọi AI.
+- Reset credit theo `nextResetAt`, hạ gói khi hết hạn.
+
+---
+
+## 6.5. Roadmap
+
+1. **Gói & đơn:** API list package (UC44); Admin CRUD package (UC45–UC47, dùng `requireRoles('SYSTEM_ADMIN')` — middleware đã có nhưng chưa route nào dùng).
+2. **Thanh toán:** tạo `Order(PENDING)` + link PayOS; endpoint polling trạng thái; webhook verify chữ ký, cập nhật `Order` trong transaction, chỉ cộng credit khi `updateMany({ where: { orderCode, status: 'PENDING' } })` thành công (idempotent).
+3. **Sổ credit:** mọi thay đổi ghi `CreditTransaction` với `balanceBefore`/`balanceAfter`; trừ sau khi AI thành công, hoàn khi thất bại sau retry.
+4. **Chu kỳ:** cron dùng `billingCycleStart`/`nextResetAt` để reset `remainingCredit = monthlyQuota` và ghi `RESET`; hạ `plan = FREE` khi `planExpiresAt` quá hạn.
+5. **UC48:** API số dư + lịch sử giao dịch (phân trang), chỉ thành viên workspace.
+6. **Email:** dùng `planExpiryWarningSentAt`, `creditWarningSentAt` để gửi nhắc một lần (xem [05](./05-notifications-email.md)).

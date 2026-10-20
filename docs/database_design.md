@@ -1,12 +1,14 @@
 # Thiết kế Cơ sở Dữ liệu — Hệ thống Marka
 
 > **Database:** PostgreSQL &nbsp;|&nbsp; **ORM:** Prisma &nbsp;|&nbsp; **Tổng số bảng:** 15
+>
+> **Trạng thái:** tài liệu mô tả đúng `backend/prisma/schema.prisma`. Schema có 15 bảng, nhưng API hiện chỉ dùng 9 bảng: `users`, `workspaces`, `workspace_members`, `workspace_invites`, `posts`, `media_assets`, `channel_connections`, `notifications`, `audit_logs`. Sáu bảng `scheduled_posts`, `post_metrics`, `ai_generations`, `credit_transactions`, `credit_packages`, `orders` đã có trong schema nhưng **chưa có endpoint/service** (xem Roadmap).
 
 ---
 
 ## ERD Tổng quan
 
-![ERD Hệ thống Marka](C:\Users\ADMIN88\.gemini\antigravity-ide\brain\517a698a-b390-438b-b2b2-97f9ed11860b\erd_marka_diagram_1787300110324.jpg)
+![ERD Hệ thống Marka](entity-diagram.png)
 
 ---
 
@@ -40,7 +42,6 @@
 |---------|-------------|-----------|-------|
 | `id` | VARCHAR(36) | PK | Định danh duy nhất |
 | `name` | VARCHAR(255) | NOT NULL | Tên workspace |
-| `logo` | VARCHAR(255) | NULL | URL logo |
 | `plan` | ENUM | DEFAULT FREE | Gói dịch vụ: `FREE`, `PRO`, `ENTERPRISE` |
 | `remainingCredit` | INT | DEFAULT 100 | Số credit còn lại |
 | `monthlyQuota` | INT | DEFAULT 100 | Hạn mức credit hàng tháng |
@@ -54,7 +55,7 @@
 | `createdAt` | DATETIME | NOT NULL | Thời điểm tạo |
 | `updatedAt` | DATETIME | NOT NULL | Thời điểm cập nhật |
 
-> **Hạn mức theo gói:** `monthlyQuota` = `FREE` 100 / `PRO` 1000 / `ENTERPRISE` 5000 credit/tháng. Reset theo chu kỳ là **đặt lại về hạn mức, không cộng dồn**; hết hạn gói → tự động hạ về `FREE` (D6).
+> **Hạn mức theo gói (kế hoạch):** `monthlyQuota` mặc định 100. Các mốc `billingCycleStart`, `nextResetAt`, `planExpiryWarningSentAt`, `creditWarningSentAt` đã có cột trong schema nhưng **chưa có cron/service reset credit hay hạ gói** trong code.
 
 ### Bảng `workspace_members`
 
@@ -99,7 +100,7 @@
 | `status` | ENUM | DEFAULT DRAFT | Trạng thái: `DRAFT`, `PENDING`, `APPROVED`, `REJECTED`, `SCHEDULED`, `PUBLISHED`, `FAILED`, `ARCHIVED` |
 | `campaignTag` | VARCHAR(255) | NULL | Tag chiến dịch |
 | `rejectReason` | VARCHAR(255) | NULL | Lý do từ chối |
-| `createdById` | VARCHAR(36) | FK → users, NULL | Người tạo bài (API truyền `creatorId`, map vào `createdById` — D2) |
+| `createdById` | VARCHAR(36) | FK → users, NULL | Người tạo bài (service nhận `userId` từ JWT rồi ghi vào `createdById`) |
 | `submittedById` | VARCHAR(36) | FK → users, NULL | Người nộp bài duyệt |
 | `submittedAt` | DATETIME | NULL | Thời điểm nộp duyệt |
 | `reviewedById` | VARCHAR(36) | FK → users, NULL | Người duyệt bài |
@@ -167,9 +168,11 @@
 | `createdAt` | DATETIME | NOT NULL | Thời điểm tạo |
 | `updatedAt` | DATETIME | NOT NULL | Thời điểm cập nhật |
 
-> **Cơ chế đăng:** BullMQ delayed job là cơ chế chính; cron chỉ chạy **đối soát phụ** (job mồ côi/quá hạn), không quét mỗi phút.
+> **Trạng thái code:** bảng đã có trong schema nhưng **chưa có endpoint/service tạo lịch đăng**. API hiện chỉ dùng bảng này để chuyển `SCHEDULED → CANCELLED` khi ngắt kết nối kênh.
 
 ### Bảng `post_metrics`
+
+> **Trạng thái code:** bảng chưa được API/service nào sử dụng; Post Analytics + n8n nằm trong Roadmap.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
 |---------|-------------|-----------|-------|
@@ -190,6 +193,8 @@
 ---
 
 ## 5. Nhóm AI & Credit
+
+> **Trạng thái code:** cả 4 bảng dưới đây mới chỉ có trong schema, chưa có module/service/endpoint nào sử dụng. AI, credit và thanh toán PayOS nằm trong Roadmap.
 
 ### Bảng `ai_generations`
 

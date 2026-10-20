@@ -1,564 +1,70 @@
 @startuml class-diagram-overview
-' ============================================================
-' MARKA - SO DO LOP (CLASS DIAGRAM) - Business Layer
-' Da bo sung:
-'   (1) Thuoc tinh (attribute) cho moi lop  (thay vi chi co method)
-'   (2) Lop Domain/Entity day du field
-'   (3) Lop Queue (BullMQ) + Worker cho cac module bat dong bo
-'   (4) Lop tich hop n8n (workflow automation) - CHI dong bo metrics Facebook (Post Analytics)
-' Nguon attribute: backend/prisma/schema.prisma + docs/specs + docs/api_documentation.md
-' ============================================================
+hide circle
+hide stereotype
+!pragma layout smetana
+title Marka — Sơ đồ lớp tổng quan
 
-skinparam dpi 110
-skinparam shadowing false
 skinparam classAttributeIconSize 0
-skinparam packageStyle rectangle
-skinparam nodesep 20
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 26
 skinparam ranksep 40
 skinparam class {
-  BackgroundColor #FFFFFF
-  BorderColor #37474F
-  ArrowColor #455A64
-  FontSize 12
-}
-hide circle
-
-title Marka — Class Diagram (Business + Domain + Automation)
-
-' ============================================================
-' 0. DOMAIN — ENUM (kieu du lieu dung chung)
-' ============================================================
-together {
-  enum PublishStatus {
-    SCHEDULED
-    PUBLISHED
-    FAILED
-    CANCELLED
-  }
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
 }
 
-' ============================================================
-' 1. AUTH
-' ============================================================
-together {
-  class AuthController {
-    - authService : AuthService
-    + register(input : RegisterDTO) : AuthResult
-    + login(email : string, password : string) : AuthResult
-    + googleLogin(idToken : string) : AuthResult
-    + refreshToken(refreshToken : string) : AuthResult
-    + logout(userId : string, refreshToken : string) : void
-  }
-  class AuthService {
-    - userRepository : UserRepository
-    - jwtConfig : JwtConfig
-    - googleClient : GoogleOAuthClient
-    + register(input : RegisterDTO) : AuthResult
-    + login(email : string, password : string) : AuthResult
-    + googleLogin(idToken : string) : AuthResult
-    + refreshTokens(refreshToken : string) : AuthResult
-    + logout(userId : string, refreshToken : string) : void
-    - generateAccessToken(user : User) : string
-    - generateRefreshToken(user : User) : string
-  }
-  class GoogleOAuthClient {
-    - clientId : string
-    - httpClient : HttpClient
-    + verifyIdToken(idToken : string) : GooglePayload
-  }
-}
+class "authController" as authController
+class "authService" as authService
+class "userController" as userController
+class "userService" as userService
+class "userRepository" as userRepository
 
-' ============================================================
-' 2. USER
-' ============================================================
-together {
-  class UserController {
-    - userService : UserService
-    + getProfile(userId : string) : UserProfileDTO
-    + updateProfile(userId : string, input : UpdateProfileDTO) : UserDTO
-    + changePassword(userId : string, old : string, newPwd : string) : boolean
-  }
-  class UserService {
-    - userRepository : UserRepository
-    + getProfile(userId : string) : UserProfileDTO
-    + updateProfile(userId : string, input : UpdateProfileDTO) : UserDTO
-    + changePassword(userId : string, old : string, newPwd : string) : boolean
-    + hashPassword(password : string) : string
-    + verifyPassword(password : string, hash : string) : boolean
-  }
-  class UserRepository {
-    - prisma : PrismaClient
-    + findUserByEmail(email : string) : User
-    + findUserById(userId : string) : User
-    + findUserByGoogleId(googleId : string) : User
-    + createUser(data : CreateUserData) : User
-    + updateUser(userId : string, data : UpdateUserData) : UserDTO
-    + incrementTokenVersion(userId : string) : User
-    + createAuditLog(data : AuditLogData) : AuditLog
-  }
-}
+class "workspaceController" as workspaceController
+class "workspaceService" as workspaceService
+class "workspaceRepository" as workspaceRepository
 
-' ============================================================
-' 3. WORKSPACE
-' ============================================================
-together {
-  class WorkspaceController {
-    - workspaceService : WorkspaceService
-    + createWorkspace(input : CreateWorkspaceDTO) : WorkspaceDTO
-    + updateWorkspace(id : string, input : UpdateWorkspaceDTO) : WorkspaceDTO
-    + deleteWorkspace(id : string) : void
-    + listWorkspaces(userId : string) : WorkspaceDTO[]
-    + listMembers(id : string) : MemberListDTO
-    + inviteMember(id : string, input : InviteMemberDTO) : WorkspaceInvite
-    + acceptInvite(token : string) : AcceptInviteResult
-    + leaveWorkspace(id : string) : void
-    + removeMember(id : string, memberId : string) : void
-    + changeMemberRole(id : string, memberId : string, role : WorkspaceRole) : void
-  }
-  class WorkspaceService {
-    - workspaceRepository : WorkspaceRepository
-    - mailServiceClient : MailServiceClient
-    - queueManager : QueueManager
-    + createWorkspace(userId : string, input : CreateWorkspaceDTO) : WorkspaceDTO
-    + updateWorkspace(id : string, input : UpdateWorkspaceDTO) : WorkspaceDTO
-    + deleteWorkspace(id : string) : void
-    + listWorkspaces(userId : string) : WorkspaceDTO[]
-    + listMembers(id : string) : MemberListDTO
-    + inviteMember(workspaceId : string, inviterId : string, input : InviteMemberDTO) : WorkspaceInvite
-    + verifyInvite(token : string) : VerifyInviteResult
-    + leaveWorkspace(workspaceId : string, userId : string) : void
-    + removeMember(workspaceId : string, memberId : string, actorId : string) : void
-    + changeMemberRole(workspaceId : string, memberId : string, actorId : string, role : WorkspaceRole) : void
-    - removeMemberInternal(workspaceId : string, memberId : string, action : string) : void
-  }
-  class WorkspaceRepository {
-    - prisma : PrismaClient
-    + findWorkspaceByNameAndOwner(userId : string, name : string) : Workspace
-    + findWorkspacesByUserId(userId : string) : Workspace[]
-    + createWorkspaceRecord(data : CreateWorkspaceData) : Workspace
-    + updateWorkspaceRecord(id : string, data : UpdateWorkspaceData) : Workspace
-    + softDeleteWorkspace(id : string) : Workspace
-    + findMembersByWorkspace(id : string) : WorkspaceMember[]
-    + findMemberByEmail(workspaceId : string, email : string) : WorkspaceMember
-    + findMember(workspaceId : string, userId : string) : WorkspaceMember
-    + createWorkspaceMember(workspaceId : string, userId : string, role : WorkspaceRole) : WorkspaceMember
-    + updateMemberRole(workspaceId : string, userId : string, role : WorkspaceRole) : WorkspaceMember
-    + deleteWorkspaceMember(workspaceId : string, userId : string) : void
-    + removeAllWorkspaceMembers(workspaceId : string) : int
-    + countOwners(workspaceId : string) : int
-    + createInvite(data : CreateInviteData) : WorkspaceInvite
-    + findInviteByToken(token : string) : WorkspaceInvite
-    + markInviteUsed(id : string) : WorkspaceInvite
-    + findPendingInvitesByWorkspace(id : string) : WorkspaceInvite[]
-    + createNotification(data : NotificationData) : Notification
-    + createAuditLog(data : AuditLogData) : AuditLog
-  }
-  class MailServiceClient {
-    - transporter : MailTransporter
-    - fromEmail : string
-    - appBaseUrl : string
-    + sendInviteEmail(email : string, token : string) : void
-    + sendPlanExpiryEmail(email : string, daysLeft : int) : void
-    + sendCreditLowEmail(email : string, percentLeft : float) : void
-    + sendScheduleReminderEmail(email : string, schedule : ScheduledPost) : void
-  }
-}
+class "brandVoiceController" as brandVoiceController
+class "brandVoiceService" as brandVoiceService
+class "brandVoiceRepository" as brandVoiceRepository
 
-' ============================================================
-' 4. BRAND VOICE
-' ============================================================
-together {
-  class BrandVoiceController {
-    - brandVoiceService : BrandVoiceService
-    + getBrandVoice(workspaceId : string) : BrandVoiceDTO
-    + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-    + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-    + deleteBrandVoice(workspaceId : string) : void
-  }
-  class BrandVoiceService {
-    - brandVoiceRepository : BrandVoiceRepository
-    + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-    + getBrandVoice(workspaceId : string) : BrandVoiceDTO
-    + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-    + deleteBrandVoice(workspaceId : string) : void
-  }
-  class BrandVoiceRepository {
-    - prisma : PrismaClient
-    + createBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
-    + findBrandVoiceByWorkspace(workspaceId : string) : Json
-    + updateBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
-    + deleteBrandVoiceRecord(workspaceId : string) : Json
-  }
-}
+class "channelController" as channelController
+class "channelService" as channelService
+class "channelRepository" as channelRepository
 
-' ============================================================
-' 5. CHANNEL
-' ============================================================
-together {
-  class ChannelController {
-    - channelService : ChannelService
-    + listChannels(workspaceId : string) : ChannelConnectionDTO[]
-    + connectFacebookChannel(input : ConnectChannelDTO) : ChannelConnectionDTO
-    + connectSimulatedChannel(input : ConnectChannelDTO) : ChannelConnectionDTO
-    + disconnectChannel(id : string) : void
-  }
-  class ChannelService {
-    - channelRepository : ChannelRepository
-    - facebookClient : FacebookClient
-    - encryptionService : EncryptionService
-    - queueManager : QueueManager
-    + listChannels(workspaceId : string) : ChannelConnectionDTO[]
-    + connectFacebookChannel(workspaceId : string, input : ConnectChannelDTO) : ChannelConnectionDTO
-    + connectSimulatedChannel(workspaceId : string, input : ConnectChannelDTO) : ChannelConnectionDTO
-    + disconnectChannel(channelId : string) : void
-  }
-  class ChannelRepository {
-    - prisma : PrismaClient
-    + findChannelsByWorkspace(workspaceId : string) : ChannelConnection[]
-    + findChannelById(id : string) : ChannelConnection
-    + createChannelConnection(workspaceId : string, data : ConnectChannelData) : ChannelConnection
-    + findChannelByExternalId(workspaceId : string, externalAccountId : string) : ChannelConnection
-    + updateChannelStatus(channelId : string, status : ChannelStatus) : ChannelConnection
-    + deleteChannelConnection(id : string) : void
-    + cancelScheduledPostsByChannel(id : string) : int
-  }
-  class FacebookClient {
-    - graphApiBaseUrl : string
-    - httpClient : HttpClient
-    + verifyPageAccessToken(pageId : string, token : string) : PageInfo
-    + getLongLivedToken(shortToken : string) : string
-    + publishToFacebook(pageToken : string, content : PublishContent) : PublishResult
-  }
-}
+class "postController" as postController
+class "postService" as postService
+class "postRepository" as postRepository
+class "PostNotification" as postNotification
 
-' ============================================================
-' 6. ORDER / BILLING (PayOS)
-' ============================================================
-together {
-  class OrderController {
-    - orderService : OrderService
-    + createOrder(workspaceId : string, input : CreateOrderDTO) : PaymentLinkDTO
-    + handlePayosWebhook(payload : PayOSWebhookPayload) : void
-    + getOrderStatus(code : string) : OrderStatusDTO
-  }
-  class OrderService {
-    - orderRepository : OrderRepository
-    - payosClient : PayOSClient
-    - queueManager : QueueManager
-    + createOrder(workspaceId : string, userId : string, input : CreateOrderDTO) : PaymentLinkDTO
-    + confirmOrderPaid(orderCode : string, transactionId : string) : Order
-    + getOrderStatus(code : string) : OrderStatusDTO
-    + handleWebhook(payload : PayOSWebhookPayload) : void
-    - verifySignature(payload : PayOSWebhookPayload) : boolean
-  }
-  class OrderRepository {
-    - prisma : PrismaClient
-    + createOrderRecord(data : CreateOrderData) : Order
-    + findOrderByCode(code : string) : Order
-    + findOrderById(id : string) : Order
-    + updateOrderStatus(code : string, status : OrderStatus) : Order
-    + updateWorkspacePlan(workspaceId : string, plan : WorkspacePlan) : Workspace
-    + addCredit(workspaceId : string, amount : int) : CreditTransaction
-  }
-  class PayOSClient {
-    - baseUrl : string
-    - clientId : string
-    - apiKey : string
-    - checksumKey : string
-    - httpClient : HttpClient
-    + createPaymentLink(orderCode : string, amount : int) : PaymentLinkDTO
-    + getPaymentStatus(orderCode : string) : PayOSStatus
-    + cancelPaymentLink(orderCode : string) : void
-    + verifySignature(payload : PayOSWebhookPayload) : boolean
-  }
-}
+class "GoogleOAuth2Client" as googleOAuthClient
+class "MailerClient" as mailerClient
+class "CloudinaryClient" as cloudinaryClient
+class "FacebookClient" as facebookClient
 
-' ============================================================
-' 7. AI (Assistant + Brand Voice generation)
-' ============================================================
-together {
-  class AIController {
-    - aiService : AIService
-    + generateText(workspaceId : string, input : GenerateTextDTO) : JobAcceptedDTO
-    + generateImage(workspaceId : string, input : GenerateImageDTO) : JobAcceptedDTO
-    + viralScore(workspaceId : string, input : ViralScoreDTO) : JobAcceptedDTO
-    + regenerate(workspaceId : string, input : RegenerateDTO) : JobAcceptedDTO
-    + getGenerationStatus(jobId : string) : AiGeneration
-  }
-  class AIService {
-    - aiRepository : AIRepository
-    - brandVoiceRepository : BrandVoiceRepository
-    - openAIClient : OpenAIClient
-    - queueManager : QueueManager
-    + addGenerateJob(workspaceId : string, userId : string, input : GenerateDTO) : JobAcceptedDTO
-    + getGenerationStatus(jobId : string) : AiGeneration
-    - estimateCreditCost(type : AiGenType) : int
-    - refundCredit(workspaceId : string, cost : int) : void
-  }
-  class AIRepository {
-    - prisma : PrismaClient
-    + deductCredit(workspaceId : string, cost : int) : CreditTransaction
-    + refundCredit(workspaceId : string, cost : int) : CreditTransaction
-    + createAiGeneration(data : CreateAiGenerationData) : AiGeneration
-    + findGenerationByJobId(jobId : string) : AiGeneration
-    + updateAiGenerationStatus(jobId : string, status : AiGenStatus) : AiGeneration
-  }
-  class OpenAIClient {
-    - apiKey : string
-    - baseUrl : string
-    - textModel : string
-    - imageModel : string
-    - httpClient : HttpClient
-    + generateText(prompt : string, options : AiOptions) : string
-    + generateImage(prompt : string, options : AiOptions) : string
-    + scoreViral(content : string) : ViralScoreResult
-  }
-}
+authController --> authService
+authService --> userRepository
+authService --> googleOAuthClient
+userController --> userService
+userService --> userRepository
 
-' ============================================================
-' 8. POST (Content + Approval + Schedule + Publish)
-' ============================================================
-together {
-  class PostController {
-    - postService : PostService
-    + createPost(input : CreatePostDTO) : PostDTO
-    + updatePost(id : string, input : UpdatePostDTO) : PostDTO
-    + getPostDetail(id : string) : PostDetailDTO
-    + searchPosts(filters : PostFilters) : PagedResult
-    + deletePost(id : string) : void
-    + submitForApproval(id : string) : PostDTO
-    + reviewPost(id : string, action : ReviewAction, reason : string) : PostDTO
-    + schedulePost(id : string, input : SchedulePostDTO) : ScheduledPostDTO[]
-    + getSchedule(month : int, year : int) : ScheduledPostDTO[]
-    + publishNow(id : string, channelId : string) : PublishResult
-  }
-  class PostService {
-    - postRepository : PostRepository
-    - channelRepository : ChannelRepository
-    - facebookClient : FacebookClient
-    - queueManager : QueueManager
-    + createPost(workspaceId : string, creatorId : string, input : CreatePostDTO) : PostDTO
-    + updatePost(postId : string, input : UpdatePostDTO) : PostDTO
-    + getPostDetail(postId : string) : PostDetailDTO
-    + searchPosts(workspaceId : string, filters : PostFilters) : PagedResult
-    + deletePost(postId : string, actorId : string) : void
-    + submitPostForApproval(postId : string, submitterId : string) : PostDTO
-    + reviewPost(postId : string, reviewerId : string, action : ReviewAction, reason : string) : PostDTO
-    + schedulePost(postId : string, input : SchedulePostDTO) : ScheduledPostDTO[]
-    + getScheduleByMonth(workspaceId : string, month : int, year : int) : ScheduledPostDTO[]
-    + publishPostNow(postId : string, channelId : string) : PublishResult
-    + processPublishJob(scheduledPostId : string) : void
-    - assertTransition(from : PostStatus, to : PostStatus) : void
-  }
-  class PostRepository {
-    - prisma : PrismaClient
-    + createPost(data : CreatePostData) : Post
-    + findPostById(id : string) : Post
-    + updatePost(id : string, data : UpdatePostData) : Post
-    + softDeletePost(id : string) : Post
-    + findPostsByFilters(workspaceId : string, filters : PostFilters) : PagedResult
-    + updatePostStatus(id : string, status : PostStatus, details : Json) : Post
-    + createApprovalHistory(data : ApprovalHistoryData) : AuditLog
-    + findApprovalHistoryByPost(id : string) : AuditLog[]
-    + createScheduledPost(data : CreateScheduledPostData) : ScheduledPost
-    + findScheduledPostsByPost(id : string) : ScheduledPost[]
-    + findScheduledPostsByRange(workspaceId : string, from : DateTime, to : DateTime) : ScheduledPost[]
-    + updateScheduledPostStatus(id : string, status : PublishStatus, errorMsg : string) : ScheduledPost
-    + checkAndUpdatePostOverallStatus(postId : string) : Post
-    + createNotification(data : NotificationData) : Notification
-  }
-}
+workspaceController --> workspaceService
+workspaceService --> workspaceRepository
+workspaceService --> mailerClient
 
-' ============================================================
-' 9. ADMIN
-' ============================================================
-together {
-  class AdminController {
-    - adminService : AdminService
-    + getDashboardStats(workspaceId : string) : DashboardStatsDTO
-    + listUsers(filters : AdminFilters) : PagedResult
-    + suspendUser(userId : string, isSuspended : boolean) : UserDTO
-    + listWorkspaces(filters : AdminFilters) : PagedResult
-    + getAuditLogs(filters : AdminFilters) : PagedResult
-  }
-  class AdminService {
-    - adminRepository : AdminRepository
-    + getDashboardStats(workspaceId : string) : DashboardStatsDTO
-    + listUsers(filters : AdminFilters) : PagedResult
-    + suspendUser(userId : string, isSuspended : boolean) : UserDTO
-    + listWorkspaces(filters : AdminFilters) : PagedResult
-    + getAuditLogs(filters : AdminFilters) : PagedResult
-  }
-  class AdminRepository {
-    - prisma : PrismaClient
-    + aggregateUsersAndWorkspaces() : UserWorkspaceStats
-    + aggregateCreditAndRevenue(workspaceId : string) : CreditRevenueStats
-    + findUsersByFilters(filters : AdminFilters) : PagedResult
-    + updateUserSuspension(userId : string, isSuspended : boolean) : User
-    + findWorkspacesByFilters(filters : AdminFilters) : PagedResult
-    + findAuditLogs(filters : AdminFilters) : PagedResult
-  }
-}
+brandVoiceController --> brandVoiceService
+brandVoiceService --> brandVoiceRepository
 
-' ============================================================
-' 10. AUTOMATION — Queue (BullMQ) + Worker
-'     Dung cho: AI gen, Post publish, Email/Notification
-' ============================================================
-together {
-  class QueueManager {
-    - connection : Redis
-    - queues : Map~string,Queue~
-    - defaultJobOptions : JobOptions
-    + getQueue(queueName : string) : Queue
-    + enqueue(queueName : string, jobName : string, data : Json, opts : JobOptions) : Job
-    + addDelayed(queueName : string, jobName : string, data : Json, runAt : DateTime) : Job
-    + cancelJob(queueName : string, jobId : string) : void
-    + getJobStatus(queueName : string, jobId : string) : JobStatus
-    + pauseQueue(queueName : string) : void
-    + resumeQueue(queueName : string) : void
-    + closeAll() : void
-  }
-  abstract class BaseWorker {
-    # queueName : string
-    # connection : Redis
-    # concurrency : int
-    # queue : Queue
-    + start() : void
-    + process(job : Job) : Json
-    + onCompleted(job : Job, result : Json) : void
-    + onFailed(job : Job, err : Error) : void
-    + close() : void
-  }
-  class ContentGenerationQueue {
-    - name : string = "content-generation-queue"
-    + addTextJob(payload : AiJobPayload) : Job
-    + addImageJob(payload : AiJobPayload) : Job
-  }
-  class PublishingQueue {
-    - name : string = "publishing-queue"
-    + addPublishJob(scheduledPostId : string, runAt : DateTime) : Job
-    + cancelJob(scheduledPostId : string) : void
-  }
-  class EmailQueue {
-    - name : string = "email-queue"
-    + addInviteEmail(payload : EmailPayload) : Job
-    + addReminderEmail(payload : EmailPayload) : Job
-  }
-  class AiGenerationWorker {
-    - openAIClient : OpenAIClient
-    - aiRepository : AIRepository
-    - aiService : AIService
-    + process(job : Job) : Json
-  }
-  class PublishingWorker {
-    - postService : PostService
-    - facebookClient : FacebookClient
-    - postRepository : PostRepository
-    + process(job : Job) : Json
-    + simulatePublish(scheduledPost : ScheduledPost) : PublishResult
-  }
-  class EmailWorker {
-    - mailServiceClient : MailServiceClient
-    + process(job : Job) : Json
-  }
-  class ScheduledPostScanner {
-    - cronExpression : string
-    - publishingQueue : PublishingQueue
-    - postRepository : PostRepository
-    + start() : void
-    + stop() : void
-    + scanDuePosts() : void
-  }
-}
+channelController --> channelService
+channelService --> channelRepository
+channelService --> facebookClient
 
-' ============================================================
-' 11. AUTOMATION — n8n workflow orchestration
-'     CHI dung cho Post Analytics: dong bo metrics Facebook (D21).
-'     Dang bai (publishing) dung BullMQ — n8n KHONG tham gia.
-'     Cac module khac (Admin, Order, AI, Workspace, Auth...) KHONG dung n8n.
-' ============================================================
-together {
-  class N8nClient {
-    - baseUrl : string
-    - apiKey : string
-    - webhookSecret : string
-    - timeoutMs : int
-    - httpClient : HttpClient
-    + triggerWorkflow(workflowKey : string, payload : Json) : ExecutionInfo
-    + getExecution(executionId : string) : ExecutionInfo
-    + cancelExecution(executionId : string) : void
-    + registerWebhook(eventKey : string, targetUrl : string) : void
-    + verifyWebhookSignature(signature : string, rawBody : string) : boolean
-  }
-  class MetricsSyncWorkflow {
-    - n8nClient : N8nClient
-    - postRepository : PostRepository
-    + runMetricsSync(scheduledPostId : string) : ExecutionInfo
-    + handleMetricsResult(payload : Json) : void
-  }
-  class N8nWebhookController {
-    - metricsWorkflow : MetricsSyncWorkflow
-    + handleCallback(req : RawRequest) : void
-  }
-}
-
-' ============================================================
-' RELATIONSHIPS
-' ============================================================
-
-' --- Controllers -> Services ---
-AuthController --> AuthService
-UserController --> UserService
-WorkspaceController --> WorkspaceService
-BrandVoiceController --> BrandVoiceService
-ChannelController --> ChannelService
-OrderController --> OrderService
-AIController --> AIService
-PostController --> PostService
-AdminController --> AdminService
-N8nWebhookController --> MetricsSyncWorkflow
-
-' --- Services -> Repositories ---
-AuthService ..> UserRepository
-UserService ..> UserRepository
-WorkspaceService ..> WorkspaceRepository
-BrandVoiceService ..> BrandVoiceRepository
-ChannelService ..> ChannelRepository
-OrderService ..> OrderRepository
-AIService ..> AIRepository
-PostService ..> PostRepository
-AdminService ..> AdminRepository
-
-' --- Services -> External Clients ---
-AuthService ..> GoogleOAuthClient
-WorkspaceService ..> MailServiceClient
-ChannelService ..> FacebookClient
-OrderService ..> PayOSClient
-AIService ..> OpenAIClient
-PostService ..> FacebookClient
-
-' --- Services -> QueueManager ---
-WorkspaceService ..> QueueManager
-ChannelService ..> QueueManager
-OrderService ..> QueueManager
-AIService ..> QueueManager
-PostService ..> QueueManager
-
-' --- QueueManager / Workers ---
-QueueManager --> ContentGenerationQueue
-QueueManager --> PublishingQueue
-QueueManager --> EmailQueue
-AiGenerationWorker --|> BaseWorker
-PublishingWorker --|> BaseWorker
-EmailWorker --|> BaseWorker
-ContentGenerationQueue ..> AiGenerationWorker
-PublishingQueue ..> PublishingWorker
-EmailQueue ..> EmailWorker
-ScheduledPostScanner --> PublishingQueue
-ScheduledPostScanner ..> PostRepository
-
-' --- n8n orchestration (CHI Post Analytics — dong bo metrics) ---
-MetricsSyncWorkflow ..> N8nClient
-MetricsSyncWorkflow ..> PostRepository
+postController --> postService
+postService --> postRepository
+postService --> postNotification
+postService --> cloudinaryClient
+postNotification --> mailerClient
 
 @enduml

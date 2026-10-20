@@ -10,13 +10,6 @@ const workspaceNameSchema = z
   .max(100, 'Tên workspace tối đa 100 ký tự')
   .openapi({ example: 'Công ty Truyền thông ABC' });
 
-const logoUrlSchema = z
-  .string()
-  .url('Đường dẫn logo không hợp lệ')
-  .max(255, 'Đường dẫn logo tối đa 255 ký tự')
-  .nullable()
-  .openapi({ example: 'https://res.cloudinary.com/demo/image/upload/logo.png' });
-
 const workspaceRoleSchema = z.enum(['OWNER', 'CONTENT_CREATOR']).openapi({ example: 'CONTENT_CREATOR' });
 
 export const workspaceIdParamSchema = z.object({
@@ -34,16 +27,14 @@ export const inviteTokenParamSchema = z.object({
 
 export const createWorkspaceBodySchema = z.object({
   name: workspaceNameSchema,
-  logo: logoUrlSchema.optional(),
 });
 
 export const updateWorkspaceBodySchema = z
   .object({
     name: workspaceNameSchema.optional(),
-    logo: logoUrlSchema.optional(),
   })
-  .refine((data) => data.name !== undefined || data.logo !== undefined, {
-    message: 'Cần cung cấp ít nhất một trường để cập nhật',
+  .refine((data) => data.name !== undefined, {
+    message: 'Cần cung cấp tên workspace để cập nhật',
   });
 
 export const inviteMemberBodySchema = z.object({

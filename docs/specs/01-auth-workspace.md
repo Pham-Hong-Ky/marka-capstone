@@ -1,105 +1,499 @@
-# Phân hệ 1: Xác thực & Không gian làm việc
+# Phân hệ 1 — Xác thực, Hồ sơ & Workspace
 
-> [Quay lại Mục lục chính](file:///f:/DATN/marka-capstone/docs/specs/README.md)
-
----
-
-## 1.1. Đăng ký / Đăng nhập / Đăng xuất (UC01, UC02, UC03)
-
-**Mô tả**: Người dùng tạo tài khoản bằng Email/Password hoặc Google OAuth, đăng nhập hệ thống và thực hiện đăng xuất để bảo mật phiên làm việc.
-
-**Tác nhân (Actors)**:
-- **UC01 (Register)**: Guest
-- **UC02 (Login)**: Guest
-- **UC03 (Logout)**: User (All Roles)
-
-**Luồng hoạt động**:
-
-- **Đăng ký / Đăng nhập (UC01, UC02)**:
-  1. Guest nhập email + password (hoặc bấm "Đăng nhập với Google").
-  2. Hệ thống validate định dạng email, độ mạnh password (tối thiểu 8 ký tự, có chữ + số).
-  3. **Ghi chú phạm vi**: gửi email xác thực (link/OTP) và trạng thái `unverified` được **dời sang Phase 5** — Phase 1 chưa gửi email xác thực, tài khoản đăng ký xong được đăng nhập tự động.
-  4. Đăng nhập thành công → server tạo `accessToken` (JWT, hạn ngắn ~15 phút) + `refreshToken` (lưu HTTP-Only Cookie, hạn dài ~7-30 ngày) → trả về client (chuyển sang trạng thái User đã xác thực).
-  5. Nếu sai quá 5 lần trong 15 phút cho cùng 1 IP/email → khóa tạm thời (rate limit), trả lỗi `429`.
-- **Đăng xuất (Logout - UC03)**:
-  1. Người dùng (User) nhấn nút "Đăng xuất" trên giao diện.
-  2. Client gửi yêu cầu `POST /auth/logout` đồng thời đính kèm `refreshToken` hiện tại (thường gửi qua HTTP-Only cookie).
-  3. Server nhận yêu cầu:
-     - Tăng `tokenVersion` của user lên 1 → mọi access/refresh token cũ (đã ký kèm `tokenVersion` cũ) lập tức bị vô hiệu hoá, không thể dùng lại.
-     - Phản hồi xóa cookie chứa `refreshToken` trên trình duyệt bằng cách đặt thời gian hết hạn trong quá khứ (`max-age = 0`).
-  4. Client nhận kết quả thành công, tiến hành xóa sạch token tạm thời (`accessToken`) lưu trong bộ nhớ cục bộ (Redux Store/React Context), sau đó điều hướng người dùng quay trở lại màn hình Đăng nhập (`/login`).
-
-**Lưu ý khi làm**:
-
-- Google OAuth: dùng `passport-google-oauth20` hoặc tự implement OAuth2 code flow; map theo `email` để tránh tạo trùng account nếu user từng đăng ký bằng email/password.
-- Password hash bằng `bcrypt` (cost factor ≥ 10), **không** tự chế thuật toán hash.
-- `refreshToken` là JWT **stateless**, không lưu bảng DB riêng; cơ chế thu hồi dựa trên `tokenVersion` (không lưu từng token). Mỗi lần refresh vẫn cấp cặp token mới cho client.
-- Trường `tokenVersion` trên bảng `User`: tăng +1 khi đổi mật khẩu, đăng xuất, hoặc bị Admin khóa → mọi access/refresh token cũ cấp trước đó lập tức bị coi là invalid dù chưa hết hạn.
+> [Quay lại Mục lục](README.md)
+>
+> **Phạm vi:** toàn bộ phần đã có trong code: đăng ký, đăng nhập (email/mật khẩu + Google), logout, refresh token, hồ sơ cá nhân, đổi mật khẩu, workspace, thành viên, lời mời.
+> Mã nguồn: `backend/src/modules/auth`, `modules/user`, `modules/workspace`, `middlewares/auth.ts`, `utils/jwt.ts`, `utils/cookies.ts`, `utils/password.ts`.
 
 ---
 
-## 1.2. Quản lý Workspace & Thành viên (UC16, UC17, UC18, UC19, UC20, UC21, UC22, UC23)
+## 1.1. Đăng ký (UC01)
 
-**Mô tả**: Tạo Workspace mới, xem danh sách thành viên, cập nhật cấu hình Workspace, mời hoặc loại bỏ thành viên, rời khỏi không gian làm việc hoặc xóa hoàn toàn Workspace.
+`POST /auth/register` — công khai, rate limit `authLimiter` (15 request/15 phút/IP, bỏ qua khi test).
 
-**Tác nhân (Actors)**:
-- **UC16 (Create Workspace)**: User (All Roles)
-- **UC17 (Update Workspace)**: Workspace Owner
-- **UC18 (Delete Workspace)**: Workspace Owner
-- **UC19 (View Members)**: Content Creator, Workspace Owner
-- **UC20 (Invite Member)**: Workspace Owner
-- **UC21 (Accept Invitation)**: Guest / User
-- **UC22 (Leave Workspace)**: Content Creator, Workspace Owner
-- **UC23 (Remove Member)**: Workspace Owner
+### Validation
 
-**Luồng hoạt động**:
+| Field | Kiểu | Ràng buộc |
+| :--- | :--- | :--- |
+| `email` | string | email hợp lệ, `trim`, chuyển lowercase |
+| `password` | string | 8–100 ký tự, chứa ít nhất 1 chữ cái và 1 chữ số |
+| `name` | string | 2–100 ký tự, `trim` |
 
-- **Tạo Workspace (UC16)**:
-  1. User đăng nhập lần đầu hoặc nhấn "Tạo Workspace mới" từ Workspace switcher.
-  2. Người dùng nhập tên Workspace, tải lên logo (optional) → Hệ thống tạo bản ghi `Workspace` mới và tự động gán `WorkspaceMember` cho user đó với vai trò `OWNER`.
-- **Cập nhật Workspace (UC17)**:
-  1. Workspace Owner truy cập cài đặt Workspace và thay đổi thông tin (tên Workspace, upload logo mới hoặc xóa logo cũ).
-  2. Bấm "Lưu" → Server kiểm tra tính hợp lệ (tên không được để trống, file logo ≤ 2MB, định dạng .jpg, .png, .webp).
-  3. Cập nhật bản ghi `Workspace` trong DB và cập nhật hiển thị phía client.
-- **Xóa Workspace (UC18)**:
-  1. Workspace Owner truy cập trang cài đặt nâng cao và nhấn nút "Xóa Workspace".
-  2. Hệ thống hiển thị modal yêu cầu xác nhận: nhập mật khẩu hiện tại của tài khoản và nhập chính xác tên Workspace để xác nhận hành vi hủy bỏ.
-  3. Server xác nhận thông tin hợp lệ, tiến hành thu hồi toàn bộ kết nối kênh (`ChannelConnection`), xóa mềm (Soft Delete) bản ghi `Workspace` cùng các bài viết, file media, chiến dịch, và lịch sử duyệt bài liên kết.
-  4. Hệ thống tự động chuyển hướng người dùng sang một Workspace còn hoạt động khác của họ, hoặc chuyển về trang yêu cầu tạo mới nếu không còn Workspace nào.
-- **Xem thành viên (UC19)**:
-  1. Mọi thành viên trong Workspace truy cập trang "Quản lý thành viên" để xem danh sách thành viên.
-  2. **Truy vấn & Hợp nhất dữ liệu**: Vì thành viên chưa chấp nhận lời mời chỉ tồn tại trong bảng `WorkspaceInvite`, còn thành viên đã hoạt động nằm ở bảng `WorkspaceMember`, hệ thống sẽ thực hiện hợp nhất kết quả truy vấn (UNION) từ cả hai bảng:
-     - Dữ liệu từ `WorkspaceMember` được đánh dấu trạng thái là `ACTIVE` ("Hoạt động").
-     - Dữ liệu từ `WorkspaceInvite` chưa hết hạn và chưa được sử dụng được đánh dấu trạng thái là `PENDING` ("Chờ chấp nhận").
-  3. UI hiển thị danh sách hợp nhất: ảnh đại diện, tên (hoặc email nếu chưa có tài khoản), email, vai trò (`OWNER` hoặc `CONTENT_CREATOR`), trạng thái (Hoạt động / Chờ chấp nhận) và ngày tham gia/ngày mời.
-- **Mời thành viên & Chấp nhận lời mời (UC20, UC21)**:
-  1. Owner nhập email và chọn vai trò (`OWNER` hoặc `CONTENT_CREATOR`) → Hệ thống tạo `WorkspaceInvite(token, expiresAt)` và gửi email lời mời kèm liên kết xác thực (hạn 7 ngày).
-  2. Người nhận (Guest hoặc User) bấm liên kết trong email → Nếu đã có tài khoản, thực hiện tham gia ngay; nếu là Guest (chưa có tài khoản), hệ thống chuyển hướng qua trang Đăng ký và tự động liên kết thành viên sau khi đăng ký thành công.
-- **Xóa thành viên & Rời Workspace (UC22, UC23)**:
-  1. **Rời Workspace (Leave Workspace - UC22)**: Thành viên nhấn nút "Rời khỏi Workspace" → Hệ thống yêu cầu xác nhận. Nếu user là Owner duy nhất, hệ thống chặn hành động và bắt buộc phải chỉ định Owner mới hoặc thực hiện xóa Workspace.
-  2. **Xóa thành viên (Remove Member - UC23)**: Workspace Owner nhấn nút "Xóa" cạnh tên thành viên trong danh sách → Server xóa bản ghi `WorkspaceMember` tương ứng, thu hồi quyền truy cập của user đó vào Workspace ngay lập tức.
-- **Workspace switcher**: UI hiển thị danh sách workspace mà user là thành viên → chọn 1 làm "workspace đang hoạt động" (lưu trong session/local state), mọi API call sau đó đính kèm `workspaceId` hiện tại.
+### Xử lý
 
-**Lưu ý khi làm**:
+1. Nếu email đã tồn tại → `409` `"Email này đã được đăng ký trong hệ thống"`.
+2. Hash mật khẩu bằng bcrypt (10 salt rounds).
+3. Trong **một transaction**: tạo `User` (`authProvider = LOCAL`, `systemRole = USER`, `emailVerified = false`) → tạo `Workspace` tên `Workspace của <name>` (các giá trị `plan = FREE`, `remainingCredit = 100`, `monthlyQuota = 100` lấy từ default của schema) → tạo `WorkspaceMember(role = OWNER, allowDirectPublish = true)`.
+4. Ghi audit `USER_REGISTER` (kèm `workspaceId`, `metadata { email, name }`).
+5. Cấp cặp token, đặt refresh token vào cookie `refreshToken`.
 
-- Middleware xác thực quyền phải luôn kiểm tra `(userId, workspaceId) -> role` cho **mọi** request liên quan đến workspace, không chỉ dựa vào role global của user.
-- Token mời cần một-lần-dùng (invalidate sau khi accept) và có thể bị Owner thu hồi (revoke) trước khi được chấp nhận.
-- Xóa thành viên / Thành viên rời workspace: Không xóa cascade các bài viết/media do người đó tạo; chúng vẫn thuộc về workspace. Giữ nguyên ID của user đã rời tại trường `createdById` (Post) để phục vụ truy vết. Chỉ Owner mới có quyền sửa tiếp các bài viết này. Nếu bài viết đang ở trạng thái `PENDING` (chờ duyệt), Owner vẫn có quyền duyệt hoặc từ chối bài viết bình thường.
-- **Xóa mềm (D18)**: Áp dụng cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset` — cập nhật trường `deletedAt` thay vì xóa cứng. Cơ chế cưỡng chế bằng **Prisma Client Extension** tự thêm điều kiện `deletedAt: null` mặc định; muốn lấy bản ghi đã xóa phải dùng API `includeDeleted`. Riêng với UC18: cập nhật `deletedAt` trên bảng `Workspace`; các truy vấn workspace thông thường phải lọc các bản ghi có `deletedAt IS NULL`.
+### Response `201`
+
+```json
+{
+  "status": "success",
+  "message": "Đăng ký tài khoản thành công",
+  "data": {
+    "accessToken": "<jwt>",
+    "user": {
+      "id": "uuid",
+      "email": "user@marka.vn",
+      "name": "Nguyễn Văn A",
+      "avatar": null,
+      "systemRole": "USER",
+      "emailVerified": false,
+      "workspaces": [
+        {
+          "id": "uuid",
+          "name": "Workspace của Nguyễn Văn A",
+          "plan": "FREE",
+          "role": "OWNER",
+          "remainingCredit": 100,
+          "monthlyQuota": 100
+        }
+      ]
+    }
+  }
+}
+```
+
+- Refresh token **không** nằm trong body, chỉ nằm trong cookie `HttpOnly`.
+- Không có bước xác thực email; đăng ký xong dùng được ngay.
+
+### Lỗi
+
+| Mã | Trường hợp |
+| :--- | :--- |
+| `409` | Email đã tồn tại |
+| `422` | Sai schema (email sai, mật khẩu yếu, tên quá ngắn...) |
+| `429` | Vượt `authLimiter` |
 
 ---
 
-## 1.3. Hồ sơ cá nhân (Update Profile & Change Password - UC04, UC32)
+## 1.2. Đăng nhập (UC02)
 
-**Mô tả**: Cho phép người dùng cập nhật thông tin hồ sơ cá nhân (tên hiển thị, avatar) và thay đổi mật khẩu tài khoản để bảo mật thông tin (luồng đổi email qua OTP được dời sang Phase 5).
+`POST /auth/login` — công khai, rate limit `loginLimiter` (5 lần **thất bại**/15 phút theo `IP:email`, bỏ qua khi test).
 
-**Tác nhân (Actors)**:
-- **UC04 (Change Password)**: User (All Roles)
-- **UC32 (Update Profile)**: User (All Roles)
+### Validation
 
-**Luồng hoạt động**:
+| Field | Ràng buộc |
+| :--- | :--- |
+| `email` | email hợp lệ, `trim`, lowercase |
+| `password` | không rỗng |
 
-1. Đổi mật khẩu: yêu cầu nhập mật khẩu cũ → verify → set mật khẩu mới → tăng `tokenVersion` (buộc đăng nhập lại trên các thiết bị khác).
-2. Đổi email (dời sang Phase 5): nhập email mới → gửi OTP đến email mới → xác nhận OTP → cập nhật email, gửi thông báo đến email cũ ("email tài khoản đã được thay đổi") để phát hiện chiếm đoạt tài khoản.
+### Xử lý
 
-**Lưu ý khi làm**: Phase 1 UC32 chỉ hỗ trợ cập nhật `name` + `avatar`. Luồng đổi email qua OTP chưa nằm trong phạm vi Phase 1; khi triển khai OTP cần hạn ngắn (5-10 phút) và giới hạn số lần nhập sai (≤5 lần) để chống brute-force.
+1. Tìm user theo email; so khớp mật khẩu bằng bcrypt.
+2. Sai email **hoặc** sai mật khẩu → cùng một lỗi `401` `"Email hoặc mật khẩu không chính xác"` (không tiết lộ email tồn tại).
+3. Tài khoản chỉ đăng nhập bằng Google (`passwordHash = null`) cũng nhận đúng lỗi `401` này khi thử đăng nhập mật khẩu.
+4. `isSuspended = true` → `403` `"Tài khoản của bạn đã bị tạm khóa"` (kiểm tra **sau** khi mật khẩu đúng).
+5. Ghi audit `USER_LOGIN`, cấp token, đặt cookie refresh token.
+
+### Response `200`
+
+```json
+{
+  "status": "success",
+  "message": "Đăng nhập thành công",
+  "data": {
+    "accessToken": "<jwt>",
+    "user": { "id": "uuid", "email": "...", "name": "...", "avatar": null, "systemRole": "USER", "emailVerified": false, "workspaces": [] }
+  }
+}
+```
+
+### Lỗi
+
+| Mã | Trường hợp |
+| :--- | :--- |
+| `401` | Sai email/mật khẩu |
+| `403` | Tài khoản bị tạm khoá |
+| `422` | Sai schema |
+| `429` | Sai quá 5 lần/15 phút cho cùng `IP:email` |
+
+---
+
+## 1.3. Đăng nhập Google (UC02b)
+
+`POST /auth/google` — công khai, dùng chung `authLimiter`.
+
+### Validation
+
+| Field | Ràng buộc |
+| :--- | :--- |
+| `idToken` | chuỗi không rỗng — Google ID token do frontend lấy từ Google Identity |
+
+### Xử lý
+
+1. Verify `idToken` với `google-auth-library` (`audience = GOOGLE_CLIENT_ID`). Token sai/hết hạn → `401` `"Xác thực tài khoản Google không hợp lệ"`.
+2. Thiếu email trong payload → `401` `"Không thể lấy thông tin email từ Google"`.
+3. **Bắt buộc `email_verified = true`** → nếu không, `401` `"Email Google chưa được xác minh"` (chống chiếm tài khoản khi liên kết theo email).
+4. Tìm user theo email (lowercase):
+   - **Chưa có** → tạo `User` (`authProvider = GOOGLE`, `googleId`, `avatar`, `emailVerified = true`, **không có `passwordHash`**) + workspace mặc định như đăng ký local.
+   - **Đã có, đang bị khoá** → `403`.
+   - **Đã có `googleId`** → đăng nhập luôn (không cập nhật avatar, không đối chiếu `sub` của token với `googleId` đã lưu).
+   - **Đã có nhưng chưa liên kết Google** → gắn `googleId`, giữ avatar cũ nếu có, đặt `emailVerified = true`. `authProvider` **giữ nguyên** (vẫn là `LOCAL` nếu tài khoản tạo bằng mật khẩu).
+5. Ghi audit `USER_GOOGLE_LOGIN`, cấp token, đặt cookie.
+
+### Response `200`
+
+Cùng cấu trúc `POST /auth/login`, message `"Đăng nhập Google thành công"`.
+
+---
+
+## 1.4. Đăng xuất (UC03)
+
+`POST /auth/logout` — yêu cầu `Authorization: Bearer <accessToken>`.
+
+- Body `{ "refreshToken": "..." }` **không bắt buộc và hiện không được dùng**; logout thu hồi theo **tài khoản**, không theo từng phiên.
+- Xử lý: tăng `User.tokenVersion` lên 1 → mọi access/refresh token cũ mất hiệu lực; xoá cookie `refreshToken`; ghi audit `USER_LOGOUT`.
+- Response `200` `"Đăng xuất thành công"` (không có `data`).
+
+---
+
+## 1.5. Refresh token (UC33)
+
+`POST /auth/refresh-token` — không cần access token.
+
+### Đầu vào
+
+Token lấy theo thứ tự: cookie `refreshToken` → `body.refreshToken`. Body là tuỳ chọn.
+
+### Xử lý & lỗi
+
+| Trường hợp | Kết quả |
+| :--- | :--- |
+| Không có token | `401` `"Refresh token không được để trống"` |
+| Token sai chữ ký/hết hạn | `401` `"Refresh token không hợp lệ hoặc đã hết hạn"` |
+| User không tồn tại hoặc `tokenVersion` khác token | `401` `"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại"` |
+| Tài khoản bị tạm khoá | `403` `"Tài khoản của bạn đã bị tạm khóa"` |
+
+Thành công: cấp **access token mới** và **refresh token mới** (cùng `tokenVersion`), ghi đè cookie.
+
+```json
+{
+  "status": "success",
+  "message": "Làm mới token thành công",
+  "data": { "accessToken": "<jwt>" }
+}
+```
+
+Không có rotation theo từng phiên hay phát hiện reuse: refresh token cũ vẫn dùng được cho tới khi hết hạn hoặc `tokenVersion` thay đổi.
+
+---
+
+## 1.6. Token, cookie & middleware xác thực
+
+### Token
+
+| Loại | Secret | Hạn mặc định | Payload |
+| :--- | :--- | :--- | :--- |
+| Access | `JWT_ACCESS_SECRET` | `JWT_ACCESS_EXPIRES_IN` = `15m` | `{ id, email, systemRole, tokenVersion }` |
+| Refresh | `JWT_REFRESH_SECRET` | `JWT_REFRESH_EXPIRES_IN` = `7d` | `{ id, tokenVersion }` |
+
+### Cookie refresh token
+
+`HttpOnly: true`; `Secure` + `SameSite=None` khi `NODE_ENV=production`, ngược lại `SameSite=Lax`; `path=/`; `maxAge` **cố định 7 ngày** (không đọc theo `JWT_REFRESH_EXPIRES_IN`).
+
+### `requireAuth`
+
+1. Thiếu header hoặc không đúng dạng `Bearer ` → `401` `"Vui lòng đăng nhập để tiếp tục"`.
+2. Verify JWT; sai/hết hạn → `401` `"Token không hợp lệ hoặc đã hết hạn"`.
+3. Nạp user từ DB **mỗi request**; không tồn tại → `401` `"Tài khoản không tồn tại"`.
+4. `isSuspended` → `403` `"Tài khoản của bạn đã bị tạm khóa"`; `tokenVersion` lệch → `401` `"Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại"`.
+5. Gán `req.user = { id, email, name, avatar, systemRole, tokenVersion, isSuspended, emailVerified }`.
+
+### `optionalAuth`
+
+Dùng cho `GET /invites/:token`: nếu có Bearer hợp lệ thì gán `req.user`; mọi lỗi token đều bị bỏ qua (chỉ log warn) và request tiếp tục như khách.
+
+---
+
+## 1.7. Hồ sơ cá nhân (UC32)
+
+### `GET /users/me`
+
+Yêu cầu `requireAuth`.
+
+```json
+{
+  "status": "success",
+  "message": "Lấy thông tin tài khoản thành công",
+  "data": {
+    "id": "uuid",
+    "email": "user@marka.vn",
+    "name": "Nguyễn Văn A",
+    "avatar": null,
+    "systemRole": "USER",
+    "emailVerified": false,
+    "workspaces": [ { "id": "uuid", "name": "...", "plan": "FREE", "role": "OWNER", "remainingCredit": 100, "monthlyQuota": 100 } ]
+  }
+}
+```
+
+- Không trả `passwordHash`, `googleId`, `tokenVersion`, `isSuspended`.
+- `workspaces` lấy từ toàn bộ `WorkspaceMember` của user (map qua `toWorkspaceSummary`); danh sách này **không lọc workspace đã xoá mềm** (khác với `GET /workspaces`) vì điều kiện xoá mềm không áp dụng cho dữ liệu nạp lồng qua `include`.
+
+### `PATCH /users/me`
+
+| Field | Ràng buộc |
+| :--- | :--- |
+| `name` | 2–100 ký tự, tuỳ chọn |
+| `avatar` | URL hợp lệ hoặc `null` (xoá avatar), tuỳ chọn |
+
+- **Không có upload avatar**: `avatar` là URL do client cung cấp, không đi qua Cloudinary.
+- Cả hai field đều tuỳ chọn; body rỗng vẫn hợp lệ (không có ràng buộc "ít nhất một field").
+- Ghi audit `USER_UPDATE_PROFILE`.
+- Response `200` trả subset: `{ id, email, name, avatar, systemRole, emailVerified, updatedAt }` — **không kèm `workspaces`**.
+
+---
+
+## 1.8. Đổi mật khẩu (UC04)
+
+`PATCH /users/me/password` — yêu cầu `requireAuth`.
+
+### Validation
+
+| Field | Ràng buộc |
+| :--- | :--- |
+| `oldPassword` | không rỗng |
+| `newPassword` | 8–100 ký tự, có ít nhất 1 chữ cái và 1 chữ số |
+
+### Xử lý & lỗi
+
+1. Không tìm thấy user → `404` `"Người dùng không tồn tại"`.
+2. `passwordHash = null` (tài khoản tạo bằng Google) → `400` `"Tài khoản liên kết mạng xã hội không thể đổi mật khẩu trực tiếp"`.
+3. Mật khẩu cũ sai → `401` `"Mật khẩu cũ không chính xác"`.
+4. Hash mật khẩu mới, cập nhật DB, **tăng `tokenVersion`** → mọi token cũ (kể cả access token đang dùng) hết hiệu lực ở request kế tiếp; ghi audit `USER_CHANGE_PASSWORD`.
+5. Response `200`: `"Đổi mật khẩu thành công. Vui lòng đăng nhập lại trên các thiết bị khác"` (không có `data`).
+
+Không kiểm tra `newPassword` khác `oldPassword`, không có OTP/email xác nhận.
+
+---
+
+## 1.9. Workspace (UC16, UC17, UC18, UC35)
+
+### `POST /workspaces` (UC16)
+
+Yêu cầu `requireAuth`.
+
+| Field | Ràng buộc |
+| :--- | :--- |
+| `name` | 2–100 ký tự, `trim` |
+
+- Trùng tên với workspace khác **cùng owner** (chưa xoá mềm) → `409` `"Bạn đã có workspace trùng tên này"`.
+- Transaction: tạo `Workspace` + `WorkspaceMember(role = OWNER, allowDirectPublish = true)`.
+- Ghi audit `WORKSPACE_CREATE`.
+- Response `201` trả `WorkspaceSummary`: `{ id, name, plan, role, remainingCredit, monthlyQuota }`.
+
+### `GET /workspaces` (UC35)
+
+Yêu cầu `requireAuth`. Trả các workspace user là thành viên, **bỏ qua workspace đã xoá mềm**, sắp xếp theo ngày tham gia tăng dần.
+
+```json
+{ "status": "success", "message": "Lấy danh sách workspace thành công", "data": { "workspaces": [ { "id": "uuid", "name": "...", "plan": "FREE", "role": "OWNER", "remainingCredit": 100, "monthlyQuota": 100 } ] } }
+```
+
+### `PATCH /workspaces/:workspaceId` (UC17)
+
+Yêu cầu `requireAuth` + `OWNER`.
+
+| Field | Ràng buộc |
+| :--- | :--- |
+| `name` | 2–100 ký tự, tuỳ chọn |
+
+- Body phải có `name` → nếu không: `422` `"Cần cung cấp tên workspace để cập nhật"`.
+- Workspace không tồn tại/đã xoá → `404` `"Workspace không tồn tại"`.
+- **Không kiểm tra trùng tên khi cập nhật** (chỉ kiểm tra lúc tạo).
+- Ghi audit `WORKSPACE_UPDATE` với `metadata` là body.
+- Response `200`: `{ id, name, plan, remainingCredit, monthlyQuota }` — **không có `role`**.
+
+### `DELETE /workspaces/:workspaceId` (UC18)
+
+Yêu cầu `requireAuth` + `OWNER`.
+
+- Transaction: chuyển toàn bộ `ChannelConnection` chưa `EXPIRED` sang `EXPIRED`, đặt `Workspace.deletedAt = now`.
+- **Xoá mềm**: thành viên, lời mời, bài viết, media vẫn còn trong DB nhưng workspace không còn hiện ở `GET /workspaces` và các API có kiểm tra workspace (sửa/xoá workspace, thành viên, Brand Voice, lời mời) trả `404`. API bài viết/kênh chỉ kiểm tra membership nên thành viên cũ vẫn gọi được nếu còn `workspaceId` — xem ghi chú ở [02](./02-content-media.md#29-lỗi-thường-gặp).
+- Ghi audit `WORKSPACE_DELETE` (bản ghi này **không kèm `workspaceId`** vì workspace đã bị xoá mềm).
+- Response `200`: `data = { "success": true }`.
+- Không có endpoint khôi phục.
+
+### Logo workspace (đã bỏ)
+
+> Workspace dùng icon mặc định ở frontend; không còn endpoint upload logo, không còn audit `WORKSPACE_LOGO_UPDATE`. Cột `Workspace.logo` đã được xoá khỏi `schema.prisma` bằng migration `remove_workspace_logo`.
+
+---
+
+## 1.10. Thành viên workspace (UC19, UC22, UC23, UC36)
+
+### `GET /workspaces/:workspaceId/members` (UC19)
+
+Yêu cầu `requireAuth` + là thành viên (không giới hạn vai trò).
+
+```json
+{
+  "status": "success",
+  "message": "Lấy danh sách thành viên thành công",
+  "data": {
+    "members": [
+      { "memberId": "uuid", "userId": "uuid", "name": "Nguyễn Văn A", "email": "user@marka.vn", "avatar": null, "role": "OWNER", "allowDirectPublish": true, "status": "ACTIVE", "joinedAt": "2026-10-20T12:00:00.000Z" }
+    ],
+    "pendingInvites": [
+      { "inviteId": "uuid", "email": "member@marka.vn", "role": "CONTENT_CREATOR", "status": "PENDING", "invitedAt": "2026-10-20T12:00:00.000Z", "expiresAt": "2026-10-27T12:00:00.000Z" }
+    ]
+  }
+}
+```
+
+- `members` sắp xếp theo ngày tham gia tăng dần; `status` luôn là `"ACTIVE"` (giá trị cố định, không lưu DB).
+- `pendingInvites` chỉ gồm lời mời `isUsed = false` và còn hạn, mới nhất trước.
+- **`memberId` là id bản ghi `WorkspaceMember`**, còn hai API sửa/xoá bên dưới nhận **`userId`** ở cùng vị trí path — client phải dùng đúng trường.
+
+### `DELETE /workspaces/:workspaceId/members/me` (UC22)
+
+Yêu cầu `requireAuth` + là thành viên.
+
+- Không phải thành viên → `404` `"Bạn không phải là thành viên của workspace này"`.
+- Là `OWNER` và là Owner duy nhất → `409` `"Bạn là Owner duy nhất. Hãy chuyển quyền hoặc xóa workspace"`.
+- Xoá bản ghi `WorkspaceMember`, ghi audit `MEMBER_LEFT`; response `200` `{ success: true }`.
+
+### `DELETE /workspaces/:workspaceId/members/:memberId` (UC23)
+
+Yêu cầu `requireAuth` + `OWNER`; `:memberId` là **userId**.
+
+- Không phải thành viên → `404` `"Thành viên không tồn tại trong workspace"`.
+- Xoá Owner cuối cùng → `409` `"Không thể xóa Owner duy nhất của workspace"`.
+- Xoá membership, ghi audit `MEMBER_REMOVED`; response `200` `{ "removedMemberId": "<userId>" }`.
+- **Không** chặn Owner tự xoá chính mình nếu còn Owner khác.
+
+### `PATCH /workspaces/:workspaceId/members/:memberId` (UC36)
+
+Yêu cầu `requireAuth` + `OWNER`; `:memberId` là **userId**.
+
+| Field | Ràng buộc |
+| :--- | :--- |
+| `role` | `OWNER` hoặc `CONTENT_CREATOR` |
+
+- Không phải thành viên → `404` `"Thành viên không tồn tại trong workspace"`.
+- Vai trò mới trùng vai trò cũ → trả luôn `{ memberId, userId, role }` (không ghi audit).
+- Hạ vai trò Owner cuối cùng (`OWNER → CONTENT_CREATOR` khi chỉ còn 1 Owner) → `409` `"Không thể hạ vai trò Owner duy nhất của workspace"`.
+- Ghi audit `MEMBER_ROLE_CHANGED` (`metadata { from, to }`).
+- **Không** cập nhật `allowDirectPublish` khi đổi vai trò.
+
+---
+
+## 1.11. Lời mời tham gia (UC20, UC21)
+
+### `POST /workspaces/:workspaceId/invites` (UC20)
+
+Yêu cầu `requireAuth` + `OWNER`.
+
+| Field | Ràng buộc |
+| :--- | :--- |
+| `email` | email hợp lệ, `trim`, lowercase, ≤ 255 |
+| `role` | `OWNER` hoặc `CONTENT_CREATOR`, mặc định `CONTENT_CREATOR` |
+
+Xử lý theo thứ tự:
+
+1. Workspace không tồn tại/đã xoá → `404` `"Workspace không tồn tại"`.
+2. Nếu email đã có tài khoản và đã là thành viên → `409` `"Email này đã là thành viên của workspace"`.
+3. Tìm lời mời đang chờ cùng email (`isUsed = false`, còn hạn):
+   - Có → sẽ **cấp lại token + hạn mới** (token cũ hết hiệu lực), cập nhật luôn `role`.
+   - Chưa → tạo lời mời mới.
+4. Token = `randomUUID()`, hạn **7 ngày**, link `${APP_BASE_URL}/invites/<token>`.
+5. **Gửi email trước, lưu DB sau**: gửi thất bại (Resend lỗi hoặc chưa cấu hình `RESEND_API_KEY`) → `502` `"Gửi email mời thất bại. Vui lòng thử lại."` và **không** tạo/cập nhật lời mời.
+6. Ghi audit `MEMBER_INVITED` (`metadata { email, role, resent }`).
+
+Response `201`:
+
+```json
+{
+  "status": "success",
+  "message": "Đã tạo lời mời tham gia workspace",
+  "data": {
+    "invite": { "inviteId": "uuid", "email": "member@marka.vn", "role": "CONTENT_CREATOR", "expiresAt": "2026-10-27T12:00:00.000Z" },
+    "inviteUrl": "http://localhost:5173/invites/<token>"
+  }
+}
+```
+
+`inviteUrl` được trả về để tiện test/dev; trong production link thật nằm trong email.
+
+### `GET /invites/:token` (UC21)
+
+Công khai, dùng `optionalAuth` (có thể gọi khi chưa đăng nhập).
+
+Thứ tự kiểm tra & lỗi:
+
+| Trường hợp | Kết quả |
+| :--- | :--- |
+| Token không tồn tại hoặc workspace đã xoá mềm | `404` `"Lời mời không tồn tại"` |
+| `isUsed = true` | `409` `"Lời mời đã được sử dụng"` |
+| `expiresAt < now` | `409` `"Lời mời đã hết hạn"` |
+| Chưa đăng nhập | `200` `{ requiresRegistration: true, email, workspaceName }` |
+| Đã đăng nhập nhưng email khác email được mời | `403` `"Lời mời này dành cho một email khác"` |
+| Đã là thành viên workspace | `200`, đánh dấu lời mời đã dùng, `{ workspaceId, workspaceName, alreadyMember: true }` |
+| Hợp lệ | Tham gia workspace, `{ workspaceId, workspaceName }` |
+
+Khi tham gia thành công (nhánh cuối):
+
+- Transaction đánh dấu `isUsed = true` + tạo `WorkspaceMember` (kèm `allowDirectPublish = role === 'OWNER'`); nếu lời mời đã bị dùng đồng thời ở request khác thì trả `409` `"Lời mời đã được sử dụng"`.
+- Ghi audit `MEMBER_JOINED`.
+- Tạo notification `MEMBER_JOINED` cho **các Owner còn lại** (trừ người vừa tham gia) với `payload { workspaceId, userId, role }`. Không gửi email cho sự kiện này.
+
+Luồng chưa đăng nhập: frontend nhận `requiresRegistration` → chuyển sang trang đăng ký → sau khi đăng ký, gọi lại endpoint này bằng token mới.
+
+---
+
+## 1.12. Bảng tổng hợp endpoint
+
+| Method | Path | Xác thực | Vai trò |
+| :--- | :--- | :--- | :--- |
+| POST | `/auth/register` | — | — |
+| POST | `/auth/login` | — | — |
+| POST | `/auth/google` | — | — |
+| POST | `/auth/logout` | Bearer | User |
+| POST | `/auth/refresh-token` | Cookie/body | — |
+| GET | `/users/me` | Bearer | User |
+| PATCH | `/users/me` | Bearer | User |
+| PATCH | `/users/me/password` | Bearer | User |
+| POST | `/workspaces` | Bearer | User |
+| GET | `/workspaces` | Bearer | User |
+| PATCH | `/workspaces/:workspaceId` | Bearer | OWNER |
+| DELETE | `/workspaces/:workspaceId` | Bearer | OWNER |
+| GET | `/workspaces/:workspaceId/members` | Bearer | Thành viên |
+| DELETE | `/workspaces/:workspaceId/members/me` | Bearer | Thành viên |
+| PATCH | `/workspaces/:workspaceId/members/:memberId` | Bearer | OWNER |
+| DELETE | `/workspaces/:workspaceId/members/:memberId` | Bearer | OWNER |
+| POST | `/workspaces/:workspaceId/invites` | Bearer | OWNER |
+| GET | `/invites/:token` | Optional | — |
+
+---
+
+## 1.13. Audit log phát sinh trong phân hệ
+
+| Action | Khi nào | `targetType` |
+| :--- | :--- | :--- |
+| `USER_REGISTER` | Đăng ký local | `User` |
+| `USER_LOGIN` / `USER_GOOGLE_LOGIN` | Đăng nhập | `User` |
+| `USER_LOGOUT` | Logout | `User` |
+| `USER_UPDATE_PROFILE` | Cập nhật hồ sơ | `User` |
+| `USER_CHANGE_PASSWORD` | Đổi mật khẩu | `User` |
+| `WORKSPACE_CREATE` / `WORKSPACE_UPDATE` / `WORKSPACE_DELETE` | Thao tác workspace | `Workspace` |
+| `MEMBER_INVITED` | Gửi/gửi lại lời mời | `WorkspaceInvite` |
+| `MEMBER_JOINED` | Chấp nhận lời mời | `WorkspaceMember` |
+| `MEMBER_LEFT` / `MEMBER_REMOVED` / `MEMBER_ROLE_CHANGED` | Rời/xoá/đổi vai trò | `WorkspaceMember` |
+
+Chưa có endpoint đọc audit log (xem [07](./07-admin-analytics.md)).
+
+---
+
+## 1.14. Chưa triển khai (Roadmap)
+
+- **UC34 — xác thực email:** cột `User.emailVerified` đã có (Google = `true`, local = `false`) nhưng không có gửi OTP/link xác thực, không chặn đăng nhập khi chưa xác thực.
+- Quên mật khẩu / đặt lại mật khẩu qua email.
+- Upload avatar người dùng (hiện chỉ nhận URL).
+- Đổi email (cần OTP), xoá tài khoản.
+- Quản trị user: khoá/mở khoá (`isSuspended` có trong schema nhưng không có API), đổi `systemRole`.
+- Refresh token rotation & phát hiện reuse theo từng phiên.
+- 2FA, đăng nhập mạng xã hội khác ngoài Google.

@@ -1,421 +1,368 @@
-# Bảng Test Cases — Hệ thống Marka
+# Bộ test case — Marka Backend
 
-> Tài liệu kiểm thử chức năng cho toàn bộ các API của hệ thống Marka.  
-> Cột **Dữ liệu đầu ra thực tế** và **Trạng thái** sẽ được điền trong quá trình kiểm thử thực tế.
+> Tài liệu lập từ **test tự động có thật** trong repo, không phải từ đề xuất tính năng.
+> Nguồn đối chiếu: `backend/src/**/*.test.ts`, `backend/src/routes/index.ts`, `docs/api_documentation.md`.
+> Cập nhật: 2026-10-20. Tổng: **134 test case** trong **11 file**.
 
----
+## 1. Bảng tổng hợp
 
-## Phân hệ 1 — Auth & Workspace
+| # | Module / nhóm | Số test | File test |
+|---|---------------|---------|-----------|
+| 1 | Auth, RBAC, refresh/logout (UC01–UC03, UC33) | 12 | `backend/src/modules/auth/auth.test.ts` |
+| 2 | Google login | 3 | `backend/src/modules/auth/auth.google.test.ts` |
+| 3 | User — hồ sơ & mật khẩu (UC04, UC32) | 4 | `backend/src/modules/user/user.test.ts` |
+| 4 | Workspace, thành viên, lời mời (UC16–UC23, UC35, UC36) | 21 | `backend/src/modules/workspace/workspace.test.ts` |
+| 5 | Brand Voice (UC24–UC26) | 12 | `backend/src/modules/brandvoice/brandvoice.test.ts` |
+| 6 | Channel & Facebook OAuth (UC27–UC29) | 21 | `backend/src/modules/channel/channel.test.ts` |
+| 7 | Post, media, gửi duyệt & duyệt bài (UC05, UC07–UC11, UC14, UC37) | 51 | `backend/src/modules/post/post.test.ts` |
+| 8 | Health check | 1 | `backend/src/modules/health/health.test.ts` |
+| 9 | Queue Manager (BullMQ) | 6 | `backend/src/workers/queue-manager.test.ts` |
+| 10 | Middleware `enforceHttps` | 2 | `backend/src/middlewares/enforceHttps.test.ts` |
+| 11 | Swagger spec | 1 | `backend/src/config/swagger.test.ts` |
+| **Tổng** | | **134** | |
 
-### UC01 — Đăng ký tài khoản (`POST /auth/register`)
+Ghi chú:
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 1.1 | Đăng ký thành công với thông tin hợp lệ | `{ "email": "user@test.com", "password": "Abc@12345", "name": "Test User" }` | HTTP 201, trả về `{ accessToken, user }` (tự động đăng nhập), Set-Cookie `refreshToken` | | |
-| 1.2 | Đăng ký thất bại — email đã tồn tại | `{ "email": "existed@test.com", "password": "Abc@12345", "name": "Test User" }` | HTTP 409, `{ "message": "Email này đã được đăng ký trong hệ thống" }` | | |
-| 1.3 | Đăng ký thất bại — email sai định dạng | `{ "email": "not-an-email", "password": "Abc@12345", "name": "Test User" }` | HTTP 422, lỗi validation email | | |
-| 1.4 | Đăng ký thất bại — thiếu trường bắt buộc (`name`) | `{ "email": "user2@test.com", "password": "Abc@12345" }` | HTTP 422, lỗi validation thiếu trường | | |
-| 1.5 | Đăng ký thất bại — mật khẩu quá ngắn (< 8 ký tự) | `{ "email": "user3@test.com", "password": "123", "name": "Test" }` | HTTP 422, lỗi validation password | | |
-
----
-
-### UC02 — Đăng nhập (`POST /auth/login`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 2.1 | Đăng nhập thành công với thông tin đúng | `{ "email": "user@test.com", "password": "Abc@12345" }` | HTTP 200, trả về `{ accessToken, user }`; refreshToken nằm trong HttpOnly Cookie (không lộ trong JSON) | | |
-| 2.2 | Đăng nhập thất bại — email không tồn tại | `{ "email": "notfound@test.com", "password": "Abc@12345" }` | HTTP 401, `{ "message": "Email hoặc mật khẩu không chính xác" }` | | |
-| 2.3 | Đăng nhập thất bại — sai mật khẩu | `{ "email": "user@test.com", "password": "WrongPass!" }` | HTTP 401, `{ "message": "Email hoặc mật khẩu không chính xác" }` | | |
-| 2.4 | Đăng nhập thất bại — thiếu trường email | `{ "password": "Abc@12345" }` | HTTP 422, lỗi validation | | |
-| 2.5 | Thông báo lỗi sai email và sai mật khẩu phải giống nhau | Gọi TC 2.2 và TC 2.3 rồi so sánh body | Cả hai đều trả về `{ "message": "Email hoặc mật khẩu không chính xác" }` | | |
-
----
-
-### UC03 — Đăng xuất (`POST /auth/logout`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 3.1 | Đăng xuất thành công | Header: `Authorization: Bearer <access_token>`, Body: `{ "refreshToken": "<refresh_token>" }` | HTTP 200, `{ "status": "success", "message": "Đăng xuất thành công" }`, có Clear-Cookie header, `tokenVersion` tăng nên mọi token cũ bị vô hiệu hoá | | |
-| 3.2 | Đăng xuất không có token | Không có Authorization header | HTTP 401, lỗi unauthorized | | |
-| 3.3 | Dùng refresh token cũ sau khi đăng xuất | Sau TC 3.1, dùng lại `refresh_token` để refresh | HTTP 401, token cũ bị từ chối do `tokenVersion` đã thay đổi | | |
+- Test dùng **DB thật** (Prisma) và **Redis thật**; dữ liệu tạo/xoá theo `Date.now()` trong `beforeAll`/`afterAll`.
+- Mã test (`A01`, `W01`, `P01`…) do tài liệu đặt để tra cứu; **tên test giữ nguyên theo `it(...)`** trong code.
+- Endpoint trong bảng dùng tiền tố `/api/v1`.
+- Các test gắn nhãn `setup` là bước chuẩn bị dữ liệu, vẫn là test thật (có assert).
 
 ---
 
-### UC04 — Đổi mật khẩu (`PATCH /users/me/password`)
+## 2. Auth, phân quyền, refresh/logout
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 4.1 | Đổi mật khẩu thành công | Header: `Authorization: Bearer <token>`, Body: `{ "oldPassword": "Abc@12345", "newPassword": "NewPass@99" }` | HTTP 200, `{ "status": "success", "message": "Đổi mật khẩu thành công..." }`, mọi token cũ bị vô hiệu hoá do tăng `tokenVersion` | | |
-| 4.2 | Đổi mật khẩu thất bại — mật khẩu cũ sai | Header: `Authorization: Bearer <token>`, Body: `{ "oldPassword": "WrongOld!", "newPassword": "NewPass@99" }` | HTTP 401, `{ "message": "Mật khẩu cũ không chính xác" }` | | |
-| 4.3 | Đổi mật khẩu thất bại — không có token | Không có Authorization header | HTTP 401, lỗi unauthorized | | |
-| 4.4 | Đăng nhập lại bằng mật khẩu cũ sau khi đổi | Dùng mật khẩu cũ để login sau TC 4.1 | HTTP 401, đăng nhập thất bại | | |
+**File:** `backend/src/modules/auth/auth.test.ts`
 
----
+### 2.1. Đăng ký / đăng nhập (UC01, UC02)
 
-### UC32 — Cập nhật hồ sơ cá nhân (`PATCH /users/me`)
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| A01 | Báo lỗi 422 nếu dữ liệu đầu vào không hợp lệ | `POST /api/v1/auth/register` | `email: "invalid-email"`, `password: "123"`, `name: ""` | 422; `status = "fail"`; `errors` là mảng | `auth.test.ts` |
+| A02 | Đăng ký thành công tài khoản mới, tự động đăng nhập (201 Created) | `POST /api/v1/auth/register` | email/password/name hợp lệ | 201; có `accessToken`; `user.email`, `user.name` đúng; `workspaces[0].role = OWNER`, `monthlyQuota = 100`; body **không** có `refreshToken`; `Set-Cookie` có `refreshToken=` | `auth.test.ts` |
+| A03 | Báo lỗi 409 Conflict nếu email đã tồn tại | `POST /api/v1/auth/register` | email vừa đăng ký | 409; `status = "fail"`; message chứa `đã được đăng ký` | `auth.test.ts` |
+| A04 | Báo lỗi 401 nếu email không tồn tại | `POST /api/v1/auth/login` | email không có trong DB | 401; `status = "fail"`; message `Email hoặc mật khẩu không chính xác` | `auth.test.ts` |
+| A05 | Báo lỗi 401 nếu sai mật khẩu | `POST /api/v1/auth/login` | email đúng, `password: "wrong_password"` | 401; cùng message như A04 | `auth.test.ts` |
+| A06 | Đăng nhập thành công, ẩn refreshToken khỏi JSON và set HttpOnly Cookie (200 OK) | `POST /api/v1/auth/login` | email + mật khẩu đúng | 200; `accessToken`; `refreshToken` là `undefined` trong body; cookie `refreshToken` tồn tại | `auth.test.ts` |
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 5.1 | Cập nhật tên thành công | Header: `Authorization: Bearer <token>`, Body: `{ "name": "New Name" }` | HTTP 200, trả về `User` với tên mới | | |
-| 5.2 | Cập nhật ảnh đại diện thành công | Header: `Authorization: Bearer <token>`, Body: `{ "avatar": "https://example.com/avatar.png" }` | HTTP 200, trả về `User` với `avatar` mới | | |
-| 5.3 | Cập nhật không có token | Không có Authorization header | HTTP 401, lỗi unauthorized | | |
+### 2.2. RBAC (middleware `requireAuth`, `requireRoles`, `requireWorkspaceRole`)
 
----
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| A07 | Chặn người dùng thường truy cập API của SYSTEM_ADMIN (403 Forbidden) | App test `GET /test/admin` (`requireRoles('SYSTEM_ADMIN')`) | Bearer token user thường | 403 | `auth.test.ts` |
+| A08 | Cho phép OWNER truy cập tài nguyên của Workspace với header x-workspace-id | App test `GET /test/workspace/owner` | Bearer token + `x-workspace-id` = workspace của mình | 200; message `Owner access granted` | `auth.test.ts` |
+| A09 | Từ chối nếu người dùng là OWNER nhưng API yêu cầu role CONTENT_CREATOR riêng | App test `GET /test/workspace/creator` | Bearer token OWNER + `x-workspace-id` | 403 | `auth.test.ts` |
 
-## Phân hệ 1.2 — Workspace Management
+### 2.3. Refresh token & đăng xuất (UC33, UC03)
 
-### UC16 — Tạo Workspace (`POST /workspaces`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 6.1 | Tạo workspace thành công | Header: `Authorization: Bearer <token>`, Body: `{ "name": "My Workspace" }` | HTTP 201, trả về `Workspace`, người tạo có role OWNER | | |
-| 6.2 | Tạo workspace thất bại — tên đã tồn tại trong tài khoản | Body: `{ "name": "My Workspace" }` (tên trùng TC 6.1) | HTTP 409, `{ "message": "Workspace name already exists" }` | | |
-| 6.3 | Tạo workspace với logo | Body: `{ "name": "Logo WS", "logo": "https://example.com/logo.png" }` | HTTP 201, trả về `Workspace` có `logo` | | |
-| 6.4 | Tạo workspace không có token | Không có Authorization header | HTTP 401, lỗi unauthorized | | |
-
----
-
-### UC17 — Cập nhật Workspace (`PATCH /workspaces/:id`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 7.1 | Cập nhật tên workspace thành công | Path: `/workspaces/<id>`, Body: `{ "name": "Updated Name" }` (owner token) | HTTP 200, trả về `Workspace` với tên mới | | |
-| 7.2 | Cập nhật thất bại — không phải owner | Path: `/workspaces/<id>`, Body: `{ "name": "Hacked" }` (member token) | HTTP 403, lỗi phân quyền | | |
-| 7.3 | Cập nhật workspace không tồn tại | Path: `/workspaces/invalid-id` | HTTP 404, workspace không tìm thấy | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| A10 | Báo lỗi 401 nếu refresh token không hợp lệ | `POST /api/v1/auth/refresh-token` | body `{ refreshToken: "invalid_token" }` | 401 | `auth.test.ts` |
+| A11 | Cấp lại access token mới qua HttpOnly Cookie thành công | `POST /api/v1/auth/refresh-token` | Cookie `refreshToken=<token thật>` | 200; có `accessToken` mới; body không có `refreshToken`; cookie refresh mới được set | `auth.test.ts` |
+| A12 | Đăng xuất thành công, xóa cookie và vô hiệu hóa token cũ (200 OK) | `POST /api/v1/auth/logout` → `GET /api/v1/users/me` | Bearer token hiện tại | 200; message `Đăng xuất thành công`; gọi lại `/users/me` bằng token cũ trả 401 | `auth.test.ts` |
 
 ---
 
-### UC18 — Xoá Workspace (`DELETE /workspaces/:id`)
+## 3. Google login
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 8.1 | Xoá workspace thành công | Path: `/workspaces/<id>` (owner token) | HTTP 200, `{ "success": true }`, workspace bị soft-delete (`deletedAt` != null) | | |
-| 8.2 | Xoá thất bại — không phải owner | Path: `/workspaces/<id>` (member token) | HTTP 403, lỗi phân quyền | | |
-| 8.3 | Kiểm tra channel connections sau khi xoá workspace | Sau TC 8.1, kiểm tra DB | Tất cả channel connections chuyển trạng thái EXPIRED | | |
+**File:** `backend/src/modules/auth/auth.google.test.ts` (mock `google-auth-library`)
 
----
-
-### UC19 — Xem danh sách thành viên (`GET /workspaces/:id/members`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 9.1 | Xem danh sách thành viên thành công | Path: `/workspaces/<id>` (member token) | HTTP 200, `{ "members": [...], "pendingInvites": [...] }` | | |
-| 9.2 | Xem thất bại — không phải thành viên workspace | Path: `/workspaces/<id>` (outsider token) | HTTP 403, lỗi phân quyền | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| G01 | Từ chối email Google chưa xác minh (401), không liên kết tài khoản có sẵn | `POST /api/v1/auth/google` | payload `email_verified: false`, email trùng tài khoản local | 401; `user.googleId` trong DB vẫn `null` | `auth.google.test.ts` |
+| G02 | Chuẩn hóa email Google về chữ thường khi tìm tài khoản | `POST /api/v1/auth/google` | payload email viết HOA, `email_verified: true`, email đã tồn tại | 200; `user.email` là email local chữ thường | `auth.google.test.ts` |
+| G03 | Tạo tài khoản mới kèm workspace mặc định | `POST /api/v1/auth/google` | email mới + `email_verified: true` | 200; `workspaces` có đúng 1 phần tử; role `OWNER` | `auth.google.test.ts` |
 
 ---
 
-### UC20 — Mời thành viên (`POST /workspaces/:id/invites`)
+## 4. User — hồ sơ & mật khẩu
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 10.1 | Mời thành viên mới thành công | Path: `/workspaces/<id>/invites`, Body: `{ "email": "newmember@test.com", "role": "CONTENT_CREATOR" }` (owner token) | HTTP 201, trả về `Invite`, email mời được gửi | | |
-| 10.2 | Mời thất bại — email đã là thành viên | Body: `{ "email": "existedmember@test.com", "role": "CONTENT_CREATOR" }` | HTTP 409, `{ "message": "User is already a member" }` | | |
-| 10.3 | Mời thất bại — không phải owner | Body: `{ "email": "new@test.com", "role": "CONTENT_CREATOR" }` (member token) | HTTP 403, lỗi phân quyền | | |
+**File:** `backend/src/modules/user/user.test.ts`
 
----
-
-### UC21 — Chấp nhận lời mời (`GET /invites/:token`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 11.1 | Chấp nhận lời mời — đã có tài khoản | Path: `/invites/<valid_token>` (đã đăng nhập) | HTTP 200, `{ "workspaceId": "..." }`, user được thêm vào workspace, owner nhận thông báo | | |
-| 11.2 | Chấp nhận lời mời — chưa có tài khoản | Path: `/invites/<valid_token>` (chưa đăng nhập) | HTTP 302, redirect đến `/register?inviteToken=...` | | |
-| 11.3 | Chấp nhận lời mời — token không hợp lệ | Path: `/invites/invalid-token` | HTTP 400 hoặc 404, token không tìm thấy | | |
-| 11.4 | Chấp nhận lời mời đã dùng | Path: `/invites/<used_token>` | HTTP 400 hoặc 409, token đã được sử dụng | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| U01 | GET /api/v1/users/me - Lấy thông tin tài khoản hiện tại | `GET /api/v1/users/me` | Bearer token | 200; `status = "success"`; `email`, `name` khớp DB | `user.test.ts` |
+| U02 | PATCH /api/v1/users/me - Cập nhật thông tin profile | `PATCH /api/v1/users/me` | `{ name: "Nguyễn Văn Đã Đổi Tên" }` | 200; `data.name` là tên mới | `user.test.ts` |
+| U03 | PATCH /api/v1/users/me/password - Báo lỗi nếu sai mật khẩu cũ | `PATCH /api/v1/users/me/password` | `oldPassword: "wrong_password"`, `newPassword: "newPassword456"` | 401 | `user.test.ts` |
+| U04 | PATCH /api/v1/users/me/password - Đổi mật khẩu thành công | `PATCH /api/v1/users/me/password` | mật khẩu cũ đúng | 200; message chứa `Đổi mật khẩu thành công` | `user.test.ts` |
 
 ---
 
-### UC22 — Rời workspace (`DELETE /workspaces/:id/members/me`)
+## 5. Workspace, thành viên & lời mời
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 12.1 | Rời workspace thành công (thành viên thường) | Path: `/workspaces/<id>/members/me` (member token) | HTTP 200, `{ "success": true }` | | |
-| 12.2 | Rời thất bại — là owner duy nhất | Path: `/workspaces/<id>/members/me` (sole owner token) | HTTP 409, `{ "message": "Cannot leave as sole owner" }` | | |
+**File:** `backend/src/modules/workspace/workspace.test.ts` (mock `mailerClient.sendEmail`)
 
----
-
-### UC23 — Xoá thành viên (`DELETE /workspaces/:id/members/:memberId`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 13.1 | Xoá thành viên thành công | Path: `/workspaces/<id>/members/<memberId>` (owner token) | HTTP 200, `{ "removedMemberId": "..." }` | | |
-| 13.2 | Xoá thất bại — actor không đủ quyền | Path: `/workspaces/<id>/members/<memberId>` (member token) | HTTP 403, `{ "message": "Only owner/admin can remove members" }` | | |
-| 13.3 | Xoá thất bại — xoá owner duy nhất | Path: `/workspaces/<id>/members/<ownerId>`, chỉ còn 1 owner | HTTP 409, `{ "message": "Cannot remove the sole owner" }` | | |
-
----
-
-## Phân hệ 2 — Nội dung & Media
-
-### UC05 — Tạo bài viết (`POST /posts`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 14.1 | Tạo bài viết thành công | Header: `Authorization: Bearer <token>`, Body: `{ "workspaceId": "<id>", "title": "Test Post", "content": "Nội dung bài test", "mediaUrls": [] }` | HTTP 201, trả về `Post` với trạng thái `DRAFT` | | |
-| 14.2 | Tạo bài viết kèm ảnh | Body: `{ ..., "mediaUrls": ["https://example.com/img.jpg"] }` | HTTP 201, trả về `Post` có `mediaUrls` | | |
-| 14.3 | Tạo bài viết thiếu workspaceId | Body: `{ "title": "Test", "content": "..." }` | HTTP 422, lỗi validation | | |
-
----
-
-### UC07 — Cập nhật bài viết (`PATCH /posts/:id`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 15.1 | Cập nhật bài viết ở trạng thái DRAFT thành công | Path: `/posts/<id>`, Body: `{ "title": "Updated Title" }` | HTTP 200, trả về `Post` với tiêu đề mới | | |
-| 15.2 | Cập nhật bài viết ở trạng thái PENDING thành công | Bài viết đang PENDING, Body: `{ "content": "Nội dung mới" }` | HTTP 200, trả về `Post` đã cập nhật | | |
-| 15.3 | Cập nhật thất bại — bài đã PUBLISHED | Path: `/posts/<published_id>`, Body: `{ "title": "Sửa" }` | HTTP 403, `{ "message": "Post cannot be edited" }` | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| W01 | UC35 — Đăng ký owner và tạo workspace mặc định | `POST /api/v1/auth/register` | owner mới | 201; `workspaces[0].role = OWNER` | `workspace.test.ts` |
+| W02 | UC16 — Tạo workspace mới thành công (201) | `POST /api/v1/workspaces` | `{ name: "WS Test <stamp>" }` | 201; `data.name` đúng; `data.role = OWNER` | `workspace.test.ts` |
+| W03 | UC16 — Báo lỗi 409 khi tạo trùng tên workspace | `POST /api/v1/workspaces` | trùng `name` với W02 | 409; `status = "fail"` | `workspace.test.ts` |
+| W04 | UC16 — Báo lỗi 422 khi tên không hợp lệ | `POST /api/v1/workspaces` | `{ name: "x" }` | 422 | `workspace.test.ts` |
+| W05 | UC35 — Danh sách workspace chứa workspace vừa tạo | `GET /api/v1/workspaces` | Bearer owner | 200; danh sách chứa cả workspace mặc định và workspace vừa tạo | `workspace.test.ts` |
+| W06 | UC17 — Cập nhật tên workspace thành công (200) | `PATCH /api/v1/workspaces/:workspaceId` | `{ name: "<tên> Updated" }` | 200; `data.name` là tên mới | `workspace.test.ts` |
+| W07 | UC19 — Xem thành viên: ban đầu chỉ có Owner | `GET /api/v1/workspaces/:workspaceId/members` | Bearer owner | 200; 1 member role `OWNER`; `pendingInvites` rỗng | `workspace.test.ts` |
+| W08 | UC20 — Mời thành viên thành công, trả invite token (201) | `POST /api/v1/workspaces/:workspaceId/invites` | `{ email, role: "CONTENT_CREATOR" }` | 201; `invite.email` đúng; `inviteUrl` chứa `/invites/` | `workspace.test.ts` |
+| W09 | UC20 — Mời lại email đang chờ: cấp token mới, token cũ hết hiệu lực (201) | `POST .../invites` + `GET /api/v1/invites/:oldToken` | mời lại cùng email | 201; token mới khác token cũ; token cũ trả 404 | `workspace.test.ts` |
+| W10 | UC20 — Gửi email thất bại: báo lỗi 502 và không lưu lời mời | `POST .../invites` | `mailerClient.sendEmail` mock trả `false` | 502; `pendingInvites` **không** chứa email vừa mời | `workspace.test.ts` |
+| W11 | UC21 — Khách chưa đăng nhập xem lời mời cần đăng ký | `GET /api/v1/invites/:token` | không gửi token đăng nhập | 200; `requiresRegistration = true`; `email` đúng | `workspace.test.ts` |
+| W12 | UC21 — Đăng ký member rồi chấp nhận lời mời thành công (200) | `POST /auth/register` + `GET /api/v1/invites/:token` | member mới + Bearer token | Đăng ký 201; xem lời mời 200; `workspaceId` đúng workspace được mời | `workspace.test.ts` |
+| W13 | UC21 — Dùng lại token đã dùng báo lỗi 409 | `GET /api/v1/invites/:token` | token đã chấp nhận | 409 | `workspace.test.ts` |
+| W14 | UC19 — Sau khi tham gia có 2 thành viên | `GET .../members` | Bearer owner | 200; 2 member; có role `CONTENT_CREATOR` | `workspace.test.ts` |
+| W15 | RBAC — Content Creator không được cập nhật workspace (403) | `PATCH /api/v1/workspaces/:workspaceId` | Bearer CONTENT_CREATOR, `{ name: "Hack name" }` | 403 | `workspace.test.ts` |
+| W16 | UC36 — Owner đổi vai trò member thành OWNER (200) | `PATCH .../members/:memberId` | `{ role: "OWNER" }` | 200; `data.role = OWNER` | `workspace.test.ts` |
+| W17 | UC36 — Không thể hạ Owner duy nhất (409) | `PATCH .../members/:memberId` | workspace chỉ có 1 owner, `{ role: "CONTENT_CREATOR" }` | 409 | `workspace.test.ts` |
+| W18 | UC23 — Owner xóa thành viên (200) | `DELETE .../members/:memberId` | memberId của CONTENT_CREATOR | 200; `data.removedMemberId` đúng | `workspace.test.ts` |
+| W19 | UC22 — Owner duy nhất không thể rời workspace (409) | `DELETE .../members/me` | Bearer sole owner | 409 | `workspace.test.ts` |
+| W20 | UC18 — Xóa mềm workspace và ẩn khỏi danh sách (200) | `DELETE /api/v1/workspaces/:workspaceId` + `GET /workspaces` | Bearer owner | 200; workspace không còn trong danh sách | `workspace.test.ts` |
+| W21 | UC18 — Workspace đã xóa trả 404 khi truy cập thành viên | `GET .../members` | workspace vừa xoá | 404 | `workspace.test.ts` |
 
 ---
 
-### UC08 — Xem chi tiết bài viết (`GET /posts/:id`)
+## 6. Brand Voice
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 16.1 | Xem chi tiết bài viết thành công | Path: `/posts/<id>` (member token) | HTTP 200, `{ "post": {...}, "history": [...], "schedules": [...] }` | | |
-| 16.2 | Xem bài viết không tồn tại | Path: `/posts/invalid-id` | HTTP 404, bài viết không tìm thấy | | |
+**File:** `backend/src/modules/brandvoice/brandvoice.test.ts`
 
----
-
-### UC09 — Tìm kiếm bài viết (`GET /posts`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 17.1 | Lấy tất cả bài viết trong workspace | Query: `?workspaceId=<id>` | HTTP 200, `{ "posts": [...], "total": N }` | | |
-| 17.2 | Tìm kiếm theo từ khoá | Query: `?workspaceId=<id>&keyword=test` | HTTP 200, danh sách bài có chứa "test" | | |
-| 17.3 | Lọc theo trạng thái DRAFT | Query: `?workspaceId=<id>&status=DRAFT` | HTTP 200, chỉ trả về bài có trạng thái DRAFT | | |
-| 17.4 | Phân trang | Query: `?workspaceId=<id>&page=1&limit=5` | HTTP 200, tối đa 5 bài, có trường `total` | | |
-| 17.5 | Thiếu workspaceId | Không có query param | HTTP 422, lỗi validation | | |
-
----
-
-### UC10 — Xoá bài viết (`DELETE /posts/:id`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 18.1 | Xoá bài viết DRAFT thành công | Path: `/posts/<id>` (creator token) | HTTP 200, `{ "success": true }`, bài viết bị soft-delete | | |
-| 18.2 | Xoá bài viết đang SCHEDULED — job bị huỷ | Path: `/posts/<scheduled_id>` (owner token) | HTTP 200, `{ "success": true }`, job BullMQ bị huỷ | | |
-| 18.3 | Xoá thất bại — không có quyền | Path: `/posts/<id>` (member không phải creator/owner) | HTTP 403, lỗi phân quyền | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| B01 | UC26 — Creator xem Brand Voice khi chưa cấu hình (200, chưa thiết lập) | `GET .../brand-voice` | Bearer CONTENT_CREATOR | 200; `brandVoice = null`; `isConfigured = false` | `brandvoice.test.ts` |
+| B02 | UC24 — Owner tạo Brand Voice lần đầu (200) | `PUT .../brand-voice` | industry, targetAudience, writingStyle, keywords, 1 fewShotExample | 200; `isConfigured = true`; `brandVoice` bằng payload | `brandvoice.test.ts` |
+| B03 | UC26 — Creator xem đúng cấu hình Owner vừa lưu | `GET .../brand-voice` | Bearer CONTENT_CREATOR | 200; `brandVoice` bằng cấu hình ở B02 | `brandvoice.test.ts` |
+| B04 | UC25 — Owner cập nhật Brand Voice: dữ liệu cũ bị thay thế, không nhân bản | `PUT .../brand-voice` | payload mới (mỹ phẩm, 18–25 tuổi) | 200; response và `workspace.brandVoice` trong DB đều bằng payload mới | `brandvoice.test.ts` |
+| B05 | UC24 — Từ khoá trùng lặp được khử trùng lặp | `PUT .../brand-voice` | `keywordsShouldUse: ["ưu đãi","ưu đãi","sale"]` | 200; kết quả `["ưu đãi","sale"]` | `brandvoice.test.ts` |
+| B06 | UC25 — Ghi audit log khi cập nhật Brand Voice | DB `auditLog.findFirst` | sau khi PUT | Có log `BRAND_VOICE_UPDATED`; `actorId` = owner; `targetType = "Workspace"`; `targetId` = workspaceId | `brandvoice.test.ts` |
+| B07 | RBAC — Content Creator không được cập nhật Brand Voice (403) | `PUT .../brand-voice` | Bearer CONTENT_CREATOR | 403 | `brandvoice.test.ts` |
+| B08 | RBAC — Người ngoài workspace không xem được Brand Voice (403) | `GET .../brand-voice` | Bearer outsider | 403 | `brandvoice.test.ts` |
+| B09 | RBAC — Người ngoài workspace không cập nhật được Brand Voice (403) | `PUT .../brand-voice` | Bearer outsider | 403 | `brandvoice.test.ts` |
+| B10 | Validate — Thiếu ngành hàng trả 422 | `PUT .../brand-voice` | chỉ có `targetAudience` | 422; `errors[0].field = "industry"` | `brandvoice.test.ts` |
+| B11 | Validate — Quá 3 bài viết mẫu trả 422 | `PUT .../brand-voice` | `fewShotExamples` gồm 4 phần tử | 422; `errors[0].field = "fewShotExamples"` | `brandvoice.test.ts` |
+| B12 | Validate — Quá 30 từ khoá trả 422 | `PUT .../brand-voice` | `keywordsAvoid` gồm 31 phần tử | 422; `errors[0].field = "keywordsAvoid"` | `brandvoice.test.ts` |
 
 ---
 
-## Phân hệ 2.3 — Duyệt bài
+## 7. Channel & Facebook OAuth
 
-### UC11 — Gửi bài duyệt (`POST /posts/:id/submit`)
+**File:** `backend/src/modules/channel/channel.test.ts` (mock `fetch`, env Facebook)
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 19.1 | Gửi bài DRAFT lên duyệt thành công | Path: `/posts/<draft_id>/submit` (creator token) | HTTP 200, `Post` trạng thái `PENDING`, owner nhận thông báo | | |
-| 19.2 | Gửi bài đã PENDING lần nữa | Path: `/posts/<pending_id>/submit` | HTTP 400 hoặc 409, bài đã ở PENDING | | |
-| 19.3 | Gửi duyệt thất bại — không phải creator | Path: `/posts/<id>/submit` (owner token của người khác) | HTTP 403, lỗi phân quyền | | |
-
----
-
-### UC14 — Duyệt / Từ chối bài viết (`POST /posts/:id/review`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 20.1 | Duyệt bài thành công | Path: `/posts/<id>/review` (owner token), Body: `{ "action": "APPROVE" }` | HTTP 200, `{ "status": "APPROVED" }`, creator nhận thông báo | | |
-| 20.2 | Từ chối bài thành công kèm lý do | Body: `{ "action": "REJECT", "reason": "Nội dung chưa phù hợp" }` | HTTP 200, `{ "status": "REJECTED" }`, creator nhận thông báo | | |
-| 20.3 | Từ chối không có lý do | Body: `{ "action": "REJECT" }` (không có `reason`) | HTTP 422, lỗi validation (reason bắt buộc khi REJECT) | | |
-| 20.4 | Duyệt bài không phải trạng thái PENDING | Bài ở trạng thái DRAFT | HTTP 400 hoặc 409, không thể review bài chưa nộp | | |
-| 20.5 | Duyệt thất bại — không phải owner | Path: `/posts/<id>/review` (content creator token) | HTTP 403, lỗi phân quyền | | |
-
----
-
-## Phân hệ 3 — AI Content
-
-### UC06 — Sinh nội dung AI (`POST /workspaces/:id/ai/generate-text`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 21.1 | Sinh nội dung thành công | Path: `/workspaces/<id>/ai/generate-text`, Body: `{ "prompt": "Viết bài quảng cáo sản phẩm X" }` (workspace đủ credit) | HTTP 200, `{ "generationId": "...", "content": "..." }`, credit bị trừ | | |
-| 21.2 | Sinh nội dung với tone và platform | Body: `{ "prompt": "Quảng cáo kem dưỡng da", "tone": "friendly", "platform": "facebook" }` | HTTP 200, nội dung phù hợp với brand voice | | |
-| 21.3 | Sinh thất bại — không đủ credit | Workspace không có credit | HTTP 402 hoặc 400, lỗi không đủ credit | | |
-| 21.4 | Sinh thất bại — lỗi OpenAI API | Giả lập OpenAI API lỗi | HTTP 502, `{ "message": "AI generation failed" }` | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| C01 | UC27 — Creator xem danh sách kênh, không lộ accessToken | `GET /api/v1/workspaces/:workspaceId/channels` | Bearer CONTENT_CREATOR | 200; `data.channels = []` | `channel.test.ts` |
+| C02 | UC27 — Outsider không xem được kênh workspace khác | `GET .../channels` | Bearer outsider | 403 | `channel.test.ts` |
+| C03 | UC28 — Owner lấy URL đăng nhập Facebook | `GET /api/v1/channels/facebook/oauth/url?workspaceId=` | Bearer OWNER | 200; host `www.facebook.com`; `client_id` đúng env; `redirect_uri` đúng env; `scope` chứa `pages_show_list` | `channel.test.ts` |
+| C04 | UC28 — Creator không lấy được URL đăng nhập Facebook | `GET /channels/facebook/oauth/url` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
+| C05 | UC28 — Callback tạo session và redirect về trang chọn Page | `GET /channels/facebook/oauth/callback` | `code`, `state` hợp lệ | 302; gọi Facebook 3 lần; `location` có path `/channels`, `fb=select`, `session` khớp `^[a-f0-9]{48}$` | `channel.test.ts` |
+| C06 | UC28 — State sai bị từ chối | callback | `state=bad` | 302; `location` chứa `reason=invalid_state` | `channel.test.ts` |
+| C07 | UC28 — State dùng lại lần hai bị từ chối | callback | dùng lại cùng `state` | Lần 1 `fb=select`; lần 2 `reason=invalid_state` | `channel.test.ts` |
+| C08 | UC28 — Người dùng từ chối cấp quyền được báo lỗi | callback | `error=access_denied` | 302; `location` chứa `reason=access_denied` | `channel.test.ts` |
+| C09 | UC28 — Tài khoản không có Page nào trả no_pages | callback | Facebook trả `data: []` | 302; `location` chứa `reason=no_pages` | `channel.test.ts` |
+| C10 | UC28 — Owner xem danh sách Page chờ chọn, không có token | `GET .../oauth/session/:sessionId` | Bearer OWNER + `x-workspace-id` | 200; `pages` chỉ gồm `{ id, name, avatar }` | `channel.test.ts` |
+| C11 | UC28 — Người khác không đọc được session chọn Page | `GET .../oauth/session/:sessionId` | Bearer outsider + workspace của outsider | 404 | `channel.test.ts` |
+| C12 | UC28 — Chọn Page lưu token đã mã hoá, không trả token | `POST .../oauth/session/:sessionId/connect` | `{ pageIds: ["page-1"] }` | 201; `channels[0].name` đúng; `accessToken` là `undefined`; token trong DB khác plaintext và `decrypt(token)` = `page-token-1` | `channel.test.ts` |
+| C13 | UC28 — Page không thuộc session bị từ chối | `POST .../connect` | `{ pageIds: ["page-khac"] }` | 400; không tạo `channelConnection` cho page đó | `channel.test.ts` |
+| C14 | UC28 — Bỏ Page thiếu access_token khỏi danh sách chọn | callback + `GET .../oauth/session/:sessionId` | danh sách Page có 1 page thiếu token | 200; `pages` chỉ còn page có token | `channel.test.ts` |
+| C15 | UC28 — URL lấy workspace từ header, không dùng query lệch | `GET /channels/facebook/oauth/url` | query workspaceId của outsider + header workspace của owner | 200; session tạo ra vẫn đọc được bằng owner + `x-workspace-id` | `channel.test.ts` |
+| C16 | UC28 — Creator không được kết nối Page | `POST .../connect` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
+| C17 | UC28 — Kết nối lại cùng Page giữ nguyên channel id | `POST .../connect` hai lần | cùng `pageIds: ["page-1"]`, token mới | 201; cùng `channel.id`; tên mới được cập nhật; DB decrypt ra token mới | `channel.test.ts` |
+| C18 | UC28 — Session bị xoá sau khi kết nối | `GET .../oauth/session/:sessionId` | session vừa connect | 404 | `channel.test.ts` |
+| C19 | UC29 — Creator không được ngắt kết nối | `DELETE /api/v1/channels/:channelId` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
+| C20 | UC29 — Ngắt kết nối huỷ lịch đăng và xoá kênh | `DELETE /api/v1/channels/:channelId` | Bearer OWNER; kênh có 1 `ScheduledPost` | 200; `data.success = true`; `channelConnection` bị xoá; bản ghi `scheduledPost` không còn (service chuyển `CANCELLED`, sau đó FK cascade xoá khi xoá kênh) | `channel.test.ts` |
+| C21 | UC29 — Thiếu workspace header bị từ chối | `DELETE /api/v1/channels/:channelId` | Bearer owner, **không** có `x-workspace-id` | 400 | `channel.test.ts` |
 
 ---
 
-## Phân hệ 4 — Kết nối & Đăng bài
+## 8. Post, media, gửi duyệt & duyệt bài
 
-### UC27 — Xem kênh đã kết nối (`GET /workspaces/:id/channels`)
+**File:** `backend/src/modules/post/post.test.ts` (mock `cloudinary`)
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 22.1 | Xem danh sách kênh thành công | Path: `/workspaces/<id>/channels` (member token) | HTTP 200, `{ "channels": [...] }` | | |
-| 22.2 | Workspace chưa có kênh nào | Path: `/workspaces/<new_id>/channels` | HTTP 200, `{ "channels": [] }` | | |
+### 8.1. Tạo, xem, danh sách (UC05, UC08, UC09)
 
----
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| P01 | UC05 — Tạo bản nháp thành công (201) | `POST .../posts` | `title: "Nháp đầu tiên"`, `content: { type: "doc", content: [] }` | 201; title đúng; `status = DRAFT`; `createdById` = owner | `post.test.ts` |
+| P02 | UC05 — Thiếu title trả 422 | `POST .../posts` | chỉ có `content` | 422 | `post.test.ts` |
+| P03 | UC08 — Xem chi tiết bản nháp (200), kèm mediaAssets rỗng | `GET .../posts/:postId` | Bearer owner | 200; `data.id` đúng; `mediaAssets = []` | `post.test.ts` |
+| P04 | UC08 — Bài thuộc workspace khác trả 404 khi đổi workspaceId | `GET /workspaces/:wsKhác/posts/:postId` | Bearer creator A, workspace riêng của A | 404 | `post.test.ts` |
+| P05 | UC09 — Danh sách trả posts + meta phân trang | `GET .../posts?page=1&limit=10` | Bearer owner | 200; `data.posts` là mảng; `meta` gồm `page = 1`, `limit = 10`, `total` là number | `post.test.ts` |
+| P06 | UC09 — Tìm theo tiêu đề (không phân biệt hoa/thường) | `GET .../posts?search=NHÁP` | từ khoá viết hoa | 200; danh sách chứa `postId` của P01 | `post.test.ts` |
+| P07 | UC09 — Lọc theo người tạo | `GET .../posts?createdById=<ownerId>` | ownerId | 200; mọi post có `createdById` = ownerId | `post.test.ts` |
+| P08 | UC09 — Lọc theo trạng thái | `GET .../posts?status=DRAFT` | `status = DRAFT` | 200; mọi post `status = DRAFT`; chứa `postId` P01 | `post.test.ts` |
+| P09 | UC09 — Trạng thái không hợp lệ trả 422 | `GET .../posts?status=KHONGCO` | giá trị ngoài enum | 422 | `post.test.ts` |
+| P10 | UC09 — Query sai trả 422 (page=0, limit=99, dateTo<dateFrom) | `GET .../posts` | 3 request: `page=0`; `limit=99`; `dateFrom > dateTo` | Cả 3 trả 422 | `post.test.ts` |
+| P11 | UC09 — Không lộ bài viết của workspace khác | `GET .../posts` | workspace của owner; có bài tạo ở workspace riêng của A | 200; không chứa bài `"Bài workspace riêng A"` | `post.test.ts` |
+| P12 | setup — Creator A tạo bản nháp của mình | `POST .../posts` | Bearer creator A | 201; lưu `creatorAPostId` | `post.test.ts` |
+| P13 | UC09 — page tràn số trả 422 (không 500) | `GET .../posts?page=1000000000000000000000` | page vượt giới hạn | 422 | `post.test.ts` |
 
-### UC28 — Kết nối kênh mạng xã hội
+### 8.2. Cập nhật bài (UC07)
 
-#### Kịch bản 1: Kết nối Facebook thật (`POST /channels/facebook/connect`)
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| P14 | UC07 — Chủ bài (Creator) sửa bản nháp của mình (200) | `PATCH .../posts/:postId` | Bearer creator A, `{ title: "Đã sửa" }` | 200; title mới | `post.test.ts` |
+| P15 | UC07 — Creator khác sửa bài người khác trả 403 | `PATCH .../posts/:postId` | Bearer creator B | 403 | `post.test.ts` |
+| P16 | UC07 — Owner sửa được bài của Creator (200) | `PATCH .../posts/:postId` | Bearer owner, đổi `content` | 200 | `post.test.ts` |
+| P17 | UC07 — PATCH rỗng trả 422 | `PATCH .../posts/:postId` | `{}` | 422 | `post.test.ts` |
+| P18 | UC07 — Sửa bài không phải DRAFT trả 409 | `PATCH .../posts/:postId` | bài tạo trực tiếp ở DB với `status = PENDING` | 409 | `post.test.ts` |
+| P19 | UC07 — Sửa được bài đã bị từ chối (200) | `PATCH .../posts/:postId` | bài `REJECTED`, `{ title: "Đã bổ sung thông tin" }` | 200; title mới | `post.test.ts` |
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 23.1 | Kết nối Facebook thành công | Body: `{ "workspaceId": "<id>", "pageId": "<pageId>", "pageAccessToken": "<valid_token>" }` (appId/appSecret lấy từ env) | HTTP 201, trả về `ConnectionRecord` | | |
-| 23.2 | Kết nối thất bại — token không hợp lệ | Body: `{ ..., "pageAccessToken": "invalid_token" }` | HTTP 400, `{ "message": "Invalid page access token" }` | | |
+### 8.3. Xoá bài (UC10)
 
-#### Kịch bản 2: Kết nối kênh giả lập (`POST /channels/simulate`)
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| P20 | setup — Creator A tạo 2 bản nháp để xóa | `POST .../posts` | 2 request | Cả 2 trả 201; lưu id | `post.test.ts` |
+| P21 | UC10 — Chủ bài xóa bản nháp của mình (200) | `DELETE .../posts/:postId` | Bearer creator A | 200 | `post.test.ts` |
+| P22 | UC10 — Sau khi xóa, chi tiết trả 404 | `GET .../posts/:postId` | bài vừa xoá | 404 | `post.test.ts` |
+| P23 | UC10 — Creator khác xóa bài người khác trả 403 | `DELETE .../posts/:postId` | Bearer creator B | 403 | `post.test.ts` |
+| P24 | UC10 — Owner xóa được bài của Creator (200) | `DELETE .../posts/:postId` | Bearer owner | 200 | `post.test.ts` |
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 23.3 | Kết nối kênh giả lập thành công | Body: `{ "workspaceId": "<id>", "channelName": "Fanpage Test", "platform": "FACEBOOK" }` | HTTP 201, trả về `ConnectionRecord` (type: SIMULATED) | | |
+### 8.4. Media (UC37)
 
----
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| P25 | UC37 — Upload ảnh vào bài của mình (201) | `POST .../posts/:postId/media` | Bearer creator A, file `a.png` (`image/png`) | 201; `url` chứa `res.cloudinary.com`; `type = IMAGE` | `post.test.ts` |
+| P26 | UC37 — Chi tiết bài chứa ảnh vừa upload | `GET .../posts/:postId` | Bearer creator A | `mediaAssets.length > 0` | `post.test.ts` |
+| P27 | UC37 — Upload sai định dạng trả 400 | `POST .../media` | file `a.txt` (`text/plain`) | 400 | `post.test.ts` |
+| P28 | UC37 — Upload ảnh vượt 10MB trả 400 | `POST .../media` | buffer 10MB + 1 byte | 400 | `post.test.ts` |
+| P29 | UC37 — Creator khác upload vào bài người khác trả 403 | `POST .../media` | Bearer creator B | 403 | `post.test.ts` |
+| P30 | setup — Upload thêm 1 ảnh để test quyền gỡ | `POST .../media` | file `b.png` | 201; lưu `mediaId2` | `post.test.ts` |
+| P31 | UC37 — Gỡ ảnh khỏi bài của mình (200) | `DELETE .../posts/:postId/media/:mediaId` | Bearer creator A | 200 | `post.test.ts` |
+| P32 | UC37 — Gỡ ảnh không thuộc bài trả 404 | `DELETE .../media/00000000-0000-0000-0000-000000000000` | mediaId không tồn tại | 404 | `post.test.ts` |
+| P33 | UC37 — Creator khác gỡ ảnh bài người khác trả 403 | `DELETE .../media/:mediaId2` | Bearer creator B | 403 | `post.test.ts` |
 
-### UC29 — Ngắt kết nối kênh (`DELETE /channels/:id`)
+### 8.5. Cách ly workspace (RBAC)
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 24.1 | Ngắt kết nối thành công | Path: `/channels/<id>` (owner token) | HTTP 200, `{ "success": true }`, scheduled posts bị CANCELLED, job BullMQ bị huỷ | | |
-| 24.2 | Ngắt kết nối kênh không tồn tại | Path: `/channels/invalid-id` | HTTP 404 | | |
-| 24.3 | Ngắt kết nối thất bại — không phải owner | Path: `/channels/<id>` (member token) | HTTP 403, lỗi phân quyền | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| P34 | RBAC — Chặn lệch workspace giữa header và URL (403, không lộ dữ liệu) | `GET /workspaces/:wsA/posts` | token owner, `x-workspace-id` = workspace khác | 403 | `post.test.ts` |
+| P35 | RBAC — Không tạo được bài chéo workspace qua header (403) | `POST /workspaces/:wsA/posts` | token + header lệch workspace | 403 | `post.test.ts` |
 
----
+### 8.6. Gửi duyệt (UC11)
 
-### UC12 — Lên lịch đăng bài (`POST /posts/:id/schedule`)
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| P36 | setup — Creator A tạo bài để gửi duyệt | `POST .../posts` | Bearer creator A | 201; `status = DRAFT` | `post.test.ts` |
+| P37 | UC11 — Creator khác gửi duyệt bài của người khác trả 403 | `POST .../posts/:postId/submit` | Bearer creator B | 403 | `post.test.ts` |
+| P38 | UC11 — Gửi duyệt bài của workspace khác trả 404 | `POST /workspaces/:wsKhác/posts/:postId/submit` | Bearer creator A | 404 | `post.test.ts` |
+| P39 | UC11 — Tác giả gửi duyệt bài của mình (200) → PENDING | `POST .../submit` | Bearer creator A | 200; `status = PENDING`; `submittedById` = creator A; `submittedAt` có giá trị | `post.test.ts` |
+| P40 | UC11 — Gửi duyệt thông báo cho Owner | DB `notification.count` | sau khi submit | Có ≥ 1 notification `POST_SUBMITTED` cho owner trong workspace | `post.test.ts` |
+| P41 | UC11 — Gửi duyệt lại khi bài đang PENDING trả 409 | `POST .../submit` | bài đang `PENDING` | 409 | `post.test.ts` |
+| P42 | UC11 — Gửi lại bài bị từ chối (200) → PENDING, xoá lý do cũ | `POST .../submit` | bài `REJECTED` | 200; `status = PENDING`; `rejectReason = null` | `post.test.ts` |
+| P43 | UC11 — Owner gửi duyệt bài của Creator (200) | `POST .../submit` | Bearer owner trên bài của creator A | 200; `status = PENDING` | `post.test.ts` |
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 25.1 | Lên lịch thành công (1 kênh) | Path: `/posts/<approved_id>/schedule`, Body: `{ "channels": [{ "channelId": "<id>", "scheduledAt": "2026-09-01T10:00:00Z" }] }` | HTTP 201, trả về `ScheduledPost[]`, bài chuyển SCHEDULED, job vào BullMQ | | |
-| 25.2 | Lên lịch thành công (nhiều kênh) | Body: `{ "channels": [{ "channelId": "<id1>", "scheduledAt": "..." }, { "channelId": "<id2>", "scheduledAt": "..." }] }` | HTTP 201, tạo 2 ScheduledPost, 2 job BullMQ riêng biệt | | |
-| 25.3 | Lên lịch thất bại — bài chưa APPROVED | Path: `/posts/<draft_id>/schedule` | HTTP 400 hoặc 409, chỉ bài APPROVED mới được lên lịch | | |
-| 25.4 | Lên lịch với thời gian trong quá khứ | Body: `{ "channels": [{ "channelId": "<id>", "scheduledAt": "2020-01-01T00:00:00Z" }] }` | HTTP 400, lỗi thời gian không hợp lệ | | |
+### 8.7. Duyệt / từ chối (UC14)
 
----
-
-### UC13 — Xem lịch đăng bài / Calendar (`GET /workspaces/:id/schedule`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 26.1 | Xem lịch tháng hiện tại | Path: `/workspaces/<id>/schedule?month=9&year=2026` | HTTP 200, `{ "scheduledPosts": [...] }` chứa các bài trong tháng 9/2026 | | |
-| 26.2 | Xem lịch tháng không có bài | Query: `?month=1&year=2025` | HTTP 200, `{ "scheduledPosts": [] }` | | |
-
----
-
-### UC15 — Đăng bài ngay (`POST /posts/:id/publish`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 27.1 | Đăng bài ngay thành công | Path: `/posts/<approved_id>/publish`, Body: `{ "channelId": "<id>" }` | HTTP 200, trả về `Post` trạng thái `PUBLISHED` | | |
-| 27.2 | Đăng bài thất bại — bài chưa APPROVED | Path: `/posts/<draft_id>/publish` | HTTP 400 hoặc 409, chỉ bài APPROVED mới được đăng | | |
-| 27.3 | Đăng ngay — job thất bại ở worker | Giả lập Facebook API lỗi | HTTP `202 { jobId }` khi enqueue; sau đó `scheduledPost.status = FAILED`, owner nhận thông báo lỗi | | |
-
----
-
-## Phân hệ 5 — Brand Voice
-
-### UC24/25 — Tạo / Cập nhật Brand Voice (`PUT /workspaces/:id/brand-voice`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 28.1 | Tạo Brand Voice mới thành công | Path: `/workspaces/<id>/brand-voice`, Body: `{ "industry": "Thời trang", "targetAudience": "Nữ 18-35", "writingStyle": "casual", "keywordsShouldUse": ["trendy", "affordable"], "keywordsAvoid": [] }` | HTTP 200, trả về `{ brandVoice }` mới tạo | | |
-| 28.2 | Cập nhật Brand Voice đã có | Body: `{ "industry": "Làm đẹp", "targetAudience": "Nữ 25-40", "writingStyle": "formal", "keywordsShouldUse": ["luxury"], "keywordsAvoid": [] }` | HTTP 200, trả về `{ brandVoice }` đã cập nhật | | |
-| 28.3 | Tạo Brand Voice thất bại — không phải owner | Path: `/workspaces/<id>/brand-voice` (member token) | HTTP 403, lỗi phân quyền | | |
-| 28.4 | Tạo Brand Voice với fewShotExamples | Body: `{ ..., "fewShotExamples": ["Ví dụ nội dung mẫu"] }` | HTTP 200, `brandVoice.fewShotExamples` có dữ liệu | | |
-
----
-
-### UC26 — Xem Brand Voice (`GET /workspaces/:id/brand-voice`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 29.1 | Xem Brand Voice thành công | Path: `/workspaces/<id>/brand-voice` (member token) | HTTP 200, trả về `{ brandVoice }` | | |
-| 29.2 | Xem Brand Voice workspace chưa có | Path: `/workspaces/<new_id>/brand-voice` | HTTP 200, `{ "brandVoice": null }` (chưa cấu hình) | | |
-
----
-
-## Phân hệ 6 — Credit & PayOS
-
-### UC30 — Mua credit & Thanh toán
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 30.1 | Tạo đơn mua credit thành công | Path: `/workspaces/<id>/orders`, Body: `{ "packageId": "<pkg_id>", "amount": 99000, "creditAmount": 100 }` (owner token) | HTTP 201, `{ "payUrl": "...", "qrCode": "..." }` | | |
-| 30.2 | Webhook xác nhận thanh toán thành công | POST `/payos/webhook` với payload hợp lệ và chữ ký đúng | HTTP 200, `{}`, đơn chuyển PAID, credit cộng vào workspace, owner nhận thông báo | | |
-| 30.3 | Webhook với chữ ký không hợp lệ | POST `/payos/webhook` với chữ ký giả mạo | HTTP 400 hoặc 401, lỗi xác thực chữ ký | | |
-| 30.4 | Polling trạng thái đơn hàng — PENDING | GET `/orders/<code>` (trước khi thanh toán) | HTTP 200, `{ "status": "PENDING" }` | | |
-| 30.5 | Polling trạng thái đơn hàng — PAID | GET `/orders/<code>` (sau khi thanh toán) | HTTP 200, `{ "status": "PAID" }` | | |
-| 30.6 | Credit được cộng đúng vào workspace | Kiểm tra `workspace.creditBalance` sau TC 30.2 | Balance tăng đúng số `creditAmount` đã mua | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| P44 | UC14 — Creator gọi duyệt bài trả 403 | `PATCH .../posts/:postId/review` | Bearer CONTENT_CREATOR, `{ decision: "APPROVED" }` | 403 | `post.test.ts` |
+| P45 | UC14 — Từ chối thiếu lý do trả 422 | `PATCH .../review` | `{ decision: "REJECTED" }` | 422 | `post.test.ts` |
+| P46 | UC14 — Owner từ chối kèm lý do (200) → REJECTED | `PATCH .../review` | `{ decision: "REJECTED", rejectReason: "Thiếu thông tin sản phẩm" }` | 200; `status = REJECTED`; `rejectReason` đúng; `reviewedById` = owner; `reviewedAt` có giá trị | `post.test.ts` |
+| P47 | UC14 — Từ chối thông báo cho tác giả | DB `notification.count` | sau khi từ chối | Có ≥ 1 notification `POST_REJECTED` cho creator A | `post.test.ts` |
+| P48 | UC14 — Owner duyệt bài (200) → APPROVED | `PATCH .../review` | `{ decision: "APPROVED" }` | 200; `status = APPROVED`; `reviewedById` = owner | `post.test.ts` |
+| P49 | UC14 — Duyệt thông báo cho tác giả | DB `notification.count` | sau khi duyệt | Có ≥ 1 notification `POST_APPROVED` cho creator A | `post.test.ts` |
+| P50 | UC14 — Duyệt lại bài đã APPROVED trả 409 | `PATCH .../review` | bài `APPROVED` | 409 | `post.test.ts` |
+| P51 | UC14 — Hai lượt duyệt đồng thời chỉ một lượt thành công | `PATCH .../review` gọi song song | 1 `APPROVED` + 1 `REJECTED` cùng lúc | Status sắp xếp = `[200, 409]`; DB chỉ có đúng 1 audit log `POST_APPROVED`/`POST_REJECTED` cho bài đó | `post.test.ts` |
 
 ---
 
-## Phân hệ 7 — Admin
+## 9. Health check
 
-### UC31 — Dashboard & Audit Log
+**File:** `backend/src/modules/health/health.test.ts`
 
-#### Xem thống kê Dashboard
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 31.1 | Admin xem dashboard toàn hệ thống | GET `/admin/dashboard` (system admin token) | HTTP 200, `{ "stats": { totalUsers, totalWorkspaces, totalRevenue, ... } }` | | |
-| 31.2 | Workspace owner xem dashboard workspace | GET `/workspaces/<id>/dashboard` (owner token) | HTTP 200, thống kê trong phạm vi workspace | | |
-| 31.3 | Member không được xem dashboard admin | GET `/admin/dashboard` (member token) | HTTP 403, lỗi phân quyền | | |
-
-#### Xem nhật ký hệ thống
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 32.1 | Xem tất cả audit log | GET `/admin/audit-logs` (admin token) | HTTP 200, `{ "logs": [...], "total": N }` | | |
-| 32.2 | Lọc audit log theo userId | Query: `?userId=<id>` | HTTP 200, chỉ log của user đó | | |
-| 32.3 | Lọc audit log theo action | Query: `?action=MEMBER_REMOVED` | HTTP 200, chỉ log với action MEMBER_REMOVED | | |
-| 32.4 | Lọc audit log theo khoảng thời gian | Query: `?from=2026-01-01&to=2026-12-31` | HTTP 200, chỉ log trong khoảng thời gian | | |
-| 32.5 | Phân trang audit log | Query: `?page=1&limit=10` | HTTP 200, tối đa 10 bản ghi | | |
-| 32.6 | Member không được xem audit log | GET `/admin/audit-logs` (member token) | HTTP 403, lỗi phân quyền | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| H01 | GET /api/v1/health - Trả về mã HTTP tương ứng và thông tin chẩn đoán kết nối | `GET /api/v1/health` | không cần auth | 200 hoặc 503; nếu 200: `status = success`, message `Hệ thống Marka đang hoạt động ổn định`, `database = connected`, `redis = connected`; nếu 503: `status = error`; `data` luôn có `uptime`, `database`, `redis`, `version` | `health.test.ts` |
 
 ---
 
-## Phụ lục — Background Worker (BullMQ)
+## 10. Queue Manager (BullMQ)
 
-### Worker: processPublishJob
+**File:** `backend/src/workers/queue-manager.test.ts` (Redis thật, dùng queue `email`)
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 33.1 | Job đăng bài thành công — kênh Facebook thật | `scheduledPostId` hợp lệ, kênh Facebook có token hợp lệ, đến thời điểm `runAt` | `scheduledPost.status = PUBLISHED`, `post.status = PUBLISHED` (nếu tất cả kênh xong) | | |
-| 33.2 | Job đăng bài thành công — kênh giả lập | `scheduledPostId` hợp lệ, kênh type SIMULATED | `scheduledPost.status = PUBLISHED` sau khoảng 2 giây | | |
-| 33.3 | Job đăng bài thất bại — lỗi Facebook API | Facebook API trả về lỗi | `scheduledPost.status = FAILED`, owner nhận thông báo lỗi | | |
-| 33.4 | Kiểm tra trạng thái post tổng thể khi tất cả kênh xong | Tất cả `scheduledPost` của post đều PUBLISHED | `post.status = PUBLISHED` | | |
-
-## Phân hệ 2.4 — Giao việc (UC49, UC50)
-
-> Tính năng ngoài roadmap gốc (2026-10-15) — xem `docs/superpowers/specs/2026-10-15-post-task-assignment-design.md`.
-
-### UC49 — Giao việc cho thành viên (`PATCH /workspaces/:id/posts/:postId/assignment`)
-
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 34.1 | Owner giao việc cho Creator thành công | Path: `/workspaces/<id>/posts/<postId>/assignment` (owner token), Body: `{ "assigneeId": "<userId>", "dueAt": "2026-10-20T10:00:00Z", "priority": "HIGH" }` | HTTP 200, `Post` có `assigneeId`, `dueAt`, `priority`; người nhận nhận thông báo | | |
-| 34.2 | Giao việc thất bại — không phải Owner | Path như trên (content creator token) | HTTP 403, lỗi phân quyền | | |
-| 34.3 | Gán người không thuộc workspace | Body: `{ "assigneeId": "<user ngoài workspace>" }` | HTTP 400, `{ "message": "Người nhận không thuộc workspace" }` | | |
-| 34.4 | Bỏ giao việc | Body: `{ "assigneeId": null }` | HTTP 200, `assigneeId = null`, `taskStatus` giữ nguyên | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| Q01 | enqueue tạo job ở trạng thái waiting và đọc được trạng thái | `enqueue` + `getJobStatus` | queue `email`, job `test-job`, data `{ hello: "world" }` | `status` khác null; `state = waiting`; `queue` đúng; `attemptsMade = 0`; `maxAttempts = 3`; `isFinalFailure = false` | `queue-manager.test.ts` |
+| Q02 | getJobStatus trả null với job không tồn tại | `getJobStatus` | id `khong-ton-tai` | `null` | `queue-manager.test.ts` |
+| Q03 | cancelJob xoá job khỏi hàng đợi | `cancelJob` + `getJobStatus` | job vừa enqueue | `cancelJob` trả `true`; trạng thái sau đó `null` | `queue-manager.test.ts` |
+| Q04 | retryJob từ chối job không ở trạng thái failed | `retryJob` | job đang `waiting` | Trả `false` | `queue-manager.test.ts` |
+| Q05 | pauseQueue/resumeQueue hoạt động và getQueueStats trả đủ các trường | `pauseQueue`, `resumeQueue`, `getQueueStats` | queue `email` | Không lỗi; stats có đủ `waiting`, `active`, `completed`, `failed`, `delayed` (đều là number) | `queue-manager.test.ts` |
+| Q06 | hasRemainingAttempts phân biệt lỗi còn retry và lỗi hẳn | `hasRemainingAttempts` | job giả `attemptsMade=1, attempts=3` và `3, 3` | `true` với 1/3; `false` với 3/3 | `queue-manager.test.ts` |
 
 ---
 
-### UC50 — Cập nhật trạng thái công việc (`PATCH /workspaces/:id/posts/:postId/task-status`)
+## 11. Middleware & cấu hình
 
-| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
-|-----|-------|----------------|--------------------------|------------------------|------------|
-| 35.1 | Người nhận cập nhật trạng thái công việc | Path: `/workspaces/<id>/posts/<postId>/task-status` (assignee token), Body: `{ "taskStatus": "IN_PROGRESS" }` | HTTP 200, `{ "taskStatus": "IN_PROGRESS" }`, ghi audit log | | |
-| 35.2 | Cập nhật thất bại — không phải người nhận/Owner | Path như trên (creator khác token) | HTTP 403, `{ "message": "Bạn không phụ trách bài viết này" }` | | |
+**File:** `backend/src/middlewares/enforceHttps.test.ts`, `backend/src/config/swagger.test.ts`
 
----
-
-## Tổng kết
-
-| Phân hệ | Số test case | Đã Pass | Đã Fail | Chưa test |
-|---------|-------------|---------|---------|-----------|
-| Auth & User (UC01–04, UC32) | 17 | | | |
-| Workspace Management (UC16–23) | 22 | | | |
-| Nội dung & Media (UC05, UC07–10) | 13 | | | |
-| Duyệt bài (UC11, UC14) | 8 | | | |
-| AI Content (UC06) | 4 | | | |
-| Kết nối & Đăng bài (UC12–13, UC15, UC27–29) | 15 | | | |
-| Brand Voice (UC24–26) | 6 | | | |
-| Credit & PayOS (UC30) | 6 | | | |
-| Admin (UC31) | 9 | | | |
-| Giao việc (UC49, UC50) | 6 | | | |
-| Background Worker | 4 | | | |
-| **Tổng** | **110** | | | |
+| Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
+|----|-------------------------------|----------------|-------------|------------------|------|
+| M01 | Chuyển hướng 301 sang HTTPS khi request là HTTP | middleware `enforceHttps` trên `GET /ping` | `Host: api.marka.vn`, không có `x-forwarded-proto` | 301; `location = https://api.marka.vn/ping` | `enforceHttps.test.ts` |
+| M02 | Cho qua khi reverse proxy báo x-forwarded-proto = https | `enforceHttps` trên `GET /ping` | `x-forwarded-proto: https` | 200; body `{ ok: true }` | `enforceHttps.test.ts` |
+| S01 | đăng ký luồng duyệt bài UC11/UC14 | `swaggerSpec.paths` | — | Có path `/workspaces/{workspaceId}/posts/{postId}/submit` và `.../review` | `swagger.test.ts` |
 
 ---
 
-*Tài liệu kiểm thử hệ thống Marka — Tạo từ `api_documentation.md` — Cập nhật: 2026-08-21*
+## 12. Chưa được test
+
+Các hành vi **đã có trong code** nhưng **không có test tự động** tương ứng ở trên.
+
+### 12.1. Auth
+- Rate limit: `authLimiter` (15 req/15 phút), `loginLimiter` (5 lần sai/15 phút), `apiLimiter` toàn cục — chưa test 429.
+- Đăng nhập khi `isSuspended = true` — chưa test 403.
+- Google: thiếu `idToken`, token sai/hết hạn, payload thiếu email, đăng nhập lại khi user đã có `googleId`.
+- Refresh token: thiếu token, token hết hạn, `tokenVersion` không khớp sau logout.
+- Logout: chưa assert header xoá cookie; chưa assert audit `USER_LOGOUT`.
+- Audit `USER_REGISTER`, `USER_LOGIN`, `USER_GOOGLE_LOGIN` chưa được kiểm tra.
+
+### 12.2. User
+- Cập nhật `avatar`; validation `name` (2–100) và `avatar` (URL).
+- Sau khi đổi mật khẩu, token cũ bị vô hiệu (`tokenVersion` tăng) — chưa test.
+- Audit `USER_UPDATE_PROFILE`, `USER_CHANGE_PASSWORD`.
+
+### 12.3. Workspace
+- Audit `WORKSPACE_CREATE/UPDATE/DELETE`, `MEMBER_INVITED/JOINED/LEFT/REMOVED/ROLE_CHANGED`.
+- Lời mời: token không tồn tại → 404; lời mời hết hạn → 409; email không khớp tài khoản đang đăng nhập → 403; nhánh đã là thành viên (`alreadyMember`).
+- `removeMember` chặn xoá Owner duy nhất (409) — mới test hạ vai trò (W17).
+- Thành viên thường rời workspace thành công — mới test sole owner bị chặn (W19).
+- `deleteWorkspace` chuyển `ChannelConnection` sang `EXPIRED`.
+- Thông báo cho owner khi có member tham gia/rời; chi tiết `pendingInvites` (người mời, role, hạn).
+
+### 12.4. Brand Voice
+- Validate độ dài từng keyword (1–50), `writingStyle` ≤ 300, `fewShotExamples[].content` (10–5000), `title` ≤ 100.
+- Giá trị mặc định khi bỏ trống `writingStyle`, `keywordsShouldUse`, `keywordsAvoid`, `fewShotExamples`.
+- Audit khi tạo lần đầu (chỉ assert log ở nhánh cập nhật B06).
+
+### 12.5. Channel
+- Lỗi gọi Facebook API: fetch reject, HTTP 5xx, thiếu `access_token` khi exchange → `reason=token_exchange_failed`.
+- Thiếu cấu hình Facebook App → 400.
+- `state` hết hạn theo thời gian (Redis TTL 600 giây).
+- Audit `CHANNEL_CONNECTED`, `CHANNEL_DISCONNECTED`.
+- `DELETE /channels/:channelId` với kênh không tồn tại / thuộc workspace khác → 404.
+- `GET .../channels` sau khi đã kết nối (test hiện chỉ kiểm tra danh sách rỗng).
+- Chuyển `ChannelConnection.status` sang `EXPIRED` khi xoá workspace.
+
+### 12.6. Post & media
+- Lọc `dateFrom`/`dateTo` hợp lệ (mới test khoảng ngày sai); `limit` biên 1 và 50; `search` không có kết quả.
+- Validate độ dài `title` (255) và `content` khi tạo/cập nhật.
+- Xoá bài không ở `DRAFT`/`REJECTED` → 409 (mới test sửa).
+- Upload/gỡ media trên bài không editable → 409.
+- Danh sách media sau khi gỡ ảnh (P31 chỉ assert 200).
+- Audit `POST_SUBMITTED`; `POST_APPROVED`/`POST_REJECTED` chỉ assert gián tiếp ở P51.
+- Thông báo khi Owner tự gửi duyệt bài của chính mình.
+
+### 12.7. Hạ tầng & cấu hình
+- Health: nhánh 503 chưa được ép buộc (test chấp nhận 200 hoặc 503).
+- Worker processor thật (`email`, `publishing`, `content-generation`): hiện là processor mẫu, chưa test xử lý job thành công/thất bại.
+- `retryJob` thành công trên job `failed`; `hasRemainingAttempts` với job không cấu hình `attempts`.
+- Middleware `validate`, `error`, `upload`, `requireAuth` (thiếu/sai token) chưa có test riêng; CORS/helmet/404 handler chưa test.
+- Swagger: chỉ assert sự tồn tại của 3 path, chưa assert schema request/response.
+
+---
+
+## 13. Phạm vi chưa triển khai
+
+Các phần sau **không có endpoint/module tương ứng** trong `backend/src/routes/index.ts`, nên không có test:
+
+- **Sinh nội dung AI (UC06)** — không có module/route AI; `aiLimiter` trong `rateLimiter.ts` hiện không được gắn vào route nào.
+- **Credit / gói credit / PayOS / Order (UC30)** — model Prisma có nhưng không có route/service.
+- **Admin dashboard & API audit log (UC31)** — module `audit` chỉ có service/repository, không expose route.
+- **Lên lịch đăng & calendar (UC12, UC13), đăng ngay/publish (UC15)** — model `ScheduledPost` có nhưng không có API; worker `publishing` chỉ là processor mẫu.
+- **Analytics / `PostMetric`** — không có API.
+- **API thông báo (notification)** — chỉ ghi DB, không có endpoint đọc.
+- **Giao việc / trạng thái công việc (assignment, task-status)** — không có module/route.

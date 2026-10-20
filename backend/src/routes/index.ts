@@ -4,7 +4,7 @@ import userController from '../modules/user/user.controller.js';
 import healthController from '../modules/health/health.controller.js';
 import { validate } from '../middlewares/validate.js';
 import { requireAuth, requireWorkspaceRole, optionalAuth } from '../middlewares/auth.js';
-import uploadWorkspaceLogo, { uploadPostMedia } from '../middlewares/upload.js';
+import { uploadPostMedia } from '../middlewares/upload.js';
 import { authLimiter, loginLimiter } from '../middlewares/rateLimiter.js';
 import {
   registerSchema,
@@ -83,14 +83,6 @@ router.delete(
   validate(workspaceOnlySchema),
   requireWorkspaceRole('OWNER'),
   workspaceController.deleteWorkspace
-);
-router.post(
-  '/workspaces/:workspaceId/logo',
-  requireAuth,
-  validate(workspaceOnlySchema),
-  requireWorkspaceRole('OWNER'),
-  uploadWorkspaceLogo,
-  workspaceController.uploadLogo
 );
 
 // Members (UC19, UC22, UC23, UC36)

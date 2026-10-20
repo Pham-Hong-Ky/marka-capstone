@@ -3,7 +3,6 @@ import prisma from '../../config/db.js';
 
 export interface CreateWorkspaceData {
   name: string;
-  logo?: string | null;
 }
 
 export interface CreateInviteData {
@@ -39,12 +38,12 @@ export const findWorkspaceById = async (workspaceId: string) => {
 };
 
 export const createWorkspaceWithOwner = async (
-  { name, logo }: CreateWorkspaceData,
+  { name }: CreateWorkspaceData,
   ownerId: string
 ) => {
   return prisma.$transaction(async (tx) => {
     const workspace = await tx.workspace.create({
-      data: { name, logo: logo ?? null },
+      data: { name },
     });
 
     await tx.workspaceMember.create({
@@ -62,7 +61,7 @@ export const createWorkspaceWithOwner = async (
 
 export const updateWorkspace = async (
   workspaceId: string,
-  data: { name?: string; logo?: string | null }
+  data: { name?: string }
 ) => {
   return prisma.workspace.update({ where: { id: workspaceId }, data });
 };

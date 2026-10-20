@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, ChevronDown, Plus, Settings } from 'lucide-react';
-import BrandLogo from '@/components/shared/BrandLogo';
+import DefaultWorkspaceIcon from '@/components/shared/DefaultWorkspaceIcon';
 import CreateWorkspaceModal from './CreateWorkspaceModal';
 import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/utils/cn';
@@ -94,15 +94,7 @@ export const WorkspaceSwitcher = ({ collapsed = false }: { collapsed?: boolean }
           collapsed ? 'justify-center px-1 py-2' : 'gap-2.5 px-3 py-2.5'
         )}
       >
-        {activeWorkspace?.logo ? (
-          <img
-            src={activeWorkspace.logo}
-            alt=""
-            className="h-10 w-10 shrink-0 rounded-lg object-cover"
-          />
-        ) : (
-          <BrandLogo className="h-10 w-10 rounded-lg" />
-        )}
+        <DefaultWorkspaceIcon className="h-10 w-10 shrink-0" />
 
         {collapsed ? null : (
           <>

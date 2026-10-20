@@ -1,146 +1,233 @@
-# Product Specification — Marka (Index & Overview)
+# Đặc tả hệ thống Marka — Mục lục
 
-> Nền tảng AI Content đa kênh & Quản lý chiến dịch tiếp thị dành riêng cho Marketer Việt Nam.
-> Thư mục này chứa đặc tả chi tiết từng phân hệ của hệ thống Marka.
+> **Phạm vi:** mô tả **đúng code đang chạy** trong `backend/src` và `backend/prisma/schema.prisma`.
+> Phần chưa có endpoint/service chỉ nằm trong mục **Roadmap**, không mô tả như tính năng đã hoạt động.
+>
+> Nguồn sự thật: `backend/src/routes/index.ts`, `backend/src/modules/**`, `backend/src/middlewares/**`, `backend/src/config/**`, `backend/src/workers/**`, `backend/prisma/schema.prisma`.
+> Tài liệu liên quan: [API Documentation](../api_documentation.md), [Kiến trúc hệ thống](../architecture.md).
 
----
-
-## 0. Vai trò & Tác nhân (Actors & Roles)
-
-| Tác nhân / Vai trò  | Cấp       | Quyền chính                                                                                     |
-| ------------------- | --------- | ----------------------------------------------------------------------------------------------- |
-| **Guest** (Khách)   | Chưa ĐN   | Đăng ký tài khoản, đăng nhập hệ thống, nhấn link chấp nhận lời mời tham gia workspace           |
-| **System Admin**    | Hệ thống  | Quản lý user, xem metadata workspace, audit log, dashboard, cấu hình API/thanh toán             |
-| **Workspace Owner** | Workspace | Quản lý workspace/thành viên, Brand Voice, Billing, **duyệt bài**, kết nối kênh, **đăng bài**   |
-| **Content Creator** | Workspace | Soạn bài, quản lý media, dùng AI sinh nội dung, gửi duyệt, đăng bài **nếu được Owner ủy quyền** |
-
-Không có vai trò tùy chỉnh, không có Reviewer/Social Media Manager/Viewer riêng — mọi quyền đăng/duyệt gói trong Owner + Creator (ủy quyền).
+Base URL của toàn bộ API: `/api/v1`.
 
 ---
 
-## Danh mục Phân hệ & Danh sách Use Cases (UC01 – UC50)
+## 1. Tác nhân & vai trò
 
-| Mã UC | Tên chức năng (Use Case) | Tác nhân chính (Actor) | Phân hệ / Tài liệu chi tiết | Ghi chú |
-| :--- | :--- | :--- | :--- | :--- |
-| **UC01** | Register | Guest | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Xác thực qua Email/Password hoặc Google OAuth |
-| **UC02** | Login | Guest | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Đăng nhập hệ thống |
-| **UC02b** | Google OAuth Login | Guest | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Đăng nhập/đăng ký bằng Google OAuth |
-| **UC03** | Logout | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Đăng xuất phiên làm việc |
-| **UC04** | Change Password | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#13-hồ-sơ-cá-nhân-update-profile--change-password---uc04-uc32) | Đổi mật khẩu trong cài đặt |
-| **UC05** | Create Content | Content Creator, Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#21-soạn-thảo--cập-nhật-nội-dung-create--update-content---uc05-uc07) | Rich Text Editor, Template, Auto-save nháp |
-| **UC06** | Generate AI Content | Content Creator, Owner | [03. AI Assistant & Brand Voice](file:///f:/DATN/marka-capstone/docs/specs/03-ai-brandvoice.md#32-sinh-nội-dung-bằng-ai-generate-ai-content---uc06) | Sử dụng LLM & DALL-E 3, trừ credit |
-| **UC07** | Update Content | Content Creator, Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#21-soạn-thảo--cập-nhật-nội-dung-create--update-content---uc05-uc07) | Cập nhật nháp hoặc bài bị từ chối |
-| **UC08** | View Content | Content Creator, Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#24-xem-tìm-kiếm--lọc-nội-dung-view--search-content---uc08-uc09) | Xem chi tiết bài viết, lịch sử chỉnh sửa |
-| **UC09** | Search content | Content Creator, Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#24-xem-tìm-kiếm--lọc-nội-dung-view--search-content---uc08-uc09) | Tìm kiếm theo tiêu đề/từ khóa, lọc trạng thái/tags |
-| **UC10** | Delete Content | Content Creator, Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#26-xóa-bài-viết-delete-content---uc10) | Xóa mềm bản nháp, bài bị từ chối/lỗi đăng |
-| **UC11** | Submit Content for Approval | Content Creator | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#23-quy-trình-duyệt-bài-submit-for-approval--review-content---uc11-uc14) | Creator gửi duyệt chuyển sang trạng thái Pending |
-| **UC12** | Schedule content | Owner (hoặc Creator được ủy quyền) | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#42-biên-tập--lên-lịch-đăng-theo-từng-kênh-schedule-content---uc12) | Đặt ngày giờ đăng tự động cho từng bài Approved |
-| **UC13** | View content schedule | Content Creator, Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#44-calendar-view-view-content-schedule---uc13) | Xem lịch tháng bài đăng dưới dạng calendar |
-| **UC14** | Review Content | Workspace Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#23-quy-trình-duyệt-bài-submit-for-approval--review-content---uc11-uc14) | Owner phê duyệt hoặc từ chối bài kèm lý do |
-| **UC15** | Post content to social media | Owner (hoặc Creator được ủy quyền) | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#43-thực-thi-đăng-bài-thật--giả-lập---uc15) | Đăng thật lên Facebook Page & Giả lập kênh khác |
-| **UC16** | Create Workspace | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Khởi tạo không gian làm việc mới |
-| **UC17** | Update Workspace | Workspace Owner | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Đổi tên, upload logo mới |
-| **UC18** | Delete Workspace | Workspace Owner | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Xóa mềm workspace và dữ liệu liên quan |
-| **UC19** | View member in workspace | Content Creator, Owner | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Xem danh sách, vai trò, trạng thái thành viên |
-| **UC20** | Invite member | Workspace Owner | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Owner gửi email chứa token mời tham gia |
-| **UC21** | Accept invitation | Guest / User | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Bấm liên kết trong email để tham gia workspace |
-| **UC22** | Leave workspace | Content Creator, Owner | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Rời workspace (Owner duy nhất bị chặn) |
-| **UC23** | Remove member | Workspace Owner | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Owner xóa thành viên ra khỏi workspace |
-| **UC24** | Create brand voice | Workspace Owner | [03. AI Assistant & Brand Voice](file:///f:/DATN/marka-capstone/docs/specs/03-ai-brandvoice.md#31-cấu-hình--quản-lý-brand-voice-create-update--view-brand-voice---uc24-uc25-uc26) | Thiết lập tông giọng và bài viết few-shot mẫu |
-| **UC25** | Update brand voice | Workspace Owner | [03. AI Assistant & Brand Voice](file:///f:/DATN/marka-capstone/docs/specs/03-ai-brandvoice.md#31-cấu-hình--quản-lý-brand-voice-create-update--view-brand-voice---uc24-uc25-uc26) | Chỉnh sửa thông tin Brand Voice hiện tại |
-| **UC26** | View brand voice | Content Creator, Owner | [03. AI Assistant & Brand Voice](file:///f:/DATN/marka-capstone/docs/specs/03-ai-brandvoice.md#31-cấu-hình--quản-lý-brand-voice-create-update--view-brand-voice---uc24-uc25-uc26) | Xem cấu hình tông giọng trong cài đặt/soạn thảo |
-| **UC27** | View connected channels | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Xem danh sách và trạng thái các kênh kết nối |
-| **UC28** | Connect social channels | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Kết nối FB Page thật hoặc TikTok/IG/Zalo giả lập |
-| **UC28a** | Connect Facebook Page (thật) | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Nhập thủ công `pageId` + `pageAccessToken`; token mã hóa AES-256 (D13) |
-| **UC28b** | Connect simulated channels | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Kết nối IG/TikTok/Zalo giả lập (`ChannelType.SIMULATED`) |
-| **UC29** | Disconnect social channel | Workspace Owner | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#41-kết-nối--quản-lý-kênh-liên-kết-uc27-uc28-uc29) | Ngắt kết nối kênh, tự động hủy các bài scheduled |
-| **UC30** | Purchase Credits | Workspace Owner | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md#61-nạp-credit--nâng-cấp-gói-purchase-credits---uc30) | Nạp thêm credit qua cổng thanh toán PayOS |
-| **UC30a** | Create Order | Workspace Owner | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Tạo đơn hàng + link/QR PayOS (`status=PENDING`) |
-| **UC30b** | PayOS Webhook | System | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Verify chữ ký, idempotent theo `orderCode`, cộng credit |
-| **UC30c** | Poll Order Status | Workspace Owner | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Client polling trạng thái đơn mỗi 5 giây |
-| **UC31** | View Dashboard & Audit Log | System Admin, Owner, Creator (dashboard); System Admin + Owner (audit log) | [07. Quản trị hệ thống & Báo cáo](file:///f:/DATN/marka-capstone/docs/specs/07-admin-analytics.md#71-dashboard-thống-kê-view-dashboard---uc31) | Xem báo cáo hiệu suất và nhật ký hoạt động |
-| **UC31a** | View Admin Dashboard | System Admin, Workspace Owner, Content Creator | [07. Quản trị hệ thống & Báo cáo](file:///f:/DATN/marka-capstone/docs/specs/07-admin-analytics.md#71-dashboard-thống-kê-view-dashboard---uc31) | Thống kê user/workspace/credit/doanh thu |
-| **UC31b** | View Audit Log | System Admin, Workspace Owner | [07. Quản trị hệ thống & Báo cáo](file:///f:/DATN/marka-capstone/docs/specs/07-admin-analytics.md#73-audit-log-view-audit-log---uc31) | Xem nhật ký hành động; **Content Creator KHÔNG có quyền** |
-| **UC32** | Update Profile | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#13-hồ-sơ-cá-nhân-update-profile--change-password---uc04-uc32) | Cập nhật tên hiển thị, avatar (đổi email qua OTP dời Phase 5) |
-| **UC33** | Refresh Token | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | Làm mới access token từ refresh token trong cookie |
-| **UC34** | Verify Email | Guest / User | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#11-đăng-ký--đăng-nhập--đăng-xuất-uc01-uc02-uc03) | **Dời Phase 5 — chưa triển khai**; đăng ký xong đăng nhập tự động |
-| **UC35** | List Workspaces | User (All Roles) | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Xem danh sách workspace mà user là thành viên |
-| **UC36** | Change Member Role | Workspace Owner | [01. Xác thực & Không gian làm việc](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md#12-quản-lý-workspace--thành-viên-uc16-uc17-uc18-uc19-uc20-uc21-uc22-uc23) | Thay đổi vai trò thành viên trong workspace |
-| **UC37** | Upload Media | Content Creator, Workspace Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#22-thư-viện-media) | Upload file vào thư viện media cấp Workspace |
-| **UC38** | Cancel Scheduled Post | Workspace Owner (hoặc Creator được ủy quyền) | [04. Kênh & Đăng bài đa kênh](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md#42-biên-tập--lên-lịch-đăng-theo-từng-kênh-schedule-content---uc12) | Huỷ lịch đăng (`ScheduledPost → CANCELLED`) |
-| **UC39** | List Notifications | User (All Roles) | [05. Email & Thông báo tự động](file:///f:/DATN/marka-capstone/docs/specs/05-notifications-email.md#54-thông-báo-in-app-hệ-thống-chuông-thông-báo) | Xem danh sách thông báo in-app |
-| **UC40** | Mark Notification as Read | User (All Roles) | [05. Email & Thông báo tự động](file:///f:/DATN/marka-capstone/docs/specs/05-notifications-email.md#54-thông-báo-in-app-hệ-thống-chuông-thông-báo) | Đánh dấu 1 thông báo đã đọc |
-| **UC41** | Mark All Notifications as Read | User (All Roles) | [05. Email & Thông báo tự động](file:///f:/DATN/marka-capstone/docs/specs/05-notifications-email.md#54-thông-báo-in-app-hệ-thống-chuông-thông-báo) | Đánh dấu tất cả thông báo đã đọc |
-| **UC42** | View Post Analytics | Content Creator, Owner | [08. Thống kê hiệu quả bài đăng](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md#85-api-endpoints) | Xem reactions/comments/shares của bài đã đăng |
-| **UC42b** | Refresh Post Metrics | Content Creator, Owner | [08. Thống kê hiệu quả bài đăng](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md#85-api-endpoints) | Làm mới số liệu thủ công cho 1 bài (rate-limit 30s) |
-| **UC43** | View Workspace Performance Overview | Content Creator, Owner | [08. Thống kê hiệu quả bài đăng](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md#85-api-endpoints) | Dashboard tổng hợp hiệu quả đăng bài theo Workspace |
-| **UC44** | List Credit Packages | Tất cả user (gói active) | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xem danh sách gói credit để nạp |
-| **UC45** | Create Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Tạo gói credit mới |
-| **UC46** | Update Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Cập nhật gói credit (giá, credit, `isActive`) |
-| **UC47** | Delete Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xoá mềm gói credit (`deletedAt`) |
-| **UC48** | View Credit Balance & History | Workspace member | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xem số dư và lịch sử giao dịch credit |
-| **UC49** | Assign Content Task | Workspace Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#27-giao-việc-cho-thành-viên-task-assignment---uc49-uc50) | Giao việc cho thành viên (người nhận, hạn, độ ưu tiên) — **ngoài roadmap gốc** |
-| **UC50** | Update Task Status | Người nhận (assignee), Workspace Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#27-giao-việc-cho-thành-viên-task-assignment---uc49-uc50) | Cập nhật trạng thái công việc (`TODO`/`IN_PROGRESS`/`DONE`) |
+| Tác nhân | Cấp | Quyền thực tế trong code |
+| :--- | :--- | :--- |
+| **Guest** | Chưa đăng nhập | Đăng ký, đăng nhập (email/mật khẩu hoặc Google), mở link mời `GET /invites/:token`, xem `GET /health`, nhận email mời |
+| **User** | Hệ thống (`User.systemRole = USER`) | Toàn bộ chức năng của thành viên trong các workspace mình thuộc về |
+| **System Admin** | Hệ thống (`User.systemRole = SYSTEM_ADMIN`) | `requireWorkspaceRole` coi như `OWNER` ở mọi workspace. **Chưa có module/endpoint quản trị nào** dùng `requireRoles`; giá trị này hiện chỉ có trong schema và middleware |
+| **Workspace Owner** | Workspace (`WorkspaceMember.role = OWNER`) | Sửa/xoá workspace, mời/xoá thành viên, đổi vai trò, cấu hình Brand Voice, kết nối/ngắt kênh, **duyệt/từ chối bài**, thao tác mọi bài viết |
+| **Content Creator** | Workspace (`WorkspaceMember.role = CONTENT_CREATOR`) | Xem thành viên/bài viết/Brand Voice/kênh; tạo bài; sửa/xoá/gửi duyệt **bài do mình tạo**; upload/xoá ảnh của bài đó |
+
+Quy tắc cố định, không có vai trò tuỳ chỉnh:
+
+- Chỉ 2 vai trò workspace: `OWNER`, `CONTENT_CREATOR`.
+- `WorkspaceMember.allowDirectPublish` **đã có trong schema** (Owner = `true`, Creator = `false` khi tạo) nhưng **chưa được dùng để cấp quyền** ở bất kỳ luồng nào; hiện chỉ trả ra trong `GET /workspaces/:workspaceId/members`.
+- Không thể rời workspace, bị xoá, hoặc bị hạ vai trò nếu là **Owner cuối cùng**.
+- Mỗi tài khoản mới (đăng ký local hoặc Google lần đầu) được tạo kèm **một workspace mặc định** với chính họ là `OWNER` (cùng transaction).
 
 ---
 
-## Các tài liệu phân hệ chi tiết:
+## 2. Quy ước chung
 
-1. [01. Phân hệ Xác thực & Không gian làm việc (01-auth-workspace.md)](file:///f:/DATN/marka-capstone/docs/specs/01-auth-workspace.md)
-2. [02. Phân hệ Soạn thảo & Thư viện Media (02-content-media.md)](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md)
-3. [03. Phân hệ Trợ lý AI Content & Brand Voice (03-ai-brandvoice.md)](file:///f:/DATN/marka-capstone/docs/specs/03-ai-brandvoice.md)
-4. [04. Phân hệ Kết nối & Đăng bài đa kênh (04-social-publishing.md)](file:///f:/DATN/marka-capstone/docs/specs/04-social-publishing.md)
-5. [05. Phân hệ Email & Thông báo tự động (05-notifications-email.md)](file:///f:/DATN/marka-capstone/docs/specs/05-notifications-email.md)
-6. [06. Phân hệ Credit & Thanh toán PayOS (06-billing-payos.md)](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md)
-7. [07. Phân hệ Quản trị hệ thống & Báo cáo (07-admin-analytics.md)](file:///f:/DATN/marka-capstone/docs/specs/07-admin-analytics.md)
-8. [08. Phân hệ Thống kê hiệu quả bài đăng — Post Analytics (08-post-analytics.md)](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md)
+### 2.1. Định dạng response
+
+Mọi response đi qua `ApiResponse` (`backend/src/utils/ApiResponse.ts`).
+
+Thành công:
+
+```json
+{
+  "status": "success",
+  "message": "Lấy danh sách bài viết thành công",
+  "data": { "posts": [] },
+  "meta": { "page": 1, "limit": 10, "total": 0, "totalPages": 0 }
+}
+```
+
+- `data` chỉ có mặt khi khác `null`/`undefined`; `meta` chỉ có ở API phân trang.
+- Lỗi: `status = "fail"` với 4xx, `status = "error"` với 5xx.
+
+```json
+{ "status": "fail", "message": "Bạn không có quyền thực hiện hành động này trong Workspace" }
+```
+
+- Lỗi validation Zod trả `422` kèm mảng lỗi theo field:
+
+```json
+{
+  "status": "fail",
+  "message": "Dữ liệu không hợp lệ",
+  "errors": [{ "field": "email", "message": "Email không hợp lệ" }]
+}
+```
+
+- Lỗi Prisma `P2002` → `409` `"Dữ liệu đã tồn tại trong hệ thống"`; `P2025` → `404` `"Không tìm thấy dữ liệu"`.
+- Lỗi không xác định → `500` `"Đã có lỗi hệ thống xảy ra"` (chỉ kèm `errors.debug` khi `NODE_ENV=development`).
+- Route không tồn tại → `404` `"Đường dẫn <path> không tồn tại"`.
+
+### 2.2. Xác thực
+
+- Access token: JWT ký bằng `JWT_ACCESS_SECRET`, hạn mặc định **15 phút**, payload `{ id, email, systemRole, tokenVersion }`, gửi qua header `Authorization: Bearer <accessToken>`.
+- Refresh token: JWT ký bằng `JWT_REFRESH_SECRET`, hạn mặc định **7 ngày**, payload `{ id, tokenVersion }`, lưu trong cookie `refreshToken` (`HttpOnly`; `SameSite=Lax` ở dev, `None` + `Secure` ở production; `maxAge` 7 ngày).
+- **Không có bảng refresh token.** Thu hồi phiên bằng cách tăng `User.tokenVersion` (logout, đổi mật khẩu) — mọi access/refresh token cũ mất hiệu lực ở request kế tiếp vì `requireAuth` kiểm tra `tokenVersion` với DB.
+- Tài khoản `isSuspended = true` bị chặn ở mọi request đã xác thực (`403`).
+- `optionalAuth` dùng cho route công khai cần biết người gọi (`GET /invites/:token`): token sai/hết hạn bị bỏ qua, request tiếp tục như khách.
+
+### 2.3. Phạm vi workspace (đa tenant)
+
+Middleware `requireWorkspaceRole(...roles)` lấy `workspaceId` theo thứ tự:
+
+1. header `x-workspace-id`
+2. `req.params.workspaceId`
+3. `req.query.workspaceId`
+4. `req.body.workspaceId`
+
+Sau đó:
+
+- Nếu có **cả** header và param mà khác nhau → `403` `"Workspace ID không khớp giữa header và URL"`.
+- Không tìm thấy `workspaceId` → `400` `"Vui lòng cung cấp Workspace ID (qua header x-workspace-id hoặc params)"`.
+- `SYSTEM_ADMIN` được đặt `workspaceRole = 'OWNER'` và đi tiếp mà không cần là thành viên.
+- Người dùng không phải thành viên → `403` `"Bạn không phải là thành viên của Workspace này"`.
+- Có truyền danh sách role mà vai trò không khớp → `403` `"Bạn không có quyền thực hiện hành động này trong Workspace"`.
+
+Mọi truy vấn dữ liệu nghiệp vụ đều lọc theo `workspaceId`; không có endpoint nào đọc chéo workspace.
+
+### 2.4. Thời gian, xoá mềm, phân trang
+
+- **Thời gian:** DB lưu `DateTime`; API trả **ISO-8601 UTC** (`2026-10-20T12:00:00.000Z`). Client tự quy đổi múi giờ.
+- **Xoá mềm:** áp dụng cho `Workspace`, `Post`, `MediaAsset`, `CreditPackage` (trường `deletedAt`).
+  Prisma client được mở rộng (`config/prismaExtensions.ts`) tự thêm `deletedAt: null` vào **truy vấn đọc trực tiếp** trên 4 model (`findFirst`, `findMany`, `findUnique`, `count`, `aggregate`, `groupBy`...).
+  Điều kiện này **không tự áp dụng cho dữ liệu lồng** nạp qua `include`/`select` quan hệ; repository phải lọc thủ công nếu cần.
+  Đọc bản ghi đã xoá phải dùng `basePrisma` (export từ `config/db.ts`); **chưa có endpoint khôi phục**.
+- **Workspace đã xoá mềm:** biến mất khỏi `GET /workspaces`; các API có kiểm tra workspace tồn tại (sửa/xoá workspace, danh sách thành viên, mời thành viên, Brand Voice) trả `404`.
+  Tuy nhiên `requireWorkspaceRole` **không** kiểm tra `Workspace.deletedAt`, nên các route chỉ dựa vào membership (bài viết, kênh, rời workspace) vẫn thao tác được trên dữ liệu cũ của workspace đã xoá — đây là giới hạn hiện tại của code, chưa có cơ chế chặn tập trung.
+- **Phân trang:** `page` (mặc định 1), `limit` (mặc định 10, tối đa 50); thông tin phân trang nằm trong `meta` với `{ page, limit, total, totalPages }`. Hiện chỉ `GET .../posts` dùng phân trang.
+
+### 2.5. Rate limit, audit, tác vụ nền
+
+- `apiLimiter`: 200 request/phút/IP cho toàn bộ `/api/`.
+- `authLimiter`: 15 request/15 phút/IP cho `POST /auth/register` và `POST /auth/google`.
+- `loginLimiter`: 5 lần **thất bại**/15 phút theo khoá `IP:email` cho `POST /auth/login` (đăng nhập đúng không bị tính).
+- Hai limiter xác thực bị **bỏ qua khi `NODE_ENV=test`**. Vượt giới hạn → `429` với `{ "status": "fail", "message": "..." }`.
+- **Audit log:** service gọi `auditService.recordAuditLog(...)`. Ghi audit lỗi **không làm hỏng request** (chỉ `console.warn`). Chưa có API đọc audit log.
+- **Queue/worker:** BullMQ có 3 queue (`content-generation-queue`, `publishing-queue`, `email-queue`) và processor khung (chỉ log + `updateProgress(100)` + trả `{ success: true }`). **Chưa module nào enqueue job**; email hiện gửi đồng bộ trong request.
+- **Health:** `GET /health` công khai, kiểm tra PostgreSQL (`SELECT 1`) và Redis (`PING`); trả `503` (status `error`, kèm `data`) nếu một trong hai lỗi.
 
 ---
 
-## 8. Lưu ý triển khai chung (áp dụng toàn hệ thống)
+## 3. Danh mục Use Case (UC01 – UC50)
 
-1. **State machine là trung tâm (D15)**: Post status gồm `Draft/Pending/Approved/Rejected/Scheduled/Published/Failed/**Archived**`; định nghĩa transition hợp lệ ở **1 nơi duy nhất** (service layer), validate rõ ràng, tránh để nhiều chỗ trong code tự ý set status. Các transition bắt buộc: `REJECTED → PENDING` (gửi duyệt lại), `PENDING/APPROVED → DRAFT` (thu hồi), `FAILED → SCHEDULED` (retry), `PUBLISHED → ARCHIVED` (không xoá bài đã đăng).
-2. **Mọi thao tác tốn thời gian đều qua queue**: sinh AI text/ảnh, đăng bài, gửi email — không xử lý đồng bộ trong request-response để tránh timeout và giữ API < 500ms.
-3. **Idempotency ở mọi nơi có tiền/credit**: webhook thanh toán, trừ/hoàn credit, email nhắc định kỳ — luôn có cơ chế chống xử lý trùng.
-4. **Mã hóa dữ liệu nhạy cảm**: access token (Facebook, PayOS API key) bắt buộc AES-256 trước khi lưu DB, không log ra console/log file.
-5. **Test case ưu tiên cao**: luồng Atomic Credit (AI fail giữa chừng), luồng duyệt bài (transition không hợp lệ), luồng webhook thanh toán (trùng lặp, chữ ký sai) — đây là 3 luồng dễ phát sinh lỗi nhất và cũng dễ bị hội đồng hỏi sâu khi bảo vệ.
-6. **Xác nhận sớm giới hạn thực tế của Facebook App** (Development mode, tester accounts) ngay từ Phase 1-2, không để đến Phase 4 mới phát hiện vướng.
-7. **Viết báo cáo song song, không dồn cuối kỳ**: ghi chú lại quyết định thiết kế, khó khăn kỹ thuật ngay khi làm từng phase, để Phase 6 chỉ cần tổng hợp thay vì viết từ đầu.
+Cột **Trạng thái**:
 
-### 8.1. Chiến lược xử lý lỗi API bên thứ 3
+- **Đã triển khai** — có endpoint và xử lý đầy đủ trong code.
+- **Một phần** — có endpoint nhưng thiếu phạm vi/trạng thái so với mô tả nghiệp vụ.
+- **Chưa triển khai (Roadmap)** — không có route/service; chỉ có bảng trong schema hoặc hoàn toàn chưa có.
 
-**OpenAI / DALL-E**:
-- **Cơ chế Retry**: Khi xảy ra lỗi kết nối, timeout hoặc lỗi từ OpenAI, hệ thống thực hiện retry tối đa 3 lần với exponential backoff (giãn cách tăng dần: 1s, 2s, 4s).
-- **Xử lý thất bại**: Nếu sau 3 lần vẫn lỗi, worker đánh dấu trạng thái tác vụ (job) là `FAILED`, gửi thông báo lỗi chi tiết cho user, và hoàn lại credit cho workspace (không trừ credit).
-- **Circuit Breaker**: Theo dõi tỉ lệ lỗi kết nối OpenAI. Nếu tỷ lệ lỗi > 20% trên tổng số request trong vòng 5 phút, hệ thống kích hoạt Circuit Breaker tạm dừng queue `content-generation` để tránh tràn RAM Redis (Redis memory overflow) và gửi cảnh báo khẩn cấp cho System Admin.
+| Mã UC | Tên chức năng | Tác nhân chính | Trạng thái | Endpoint hiện có (nếu có) | Spec |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **UC01** | Register | Guest | Đã triển khai | `POST /auth/register` | [01](./01-auth-workspace.md) |
+| **UC02** | Login | Guest | Đã triển khai | `POST /auth/login` (email/mật khẩu), `POST /auth/google` (Google OAuth) | [01](./01-auth-workspace.md) |
+| **UC03** | Logout | User | Đã triển khai | `POST /auth/logout` | [01](./01-auth-workspace.md) |
+| **UC04** | Change Password | User | Đã triển khai | `PATCH /users/me/password` | [01](./01-auth-workspace.md) |
+| **UC05** | Create Content | Creator, Owner | Đã triển khai | `POST /workspaces/:workspaceId/posts` | [02](./02-content-media.md) |
+| **UC06** | Generate AI Content | Creator, Owner | Chưa triển khai (Roadmap) | — | [03](./03-ai-brandvoice.md) |
+| **UC07** | Update Content | Creator, Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/posts/:postId` | [02](./02-content-media.md) |
+| **UC08** | View Content | Creator, Owner | Đã triển khai | `GET /workspaces/:workspaceId/posts/:postId` | [02](./02-content-media.md) |
+| **UC09** | Search Content | Creator, Owner | Đã triển khai | `GET /workspaces/:workspaceId/posts` | [02](./02-content-media.md) |
+| **UC10** | Delete Content | Creator, Owner | Một phần | `DELETE /workspaces/:workspaceId/posts/:postId` (chỉ `DRAFT`/`REJECTED`) | [02](./02-content-media.md) |
+| **UC11** | Submit Content for Approval | Creator, Owner | Đã triển khai | `POST /workspaces/:workspaceId/posts/:postId/submit` | [02](./02-content-media.md) |
+| **UC12** | Schedule Content | Owner | Chưa triển khai (Roadmap) | — | [04](./04-social-publishing.md) |
+| **UC13** | View Content Schedule | Creator, Owner | Chưa triển khai (Roadmap) | — | [04](./04-social-publishing.md) |
+| **UC14** | Review Content | Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/posts/:postId/review` | [02](./02-content-media.md) |
+| **UC15** | Post Content to Social Media | Owner | Chưa triển khai (Roadmap) | — | [04](./04-social-publishing.md) |
+| **UC16** | Create Workspace | User | Đã triển khai | `POST /workspaces` | [01](./01-auth-workspace.md) |
+| **UC17** | Update Workspace | Owner | Đã triển khai | `PATCH /workspaces/:workspaceId` | [01](./01-auth-workspace.md) |
+| **UC18** | Delete Workspace | Owner | Đã triển khai | `DELETE /workspaces/:workspaceId` | [01](./01-auth-workspace.md) |
+| **UC19** | View Members in Workspace | Creator, Owner | Đã triển khai | `GET /workspaces/:workspaceId/members` | [01](./01-auth-workspace.md) |
+| **UC20** | Invite Member | Owner | Đã triển khai | `POST /workspaces/:workspaceId/invites` | [01](./01-auth-workspace.md) |
+| **UC21** | Accept Invitation | Guest, User | Đã triển khai | `GET /invites/:token` | [01](./01-auth-workspace.md) |
+| **UC22** | Leave Workspace | Creator, Owner | Đã triển khai | `DELETE /workspaces/:workspaceId/members/me` | [01](./01-auth-workspace.md) |
+| **UC23** | Remove Member | Owner | Đã triển khai | `DELETE /workspaces/:workspaceId/members/:memberId` | [01](./01-auth-workspace.md) |
+| **UC24** | Create Brand Voice | Owner | Đã triển khai | `PUT /workspaces/:workspaceId/brand-voice` (upsert) | [03](./03-ai-brandvoice.md) |
+| **UC25** | Update Brand Voice | Owner | Đã triển khai | `PUT /workspaces/:workspaceId/brand-voice` (ghi đè toàn bộ) | [03](./03-ai-brandvoice.md) |
+| **UC26** | View Brand Voice | Creator, Owner | Đã triển khai | `GET /workspaces/:workspaceId/brand-voice` | [03](./03-ai-brandvoice.md) |
+| **UC27** | View Connected Channels | Creator, Owner | Đã triển khai | `GET /workspaces/:workspaceId/channels` | [04](./04-social-publishing.md) |
+| **UC28** | Connect Social Channels | Owner | Một phần | `GET /channels/facebook/oauth/url`, `GET /channels/facebook/oauth/callback`, `GET /channels/facebook/oauth/session/:sessionId`, `POST /channels/facebook/oauth/session/:sessionId/connect` — **chỉ Facebook** | [04](./04-social-publishing.md) |
+| **UC29** | Disconnect Social Channel | Owner | Đã triển khai | `DELETE /channels/:channelId` | [04](./04-social-publishing.md) |
+| **UC30** | Purchase Credits | Owner | Chưa triển khai (Roadmap) | — | [06](./06-billing-payos.md) |
+| **UC31** | View Dashboard & Audit Log | System Admin, Owner | Chưa triển khai (Roadmap) | — (audit log được **ghi** nhưng chưa có API đọc) | [07](./07-admin-analytics.md) |
+| **UC32** | Update Profile | User | Đã triển khai | `GET /users/me`, `PATCH /users/me` | [01](./01-auth-workspace.md) |
+| **UC33** | Refresh Token | User | Đã triển khai | `POST /auth/refresh-token` | [01](./01-auth-workspace.md) |
+| **UC34** | Verify Email | User | Chưa triển khai (Roadmap) | — (chỉ có cột `User.emailVerified`) | [01](./01-auth-workspace.md) |
+| **UC35** | List Workspaces | User | Đã triển khai | `GET /workspaces` | [01](./01-auth-workspace.md) |
+| **UC36** | Change Member Role | Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/members/:memberId` | [01](./01-auth-workspace.md) |
+| **UC37** | Upload Media | Creator, Owner | Một phần | `POST /workspaces/:workspaceId/posts/:postId/media`, `DELETE /workspaces/:workspaceId/posts/:postId/media/:mediaId` — chỉ ảnh gắn bài viết | [02](./02-content-media.md) |
+| **UC38** | Cancel Scheduled Post | Owner | Chưa triển khai (Roadmap) | — | [04](./04-social-publishing.md) |
+| **UC39** | List Notifications | User | Chưa triển khai (Roadmap) | — (bảng `Notification` có ghi dữ liệu) | [05](./05-notifications-email.md) |
+| **UC40** | Mark Notification as Read | User | Chưa triển khai (Roadmap) | — | [05](./05-notifications-email.md) |
+| **UC41** | Mark All Notifications as Read | User | Chưa triển khai (Roadmap) | — | [05](./05-notifications-email.md) |
+| **UC42** | View Post Analytics | Creator, Owner | Chưa triển khai (Roadmap) | — | [08](./08-post-analytics.md) |
+| **UC43** | View Workspace Performance Overview | Creator, Owner | Chưa triển khai (Roadmap) | — | [08](./08-post-analytics.md) |
+| **UC44** | List Credit Packages | User | Chưa triển khai (Roadmap) | — | [06](./06-billing-payos.md) |
+| **UC45** | Create Credit Package | System Admin | Chưa triển khai (Roadmap) | — | [06](./06-billing-payos.md) |
+| **UC46** | Update Credit Package | System Admin | Chưa triển khai (Roadmap) | — | [06](./06-billing-payos.md) |
+| **UC47** | Delete Credit Package | System Admin | Chưa triển khai (Roadmap) | — | [06](./06-billing-payos.md) |
+| **UC48** | View Credit Balance & History | Thành viên workspace | Một phần | Chỉ thấy `remainingCredit`/`monthlyQuota` trong `GET /workspaces` và response tạo/sửa workspace; không có API credit/lịch sử giao dịch | [06](./06-billing-payos.md) |
+| **UC49** | Assign Content Task | Owner | Chưa triển khai (Roadmap) | — | [02](./02-content-media.md) |
+| **UC50** | Update Task Status | Assignee, Owner | Chưa triển khai (Roadmap) | — | [02](./02-content-media.md) |
 
-**Facebook Graph API**:
-- **Hết hạn Token (Token Expired)**: Tự động chuyển đổi kết nối kênh sang trạng thái `EXPIRED` và hiển thị cảnh báo cho Workspace Owner yêu cầu đăng nhập và cấp lại token mới qua modal kết nối.
-- **Vượt quá tần suất (Rate Limit)**: Trích xuất thông tin giới hạn từ header phản hồi của Facebook (`X-FB-RR`) và tạm dừng đăng bài/retry trên kênh đó theo khoảng thời gian yêu cầu để tránh bị khóa ứng dụng.
-- **Vi phạm chính sách nội dung**: Ghi nhận mã lỗi phản hồi cụ thể từ Facebook, đánh dấu trạng thái bài đăng là `FAILED`, lưu trữ lịch sử lỗi và hiển thị rõ ràng nguyên nhân: "Facebook từ chối bài viết vì lý do..." để user chủ động điều chỉnh.
+### 3.1. UC con / biến thể
+
+| Mã | Tên | Trạng thái | Ghi chú |
+| :--- | :--- | :--- | :--- |
+| UC02b | Google OAuth Login | Đã triển khai | `POST /auth/google` với `idToken`; tự tạo tài khoản nếu email chưa tồn tại |
+| UC28a | Connect Facebook Page (thật) | Đã triển khai | Qua OAuth, chọn nhiều Page, token mã hoá AES-256-GCM |
+| UC28b | Connect simulated channels (Instagram/TikTok/Zalo) | Chưa triển khai (Roadmap) | Schema có `ChannelType.SIMULATED`, `SocialPlatform`; không có endpoint |
+| UC30a | Create Order | Chưa triển khai (Roadmap) | Bảng `Order` có trong schema |
+| UC30b | PayOS Webhook | Chưa triển khai (Roadmap) | Chưa có route webhook |
+| UC30c | Poll Order Status | Chưa triển khai (Roadmap) | — |
+| UC31a | Admin Dashboard | Chưa triển khai (Roadmap) | — |
+| UC31b | View Audit Log | Chưa triển khai (Roadmap) | Audit log chỉ được ghi, không có API đọc |
+| UC42b | Refresh Post Metrics | Chưa triển khai (Roadmap) | Bảng `PostMetric` có trong schema |
+
+**Thống kê:** 27 UC đã triển khai · 4 UC một phần (UC10, UC28, UC37, UC48) · 19 UC chưa triển khai.
 
 ---
 
-## 9. Quy trình Onboarding người dùng mới (User Onboarding Flow)
+## 4. Tổng hợp theo phân hệ
 
-**Mô tả**: Trải nghiệm chào đón người dùng mới đăng ký lần đầu để giúp họ làm quen với hệ thống nhanh chóng và trực quan nhất.
-
-**Các bước hành trình (User Journey)**:
-
-1. **Đăng ký thành công**: Hệ thống tự động chuyển hướng người dùng mới đến trang `/dashboard`.
-2. **Hiển thị Onboarding Modal**: Một hộp thoại popup "Chào mừng! Bắt đầu với 3 bước đơn giản" xuất hiện ngay lập tức:
-   - **Bước 1: Khởi tạo Workspace**: Người dùng nhập tên workspace đầu tiên (hoặc nhập mã mời từ đồng nghiệp để tham gia workspace hiện có).
-   - **Bước 2: Thiết lập Brand Voice**: Người dùng điền nhanh thông tin thương hiệu (ngành hàng, khách hàng mục tiêu) hoặc có thể chọn "Bỏ qua để cấu hình sau".
-   - **Bước 3: Tạo bài viết đầu tiên**: Gợi ý người dùng thử nghiệm tính năng với các mẫu bài viết (template) có sẵn.
-3. **Cung cấp dữ liệu mẫu (Demo Templates)**: Cung cấp sẵn một số bài đăng mẫu chuẩn hóa cho Facebook/TikTok trong Workspace mới tạo để người dùng click thử và trải nghiệm ngay quy trình phê duyệt & đăng bài giả lập mà không cần phải nhập thủ công.
+| Phân hệ | Tài liệu | Đã có trong code |
+| :--- | :--- | :--- |
+| 1. Xác thực & Workspace | [01-auth-workspace.md](./01-auth-workspace.md) | Đăng ký/đăng nhập/Google/logout/refresh, hồ sơ, đổi mật khẩu, workspace, thành viên, lời mời |
+| 2. Nội dung & Media | [02-content-media.md](./02-content-media.md) | CRUD bài viết, upload/xoá ảnh theo bài, state machine duyệt bài, notification + audit |
+| 3. Brand Voice & AI | [03-ai-brandvoice.md](./03-ai-brandvoice.md) | Chỉ Brand Voice; phần AI là Roadmap |
+| 4. Kênh & Đăng bài | [04-social-publishing.md](./04-social-publishing.md) | Chỉ Facebook Page OAuth (kết nối/ngắt kết nối); lịch đăng/publish là Roadmap |
+| 5. Email & Thông báo | [05-notifications-email.md](./05-notifications-email.md) | Email mời, email duyệt/từ chối (Resend); ghi notification in-app; chưa có API đọc |
+| 6. Credit & PayOS | [06-billing-payos.md](./06-billing-payos.md) | Roadmap — schema đã có, chưa có service/endpoint |
+| 7. Quản trị & Báo cáo | [07-admin-analytics.md](./07-admin-analytics.md) | Roadmap — audit log được ghi, chưa có dashboard/API quản trị |
+| 8. Post Analytics | [08-post-analytics.md](./08-post-analytics.md) | Roadmap — schema `PostMetric` đã có, chưa có đồng bộ/endpoint |
 
 ---
 
-## 10. Giới hạn kỹ thuật (Technical Constraints)
+## 5. Roadmap tổng hợp
 
-Để đảm bảo hệ thống hoạt động ổn định trong môi trường production và tránh quá tải tài nguyên, Marka áp dụng các giới hạn kỹ thuật sau:
+Các mục sau **chưa có trong code** (chi tiết ở file tương ứng):
 
-- **BullMQ Queue**: Giới hạn tối đa 10.000 jobs trong hàng đợi cho mỗi queue (quản lý dung lượng RAM của Redis tránh bị overflow).
-- **Giới hạn Context OpenAI**: Hạn mức token tối đa gửi nhận là 4.096 tokens cho mỗi request khi gọi GPT-4o để tối ưu hóa chi phí và tốc độ phản hồi.
-- **Dung lượng cơ sở dữ liệu**: Cấu hình tối thiểu 10 GB cho database PostgreSQL ở môi trường Development, và tối thiểu 50 GB cho môi trường Production (để lưu trữ lịch sử audit log và thông tin bài viết).
-- **Upload tệp tin**: Giới hạn tải lên đồng thời tối đa 5 file cho mỗi request (phía client và server).
+1. **AI (03):** sinh nội dung bằng LLM, sinh ảnh, Viral Score, trừ credit; bảng `AiGeneration` và queue `content-generation-queue` mới chỉ là khung.
+2. **Đăng bài (04):** Instagram/TikTok/Zalo (kể cả giả lập), lên lịch (`ScheduledPost`), publish worker, calendar, huỷ lịch (UC38), làm mới token Facebook/hạ trạng thái `EXPIRED`.
+3. **Thông báo (05):** API đọc/đánh dấu đã đọc (UC39–UC41), email nhắc hạn gói/hết credit/lịch đăng, email xác thực tài khoản (UC34), đẩy email qua `email-queue`.
+4. **Thanh toán (06):** CreditPackage, Order, PayOS, webhook, trừ/hoàn credit, reset credit theo chu kỳ (UC30, UC44–UC48).
+5. **Quản trị (07):** admin panel, quản lý user/workspace, dashboard, API đọc audit log (UC31).
+6. **Post Analytics (08):** đồng bộ `PostMetric` từ Facebook Graph API, dashboard hiệu quả, n8n (UC42, UC43).
+7. **Giao việc (02):** UC49/UC50 — giao việc và trạng thái công việc trên bài viết.
+
+---
+
+## 6. Quan hệ với tài liệu khác
+
+- **Endpoint & ví dụ request/response:** [`docs/api_documentation.md`](../api_documentation.md) — danh sách đầy đủ endpoint đang có.
+- **Kiến trúc, middleware, transaction, xoá mềm:** [`docs/architecture.md`](../architecture.md).
+- **Mô hình dữ liệu & quan hệ:** `backend/prisma/schema.prisma`.
+- Khi code thay đổi, cập nhật **cả** spec này và `api_documentation.md` để tránh lệch nguồn sự thật.

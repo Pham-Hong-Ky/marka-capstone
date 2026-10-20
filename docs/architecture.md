@@ -1,113 +1,297 @@
 # Tài liệu Kiến trúc Hệ thống — Marka
 
-Tài liệu này mô tả chi tiết kiến trúc phần mềm, mô hình phân lớp và các cơ chế xử lý cốt lõi của nền tảng Marka. Thiết kế tuân thủ các nguyên lý của **Clean Architecture** và **Domain-Driven Design (DDD)** nhằm đảm bảo tính dễ bảo trì, dễ viết test và độc lập về công nghệ.
+> **Phạm vi:** tài liệu mô tả đúng code đang chạy trong `backend/src`, `frontend/src` và `backend/prisma/schema.prisma`.
+> Các phần chưa triển khai được liệt kê riêng ở mục 10 (Roadmap), không mô tả như tính năng đã có.
 
 ---
 
-## 1. Mô hình Phân lớp Kiến trúc (Layered Architecture)
+## 1. Tổng quan
 
-Hệ thống được tổ chức thành 5 lớp chức năng chính. Luồng đi của dữ liệu luôn tuân thủ nguyên tắc một chiều từ ngoài vào trong:
+Marka là ứng dụng web quản lý nội dung mạng xã hội theo workspace:
+
+| Thành phần | Công nghệ | Vị trí |
+| :--- | :--- | :--- |
+| API | Node.js + TypeScript (ESM), Express 4 | `backend/src` |
+| ORM / DB | Prisma 5 + PostgreSQL | `backend/prisma` |
+| Cache / Queue | Redis (ioredis) + BullMQ | `backend/src/config/redis.ts`, `backend/src/workers` |
+| Frontend | React 19 + Vite + TypeScript | `frontend/src` |
+| UI | Tailwind CSS v4, React Router, React Query, Zustand, react-hook-form + Zod | `frontend/src` |
+| Email | Resend | `backend/src/utils/mailer.client.ts` |
+| Lưu ảnh | Cloudinary | `backend/src/utils/cloudinary.client.ts` |
+| Facebook | Facebook Graph API v21.0 (OAuth) | `backend/src/modules/channel/facebook.client.ts` |
+
+Luồng request một chiều:
 
 ```mermaid
-graph TD
-    Client[Client / Frontend] -->|HTTP Request| Router[Router / Middleware]
-    Router -->|1. Authenticate & Authorize| Router
-    Router -->|2. Validate Input Schema| Router
-    Router -->|3. Call Handler| Controller[Controller Layer]
-    Controller -->|4. Invoke Business Logic| Service[Service Layer]
-    Service -->|5. Manage Transaction Context| Service
-    Service -->|6. Call Data Methods| Repository[Repository Layer]
-    Repository -->|7. Run Database Query| DB[(PostgreSQL Database)]
-    Service -.->|8. Enqueue Async Task| Queue[BullMQ / Redis Queue]
-    Queue -.->|9. Process Background Job| Worker[Background Worker]
-    Worker -->|10. Call Third-Party API| ExternalAPI[External APIs: Facebook, OpenAI, PayOS]
-    Service -->|11. Create Notifications| Service
-    Service -->|12. Log Audit Events| Service
-    Service -->|13. Return DTO| Controller
-    Controller -->|14. HTTP JSON Response| Client
+graph LR
+    FE[React Frontend] -->|HTTP /api/v1| R[Express Router]
+    R --> M[Middleware: requestId, rate limit, auth, validate]
+    M --> C[Controller]
+    C --> S[Service]
+    S --> P[Repository]
+    P --> DB[(PostgreSQL)]
+    S -.-> X[Resend / Cloudinary / Facebook Graph API]
+    S -.-> AU[AuditLog]
+    S -.-> N[Notification]
+    C -->|ApiResponse| FE
 ```
-
-### 1.1. Lớp Router & Middleware (Tầng Giao Tiếp)
-* **Nhiệm vụ**: Định tuyến các request, thực hiện các bộ lọc tiền xử lý.
-* **Các Middleware cốt lõi**:
-  - `verifyAccessToken`: Xác thực Access Token (JWT) trong Authorization header để nhận diện `userId`.
-  - `requireWorkspaceRole([roles])`: Phân quyền dựa trên vai trò của user trong Workspace đang hoạt động (Owner/Creator).
-  - `validate({ body, params, query })`: Sử dụng thư viện validation (Zod/Joi) để kiểm tra định dạng và kiểu dữ liệu đầu vào trước khi vào Controller.
-  - `rateLimiter`: Giới hạn tần suất request (chống spam đăng nhập, sinh AI).
-
-### 1.2. Lớp Controller (Tầng Điều Hướng)
-* **Nhiệm vụ**: Nhận request đã được xác thực từ Router, bóc tách các tham số (`req.params`, `req.body`, `req.query`), chuyển tiếp tới lớp Service tương ứng và định dạng kết quả trả về (`res.status().json()`).
-* **Quy tắc**: Lớp Controller phải **siêu mỏng** (Thin Controller). Tuyệt đối không chứa logic nghiệp vụ hay các câu lệnh gọi trực tiếp đến database.
-
-### 1.3. Lớp Service (Tầng Nghiệp Vụ)
-* **Nhiệm vụ**: Trọng tâm xử lý logic của toàn bộ hệ thống.
-  - Thực thi quy trình nghiệp vụ (Business Logic).
-  - Quản lý điều phối giao dịch database (Prisma Transaction).
-  - Gọi các API bên thứ 3 (OpenAI, Facebook Graph API, cổng thanh toán PayOS) qua các helper/client.
-  - Tạo thông báo in-app (Notification) và ghi nhật ký hoạt động hệ thống (Audit Log).
-* **Quy tắc**: Lớp Service hoàn toàn độc lập với các thư viện HTTP (không được truy cập `req` hay `res`). Điều này giúp Service dễ dàng được tái sử dụng trong các môi trường khác (như CLI, Cron Job, Test runner).
-
-### 1.4. Lớp Repository (Tầng Truy Cập Dữ Liệu)
-* **Nhiệm vụ**: Thực hiện các câu lệnh thao tác trực tiếp với cơ sở dữ liệu (thông qua Prisma Client).
-* **Quy tắc**:
-  - Mỗi thực thể database lớn sẽ có một Repository tương ứng (ví dụ: `postRepository`, `userRepository`).
-  - Lớp Service bắt buộc phải tương tác với database thông qua các hàm của Repository thay vì gọi trực tiếp Prisma. Điều này giúp dễ dàng mocking lớp dữ liệu khi viết Unit Test cho lớp Service.
-
-### 1.5. Database & External Services (Tầng Hạ Tầng)
-* **Hệ quản trị CSDL**: PostgreSQL.
-* **Dịch vụ tích hợp**:
-  - OpenAI GPT-4o & DALL-E 3 (Sinh nội dung văn bản và hình ảnh).
-  - Facebook Graph API (Xuất bản bài đăng lên Facebook Page và đồng bộ chỉ số tương tác).
-  - PayOS API (Thanh toán nạp credit trực tuyến qua mã QR).
 
 ---
 
-## 2. Các Cơ Chế Kiến Trúc Đặc Thù
+## 2. Cấu trúc backend
 
-### 2.1. Quản lý Giao dịch (Prisma Transactions)
-Để tránh tình trạng bất nhất dữ liệu, các luồng nghiệp vụ phức tạp liên quan đến tài chính (Credit) hoặc mối quan hệ nhiều bảng bắt buộc phải sử dụng Transaction.
-* **Cách triển khai (D17)**:
-  - Với luồng nhiều bước/tài chính, giao dịch do lớp **Service** sở hữu: dùng `prisma.$transaction`, rồi truyền instance transaction client (ký hiệu `tx` hoặc `prismaTransaction`) vào các phương thức của **Repository**.
-  - **Repository được phép** tự mở transaction cho thao tác **atomic tự chứa** (ví dụ `createUser` tạo user + workspace + member trong 1 transaction) — cả hai pattern đều hợp lệ.
-  - Ví dụ:
-    ```typescript
-    await prisma.$transaction(async (tx) => {
-      await workspaceRepository.deductCredit(workspaceId, cost, tx);
-      await creditTransactionRepository.createTransactionRecord(data, tx);
-    });
-    ```
+```
+backend/src/
+  app.ts                  # khởi tạo Express, middleware toàn cục, mount /api/v1
+  server.ts               # listen + graceful shutdown + bật worker nếu ENABLE_WORKERS
+  worker-server.ts        # entry point chạy worker riêng (npm run worker)
+  config/                 # env (Zod), prisma client + extension, redis
+  middlewares/            # auth, validate, error, rateLimiter, upload, requestId, enforceHttps
+  modules/<feature>/
+    <feature>.validation.ts
+    <feature>.controller.ts
+    <feature>.service.ts
+    <feature>.repository.ts
+    index.ts
+  routes/index.ts         # toàn bộ endpoint /api/v1
+  templates/              # HTML email
+  utils/                  # ApiResponse, errors, jwt, cookies, password, encryption, mailer, cloudinary, logger
+  workers/                # queue BullMQ + worker
+```
 
-### 2.2. Xử lý tác vụ nền bất đồng bộ (BullMQ + Redis)
-Các hành động tiêu tốn nhiều thời gian (gọi LLM OpenAI mất 5-15 giây, transcode/tải ảnh về cloud mất 3-5 giây, xuất bản bài viết lên các mạng xã hội) không được xử lý trong luồng request-response chính để tránh nghẽn API.
-* **Cách hoạt động**:
-  - Lớp Service đẩy payload công việc vào hàng đợi BullMQ tương ứng (ví dụ: `content-generation-queue`, `publishing-queue`).
-  - Request trả về mã trạng thái ngay lập tức cho Client kèm theo `jobId`.
-  - Một process độc lập (Background Worker) lắng nghe Redis và lấy job ra xử lý. Sau khi hoàn tất, Worker cập nhật trạng thái vào DB và tạo thông báo in-app (`Notification`); ở **MVP client nhận kết quả qua polling**. **WebSocket/SSE là Phase sau (tùy chọn)** (D20).
+Các module hiện có: `auth`, `user`, `workspace`, `brandvoice`, `channel`, `post`, `audit`, `health`.
 
-### 2.3. Xử lý lỗi tập trung (Global Error Handling Middleware)
-Hệ thống sử dụng cơ chế ném lỗi hướng đối tượng (Object-oriented exception throwing) và bắt lỗi tập trung:
-* Các lỗi nghiệp vụ được định nghĩa thành các class kế thừa từ lớp `AppError` chuẩn (ví dụ: `NotFoundError`, `UnauthorizedError`, `ConflictError`, `ValidationError`).
-* Lớp Service khi phát hiện vi phạm nghiệp vụ sẽ ném lỗi: `throw new ConflictError("Thông báo lỗi")`.
-* Một Error Handling Middleware nằm ở cuối chuỗi route của Express sẽ bắt toàn bộ lỗi này, ghi nhận log lỗi (cho System Admin) và trả về định dạng JSON thống nhất cho Client:
-  ```json
-  {
-    "status": "fail",
-    "message": "Thông báo lỗi chi tiết dành cho người dùng"
-  }
-  ```
+### 2.1. Router & Middleware
 
-### 2.4. Session & Revocation (Access/Refresh Token với `tokenVersion`)
-Để ngăn chặn tấn công replay và bảo mật phiên làm việc tối đa:
-* Khi Login thành công, hệ thống cấp Access Token (JWT lưu ở Client Memory, hạn ngắn 15 phút) và Refresh Token (JWT **stateless**, trả về trình duyệt dưới dạng HTTP-Only, Secure, SameSite Cookie, hạn 7 ngày). **Không** có bảng `refresh_tokens` lưu trong DB.
-* Cả hai token đều chứa trường `tokenVersion` của user tại thời điểm cấp.
-* Mỗi khi Access Token hết hạn, client gọi `POST /auth/refresh-token` kèm Refresh Token (trong cookie) để nhận cặp token mới.
-* Cơ chế thu hồi dựa trên trường `tokenVersion` ở bảng `User`: khi người dùng Đăng xuất (UC03), Đổi mật khẩu (UC04) hoặc bị System Admin khóa tài khoản, hệ thống tăng `tokenVersion` lên 1. Mọi access/refresh token cũ mang `tokenVersion` cũ lập tức bị từ chối ở middleware, đăng xuất tài khoản khỏi tất cả thiết bị (dù token chưa hết hạn).
+`app.ts` gắn theo thứ tự:
 
-### 2.5. Xóa mềm (Soft Delete) bằng Prisma Client Extension (D18)
-* Áp dụng xóa mềm (`deletedAt`) cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset` — không xóa cứng.
-* Cơ chế **cưỡng chế** là một **Prisma Client Extension**: mọi truy vấn mặc định tự thêm điều kiện `deletedAt: null`, tránh việc lập trình viên quên lọc ở từng Repository/Service.
-* Muốn truy xuất bản ghi đã xóa (audit/khôi phục) phải gọi API chuyên biệt (`includeDeleted`), không bật mặc định.
+1. `enforceHttps` (chỉ production).
+2. `helmet`, `cors({ origin: env.CLIENT_URL, credentials: true })`, `compression`.
+3. `cookieParser`, `express.json`, `express.urlencoded`.
+4. `requestId` — lấy `x-request-id` hoặc sinh UUID, trả lại header `X-Request-Id`.
+5. `morgan` + `winston` (bỏ qua ở `NODE_ENV=test`).
+6. `apiLimiter` cho toàn bộ `/api/`.
+7. Swagger UI tại `/api-docs` (chỉ non-production).
+8. `v1Routes` tại `/api/v1`.
+9. Fallback `NotFoundError`, cuối cùng là `errorHandler`.
 
-### 2.6. Quy ước thời gian UTC (D19)
-* Toàn hệ thống dùng **UTC**: DB lưu `DateTime` UTC, API trao đổi chuỗi **ISO-8601 UTC**; đặt biến môi trường `TZ=UTC` cho server và worker.
-* Frontend tự chuyển đổi sang múi giờ địa phương khi hiển thị; mọi so sánh lịch đăng (`scheduledAt`, `nextResetAt`, cron) đều thực hiện trên UTC.
+Middleware nghiệp vụ trong `middlewares/`:
+
+| Middleware | Hàm | Việc làm |
+| :--- | :--- | :--- |
+| `auth.ts` | `requireAuth` | Đọc `Authorization: Bearer`, verify JWT, nạp user từ DB, kiểm tra `isSuspended` và `tokenVersion` |
+| | `optionalAuth` | Như trên nhưng token sai thì bỏ qua, coi như khách |
+| | `requireRoles(...roles)` | Kiểm tra `User.systemRole` |
+| | `requireWorkspaceRole(...roles)` | Lấy `workspaceId` từ `x-workspace-id`, params, query hoặc body; chặn lệch header/URL; kiểm tra `WorkspaceMember`; `SYSTEM_ADMIN` được coi là `OWNER` |
+| `validate.ts` | `validate({ body, params, query })` | Parse bằng Zod, ghi đè `req.*` bằng dữ liệu đã chuẩn hoá |
+| `rateLimiter.ts` | `apiLimiter` | 200 request/phút/IP cho `/api/` |
+| | `authLimiter` | 15 request/15 phút cho `POST /auth/register` và `POST /auth/google` |
+| | `loginLimiter` | 5 lần **thất bại**/15 phút theo `IP:email` |
+| | `createWorkspaceLimiter` / `aiLimiter` | Hàm khung theo workspace (chưa gắn route AI) |
+| `upload.ts` | `uploadPostMedia` | Multer memory, chỉ JPG/PNG/WEBP, media ≤ 10MB |
+| `error.ts` | `errorHandler` | Chuẩn hoá lỗi (mục 3) |
+| `requestId.ts` | `requestId` | Sinh/truyền `req.id` |
+| `enforceHttps.ts` | `enforceHttps` | Redirect 301 sang HTTPS ở production |
+
+### 2.2. Controller
+
+- Mỗi hàm được bọc `catchAsync` và trả `ApiResponse`.
+- Controller chỉ bóc `req.params`, `req.body`, `req.query`, `req.user`, `req.file` rồi gọi service.
+- Không gọi Prisma, không chứa logic nghiệp vụ.
+
+### 2.3. Service
+
+- Chứa toàn bộ nghiệp vụ: kiểm tra quyền, trạng thái, transaction, gọi client ngoài.
+- Ném lỗi bằng `AppError` và các lớp con (`NotFoundError`, `ConflictError`, `ForbiddenError`, `UnauthorizedError`, `BadRequestError`).
+- Ghi audit log qua `auditService.recordAuditLog` (lỗi ghi audit chỉ log cảnh báo, không làm hỏng request).
+- Không truy cập `req`/`res`.
+
+### 2.4. Repository
+
+- Chỉ chứa truy vấn Prisma; mỗi module có repository riêng (trừ `auth` dùng chung `userRepository`).
+- Tên hàm theo hành động: `findUserByEmail`, `createWorkspaceWithOwner`, `transitionPostStatus`...
+- Một số thao tác atomic tự mở transaction: `createUserWithDefaultWorkspace`, `createWorkspaceWithOwner`, `acceptInviteAsMember`, `upsertFacebookChannels`, `deleteChannelAndCancelSchedules`.
+
+---
+
+## 3. Định dạng phản hồi & xử lý lỗi
+
+Mọi response đi qua `utils/ApiResponse.ts`:
+
+```json
+{
+  "status": "success",
+  "message": "Lấy danh sách bài viết thành công",
+  "data": { "posts": [] },
+  "meta": { "page": 1, "limit": 10, "total": 0, "totalPages": 0 }
+}
+```
+
+Lỗi:
+
+```json
+{
+  "status": "fail",
+  "message": "Dữ liệu không hợp lệ",
+  "errors": [{ "field": "email", "message": "Email không hợp lệ" }]
+}
+```
+
+`status` là `success`, `fail` (4xx) hoặc `error` (5xx). `data`/`meta` chỉ có khi khác `null`.
+
+`middlewares/error.ts` xử lý theo thứ tự:
+
+1. `AppError` → giữ `statusCode`, `message`, `errors`.
+2. `ZodError` → 422, `errors` dạng `{ field, message }`.
+3. Prisma `P2002` → 409; `P2025` → 404.
+4. Còn lại → 500 `"Đã có lỗi hệ thống xảy ra"`; chỉ trả `errors.debug` khi `NODE_ENV=development`.
+
+---
+
+## 4. Xác thực & phiên làm việc
+
+- **Access token**: JWT ký bằng `JWT_ACCESS_SECRET`, hạn mặc định `15m`, chứa `{ id, email, systemRole, tokenVersion }`.
+- **Refresh token**: JWT ký bằng `JWT_REFRESH_SECRET`, hạn mặc định `7d`, chứa `{ id, tokenVersion }`, lưu trong cookie `refreshToken` (`HttpOnly`, `SameSite=Lax` ở dev / `None` + `Secure` ở production, `maxAge` 7 ngày).
+- **Không có bảng refresh token.** Thu hồi phiên bằng cách tăng `User.tokenVersion`: logout, đổi mật khẩu, hoặc khi token cũ được dùng lại.
+- `POST /auth/refresh-token` nhận token từ cookie hoặc body, đối chiếu `tokenVersion` với DB rồi cấp cặp token mới.
+- **Google OAuth**: frontend gửi `idToken` lên `POST /auth/google`; backend verify với `google-auth-library`, chỉ chấp nhận email đã xác minh, tìm user theo email hoặc tạo mới, liên kết `googleId` nếu tài khoản local chưa có.
+- Đăng ký local tạo luôn **workspace mặc định** với user là `OWNER` trong cùng transaction.
+- Mật khẩu hash bằng bcrypt (10 salt rounds).
+
+---
+
+## 5. Đa tenant (workspace)
+
+- Mọi dữ liệu nghiệp vụ gắn `workspaceId`.
+- `requireWorkspaceRole` lấy `workspaceId` theo thứ tự: header `x-workspace-id` → `req.params.workspaceId` → `req.query.workspaceId` → `req.body.workspaceId`.
+- Nếu header và URL khác nhau → 403 (`Workspace ID không khớp giữa header và URL`).
+- `SYSTEM_ADMIN` được xử lý như `OWNER` ở mọi workspace.
+- Vai trò workspace: `OWNER`, `CONTENT_CREATOR`.
+- Quy tắc nghiệp vụ đang áp dụng:
+  - Sửa/xoá workspace, mời thành viên, đổi vai trò, xoá thành viên, Brand Voice, kênh, duyệt bài: `OWNER`.
+  - Xem thành viên, bài viết, Brand Voice, kênh; tạo/sửa/xoá bài của mình; gửi duyệt: mọi thành viên.
+  - `CONTENT_CREATOR` chỉ sửa/xoá bài do mình tạo (`Post.createdById`).
+  - Không thể rời/xoá/hạ vai trò **Owner cuối cùng** của workspace.
+
+---
+
+## 6. Transaction & xoá mềm
+
+### 6.1. Transaction
+
+- Service sở hữu transaction cho luồng nhiều bước; repository nhận `tx` khi cần.
+- Repository được tự mở transaction cho thao tác atomic tự chứa.
+- Các chỗ đang dùng `prisma.$transaction`:
+  - `userRepository.createUserWithDefaultWorkspace` — tạo User + Workspace + WorkspaceMember.
+  - `workspaceRepository.createWorkspaceWithOwner` — tạo Workspace + Owner.
+  - `workspaceRepository.acceptInviteAsMember` — đánh dấu invite đã dùng + tạo member.
+  - `workspaceRepository.softDeleteWorkspace` — chuyển kênh sang `EXPIRED` + xoá mềm workspace.
+  - `channelRepository.upsertFacebookChannels` — upsert nhiều Page.
+  - `channelRepository.deleteChannelAndCancelSchedules` — huỷ lịch + xoá kênh.
+  - `postRepository.listPostsAndCount` — `findMany` + `count`.
+- `utils/transaction.ts` có helper `withTransaction(action, { maxWait, timeout })` nhưng hiện chưa module nào dùng.
+
+### 6.2. Xoá mềm
+
+`config/prismaExtensions.ts` thêm `deletedAt: null` cho mọi thao tác đọc (`findFirst`, `findFirstOrThrow`, `findMany`, `findUnique`, `findUniqueOrThrow`, `count`, `aggregate`, `groupBy`) trên 4 model:
+
+- `Workspace`
+- `Post`
+- `CreditPackage`
+- `MediaAsset`
+
+Bản ghi đã xoá chỉ đọc được bằng `basePrisma` (export từ `config/db.ts`). API hiện chưa có endpoint khôi phục.
+
+---
+
+## 7. Tác vụ nền (BullMQ)
+
+- `config/redis.ts` tạo 2 kết nối ioredis: `queueConnection` (cho BullMQ) và `cacheConnection` (health check + OAuth state/session).
+- `workers/queues.ts` tạo 3 queue với `defaultJobOptions`: `attempts: 3`, backoff exponential 2s, giữ job completed 1 giờ / failed 24 giờ:
+
+| Queue | Tên |
+| :--- | :--- |
+| content generation | `content-generation-queue` |
+| publishing | `publishing-queue` |
+| email | `email-queue` |
+
+- `workers/queue-manager.ts` cung cấp `enqueue`, `getJobStatus`, `cancelJob`, `retryJob`, `pauseQueue`, `resumeQueue`, `getQueueStats`, `closeQueues`.
+- `workers/index.ts` tạo `contentWorker`, `publishingWorker`, `emailWorker`; processor hiện chỉ log, `updateProgress(100)` và trả `{ success: true }`.
+- **Chưa có module nào enqueue job**, chưa có xử lý AI/đăng bài/gửi email qua worker.
+- `ENABLE_WORKERS=true` (mặc định) → `server.ts` import `workers/start.ts` và chạy worker cùng process API. Production có thể đặt `false` và chạy `npm run worker` (`worker-server.ts`) riêng.
+
+---
+
+## 8. Tích hợp ngoài
+
+### 8.1. Facebook Page (OAuth)
+
+1. `GET /channels/facebook/oauth/url?workspaceId=...` (OWNER) sinh `state` 32 byte, lưu Redis 600 giây cùng `{ userId, workspaceId }`, trả URL Facebook.
+2. Người dùng đồng ý → Facebook redirect về `GET /channels/facebook/oauth/callback`.
+3. Backend đổi `code` → token ngắn → long-lived token, gọi `/me/accounts` lấy Page, mã hoá Page token bằng AES-256-GCM, lưu session Redis 600 giây, redirect về `CLIENT_URL/channels?fb=select&session=...`.
+4. `GET /channels/facebook/oauth/session/:sessionId` trả danh sách Page (không kèm token).
+5. `POST /channels/facebook/oauth/session/:sessionId/connect` lưu các Page đã chọn vào `ChannelConnection` (upsert theo `workspaceId + FACEBOOK + externalAccountId`).
+6. `DELETE /channels/:channelId` xoá kênh và chuyển các `ScheduledPost` đang `SCHEDULED` sang `CANCELLED`.
+
+Scope xin: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
+Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIRECT_URI`.
+
+### 8.2. Email (Resend)
+
+- `mailerClient.sendEmail` bỏ qua và trả `true` khi `NODE_ENV=test`.
+- Nếu thiếu `RESEND_API_KEY`: log cảnh báo và trả `false`.
+- Template hiện có: `workspaceInviteEmail.ts`, `postReviewEmail.ts`.
+- `workspaceInviteEmail` dùng trong `inviteMember`; `postReviewEmail` dùng trong `post.notification.ts` (email cho Owner khi có bài chờ duyệt, email cho tác giả khi duyệt/từ chối).
+- `inviteMember` chỉ lưu lời mời sau khi gửi email thành công; nếu gửi lỗi → 502.
+
+### 8.3. Ảnh (Cloudinary)
+
+- Multer giữ file trong memory; service gọi `cloudinaryClient.uploadImageBuffer(buffer, folder)`.
+- Nếu chưa cấu hình Cloudinary → 400 `"Chưa cấu hình Cloudinary để tải ảnh lên"`.
+- Media bài viết: upload vào `marka/workspaces/:workspaceId/posts/:postId`.
+- Media bài viết lưu `MediaAsset` với `type=IMAGE`, `source=UPLOADED`.
+
+---
+
+## 9. Audit, thông báo & quan sát
+
+- **Audit**: `recordAuditLog` ghi `AuditLog` với `action` dạng chuỗi. Các action đang dùng: `USER_REGISTER`, `USER_LOGIN`, `USER_GOOGLE_LOGIN`, `USER_LOGOUT`, `USER_UPDATE_PROFILE`, `USER_CHANGE_PASSWORD`, `WORKSPACE_CREATE`, `WORKSPACE_UPDATE`, `WORKSPACE_DELETE`, `MEMBER_INVITED`, `MEMBER_JOINED`, `MEMBER_LEFT`, `MEMBER_REMOVED`, `MEMBER_ROLE_CHANGED`, `BRAND_VOICE_UPDATED`, `CHANNEL_CONNECTED`, `CHANNEL_DISCONNECTED`, `POST_SUBMITTED`, `POST_APPROVED`, `POST_REJECTED`.
+- **Notification**: bảng `Notification` được ghi khi:
+  - thành viên mới tham gia workspace (gửi cho các Owner còn lại, type `MEMBER_JOINED`);
+  - bài được gửi duyệt (type `POST_SUBMITTED`, gửi các Owner);
+  - bài được duyệt/từ chối (type `POST_APPROVED`/`POST_REJECTED`, gửi tác giả).
+- **Email bài viết**: `post.notification.ts` gửi email cho Owner khi có bài chờ duyệt và cho tác giả khi bài được duyệt/từ chối, dùng template trong `templates/postReviewEmail.ts`.
+- API hiện **chưa có endpoint đọc/đánh dấu đã đọc** thông báo.
+- **Log**: Winston; development log màu + text, production log JSON; morgan ghi access log qua `morganStream`.
+- **Health**: `GET /health` trả uptime, trạng thái DB (`SELECT 1`), Redis (`PING`), RSS, timestamp, version. Endpoint công khai, không yêu cầu auth.
+
+---
+
+## 10. Frontend
+
+- React 19 + Vite + TypeScript, alias `@/`.
+- Định tuyến: `frontend/src/router/index.tsx`, lazy-load từng trang.
+- Trang đã có:
+  - `/login`, `/register`, `/invites/:token`
+  - `/` (dashboard), `/posts`, `/posts/new`, `/posts/:postId/edit`
+  - `/channels`, `/brand-voice`
+  - `/settings/appearance`, `/settings/workspace`, `/settings/members`
+- Trang **placeholder** dùng `ComingSoonPage`: `/schedule`, `/ai`, `/publishing`, `/billing`.
+- HTTP: `services/httpClient.ts` (axios + interceptor refresh token), mỗi feature có `services/<feature>/*.api.ts`.
+- Server state: React Query; global state: Zustand (`auth`, `theme`, `ui`); form: react-hook-form + Zod.
+- Env đọc qua `config/env.ts`.
+
+---
+
+## 11. Roadmap — phần chưa có trong code
+
+Các mục dưới đây **chưa được triển khai**; tài liệu chi tiết tương ứng đã được gộp vào `docs/specs/README.md` (mục Roadmap) và không còn sơ đồ lớp riêng.
+
+- AI sinh nội dung (OpenAI), Viral Score, sinh ảnh.
+- Credit, CreditPackage, Order, PayOS, webhook thanh toán.
+- Lịch đăng bài, publish worker thật, Calendar.
+- Post Analytics, `PostMetric`, n8n.
+- Admin panel, quản lý user/workspace, dashboard hệ thống.
+- API Notification (đọc/đánh dấu đã đọc), WebSocket/SSE.
+- Gửi email xác thực tài khoản (OTP).
+- Giao việc cho thành viên (UC49/UC50).

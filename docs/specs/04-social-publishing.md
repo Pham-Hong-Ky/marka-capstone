@@ -1,141 +1,224 @@
-# Phân hệ 4: Kết nối & Đăng bài đa kênh
+# Phân hệ 4 — Kênh & Facebook OAuth
 
-> [Quay lại Mục lục chính](file:///f:/DATN/marka-capstone/docs/specs/README.md)
-
----
-
-## 4.0. Ủy quyền đăng bài cho Creator
-
-**Mô tả**: Xác định cơ chế cho phép Content Creator thực hiện đăng bài trực tiếp hoặc lên lịch đăng đối với các bài đã được Workspace Owner duyệt.
-
-**Quy trình**:
-
-1. Mặc định quyền: Creator chỉ có quyền soạn thảo và gửi bài duyệt. Quyền đăng bài/lên lịch đăng thuộc về Workspace Owner.
-2. Thiết lập ủy quyền: Workspace Owner truy cập trang "Quản lý thành viên", chọn thành viên có vai trò Creator và bật toggle **"Cho phép đăng bài trực tiếp"** (mặc định là `OFF`).
-3. Khi toggle là `ON`: Creator có thể nhấn đăng ngay hoặc lên lịch đăng bài cho các bài viết đã ở trạng thái `APPROVED` (Đã duyệt). Server **bắt buộc kiểm tra** `WorkspaceMember.allowDirectPublish = true` ở UC12 và UC15; nếu `false` → trả `403 Forbidden` (D11). Owner luôn được phép đăng/lên lịch.
-4. Lưu ý quan trọng: Creator **không** bao giờ có quyền phê duyệt bài viết (duyệt trạng thái `PENDING` sang `APPROVED`), họ chỉ được đăng/lên lịch đăng đối với bài đã được duyệt bởi Owner trước đó.
+> [Quay lại Mục lục](README.md)
+>
+> **Phạm vi:** phần đã có trong code: xem kênh đã kết nối, kết nối **Facebook Page thật** qua OAuth, ngắt kết nối kênh.
+> Mã nguồn: `backend/src/modules/channel/`, `utils/encryption.ts`, `config/redis.ts`.
+>
+> **Không có trong code:** Instagram/TikTok/Zalo (kể cả giả lập), lên lịch đăng, publish bài, calendar, làm mới token, đánh dấu kênh `EXPIRED` do token hết hạn. Các mục này ở Roadmap cuối file.
 
 ---
 
-## 4.1. Kết nối & Quản lý kênh liên kết (UC27, UC28, UC29)
+## 4.1. Mô hình dữ liệu
 
-**Mô tả**: Liên kết Facebook Page (thật) và Instagram/TikTok/Zalo OA (giả lập), hiển thị trạng thái kết nối, cập nhật/làm mới kết nối hoặc hủy ngắt kết nối các kênh.
+`ChannelConnection`:
 
-**Tác nhân (Actors)**:
-- **UC27 (View Connected Channels)**: Workspace Owner
-- **UC28 (Connect Social Channels)**: Workspace Owner
-- **UC29 (Disconnect Social Channel)**: Workspace Owner
+| Trường | Ghi chú |
+| :--- | :--- |
+| `workspaceId` | Chủ sở hữu kênh |
+| `platform` | Enum `FACEBOOK` / `INSTAGRAM` / `TIKTOK` / `ZALO`; code hiện chỉ tạo `FACEBOOK` |
+| `type` | `REAL` khi tạo qua OAuth Facebook; `SIMULATED` chỉ là default của schema, chưa có luồng nào tạo |
+| `name`, `avatar` | Tên/ảnh Page lấy từ Graph API |
+| `externalAccountId` | Page ID trên Facebook |
+| `accessToken` | Page token **đã mã hoá AES-256-GCM**; không bao giờ trả ra API |
+| `status` | `ACTIVE` / `EXPIRED` |
+| unique | `(workspaceId, platform, externalAccountId)` — kết nối lại cùng Page sẽ upsert, không tạo trùng |
 
-**Luồng hoạt động**:
+API chỉ trả các trường công khai (`CHANNEL_PUBLIC_SELECT`): `id`, `platform`, `type`, `name`, `avatar`, `externalAccountId`, `status`, `createdAt`, `updatedAt`.
 
-- **Kết nối kênh (UC28)**:
-  - **Facebook Page (thật)**: Owner bấm "Kết nối Facebook" → chuyển sang Facebook để **đăng nhập và cấp quyền** (`pages_show_list`, `pages_read_engagement`, `pages_manage_posts`) → quay về Marka, hệ thống hiển thị danh sách Page Owner quản lý để **chọn Page cần kết nối**. Backend đổi `code` lấy long-lived token, gọi `/me/accounts`, rồi **mã hóa AES-256** Page Token trước khi lưu `ChannelConnection`. `appId`/`appSecret`/`redirectUri` đặt ở **biến môi trường**, **không** lưu DB. Callback production: `https://marka.phamhongky.dev/api/v1/channels/facebook/oauth/callback`.
-  - **Instagram/TikTok/Zalo (giả lập)**: Owner bấm "Kết nối" → hiển thị form nhập thông tin giả lập (tên kênh, avatar demo) — **không** gọi OAuth thật → Lưu `ChannelConnection(type=SIMULATED, platform=INSTAGRAM/TIKTOK/ZALO)`.
-- **Cập nhật kênh liên kết (UC29)**:
-  - **Làm mới kết nối (Re-authenticate)**: Hệ thống định kỳ (cron) kiểm tra hiệu lực token (endpoint `debug_token`) → nếu hết hạn/sắp hết hạn, đánh dấu `status: EXPIRED`. Workspace Owner bấm nút "Kết nối lại" (Reconnect) trên UI để **chạy lại OAuth và chọn lại Page**; kênh được upsert theo `workspaceId + platform + pageId` nên **giữ nguyên ID liên kết**.
-  - **Cập nhật thông tin kênh giả lập**: Với kênh giả lập, cho phép Owner thay đổi tên hiển thị, hình ảnh avatar demo, hoặc tạm dừng hoạt động.
-- **Hủy kết nối kênh (Disconnect)**:
-  - Workspace Owner truy cập trang quản lý kênh kết nối (UC27) và bấm "Hủy kết nối" bên cạnh kênh muốn xóa.
-  - Hệ thống hiển thị popup xác nhận: "Ngắt kết nối kênh này sẽ tự động hủy các bài đăng đang chờ đăng (Scheduled) trên kênh tương ứng. Bạn có chắc chắn?".
-  - Xác nhận → Client gửi yêu cầu `DELETE /channels/{channelConnectionId}` lên Server.
-  - Server xác thực quyền Owner, tiến hành xóa bản ghi kết nối, tìm kiếm các `ScheduledPost` có `status = SCHEDULED` liên quan đến kênh này để chuyển trạng thái sang `CANCELLED` (Hủy do ngắt kết nối — D3) và xóa job trong hàng đợi BullMQ/Redis.
-
-**Lưu ý khi làm**:
-
-- Access token **luôn** mã hóa ở tầng application trước khi ghi DB (không dựa hoàn toàn vào encryption-at-rest của hệ quản trị CSDL).
-- Với Facebook: cần đăng ký Facebook App ở chế độ Development, thêm tài khoản test/tester để không bị giới hạn khi demo — nên xác nhận việc này **sớm** (Phase 1-2), tránh phát hiện muộn ở Phase 4 rằng app chưa được cấp quyền cần thiết.
+Mã hoá token (`utils/encryption.ts`): AES-256-GCM, key = `sha256(AES_SECRET_KEY)`, chuỗi lưu DB dạng `<iv_hex>:<tag_hex>:<cipher_hex>`.
 
 ---
 
-## 4.2. Biên tập & lên lịch đăng theo từng kênh (Schedule Content - UC12)
+## 4.2. Xem kênh đã kết nối (UC27)
 
-**Mô tả**: Từ 1 bài đã `Approved`, chọn kênh, tùy biến nội dung riêng theo kênh, đăng ngay hoặc lên lịch.
+`GET /workspaces/:workspaceId/channels`
 
-**Tác nhân (Actors)**:
-- **UC12 (Schedule Content)**: Workspace Owner (hoặc Content Creator được ủy quyền)
+- Yêu cầu `requireAuth` + là thành viên workspace (mọi vai trò).
+- Trả **tất cả** kênh của workspace, không lọc `platform`/`status`, sắp xếp `createdAt` giảm dần.
 
-**Luồng hoạt động**:
-
-1. Owner (hoặc Creator được ủy quyền) mở bài `Approved` → chọn 1 hoặc nhiều kênh đã kết nối.
-2. Với mỗi kênh, cho phép chỉnh nội dung riêng (đã có bản AI sinh theo kênh từ Phân hệ 3, có thể sửa tiếp) + chọn media đính kèm.
-3. Chọn **Đăng ngay** hoặc **Lên lịch** (chọn ngày giờ) → tạo bản ghi `ScheduledPost(postId, channelId, scheduledAt, status)`.
-4. Nếu **Đăng ngay**: đẩy job vào **BullMQ** để xử lý ngay lập tức (`delay = 0`).
-5. Nếu **Lên lịch**: đẩy job vào **BullMQ** với `delay = scheduledAt - now`. Khi tới hạn, BullMQ tự động kích hoạt Worker đăng bài — **không cần cron quét liên tục**.
-
-**Lưu ý khi làm**:
-
-- Một bài viết có thể đăng đồng thời lên nhiều kênh — mỗi kênh nên có `ScheduledPost` + trạng thái đăng **độc lập** (kênh A thành công, kênh B thất bại vẫn xử lý riêng, không rollback lẫn nhau).
-- Đặt `jobId = scheduledPostId` khi enqueue để chống enqueue trùng; Worker kiểm tra trạng thái trước khi đăng (idempotent).
-- Database (`scheduled_posts`) là **nguồn sự thật**. Có thể thêm cron đối soát định kỳ để phục hồi các job bị mất nếu Redis không bật persistence.
-- BullMQ/Redis phụ trách việc đăng bài; **n8n không tham gia luồng này** (n8n chỉ dùng cho đồng bộ metrics — xem `08-post-analytics.md`).
-
----
-
-## 4.3. Thực thi đăng bài (thật & giả lập - UC15)
-
-**Mô tả**: Worker chạy tác vụ ngầm tự động gọi API thật (Facebook Page) hoặc mô phỏng quá trình xuất bản bài đăng (Instagram/TikTok/Zalo).
-
-**Tác nhân (Actors)**:
-- **UC15 (Post Content to Social Media)**: Workspace Owner (hoặc Content Creator được ủy quyền)
-
-**Luồng hoạt động (Thật — Facebook Page)**:
-
-1. **Kích hoạt Job**: Khi đến đúng thời gian hẹn đăng, hệ thống hàng đợi ngầm (BullMQ/Redis) tự động kích hoạt tiến trình xử lý bài viết (Worker).
-2. **Xử lý thông tin & Gọi API**:
-   - Worker truy xuất dữ liệu bài viết và giải mã Page Access Token tương ứng từ database.
-   - Gửi yêu cầu HTTP POST (Facebook Graph API) chứa nội dung bài đăng (văn bản, link, danh sách hình ảnh hoặc video) kèm theo Page Access Token tới endpoint thích hợp (ví dụ: `POST /{page-id}/feed` hoặc `POST /{page-id}/photos`).
-3. **Cập nhật kết quả**:
-   - **Thành công**: Facebook trả về mã ID của bài đăng trên mạng xã hội (`externalPostId`). Hệ thống cập nhật trạng thái bài viết trên Marka thành `PUBLISHED`, lưu `externalPostId` và ghi nhận lịch sử vào database.
-   - **Thất bại**: Hệ thống ghi nhận mã lỗi chi tiết (lỗi mạng, token hết hạn, vi phạm chính sách...), cập nhật trạng thái bài viết thành `FAILED`, thực hiện tự động đăng lại (Retry) tối đa 3 lần (exponential backoff). Nếu vẫn thất bại sau 3 lần, thông báo lỗi tới người dùng.
-
-**Luồng hoạt động (Giả lập — Instagram/TikTok/Zalo)**:
-
-1. Worker nhận Job đăng bài giả lập, thực hiện độ trễ ngẫu nhiên từ 2-5 giây (để mô phỏng thời gian phản hồi API thật).
-2. Ghi nhận kết quả vào `ScheduledPost` của kênh đó với `status = PUBLISHED` và `externalPostId` sinh giả — **không có bảng `SimulatedPost`** (kênh giả lập dùng `ChannelType.SIMULATED`, D9).
-3. Giao diện (UI) hiển thị nhãn **"Chế độ giả lập"** nổi bật trên tất cả các bài thuộc nhóm kênh này.
-4. Cung cấp nút **"Copy nội dung nhanh"** và **"Tải file đính kèm"** để người dùng tự tay đăng thủ công lên nền tảng thật nếu cần.
-
-**Retry thủ công**: Nếu trạng thái đăng bài là `FAILED`, hệ thống hiển thị nút **Thử lại (Retry)** cho người dùng → Tạo lại Job đăng bài mà không yêu cầu duyệt lại nội dung (cập nhật lại record hiện tại, tăng số lần thử `retryCount`).
-
-**Lưu ý khi làm**:
-
-- Luôn phân biệt rõ ràng bằng UI (nhãn, màu sắc) giữa kênh thật và kênh giả lập — đây là yêu cầu bắt buộc để không gây hiểu nhầm cho người dùng và cho hội đồng chấm khi demo.
-- Log đầy đủ response lỗi từ Facebook (không chỉ status code) để hiển thị lý do thất bại hữu ích cho user (VD: token hết hạn, ảnh vượt kích thước, vi phạm chính sách nội dung...).
-
-**Edge Cases**:
-
-- **Facebook Access Token hết hạn hoặc bị hủy**: Chuyển đổi trạng thái kết nối của kênh sang `EXPIRED`, gửi thông báo đến Owner và hiển thị modal yêu cầu "Kết nối lại".
-- **Gặp giới hạn tần suất API (Rate Limit / Too many requests)**: Tạm dừng việc gửi request tiếp theo và tự động lên lịch retry sau một khoảng thời gian được tính toán dựa trên header phản hồi của Facebook (`X-FB-RR` hoặc `Retry-After`).
-- **Nội dung bị Facebook từ chối vì vi phạm chính sách**: Đánh dấu trạng thái bài đăng là `FAILED`, lưu vết thông tin lỗi và hiển thị rõ lý do cho người dùng: "Facebook từ chối bài viết vì lý do..." để user chủ động điều chỉnh.
+```json
+{
+  "status": "success",
+  "message": "Lấy danh sách kênh thành công",
+  "data": {
+    "channels": [
+      {
+        "id": "uuid",
+        "platform": "FACEBOOK",
+        "type": "REAL",
+        "name": "Marka Demo Page",
+        "avatar": "https://...",
+        "externalAccountId": "1234567890",
+        "status": "ACTIVE",
+        "createdAt": "2026-10-20T12:00:00.000Z",
+        "updatedAt": "2026-10-20T12:00:00.000Z"
+      }
+    ]
+  }
+}
+```
 
 ---
 
-## 4.4. Calendar View (View Content Schedule - UC13)
+## 4.3. Kết nối Facebook Page (UC28)
 
-**Mô tả**: Lịch tháng hiển thị toàn bộ bài đã lên lịch/đã đăng, hỗ trợ kéo-thả đổi lịch.
+Luồng gồm 4 bước, trong đó bước 2 do Facebook gọi về server.
 
-**Tác nhân (Actors)**:
-- **UC13 (View Content Schedule)**: Content Creator, Workspace Owner
+### Bước 1 — Lấy URL đăng nhập Facebook
 
-**Luồng hoạt động**:
+`GET /channels/facebook/oauth/url?workspaceId=<uuid>`
 
-1. Client gọi API lấy danh sách `ScheduledPost` trong khoảng thời gian hiển thị (tháng hiện tại + buffer).
-2. Hiển thị theo từng ô ngày, phân biệt màu theo trạng thái (Scheduled/Published/Failed).
-3. Kéo-thả 1 bài `Scheduled` sang ngày khác → gọi API cập nhật `scheduledAt` → **chỉ cho phép** nếu `status = SCHEDULED` (không cho kéo bài đã `Published`).
+- Yêu cầu `requireAuth` + `OWNER` của workspace trong query.
+- `workspaceId` phải là UUID, nếu không → `422`.
+- Nếu thiếu `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` hoặc `FACEBOOK_REDIRECT_URI` → `400` `"Chưa cấu hình Facebook App. Vui lòng liên hệ quản trị viên."`.
+- Sinh `state` = 32 byte ngẫu nhiên (hex 64 ký tự), lưu Redis `fb:oauth:state:<state>` với `{ userId, workspaceId }`, **TTL 600 giây**.
+- Response `200`:
 
-**Lưu ý khi làm**: Dùng thư viện có sẵn (FullCalendar, react-big-calendar) thay vì tự viết drag-drop từ đầu để tiết kiệm thời gian cho 1 người làm.
+```json
+{
+  "status": "success",
+  "message": "Tạo URL đăng nhập Facebook thành công",
+  "data": { "url": "https://www.facebook.com/v21.0/dialog/oauth?..." }
+}
+```
+
+URL xin các scope: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
+
+### Bước 2 — Callback từ Facebook
+
+`GET /channels/facebook/oauth/callback?code=...&state=...`
+
+- Công khai (không `requireAuth`); đây là URL đăng ký với Facebook (`FACEBOOK_REDIRECT_URI`).
+- **Luôn redirect** về `CLIENT_URL/channels` kèm query, không trả JSON:
+
+| Tình huống | Redirect |
+| :--- | :--- |
+| Người dùng từ chối (`error=access_denied`) | `?fb=error&reason=access_denied` |
+| Lỗi OAuth khác | `?fb=error&reason=token_exchange_failed` |
+| Thiếu `state`/`code`, state không tồn tại hoặc đã dùng | `?fb=error&reason=invalid_state` |
+| Không lấy được Page nào | `?fb=error&reason=no_pages` |
+| Đổi token/lấy Page thất bại | `?fb=error&reason=token_exchange_failed` |
+| Thành công | `?fb=select&session=<sessionId>` |
+
+- `state` được **dùng một lần** (`GETDEL`): request thứ hai với cùng state sẽ nhận `invalid_state`.
+- Xử lý khi thành công:
+  1. Đổi `code` → token ngắn hạn → token dài hạn (`fb_exchange_token`).
+  2. Gọi `/me/accounts` (kèm `appsecret_proof`) lấy Page mà user quản lý; bỏ Page không có `access_token`.
+  3. Mã hoá từng Page token, lưu session Redis `fb:oauth:session:<sessionId>` (`{ userId, workspaceId, pages }`), **TTL 600 giây**; `sessionId` = 24 byte ngẫu nhiên (hex 48 ký tự).
+- Gọi Graph API có timeout 10 giây; lỗi mạng/Graph đều dẫn tới `token_exchange_failed`.
+
+### Bước 3 — Lấy danh sách Page trong phiên
+
+`GET /channels/facebook/oauth/session/:sessionId`
+
+- Yêu cầu `requireAuth` + `OWNER`.
+- `workspaceId` không nằm trong path — phải gửi qua header `x-workspace-id` (hoặc query `workspaceId`).
+- `sessionId` phải khớp regex 48 ký tự hex, nếu không → `422`.
+- Session không tồn tại/hết hạn/không thuộc đúng `userId` + `workspaceId` → `404` `"Phiên kết nối không tồn tại hoặc đã hết hạn"`.
+- Response `200` `"Lấy danh sách Page thành công"`:
+
+```json
+{
+  "status": "success",
+  "message": "Lấy danh sách Page thành công",
+  "data": {
+    "pages": [ { "id": "1234567890", "name": "Marka Demo Page", "avatar": "https://..." } ]
+  }
+}
+```
+
+Không trả token.
+
+### Bước 4 — Lưu các Page đã chọn
+
+`POST /channels/facebook/oauth/session/:sessionId/connect`
+
+- Yêu cầu `requireAuth` + `OWNER`; `workspaceId` qua header `x-workspace-id` (hoặc query).
+- Body:
+
+| Field | Ràng buộc |
+| :--- | :--- |
+| `pageIds` | mảng string, 1–50 phần tử, mỗi phần tử không rỗng |
+
+- Page id không có trong session → `400` `"Page không hợp lệ trong phiên kết nối"`.
+- Không giải mã được token đã lưu → `400` `"Không đọc được token của Page. Vui lòng kết nối lại."`.
+- Upsert theo `(workspaceId, FACEBOOK, externalAccountId)` trong một transaction:
+  - Tạo mới với `type = REAL`, `status = ACTIVE`.
+  - Nếu Page đã từng kết nối: cập nhật `name`, `avatar`, token mới, `status = ACTIVE` (kết nối lại kênh đang `EXPIRED` sẽ kích hoạt lại).
+- Ghi audit `CHANNEL_CONNECTED` cho từng kênh (`metadata { pageId, name }`).
+- Xoá session sau khi lưu thành công.
+- Response `201` `"Kết nối Facebook thành công"`, `data = { channels: [...] }` (các kênh vừa upsert).
+
+> Token không được gửi lên Facebook để thu hồi khi ngắt kết nối; hệ thống chỉ xoá bản ghi cục bộ.
 
 ---
 
-## 4.5. Chỉnh sửa bài đã đăng (Re-publish)
+## 4.4. Ngắt kết nối kênh (UC29)
 
-**Mô tả**: Quy định cách thức xử lý khi người dùng muốn thay đổi nội dung của bài viết đã được xuất bản thành công trên các kênh thật (Facebook Page).
+`DELETE /channels/:channelId`
 
-**Tác nhân (Actors)**: Content Creator, Workspace Owner
+- Yêu cầu `requireAuth` + `OWNER`; `workspaceId` qua header `x-workspace-id` (hoặc query/body vì path chỉ có `channelId`).
+- `channelId` phải là UUID → nếu không `422`.
+- Kênh không tồn tại hoặc thuộc workspace khác → `404` `"Kênh không tồn tại"`.
+- Trong một transaction:
+  1. Chuyển các `ScheduledPost` của kênh đang `SCHEDULED` sang `CANCELLED`.
+  2. Xoá cứng bản ghi `ChannelConnection`.
+- Ghi audit `CHANNEL_DISCONNECTED` (`metadata { pageId, name }`).
+- Response `200`: `{ "success": true }`.
+- Hiện **chưa có** `ScheduledPost` nào được tạo bởi hệ thống, nên bước 1 chỉ là chuẩn bị cho Roadmap.
 
-**Quy tắc hoạt động**:
+---
 
-1. Không sửa trực tiếp: Các bài viết ở trạng thái `PUBLISHED` **không được phép chỉnh sửa trực tiếp** nội dung hiện tại trên hệ thống (vì bài viết đã được xuất bản và đồng bộ lên nền tảng thật thông qua API).
-2. Tạo bản sao (Duplicate): Nếu phát hiện sai sót (ví dụ: sai chính tả) và cần đăng lại bài đã chỉnh sửa, người dùng có thể nhấn nút **"Nhân bản" (Duplicate)** từ bài cũ.
-3. Luồng phê duyệt mới: Bản sao sẽ được khởi tạo như một bài viết mới ở trạng thái `DRAFT`. Người dùng chỉnh sửa nội dung, sau đó tiến hành gửi duyệt lại qua luồng phê duyệt bình thường trước khi đăng bài mới.
-4. Xóa bài: Hệ thống **không hỗ trợ** xóa bài viết trên nền tảng thật (Facebook Page) thông qua ứng dụng do giới hạn về API quyền hạn thông thường. Người dùng cần truy cập trực tiếp trang Facebook Page để thực hiện xóa thủ công nếu cần thiết.
+## 4.5. Cấu hình & bảo mật
+
+| Biến môi trường | Dùng cho |
+| :--- | :--- |
+| `FACEBOOK_APP_ID` | `client_id` của OAuth |
+| `FACEBOOK_APP_SECRET` | đổi token + `appsecret_proof` |
+| `FACEBOOK_REDIRECT_URI` | callback; mặc định `http://localhost:5000/api/v1/channels/facebook/oauth/callback` |
+| `AES_SECRET_KEY` | mã hoá Page token (≥ 32 ký tự) |
+| `CLIENT_URL` | đích redirect sau callback |
+| `REDIS_URL` | lưu state/session OAuth |
+
+- Graph API dùng phiên bản `v21.0`.
+- Page token chỉ tồn tại dạng mã hoá trong Redis (session, 10 phút) và trong DB.
+- API danh sách kênh không trả `accessToken`.
+
+---
+
+## 4.6. Bảng tổng hợp endpoint
+
+| Method | Path | Xác thực | Vai trò | Ghi chú |
+| :--- | :--- | :--- | :--- | :--- |
+| GET | `/workspaces/:workspaceId/channels` | Bearer | Thành viên | Danh sách kênh |
+| GET | `/channels/facebook/oauth/url?workspaceId=` | Bearer | OWNER | Trả URL Facebook |
+| GET | `/channels/facebook/oauth/callback` | — | — | Facebook gọi về, redirect client |
+| GET | `/channels/facebook/oauth/session/:sessionId` | Bearer | OWNER | Danh sách Page trong phiên |
+| POST | `/channels/facebook/oauth/session/:sessionId/connect` | Bearer | OWNER | Lưu Page đã chọn |
+| DELETE | `/channels/:channelId` | Bearer | OWNER | Ngắt kết nối |
+
+---
+
+## 4.7. Lỗi thường gặp
+
+| Mã | Message | Trường hợp |
+| :--- | :--- | :--- |
+| `400` | `Chưa cấu hình Facebook App. Vui lòng liên hệ quản trị viên.` | Thiếu env Facebook |
+| `400` | `Page không hợp lệ trong phiên kết nối` | `pageIds` không thuộc session |
+| `400` | `Không đọc được token của Page. Vui lòng kết nối lại.` | Giải mã token thất bại |
+| `403` | `Bạn không có quyền thực hiện hành động này trong Workspace` | Creator gọi API OWNER |
+| `404` | `Phiên kết nối không tồn tại hoặc đã hết hạn` | Session hết TTL/sai user/workspace |
+| `404` | `Kênh không tồn tại` | Sai id hoặc khác workspace |
+| `422` | `Phiên kết nối không hợp lệ` | `sessionId` sai định dạng |
+
+---
+
+## 4.8. Chưa triển khai (Roadmap)
+
+1. **Kênh khác:** Instagram, TikTok, Zalo — kể cả chế độ giả lập (`ChannelType.SIMULATED`). Hiện không có endpoint nào tạo kênh ngoài Facebook.
+2. **Lên lịch & đăng bài (UC12, UC15):** tạo `ScheduledPost`, đẩy job vào `publishing-queue`, worker gọi Graph API đăng bài, lưu `externalPostId`, xử lý retry/`FAILED`/`PUBLISHED`.
+3. **Calendar & huỷ lịch (UC13, UC38):** API danh sách lịch theo khoảng thời gian, kéo-thả đổi giờ, huỷ lịch và xoá job.
+4. **Vòng đời token:** kiểm tra hạn token định kỳ, đánh dấu `EXPIRED`, thông báo Owner, làm mới token; xử lý rate limit Graph API.
+5. **Uỷ quyền đăng bài:** dùng `WorkspaceMember.allowDirectPublish` để cho Creator đăng/lên lịch bài đã duyệt (hiện trường này chưa được kiểm tra ở đâu).
+6. **Bài đã đăng:** sửa/nhân bản/xoá bài `PUBLISHED` (hiện không có trạng thái này trong luồng thực tế).
