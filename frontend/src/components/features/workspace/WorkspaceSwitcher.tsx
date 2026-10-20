@@ -5,12 +5,12 @@ import BrandLogo from '@/components/shared/BrandLogo';
 import CreateWorkspaceModal from './CreateWorkspaceModal';
 import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/utils/cn';
+import { useActiveWorkspace } from '@/hooks/useWorkspace';
 
 const MENU_ITEM_SELECTOR = '[role="menuitemradio"], [role="menuitem"]';
 
 export const WorkspaceSwitcher = ({ collapsed = false }: { collapsed?: boolean }) => {
   const user = useAuthStore((state) => state.user);
-  const activeWorkspaceId = useAuthStore((state) => state.activeWorkspaceId);
   const setActiveWorkspace = useAuthStore((state) => state.setActiveWorkspace);
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -18,8 +18,7 @@ export const WorkspaceSwitcher = ({ collapsed = false }: { collapsed?: boolean }
   const menuRef = useRef<HTMLDivElement>(null);
 
   const workspaces = user?.workspaces ?? [];
-  const activeWorkspace =
-    workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0];
+  const activeWorkspace = useActiveWorkspace();
 
   useEffect(() => {
     if (!open) return;
@@ -91,7 +90,7 @@ export const WorkspaceSwitcher = ({ collapsed = false }: { collapsed?: boolean }
         aria-label="Chuyển workspace"
         title={collapsed ? (activeWorkspace?.name ?? 'Chọn workspace') : undefined}
         className={cn(
-          'flex w-full items-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-left transition hover:border-indigo-400/60',
+          'flex w-full items-center rounded-xl border border-accent/20 bg-accent/10 text-left transition hover:border-accent/60',
           collapsed ? 'justify-center px-1 py-2' : 'gap-2.5 px-3 py-2.5'
         )}
       >
@@ -145,7 +144,7 @@ export const WorkspaceSwitcher = ({ collapsed = false }: { collapsed?: boolean }
               >
                 <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
                 {workspace.id === activeWorkspace?.id ? (
-                  <Check className="h-4 w-4 shrink-0 text-indigo-500 dark:text-indigo-400" />
+                  <Check className="h-4 w-4 shrink-0 text-accent-text" />
                 ) : null}
               </button>
             ))}

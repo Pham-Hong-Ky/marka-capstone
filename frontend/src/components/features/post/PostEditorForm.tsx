@@ -175,7 +175,7 @@ export const PostEditorForm = ({
           <button
             type="button"
             onClick={discardDraft}
-            className="shrink-0 font-medium text-indigo-600 underline transition hover:text-indigo-500 dark:text-indigo-400"
+            className="shrink-0 font-medium text-accent-text underline transition hover:opacity-80"
           >
             Bỏ thay đổi
           </button>

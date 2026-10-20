@@ -13,12 +13,12 @@ export const POST_STATUS_LABELS: Record<PostStatus, string> = {
 
 export const POST_STATUS_BADGE_CLASSES: Record<PostStatus, string> = {
   DRAFT: 'bg-surface-2 text-muted',
-  PENDING: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  APPROVED: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  REJECTED: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  SCHEDULED: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
-  PUBLISHED: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  FAILED: 'bg-red-500/10 text-red-600 dark:text-red-400',
+  PENDING: 'bg-warning/10 text-warning',
+  APPROVED: 'bg-success/10 text-success',
+  REJECTED: 'bg-danger/10 text-danger',
+  SCHEDULED: 'bg-accent/10 text-accent-text',
+  PUBLISHED: 'bg-success/10 text-success',
+  FAILED: 'bg-danger/10 text-danger',
   ARCHIVED: 'bg-surface-2 text-subtle',
 };
 

@@ -63,7 +63,7 @@ export const UserMenu = ({
           collapsed ? 'justify-center px-0' : 'gap-2.5 px-2'
         )}
       >
-        <Avatar name={name} src={avatar} className="h-9 w-9 bg-indigo-600 text-white" />
+        <Avatar name={name} src={avatar} className="h-9 w-9 bg-accent text-white" />
 
         {collapsed ? null : (
           <>

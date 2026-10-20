@@ -40,7 +40,6 @@ type Panel = 'color' | 'highlight' | 'emoji' | 'more';
 
 const TEXT_COLORS: Array<{ name: string; value: string | null }> = [
   { name: 'Mặc định', value: null },
-  { name: 'Đen', value: '#0f172a' },
   { name: 'Xám', value: '#64748b' },
   { name: 'Đỏ', value: '#dc2626' },
   { name: 'Cam', value: '#ea580c' },
@@ -87,7 +86,7 @@ const ToolbarButton = ({
     onClick={onClick}
     className={cn(
       'grid h-11 w-11 shrink-0 place-items-center rounded-md text-muted transition hover:bg-surface-2 hover:text-foreground disabled:opacity-40',
-      active && 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+      active && 'bg-accent/10 text-accent-text'
     )}
   >
     {children}
@@ -111,7 +110,7 @@ const PanelAction = ({
     onClick={onClick}
     className={cn(
       'flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground transition hover:bg-surface-2',
-      active && 'border-indigo-400/60 text-indigo-600 dark:text-indigo-300'
+      active && 'border-accent/60 text-accent-text'
     )}
   >
     {children}
@@ -259,7 +258,7 @@ export const RichTextEditor = ({
   return (
     <div
       className={cn(
-        editable && cn('rounded-lg border bg-surface', error ? 'border-red-500' : 'border-border'),
+        editable && cn('rounded-lg border bg-surface', error ? 'border-danger' : 'border-border'),
         !editable && 'text-sm text-foreground',
         className
       )}
@@ -284,7 +283,7 @@ export const RichTextEditor = ({
               aria-label="Kiểu đoạn"
               value={state.block}
               onChange={(event) => applyBlock(event.target.value)}
-              className="h-11 shrink-0 rounded-md border border-border bg-surface px-2 text-sm text-foreground outline-none focus:border-indigo-500"
+              className="h-11 shrink-0 rounded-md border border-border bg-surface px-2 text-sm text-foreground outline-none focus:border-accent"
             >
               <option value="p">Đoạn văn</option>
               <option value="1">Tiêu đề 1</option>
@@ -384,7 +383,7 @@ export const RichTextEditor = ({
                     className="grid h-6 w-6 place-items-center rounded-full text-xs font-semibold"
                     style={color.value ? { backgroundColor: color.value, color: '#ffffff' } : undefined}
                   >
-                    {color.value ? 'A' : 'A'}
+                    A
                   </span>
                 </button>
               ))}
@@ -497,7 +496,7 @@ export const RichTextEditor = ({
 
       <EditorContent editor={editor} />
 
-      {editable && error ? <p className="px-4 pb-2 text-xs text-red-400">{error}</p> : null}
+      {editable && error ? <p className="px-4 pb-2 text-xs text-danger">{error}</p> : null}
 
       <Modal
         open={linkOpen}
@@ -509,7 +508,7 @@ export const RichTextEditor = ({
               <Button
                 type="button"
                 variant="outline"
-                className="mr-auto text-red-600 dark:text-red-400"
+                className="mr-auto text-danger"
                 onClick={removeLink}
               >
                 Gỡ liên kết

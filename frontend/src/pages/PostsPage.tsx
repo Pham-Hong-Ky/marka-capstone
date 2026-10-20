@@ -6,18 +6,16 @@ import PostDetailModal from '@/components/features/post/PostDetailModal';
 import RejectPostModal from '@/components/features/post/RejectPostModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
+import PageHeader from '@/components/ui/PageHeader';
 import { useDeletePost, usePosts } from '@/hooks/usePost';
-import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
 import type { PostDetail, PostStatus } from '@/services/post';
+import { SkeletonList } from '@/components/ui/Skeleton';
+import { useActiveWorkspace } from '@/hooks/useWorkspace';
 
 export const PostsPage = () => {
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
-  const activeWorkspaceId = useAuthStore((state) => state.activeWorkspaceId);
-  const activeWorkspace =
-    (user?.workspaces ?? []).find((workspace) => workspace.id === activeWorkspaceId) ??
-    user?.workspaces[0];
+  const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
   const role = activeWorkspace?.role ?? 'CONTENT_CREATOR';
 
@@ -74,12 +72,10 @@ export const PostsPage = () => {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Nội dung</h1>
-        <p className="text-sm text-muted">
-          Soạn thảo, gửi duyệt và quản lý bài viết trong workspace.
-        </p>
-      </div>
+      <PageHeader
+        title="Bài viết"
+        description="Soạn thảo, gửi duyệt và quản lý bài viết trong workspace."
+      />
 
       <PostToolbar
         status={status}
@@ -88,10 +84,10 @@ export const PostsPage = () => {
         onCreate={openCreate}
       />
 
-      {isLoading ? <p className="text-sm text-muted">Đang tải danh sách bài viết...</p> : null}
+      {isLoading ? <SkeletonList rows={5} /> : null}
 
       {isError ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{getErrorMessage(error)}</p>
+        <p className="text-sm text-danger">{getErrorMessage(error)}</p>
       ) : null}
 
       {data ? (

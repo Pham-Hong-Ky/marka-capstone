@@ -2,8 +2,7 @@ import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 import PostStatusBadge from './PostStatusBadge';
 import type { PaginationMeta, PostSummary } from '@/services/post';
-
-const formatDate = (value: string): string => new Date(value).toLocaleDateString('vi-VN');
+import { formatDate } from '@/utils/format';
 
 export const PostList = ({
   posts,

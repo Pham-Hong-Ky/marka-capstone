@@ -34,7 +34,7 @@ export const PostToolbar = ({
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium transition',
                 status === tab.value
-                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+                  ? 'bg-accent/10 text-accent-text'
                   : 'text-muted hover:bg-surface-2 hover:text-foreground'
               )}
             >
@@ -57,7 +57,7 @@ export const PostToolbar = ({
             onChange={(event) => setTerm(event.target.value)}
             placeholder="Tìm theo tiêu đề..."
             aria-label="Tìm bài viết theo tiêu đề"
-            className="w-full rounded-lg border border-border bg-surface py-2.5 pl-9 pr-3.5 text-sm text-foreground outline-none transition placeholder:text-subtle focus:border-indigo-500"
+            className="w-full rounded-lg border border-border bg-surface py-2.5 pl-9 pr-3.5 text-sm text-foreground outline-none transition placeholder:text-subtle focus:border-accent"
           />
         </div>
         <Button type="submit" variant="outline">

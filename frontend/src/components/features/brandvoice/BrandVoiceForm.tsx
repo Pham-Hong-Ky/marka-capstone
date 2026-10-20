@@ -183,7 +183,7 @@ export const BrandVoiceForm = ({
           ))}
 
           {errors.fewShotExamples?.root?.message ? (
-            <p className="text-xs text-red-400">{errors.fewShotExamples.root.message}</p>
+            <p className="text-xs text-danger">{errors.fewShotExamples.root.message}</p>
           ) : null}
         </div>
       </fieldset>

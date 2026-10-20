@@ -1,5 +1,5 @@
 import { forwardRef, type TextareaHTMLAttributes } from 'react';
-import { cn } from '@/utils/cn';
+import { inputClasses } from './input.styles';
 
 export const TextArea = forwardRef<
   HTMLTextAreaElement,
@@ -15,14 +15,10 @@ export const TextArea = forwardRef<
       <textarea
         ref={ref}
         id={areaId}
-        className={cn(
-          'w-full rounded-lg border bg-surface px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-subtle',
-          error ? 'border-red-500 focus:border-red-500' : 'border-border focus:border-indigo-500',
-          className
-        )}
+        className={inputClasses(error, className)}
         {...props}
       />
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   );
 });

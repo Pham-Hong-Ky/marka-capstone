@@ -10,6 +10,7 @@ import type { PostDetail } from '@/services/post';
 import { usePost, useReviewPost, useSubmitPost } from '@/hooks/usePost';
 import { getErrorMessage } from '@/utils/error';
 import type { WorkspaceRole } from '@/services/auth';
+import { SkeletonBlock } from '@/components/ui/Skeleton';
 
 export const PostDetailModal = ({
   open,
@@ -61,7 +62,7 @@ export const PostDetailModal = ({
               <Button
                 type="button"
                 variant="outline"
-                className="text-red-600 dark:text-red-400"
+                className="text-danger"
                 onClick={() => onDelete(post)}
               >
                 <Trash2 className="h-4 w-4" />
@@ -102,10 +103,10 @@ export const PostDetailModal = ({
         ) : undefined
       }
     >
-      {isLoading ? <p className="text-sm text-muted">Đang tải bài viết...</p> : null}
+      {isLoading ? <SkeletonBlock /> : null}
 
       {isError ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{getErrorMessage(error)}</p>
+        <p className="text-sm text-danger">{getErrorMessage(error)}</p>
       ) : null}
 
       {post ? (
@@ -118,8 +119,8 @@ export const PostDetailModal = ({
           </div>
 
           {post.status === 'REJECTED' && post.rejectReason ? (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm">
-              <p className="font-medium text-red-600 dark:text-red-400">Lý do từ chối</p>
+            <div className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm">
+              <p className="font-medium text-danger">Lý do từ chối</p>
               <p className="mt-1 text-foreground">{post.rejectReason}</p>
             </div>
           ) : null}

@@ -44,7 +44,7 @@ export const EmojiPicker = ({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Tìm kiếm biểu tượng cảm xúc"
             aria-label="Tìm kiếm biểu tượng cảm xúc"
-            className="w-full rounded-lg border border-border bg-surface py-2 pl-8 pr-2 text-sm text-foreground outline-none transition placeholder:text-subtle focus:border-indigo-500"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-8 pr-2 text-sm text-foreground outline-none transition placeholder:text-subtle focus:border-accent"
           />
         </div>
       </div>
@@ -90,7 +90,7 @@ export const EmojiPicker = ({
               }}
               className={cn(
                 'grid h-8 w-8 shrink-0 place-items-center rounded-md text-lg transition hover:bg-surface-2',
-                active && 'bg-indigo-500/10'
+                active && 'bg-accent/10'
               )}
             >
               {group.emojis[0]}

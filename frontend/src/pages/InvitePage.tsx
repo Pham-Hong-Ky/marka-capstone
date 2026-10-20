@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import { useLogout } from '@/hooks/useAuth';
 import { syncSessionUser, useInviteDetails } from '@/hooks/useWorkspace';
 import { getErrorMessage, getErrorStatus } from '@/utils/error';
+import { SkeletonBlock } from '@/components/ui/Skeleton';
 
 export const InvitePage = () => {
   const { token = '' } = useParams();
@@ -31,7 +32,7 @@ export const InvitePage = () => {
   if (inviteQuery.isLoading) {
     return (
       <AuthLayout title="Lời mời tham gia" subtitle="Đang kiểm tra lời mời...">
-        <p className="text-sm text-muted">Đang tải...</p>
+        <SkeletonBlock />
       </AuthLayout>
     );
   }
@@ -67,7 +68,7 @@ export const InvitePage = () => {
           ) : (
             <Link
               to={loginUrl}
-              className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+              className="text-accent-text hover:underline"
             >
               Đăng nhập
             </Link>

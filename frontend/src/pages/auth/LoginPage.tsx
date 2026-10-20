@@ -69,7 +69,7 @@ export const LoginPage = () => {
 
       <p className="mt-4 text-center text-sm text-muted">
         Chưa có tài khoản?{' '}
-        <Link to="/register" className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+        <Link to="/register" className="text-accent-text hover:underline">
           Đăng ký ngay
         </Link>
       </p>

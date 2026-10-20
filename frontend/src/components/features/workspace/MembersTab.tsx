@@ -13,18 +13,16 @@ import {
   useLeaveWorkspace,
   useRemoveMember,
   useWorkspaceMembers,
+  useActiveWorkspace,
 } from '@/hooks/useWorkspace';
 import { getErrorMessage } from '@/utils/error';
 import type { WorkspaceRole } from '@/services/auth';
-
-const formatDate = (value: string): string => new Date(value).toLocaleDateString('vi-VN');
+import { SkeletonList } from '@/components/ui/Skeleton';
+import { formatDate } from '@/utils/format';
 
 export const MembersTab = () => {
   const user = useAuthStore((state) => state.user);
-  const activeWorkspaceId = useAuthStore((state) => state.activeWorkspaceId);
-  const activeWorkspace =
-    (user?.workspaces ?? []).find((workspace) => workspace.id === activeWorkspaceId) ??
-    user?.workspaces[0];
+  const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
   const isOwner = activeWorkspace?.role === 'OWNER';
 
@@ -43,11 +41,11 @@ export const MembersTab = () => {
   }
 
   if (isLoading) {
-    return <p className="text-sm text-muted">Đang tải danh sách thành viên...</p>;
+    return <SkeletonList rows={4} />;
   }
 
   if (isError) {
-    return <p className="text-sm text-red-600 dark:text-red-400">{getErrorMessage(error)}</p>;
+    return <p className="text-sm text-danger">{getErrorMessage(error)}</p>;
   }
 
   const members = data?.members ?? [];
@@ -137,7 +135,7 @@ export const MembersTab = () => {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400">
+                  <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs text-success">
                     Hoạt động
                   </span>
                 </td>
@@ -151,7 +149,7 @@ export const MembersTab = () => {
                         onClick={() =>
                           setMemberToRemove({ userId: member.userId, name: member.name || member.email })
                         }
-                        className="inline-grid h-11 w-11 place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-red-500"
+                        className="inline-grid h-11 w-11 place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-danger"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -169,7 +167,7 @@ export const MembersTab = () => {
                 </td>
                 <td className="px-4 py-3 text-muted">{WORKSPACE_ROLE_LABELS[invite.role]}</td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
+                  <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning">
                     Chờ chấp nhận
                   </span>
                 </td>

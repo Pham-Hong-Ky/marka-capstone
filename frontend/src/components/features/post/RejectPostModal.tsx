@@ -60,7 +60,7 @@ export const RejectPostModal = ({
         <Button
           type="submit"
           form="reject-post-form"
-          className="bg-red-600 hover:bg-red-500"
+          className="bg-danger hover:bg-danger/90"
           isLoading={reviewPost.isPending}
         >
           Từ chối

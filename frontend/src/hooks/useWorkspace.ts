@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { workspaceService, type InviteMemberPayload, type WorkspaceMembersResponse } from '@/services/workspace';
-import { authService, type AuthUser, type WorkspaceRole } from '@/services/auth';
+import { authService, type AuthUser, type UserWorkspace, type WorkspaceRole } from '@/services/auth';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
@@ -21,6 +21,13 @@ export const syncSessionUser = async (): Promise<AuthUser | null> => {
     console.error('Không đồng bộ được phiên đăng nhập', error);
     return null;
   }
+};
+
+export const useActiveWorkspace = (): UserWorkspace | undefined => {
+  const workspaces = useAuthStore((state) => state.user?.workspaces);
+  const activeWorkspaceId = useAuthStore((state) => state.activeWorkspaceId);
+
+  return workspaces?.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces?.[0];
 };
 
 export const useWorkspaceMembers = (workspaceId: string | null) =>

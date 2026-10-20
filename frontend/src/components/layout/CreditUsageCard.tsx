@@ -1,4 +1,4 @@
-const formatCredit = (value: number): string => value.toLocaleString('vi-VN');
+import { formatNumber } from '@/utils/format';
 
 export const CreditUsageCard = ({
   remainingCredit,
@@ -16,8 +16,8 @@ export const CreditUsageCard = ({
         <span className="text-muted">Credit sử dụng</span>
         <span className="font-semibold text-foreground">
           {monthlyQuota > 0
-            ? `${formatCredit(used)} / ${formatCredit(monthlyQuota)}`
-            : `Còn ${formatCredit(remainingCredit)}`}
+            ? `${formatNumber(used)} / ${formatNumber(monthlyQuota)}`
+            : `Còn ${formatNumber(remainingCredit)}`}
         </span>
       </div>
 
@@ -30,7 +30,7 @@ export const CreditUsageCard = ({
           aria-valuemax={100}
           className="mt-2 h-1.5 overflow-hidden rounded-full bg-border"
         >
-          <div className="h-full rounded-full bg-indigo-600" style={{ width: `${usedPercent}%` }} />
+          <div className="h-full rounded-full bg-accent" style={{ width: `${usedPercent}%` }} />
         </div>
       ) : null}
     </div>

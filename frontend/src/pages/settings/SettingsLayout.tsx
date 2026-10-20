@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import PageHeader from '@/components/ui/PageHeader';
 import { cn } from '@/utils/cn';
 
 const SETTINGS_TABS = [
@@ -9,10 +10,7 @@ const SETTINGS_TABS = [
 
 export const SettingsLayout = () => (
   <div className="mx-auto max-w-4xl space-y-6">
-    <div>
-      <h1 className="text-3xl font-bold tracking-tight text-foreground">Cài đặt</h1>
-      <p className="mt-1 text-sm text-muted">Quản lý giao diện, workspace và thành viên.</p>
-    </div>
+    <PageHeader title="Cài đặt" description="Quản lý giao diện, workspace và thành viên." />
 
     <div className="flex gap-1 border-b border-border">
       {SETTINGS_TABS.map((tab) => (
@@ -23,7 +21,7 @@ export const SettingsLayout = () => (
             cn(
               '-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition',
               isActive
-                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                ? 'border-accent text-accent-text'
                 : 'border-transparent text-muted hover:text-foreground'
             )
           }

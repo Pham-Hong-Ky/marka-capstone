@@ -42,11 +42,11 @@ export const AppearanceTab = () => {
               className={cn(
                 'flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition',
                 isActive
-                  ? 'border-indigo-500 bg-indigo-500/10'
-                  : 'border-border bg-surface-2 hover:border-indigo-400/60'
+                  ? 'border-accent bg-accent/10'
+                  : 'border-border bg-surface-2 hover:border-accent/60'
               )}
             >
-              <Icon className={cn('h-5 w-5', isActive ? 'text-indigo-500 dark:text-indigo-400' : 'text-muted')} />
+              <Icon className={cn('h-5 w-5', isActive ? 'text-accent-text' : 'text-muted')} />
               <span className="text-sm font-medium text-foreground">{label}</span>
               <span className="text-xs text-muted">{description}</span>
             </button>

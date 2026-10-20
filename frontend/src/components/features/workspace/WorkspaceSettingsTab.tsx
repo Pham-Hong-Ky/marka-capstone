@@ -6,16 +6,11 @@ import TextField from '@/components/ui/TextField';
 import EmptyState from '@/components/ui/EmptyState';
 import ImageUploadField from '@/components/ui/ImageUploadField';
 import DeleteWorkspaceModal from './DeleteWorkspaceModal';
-import { useAuthStore } from '@/stores/auth.store';
-import { useUpdateWorkspace, useUploadWorkspaceLogo } from '@/hooks/useWorkspace';
+import { useUpdateWorkspace, useUploadWorkspaceLogo, useActiveWorkspace } from '@/hooks/useWorkspace';
 import { workspaceNameFormSchema, type WorkspaceNameFormValues } from '@/services/workspace';
 
 export const WorkspaceSettingsTab = () => {
-  const user = useAuthStore((state) => state.user);
-  const activeWorkspaceId = useAuthStore((state) => state.activeWorkspaceId);
-  const activeWorkspace =
-    (user?.workspaces ?? []).find((workspace) => workspace.id === activeWorkspaceId) ??
-    user?.workspaces[0];
+  const activeWorkspace = useActiveWorkspace();
   const isOwner = activeWorkspace?.role === 'OWNER';
 
   const updateWorkspace = useUpdateWorkspace();
@@ -98,7 +93,7 @@ export const WorkspaceSettingsTab = () => {
       </section>
 
       {isOwner ? (
-        <section className="rounded-2xl border border-red-500/40 bg-red-500/5 p-6">
+        <section className="rounded-2xl border border-danger/40 bg-danger/5 p-6">
           <h2 className="text-sm font-semibold text-foreground">Vùng nguy hiểm</h2>
           <p className="mt-1 text-xs text-muted">
             Xóa workspace sẽ thu hồi kết nối kênh và ẩn toàn bộ bài viết, media liên quan.
@@ -107,7 +102,7 @@ export const WorkspaceSettingsTab = () => {
             <Button
               type="button"
               onClick={() => setDeleteOpen(true)}
-              className="bg-red-600 hover:bg-red-500"
+              className="bg-danger hover:bg-danger/90"
             >
               Xóa workspace
             </Button>

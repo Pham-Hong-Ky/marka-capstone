@@ -76,7 +76,7 @@ export const Sidebar = ({
                 'flex min-h-11 items-center rounded-lg text-sm font-medium transition',
                 collapsed ? 'justify-center px-0' : 'gap-3 px-3 py-2',
                 active
-                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+                  ? 'bg-accent/10 text-accent-text'
                   : 'text-muted hover:bg-surface-2 hover:text-foreground'
               )}
             >
