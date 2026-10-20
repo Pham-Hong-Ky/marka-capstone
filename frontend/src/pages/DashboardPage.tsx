@@ -1,11 +1,9 @@
 import { Link } from 'react-router-dom';
 import { buttonClasses } from '@/components/ui/button.styles';
 import EmptyState from '@/components/ui/EmptyState';
-import PageHeader from '@/components/ui/PageHeader';
 import PostStatusBadge from '@/components/features/post/PostStatusBadge';
 import { useChannels } from '@/hooks/useChannels';
 import { usePosts } from '@/hooks/usePost';
-import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
@@ -19,7 +17,6 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
 );
 
 export const DashboardPage = () => {
-  const user = useAuthStore((state) => state.user);
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
 
@@ -39,11 +36,6 @@ export const DashboardPage = () => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
-      <PageHeader
-        title={`Xin chào, ${user?.name ?? 'bạn'}`}
-        description={`Tổng quan workspace ${activeWorkspace.name}.`}
-      />
-
       <dl className="grid divide-y divide-border rounded-2xl border border-border bg-surface sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <Stat label="Bài viết" value={posts.data ? formatNumber(posts.data.meta.total) : '—'} />
         <Stat

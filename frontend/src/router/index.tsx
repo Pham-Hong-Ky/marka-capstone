@@ -36,7 +36,6 @@ export const router = createBrowserRouter([
           { path: 'posts/:postId/edit', lazy: page(() => import('@/pages/PostEditorPage')) },
           { path: 'schedule', element: <ComingSoonPage title="Lịch xuất bản" /> },
           { path: 'channels', lazy: page(() => import('@/pages/ChannelsPage')) },
-          { path: 'media', element: <ComingSoonPage title="Thư viện Media" /> },
           { path: 'brand-voice', lazy: page(() => import('@/pages/BrandVoicePage')) },
           { path: 'ai', element: <ComingSoonPage title="Trợ lý AI" /> },
           { path: 'publishing', element: <ComingSoonPage title="Đăng bài đa kênh" /> },
