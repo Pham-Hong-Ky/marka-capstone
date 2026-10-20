@@ -3,6 +3,7 @@ import { buttonClasses } from '@/components/ui/button.styles';
 import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
 import PostStatusBadge from '@/components/features/post/PostStatusBadge';
+import { useChannels } from '@/hooks/useChannels';
 import { usePosts } from '@/hooks/usePost';
 import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
@@ -23,6 +24,7 @@ export const DashboardPage = () => {
   const workspaceId = activeWorkspace?.id ?? null;
 
   const posts = usePosts(workspaceId, { page: 1, limit: 5 });
+  const channels = useChannels(workspaceId);
 
   if (!activeWorkspace) {
     return (
@@ -42,8 +44,12 @@ export const DashboardPage = () => {
         description={`Tổng quan workspace ${activeWorkspace.name}.`}
       />
 
-      <dl className="grid divide-y divide-border rounded-2xl border border-border bg-surface sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+      <dl className="grid divide-y divide-border rounded-2xl border border-border bg-surface sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <Stat label="Bài viết" value={posts.data ? formatNumber(posts.data.meta.total) : '—'} />
+        <Stat
+          label="Kênh đã kết nối"
+          value={channels.data ? formatNumber(channels.data.channels.length) : '—'}
+        />
         <Stat label="Credit còn lại" value={formatNumber(activeWorkspace.remainingCredit)} />
       </dl>
 
