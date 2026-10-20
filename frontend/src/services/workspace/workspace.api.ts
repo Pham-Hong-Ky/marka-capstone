@@ -23,16 +23,6 @@ export const updateWorkspace = async (
 export const deleteWorkspace = async (id: string): Promise<{ success: boolean }> =>
   unwrap(await httpClient.delete<ApiResponse<{ success: boolean }>>(`/workspaces/${id}`));
 
-export const uploadWorkspaceLogo = async (id: string, file: File): Promise<{ logo: string }> => {
-  const form = new FormData();
-  form.append('logo', file);
-  return unwrap(
-    await httpClient.post<ApiResponse<{ logo: string }>>(`/workspaces/${id}/logo`, form, {
-      headers: { 'Content-Type': undefined },
-    })
-  );
-};
-
 export const listMembers = async (id: string): Promise<WorkspaceMembersResponse> =>
   unwrap(await httpClient.get<ApiResponse<WorkspaceMembersResponse>>(`/workspaces/${id}/members`));
 
@@ -76,7 +66,6 @@ export default {
   createWorkspace,
   updateWorkspace,
   deleteWorkspace,
-  uploadWorkspaceLogo,
   listMembers,
   inviteMember,
   acceptInvite,

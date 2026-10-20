@@ -68,17 +68,6 @@ export const useUpdateWorkspace = () =>
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
-export const useUploadWorkspaceLogo = () =>
-  useMutation({
-    mutationFn: ({ id, file }: { id: string; file: File }) =>
-      workspaceService.uploadWorkspaceLogo(id, file),
-    onSuccess: async () => {
-      await syncSessionUser();
-      toast.success('Cập nhật logo thành công');
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  });
-
 export const useDeleteWorkspace = () =>
   useMutation({
     mutationFn: (id: string) => workspaceService.deleteWorkspace(id),

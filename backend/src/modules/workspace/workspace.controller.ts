@@ -45,17 +45,6 @@ export const deleteWorkspace = catchAsync(async (req: Request, res: Response) =>
   });
 });
 
-export const uploadLogo = catchAsync(async (req: Request, res: Response) => {
-  const workspaceId = req.params.workspaceId as string;
-  const result = await workspaceService.uploadWorkspaceLogo(workspaceId, req.user!.id, req.file);
-
-  return ApiResponse.success(res, {
-    statusCode: 200,
-    message: 'Cập nhật logo workspace thành công',
-    data: result,
-  });
-});
-
 export const listMembers = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = req.params.workspaceId as string;
   const data = await workspaceService.listMembers(workspaceId);
@@ -136,7 +125,6 @@ export default {
   listWorkspaces,
   updateWorkspace,
   deleteWorkspace,
-  uploadLogo,
   listMembers,
   inviteMember,
   acceptInvite,

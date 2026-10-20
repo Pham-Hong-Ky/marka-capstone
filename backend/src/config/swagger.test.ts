@@ -6,8 +6,4 @@ describe('Swagger spec', () => {
     expect(swaggerSpec.paths).toHaveProperty('/workspaces/{workspaceId}/posts/{postId}/submit');
     expect(swaggerSpec.paths).toHaveProperty('/workspaces/{workspaceId}/posts/{postId}/review');
   });
-
-  it('đăng ký upload logo workspace', () => {
-    expect(swaggerSpec.paths).toHaveProperty('/workspaces/{workspaceId}/logo');
-  });
 });

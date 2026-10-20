@@ -35,16 +35,10 @@ const createImageUpload = ({ field, maxBytes, tooLargeMessage }: ImageUploadOpti
   };
 };
 
-export const uploadWorkspaceLogo = createImageUpload({
-  field: 'logo',
-  maxBytes: 2 * 1024 * 1024,
-  tooLargeMessage: 'Ảnh logo vượt quá 2MB',
-});
-
 export const uploadPostMedia = createImageUpload({
   field: 'file',
   maxBytes: 10 * 1024 * 1024,
   tooLargeMessage: 'Ảnh vượt quá 10MB',
 });
 
-export default uploadWorkspaceLogo;
+export default uploadPostMedia;

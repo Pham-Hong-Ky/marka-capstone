@@ -3,7 +3,6 @@ import type { WorkspacePlan, WorkspaceRole } from '@/services/auth';
 export interface WorkspaceBase {
   id: string;
   name: string;
-  logo: string | null;
   plan: WorkspacePlan;
   remainingCredit: number;
   monthlyQuota: number;
