@@ -1,10 +1,17 @@
+import type { AuthProvider } from '@prisma/client';
 import prisma from '../../config/db.js';
 
 export interface CreateUserData {
   email: string;
-  passwordHash: string;
   name: string;
+  authProvider: AuthProvider;
+  passwordHash?: string;
+  googleId?: string;
+  avatar?: string | null;
+  emailVerified?: boolean;
 }
+
+const WITH_WORKSPACES = { workspaceMembers: { include: { workspace: true } } } as const;
 
 export interface UpdateUserData {
   name?: string;
@@ -39,64 +46,32 @@ export const findUserById = async (userId: string) => {
 export const findUserByEmail = async (email: string) => {
   return prisma.user.findUnique({
     where: { email },
-    include: {
-      workspaceMembers: {
-        include: {
-          workspace: true,
-        },
-      },
-    },
+    include: WITH_WORKSPACES,
   });
 };
 
-export const createUser = async ({ email, passwordHash, name }: CreateUserData) => {
+// Mỗi tài khoản mới luôn có một workspace mặc định do chính họ làm Owner.
+export const createUserWithDefaultWorkspace = async (data: CreateUserData) => {
   return prisma.$transaction(async (tx) => {
-    const newUser = await tx.user.create({
-      data: {
-        email,
-        passwordHash,
-        name,
-        authProvider: 'LOCAL',
-        systemRole: 'USER',
-      },
-    });
+    const user = await tx.user.create({ data: { ...data, systemRole: 'USER' } });
 
-    const defaultWorkspace = await tx.workspace.create({
+    await tx.workspace.create({
       data: {
-        name: `Workspace của ${name}`,
+        name: `Workspace của ${user.name}`,
         plan: 'FREE',
-        remainingCredit: 100,
-        monthlyQuota: 100,
+        members: { create: { userId: user.id, role: 'OWNER', allowDirectPublish: true } },
       },
     });
 
-    await tx.workspaceMember.create({
-      data: {
-        userId: newUser.id,
-        workspaceId: defaultWorkspace.id,
-        role: 'OWNER',
-        allowDirectPublish: true,
-      },
-    });
+    return tx.user.findUniqueOrThrow({ where: { id: user.id }, include: WITH_WORKSPACES });
+  });
+};
 
-    return {
-      id: newUser.id,
-      email: newUser.email,
-      name: newUser.name,
-      avatar: newUser.avatar,
-      systemRole: newUser.systemRole,
-      emailVerified: newUser.emailVerified,
-      tokenVersion: newUser.tokenVersion,
-      createdAt: newUser.createdAt,
-      defaultWorkspace: {
-        id: defaultWorkspace.id,
-        name: defaultWorkspace.name,
-        logo: defaultWorkspace.logo,
-        plan: defaultWorkspace.plan,
-        remainingCredit: defaultWorkspace.remainingCredit,
-        monthlyQuota: defaultWorkspace.monthlyQuota,
-      },
-    };
+export const linkGoogleAccount = async (userId: string, data: { googleId: string; avatar: string | null }) => {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { ...data, emailVerified: true },
+    include: WITH_WORKSPACES,
   });
 };
 
@@ -130,7 +105,8 @@ export const incrementTokenVersion = async (userId: string) => {
 export default {
   findUserById,
   findUserByEmail,
-  createUser,
+  createUserWithDefaultWorkspace,
+  linkGoogleAccount,
   updateUser,
   incrementTokenVersion,
 };
