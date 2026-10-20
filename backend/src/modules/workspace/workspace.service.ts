@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Prisma, WorkspaceRole } from '@prisma/client';
 import workspaceRepository from './workspace.repository.js';
+import { toWorkspaceSummary, type WorkspaceSummary } from './workspace.mapper.js';
 import auditService from '../audit/audit.service.js';
 import env from '../../config/env.js';
 import { sendEmail } from '../../utils/mailer.js';
@@ -21,22 +22,19 @@ const ROLE_LABELS: Record<WorkspaceRole, string> = {
   CONTENT_CREATOR: 'Người sáng tạo nội dung',
 };
 
-interface WorkspaceSummary {
-  id: string;
-  name: string;
-  logo: string | null;
-  plan: string;
-  role: WorkspaceRole;
-  remainingCredit: number;
-  monthlyQuota: number;
-}
-
 const assertWorkspaceExists = async (workspaceId: string) => {
   const workspace = await workspaceRepository.findWorkspaceById(workspaceId);
   if (!workspace) {
     throw new NotFoundError('Workspace không tồn tại');
   }
   return workspace;
+};
+
+const assertNotLastOwner = async (workspaceId: string, message: string) => {
+  const ownerCount = await workspaceRepository.countOwners(workspaceId);
+  if (ownerCount <= 1) {
+    throw new ConflictError(message);
+  }
 };
 
 const notifyOwners = async (workspaceId: string, actorId: string, payload: Record<string, unknown>) => {
@@ -75,29 +73,13 @@ export const createWorkspace = async (
     metadata: { name: workspace.name },
   });
 
-  return {
-    id: workspace.id,
-    name: workspace.name,
-    logo: workspace.logo,
-    plan: workspace.plan,
-    role: 'OWNER' as WorkspaceRole,
-    remainingCredit: workspace.remainingCredit,
-    monthlyQuota: workspace.monthlyQuota,
-  };
+  return toWorkspaceSummary({ role: 'OWNER', workspace });
 };
 
 export const listMyWorkspaces = async (userId: string): Promise<WorkspaceSummary[]> => {
   const memberships = await workspaceRepository.findWorkspacesByUserId(userId);
 
-  return memberships.map((member) => ({
-    id: member.workspace.id,
-    name: member.workspace.name,
-    logo: member.workspace.logo,
-    plan: member.workspace.plan,
-    role: member.role,
-    remainingCredit: member.workspace.remainingCredit,
-    monthlyQuota: member.workspace.monthlyQuota,
-  }));
+  return memberships.map(toWorkspaceSummary);
 };
 
 export const updateWorkspace = async (
@@ -300,8 +282,15 @@ export const acceptInvite = async (token: string, currentUser?: { id: string; em
     return { workspaceId: invite.workspaceId, workspaceName: invite.workspace.name, alreadyMember: true };
   }
 
-  await workspaceRepository.createMember(invite.workspaceId, currentUser.id, invite.role);
-  await workspaceRepository.markInviteUsed(invite.id);
+  const accepted = await workspaceRepository.acceptInviteAsMember(
+    invite.id,
+    invite.workspaceId,
+    currentUser.id,
+    invite.role
+  );
+  if (!accepted) {
+    throw new ConflictError('Lời mời đã được sử dụng');
+  }
 
   await auditService.recordAuditLog({
     workspaceId: invite.workspaceId,
@@ -327,10 +316,7 @@ export const leaveWorkspace = async (workspaceId: string, userId: string) => {
   }
 
   if (member.role === 'OWNER') {
-    const ownerCount = await workspaceRepository.countOwners(workspaceId);
-    if (ownerCount <= 1) {
-      throw new ConflictError('Bạn là Owner duy nhất. Hãy chuyển quyền hoặc xóa workspace');
-    }
+    await assertNotLastOwner(workspaceId, 'Bạn là Owner duy nhất. Hãy chuyển quyền hoặc xóa workspace');
   }
 
   await workspaceRepository.deleteMember(workspaceId, userId);
@@ -353,10 +339,7 @@ export const removeMember = async (workspaceId: string, actorId: string, targetU
   }
 
   if (target.role === 'OWNER') {
-    const ownerCount = await workspaceRepository.countOwners(workspaceId);
-    if (ownerCount <= 1) {
-      throw new ConflictError('Không thể xóa Owner duy nhất của workspace');
-    }
+    await assertNotLastOwner(workspaceId, 'Không thể xóa Owner duy nhất của workspace');
   }
 
   await workspaceRepository.deleteMember(workspaceId, targetUserId);
@@ -388,10 +371,7 @@ export const changeMemberRole = async (
   }
 
   if (target.role === 'OWNER' && role !== 'OWNER') {
-    const ownerCount = await workspaceRepository.countOwners(workspaceId);
-    if (ownerCount <= 1) {
-      throw new ConflictError('Không thể hạ vai trò Owner duy nhất của workspace');
-    }
+    await assertNotLastOwner(workspaceId, 'Không thể hạ vai trò Owner duy nhất của workspace');
   }
 
   await workspaceRepository.updateMemberRole(workspaceId, targetUserId, role);

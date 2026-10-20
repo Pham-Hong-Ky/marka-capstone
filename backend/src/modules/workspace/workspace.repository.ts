@@ -183,6 +183,27 @@ export const markInviteUsed = async (inviteId: string) => {
   });
 };
 
+// Đánh dấu lời mời và tạo thành viên trong cùng transaction; trả false nếu lời mời đã bị dùng.
+export const acceptInviteAsMember = async (
+  inviteId: string,
+  workspaceId: string,
+  userId: string,
+  role: WorkspaceRole
+): Promise<boolean> => {
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.workspaceInvite.updateMany({
+      where: { id: inviteId, isUsed: false },
+      data: { isUsed: true },
+    });
+    if (count === 0) return false;
+
+    await tx.workspaceMember.create({
+      data: { workspaceId, userId, role, allowDirectPublish: role === 'OWNER' },
+    });
+    return true;
+  });
+};
+
 // ---- Cross-entity lookups ----
 
 export const findUserByEmail = async (email: string) => {
@@ -235,6 +256,7 @@ export default {
   createInvite,
   refreshInvite,
   markInviteUsed,
+  acceptInviteAsMember,
   findUserByEmail,
   findUserById,
   createNotification,
