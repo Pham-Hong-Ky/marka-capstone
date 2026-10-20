@@ -1,40 +1,42 @@
 @startuml 03-brandvoice
-!pragma layout smetana
-skinparam dpi 120
-skinparam shadowing false
-skinparam classAttributeIconSize 0
-skinparam packageStyle rectangle
-skinparam class {
-  BackgroundColor #FFFFFF
-  BorderColor #37474F
-  ArrowColor #455A64
-  FontSize 12
-}
 hide circle
-title Brand Voice — Class Diagram
+hide stereotype
+!pragma layout smetana
+title Marka — Brand Voice
 
-class BrandVoiceController {
-  - brandVoiceService : BrandVoiceService
-  + getBrandVoice(workspaceId : string) : BrandVoiceDTO
-  + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-  + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-  + deleteBrandVoice(workspaceId : string) : void
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 30
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
 }
-class BrandVoiceService {
-  - brandVoiceRepository : BrandVoiceRepository
-  + createBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-  + getBrandVoice(workspaceId : string) : BrandVoiceDTO
-  + updateBrandVoice(workspaceId : string, input : BrandVoiceDTO) : BrandVoiceDTO
-  + deleteBrandVoice(workspaceId : string) : void
+
+class "brandVoiceController" as brandVoiceController {
+  - brandVoiceService : brandVoiceService
+  + getBrandVoice(req, res)
+  + updateBrandVoice(req, res)
 }
-class BrandVoiceRepository {
+
+class "brandVoiceService" as brandVoiceService {
+  - brandVoiceRepository : brandVoiceRepository
+  - dedupeKeywords(keywords) : string[]
+  + getBrandVoice(workspaceId)
+  + updateBrandVoice(workspaceId, userId, data)
+}
+
+class "brandVoiceRepository" as brandVoiceRepository {
   - prisma : PrismaClient
-  + createBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
-  + findBrandVoiceByWorkspace(workspaceId : string) : Json
-  + updateBrandVoiceRecord(workspaceId : string, data : BrandVoiceDTO) : Json
-  + deleteBrandVoiceRecord(workspaceId : string) : Json
+  + findWorkspaceById(workspaceId)
+  + getWorkspaceBrandVoice(workspaceId)
+  + updateWorkspaceBrandVoice(workspaceId, brandVoice)
 }
 
-BrandVoiceController --> BrandVoiceService
-BrandVoiceService ..> BrandVoiceRepository
+brandVoiceController --> brandVoiceService
+brandVoiceService --> brandVoiceRepository
+
 @enduml

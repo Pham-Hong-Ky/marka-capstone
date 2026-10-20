@@ -1,0 +1,85 @@
+@startuml 05-post
+hide circle
+hide stereotype
+!pragma layout smetana
+title Marka — Post, Media & Approval
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 24
+skinparam ranksep 40
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "postController" as postController {
+  - postService : postService
+  + createPost(req, res)
+  + getPost(req, res)
+  + listPosts(req, res)
+  + updatePost(req, res)
+  + deletePost(req, res)
+  + uploadPostMedia(req, res)
+  + deletePostMedia(req, res)
+  + submitPost(req, res)
+  + reviewPost(req, res)
+}
+
+class "postService" as postService {
+  - postRepository : postRepository
+  - postNotification : PostNotification
+  - cloudinaryClient : CloudinaryClient
+  - ALLOWED_TRANSITIONS : Record<PostStatus, PostStatus[]>
+  - transitionPost(post, data)
+  - assertEditable(post)
+  - assertCanModify(post, userId, role)
+  + createPost(workspaceId, userId, data)
+  + getPost(workspaceId, postId)
+  + listPosts(workspaceId, query)
+  + updatePost(workspaceId, userId, role, postId, data)
+  + deletePost(workspaceId, userId, role, postId)
+  + uploadPostMedia(workspaceId, userId, role, postId, file?)
+  + deletePostMedia(workspaceId, userId, role, postId, mediaId)
+  + submitPost(workspaceId, userId, userName, role, postId)
+  + reviewPost(workspaceId, reviewerId, postId, data)
+}
+
+class "postRepository" as postRepository {
+  - prisma : PrismaClient
+  + createPost(data)
+  + findPostWithMedia(postId, workspaceId)
+  + listPostsAndCount(params)
+  + updatePost(postId, data)
+  + transitionPostStatus(postId, workspaceId, from, data)
+  + softDeletePost(postId)
+  + createMedia(data)
+  + findMediaByIdAndPost(postId, mediaId)
+  + softDeleteMedia(mediaId)
+}
+
+class "PostNotification" as postNotification {
+  + notifyPostSubmitted(params)
+  + notifyPostReviewed(params)
+}
+
+class "MailerClient" as mailerClient {
+  - resend : Resend
+  + sendEmail({ to, subject, html }) : Promise<boolean>
+}
+
+class "CloudinaryClient" as cloudinaryClient {
+  + isCloudinaryConfigured : boolean
+  + uploadImageBuffer(buffer, folder) : Promise<string>
+}
+
+postController --> postService
+postService --> postRepository
+postService --> postNotification
+postService --> cloudinaryClient
+postNotification --> mailerClient
+
+@enduml

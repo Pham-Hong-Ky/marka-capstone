@@ -1,341 +1,162 @@
-# Kế Hoạch CI/CD — Marka Capstone
+# CI/CD — Marka Capstone
 
-> **Stack triển khai:** GitHub Actions (CI) · Vercel (Frontend) · Render **1 Web Service gộp worker** (Backend API + BullMQ) · Neon (PostgreSQL) · Upstash (Redis)
+> **Stack triển khai hiện tại:** GitHub Actions (CI) · Vercel (Frontend) · Render Web Service (Backend API + worker BullMQ chạy chung) · Neon (PostgreSQL) · Upstash (Redis).
 >
-> **CD không dùng GitHub Actions**: Render và Vercel tự deploy khi push `main` (Auto-Deploy), còn CI được dùng làm **cổng chặn** qua *branch protection*. Nhờ vậy không cần secret hay deploy hook. Cấu hình hạ tầng Render nằm ở [`render.yaml`](../render.yaml).
+> CD dùng **Auto-Deploy** của Render/Vercel khi push `main`; GitHub Actions chỉ làm cổng chặn chất lượng, không deploy.
+> Cấu hình Render: [`render.yaml`](../render.yaml). Workflow CI: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
 ---
 
-## 1. Tổng quan kiến trúc CI/CD
+## 1. Luồng tổng quan
 
-```
+```text
 Developer push / PR
         │
         ▼
-┌─────────────────────────────┐
-│   GitHub Actions — CI       │  Chạy trên mọi push vào dev/main
-│                             │
-│  ┌──────────────────────┐   │
-│  │  Job: frontend-ci    │   │  Lint (oxlint) + TypeScript + Vite Build
-│  └──────────────────────┘   │
-│  ┌──────────────────────┐   │
-│  │  Job: backend-ci     │   │  Prisma Validate + DB Push + test:connection
-│  └──────────────────────┘   │  (PostgreSQL 16 + Redis 7 container tạm thời)
-└─────────────────────────────┘
+GitHub Actions — CI (.github/workflows/ci.yml)
+  ├── frontend-ci: npm ci → oxlint → vite build
+  └── backend-ci : npm ci → oxlint → prisma generate → tsc --noEmit
+                   → prisma validate → prisma db push → test:connection → npm test
         │
-        │ merge vào main (đã qua branch protection + CI)
+        │ merge vào main (qua PR + branch protection)
         ▼
-┌───────────────────────────────────────────────┐
-│   CD — Auto-deploy nền tảng (không cần hook)   │
-│                                               │
-│   Render  ──► tự build & deploy Backend API   │
-│               (gộp worker, ENABLE_WORKERS)    │
-│   Vercel  ──► tự build & deploy Frontend      │
-└───────────────────────────────────────────────┘
+Auto-Deploy
+  ├── Render: build backend + prisma migrate deploy → chạy npm start
+  └── Vercel: build frontend → phát hành dist
         │
         ▼
-   ┌────────────────────┐
-   │  Neon PostgreSQL   │  (neon.tech — free tier)
-   │  Upstash Redis     │  (upstash.com — free tier)
-   └────────────────────┘
+Neon PostgreSQL + Upstash Redis
 ```
+
+CI chạy trên PostgreSQL 16 và Redis 7 dựng tạm bằng GitHub Actions `services`; không cần GitHub Secrets cho CI.
 
 ---
 
-## 2. Thời điểm triển khai — Nên làm ngay hay đợi?
+## 2. CI — GitHub Actions
 
-| | **CI (Kiểm tra code tự động)** | **CD (Deploy tự động)** |
-|---|---|---|
-| **Làm khi nào?** | **Ngay bây giờ** | Sau khi xong module Auth |
-| **Tốn bao lâu?** | ~20 phút | ~1–2 giờ |
-| **Cần secrets GitHub?** | ❌ Không (dùng DB tạm thời) | ❌ Không (dùng Auto-Deploy + branch protection, không cần deploy hook) |
-| **Lợi ích** | Chặn code lỗi trước khi merge | Có URL live demo tự động |
-| **Rủi ro nếu bỏ qua** | Code vỡ build mà không ai biết | Cần config lại khi env thay đổi |
+### 2.1. Trigger
 
-> **Lý do CD chưa làm ngay:** Env variables (OAuth keys, SMTP, Cloudinary...) của module Auth và các module tiếp theo còn thay đổi liên tục. Dựng CD quá sớm thì mỗi lần thêm biến lại phải vào Render/Neon cấu hình lại. Tốt hơn là đợi đến khi env ổn định sau khi xong Auth + 1-2 module.
+- `push` và `pull_request` vào `dev`, `main`.
+- `concurrency` huỷ lần chạy cũ khi có commit mới trên cùng branch/PR.
 
----
+### 2.2. Job frontend
 
-## 3. Giai đoạn 1: CI — Triển khai NGAY
+| Bước | Lệnh |
+| :--- | :--- |
+| Cài dependency | `npm ci` (working dir `frontend`) |
+| Lint | `npm run lint` (oxlint) |
+| Build | `npm run build` (tsc + vite) |
 
-### 3.1. Tạo file `.github/workflows/ci.yml`
+### 2.3. Job backend
 
-```yaml
-name: CI — Marka Capstone
+| Bước | Lệnh |
+| :--- | :--- |
+| Cài dependency | `npm ci` (working dir `backend`) |
+| Lint | `npm run lint` (oxlint) |
+| Prisma client | `npx prisma generate` |
+| Typecheck | `npm run typecheck` |
+| Validate schema | `npx prisma validate` |
+| Tạo bảng test | `npx prisma db push --skip-generate` |
+| Kiểm tra kết nối | `npm run test:connection` |
+| Test | `npm test` (Vitest + Supertest, DB thật) |
 
-on:
-  push:
-    branches: [dev, main]
-  pull_request:
-    branches: [dev, main]
+Biến môi trường CI dùng giá trị cố định trong workflow: `DATABASE_URL`, `REDIS_URL`, `JWT_*`, `AES_SECRET_KEY`, `NODE_ENV=test`, `CLIENT_URL`. Đây không phải credential production.
 
-jobs:
-  # ──────────────────────────────────────────────
-  # JOB 1: Kiểm tra Frontend (Lint + Build)
-  # ──────────────────────────────────────────────
-  frontend-ci:
-    name: Frontend — Lint & Build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
+### 2.4. Branch protection
 
-    steps:
-      - uses: actions/checkout@v4
+Vào **GitHub → Settings → Branches → Add branch protection rule** cho `main`:
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint (oxlint)
-        run: npm run lint
-
-      - name: TypeScript check + Vite Build
-        run: npm run build
-
-  # ──────────────────────────────────────────────
-  # JOB 2: Kiểm tra Backend (Schema + Connection)
-  # ──────────────────────────────────────────────
-  backend-ci:
-    name: Backend — Prisma Schema & Connection Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
-
-    # GitHub tự tạo container PostgreSQL 16 và Redis 7 tạm thời
-    # chỉ dùng trong lần chạy CI này, xóa sau khi job kết thúc
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: marka_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
-    # Biến môi trường test — dùng giá trị cố định vì đây là môi trường CI
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marka_test?schema=public&connection_limit=10
-      REDIS_URL: redis://127.0.0.1:6379
-      NODE_ENV: test
-      PORT: 5000
-      JWT_ACCESS_SECRET: ci_test_jwt_access_secret_minimum_32_characters
-      JWT_REFRESH_SECRET: ci_test_jwt_refresh_secret_minimum_32_characters
-      JWT_ACCESS_EXPIRES_IN: 15m
-      JWT_REFRESH_EXPIRES_IN: 7d
-      AES_SECRET_KEY: ci_test_aes_secret_key_32_bytes!!
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Validate Prisma Schema
-        run: npx prisma validate
-
-      - name: Push Schema to Test DB
-        run: npx prisma db push --skip-generate
-
-      - name: Test connections (PostgreSQL + Redis)
-        run: npm run test:connection
-```
-
-### 3.2. Commit và push
-
-```bash
-git add .github/
-git commit -m "ci: add GitHub Actions CI workflow"
-git push origin dev
-```
-
-Sau khi push, vào tab **Actions** trên GitHub để xem CI chạy trong khoảng 2–3 phút.
-
----
-
-## 4. Giai đoạn 2: CD — Triển khai sau khi xong Auth
-
-### 4.1. Chuẩn bị tài khoản và dịch vụ cloud
-
-| Dịch vụ | Mục đích | URL | Gói miễn phí |
-|---|---|---|---|
-| **Vercel** | Host Frontend | [vercel.com](https://vercel.com) | ✅ Unlimited |
-| **Render** | Host Backend API + worker BullMQ (chạy **gộp** 1 service) | [render.com](https://render.com) | ✅ 750 giờ/tháng |
-| **Neon** | PostgreSQL Cloud | [neon.tech](https://neon.tech) | ✅ 512MB DB |
-| **Upstash** | Redis Cloud | [upstash.com](https://upstash.com) | ✅ 10K cmd/ngày |
-
-> ⚠️ **Lưu ý về gói free của Render:** *Background Worker* là dịch vụ **trả phí** (không có gói free). Vì vậy kế hoạch này gộp worker vào chính Web Service API bằng `ENABLE_WORKERS=true`. Đổi lại, khi service "ngủ" sau ~15 phút thì job trong queue bị hoãn cho tới khi có request đánh thức — chấp nhận được cho đồ án.
->
-> Cấu hình Web Service cũng có thể khai báo sẵn trong [`render.yaml`](../render.yaml) (Render Blueprint) thay vì click tay.
-
-### 4.2. Bước cấu hình từng dịch vụ
-
-#### Bước 1: Neon (PostgreSQL Production)
-
-1. Đăng ký tại [neon.tech](https://neon.tech) bằng tài khoản GitHub.
-2. Tạo project: **marka-production** → Region: **Singapore (ap-southeast-1)**.
-3. Copy **Connection String** dạng:
-   ```
-   postgresql://user:password@ep-xxx.ap-southeast-1.aws.neon.tech/narka?sslmode=require&connection_limit=20&pool_timeout=10
-   ```
-4. Chạy migration lần đầu từ local:
-   ```bash
-   DATABASE_URL="<neon-connection-string>" npx prisma migrate deploy
-   ```
-
-#### Bước 2: Upstash (Redis Production)
-
-1. Đăng ký tại [upstash.com](https://upstash.com).
-2. Tạo Redis Database → Region: **Singapore** → Enable **TLS**.
-3. Copy URL dạng:
-   ```
-   rediss://default:password@lucky-hen-12345.upstash.io:6379
-   ```
-   *(Lưu ý: `rediss://` có 2 chữ s vì dùng TLS)*
-
-#### Bước 3: Render — Backend API (gộp worker)
-
-Chạy **một** service duy nhất cho cả API và worker BullMQ. Không cần Docker, không cần service worker trả phí.
-
-1. Đăng ký tại [render.com](https://render.com) bằng GitHub.
-2. **New → Web Service** → Chọn repo `marka-capstone`.
-   - Name: `marka-api`
-   - Root Directory: `backend`
-   - Build Command: `npm ci --include=dev && npx prisma generate && npx prisma migrate deploy`
-   - Start Command: `npm start`  *(chạy bằng `tsx` — `tsx` là devDependency nên Build phải có `--include=dev`)*
-   - Health Check Path: `/api/v1/health`
-   - Environment: `Node 20`
-3. Thêm toàn bộ biến môi trường trong tab **Environment**:
-   ```
-   NODE_ENV=production
-   DATABASE_URL=<neon-connection-string>
-   REDIS_URL=<upstash-redis-url>
-   JWT_ACCESS_SECRET=<strong-random-secret>
-   JWT_REFRESH_SECRET=<strong-random-secret>
-   AES_SECRET_KEY=<32-char-key>
-   CLIENT_URL=https://<your-app>.vercel.app
-   APP_BASE_URL=https://<your-app>.vercel.app
-   ENABLE_WORKERS=true
-   ... (các key 3rd party khác)
-   ```
-   > `ENABLE_WORKERS=true` để worker BullMQ chạy **chung tiến trình API** (đúng mặc định trong `server.ts`). Job AI/đăng bài/gửi email vẫn xử lý bình thường, không cần service riêng.
-4. Deploy lần đầu thủ công → Test `/api/v1/health` trả về `connected`.
-5. Copy **Service URL** của Render (dạng `https://marka-api.onrender.com`).
-
-> **Không dùng Docker ở local:** chỉ cần PostgreSQL + Redis chạy trực tiếp (hoặc dùng Neon + Upstash cloud). Trên Render, service được cấu hình bằng Root Directory + Build/Start Command, không cần Dockerfile.
->
-> **Nếu sau này cần tách worker:** phải dùng *Render Background Worker* (dịch vụ **trả phí**, Start Command `npm run worker`) và đặt `ENABLE_WORKERS=false` ở service API. Chưa cần cho đồ án.
-
-#### Bước 4: Vercel (Frontend)
-
-1. Đăng ký tại [vercel.com](https://vercel.com) bằng GitHub.
-2. **New Project** → Import repo `marka-capstone`.
-   - Framework Preset: **Vite**
-   - Root Directory: `frontend`
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-3. Thêm biến môi trường:
-   ```
-   VITE_API_URL=https://marka-api.onrender.com/api/v1
-   VITE_GOOGLE_CLIENT_ID=<nếu dùng Google login>
-   ```
-4. Deploy → Nhận URL live dạng `https://marka-capstone.vercel.app`.
-5. **Nối dây lại (đừng bỏ):** quay sang Render, cập nhật `CLIENT_URL` và `APP_BASE_URL` = đúng domain Vercel vừa nhận. Nếu quên, CORS sẽ chặn toàn bộ request từ frontend. Nếu dùng Google login, thêm domain này vào *Authorized JavaScript origins* trong Google Cloud Console.
-
-### 4.3. Bật Auto-Deploy (CD không cần GitHub Actions)
-
-CD dùng cơ chế **Auto-Deploy của nền tảng** — không cần deploy hook, không cần secret.
-
-- **Render**: service đã bật `autoDeploy: true` (khai báo trong `render.yaml`, hoặc **Settings → Build & Deploy → Auto-Deploy: Yes**). Mỗi lần push vào `main`, Render tự build và deploy.
-- **Vercel**: Project → **Settings → Git** → Production Branch = `main`. Mỗi lần push vào `main`, Vercel tự deploy frontend. PR sẽ tạo bản *preview* (xem cảnh báo CORS bên dưới).
-
-> **Vì sao không dùng `.github/workflows/deploy.yml`?** Auto-Deploy bớt được 4 secret, không cần gọi deploy hook bằng `curl`, và tránh bước health-check bị fail oan khi Web Service free đang "ngủ". Cổng kiểm soát chất lượng được đặt ở bước merge (4.4).
-
-### 4.4. Branch protection trên `main` — cổng chặn CI
-
-Bước **bắt buộc** để Auto-Deploy không đẩy code lỗi lên production.
-
-Vào **GitHub repo → Settings → Branches → Add branch protection rule**:
-
-- Branch name pattern: `main`
-- ✅ **Require a pull request before merging**
-- ✅ **Require status checks to pass before merging** → chọn:
+- Require a pull request before merging.
+- Require status checks to pass, chọn:
   - `Frontend — Lint & Build`
   - `Backend — Lint, Schema & Automated Tests`
-- ✅ (khuyến nghị) **Require branches to be up to date before merging**
+- Khuyến nghị: Require branches to be up to date before merging.
 
-Nhờ vậy không thể merge vào `main` khi CI còn đỏ, nên Auto-Deploy luôn deploy code đã qua kiểm tra.
-
-> **Cảnh báo CORS:** `CLIENT_URL` trong `app.ts` chỉ nhận **một** origin, nên domain *preview* của Vercel (mỗi PR một URL) sẽ bị chặn. Chỉ domain production hoạt động.
+Không merge được khi CI đỏ → Auto-Deploy chỉ nhận code đã qua kiểm tra.
 
 ---
 
-## 5. Tóm tắt lộ trình
+## 3. CD — Render + Vercel
 
-```
-Hôm nay — Giai đoạn Scaffold hoàn thành
-  └── [NGAY BÂY GIỜ] Tạo .github/workflows/ci.yml
-       └── CI bảo vệ code từ mọi PR module Auth trở đi ✅
+### 3.1. Render (backend)
 
-Sau khi xong module Auth (1-2 tuần tới)
-  └── [LÀM SAU] Cấu hình CD
-       ├── 1. Tạo Neon project (Singapore, pooled connection string)
-       ├── 2. Tạo Upstash Redis (Singapore, TLS)
-       ├── 3. Tạo Render Web Service từ render.yaml (ENABLE_WORKERS=true, gộp worker)
-       ├── 4. Tạo Vercel project + set VITE_API_URL
-       ├── 5. Cập nhật CLIENT_URL/APP_BASE_URL trên Render = domain Vercel
-       └── 6. Bật branch protection cho main (chọn 2 status check của CI)
+Cấu hình trong [`render.yaml`](../render.yaml):
+
+| Thuộc tính | Giá trị |
+| :--- | :--- |
+| Type | Web Service (`node`) |
+| Region | Singapore |
+| Root Directory | `backend` |
+| Branch | `main` |
+| Auto-Deploy | `true` |
+| Build Command | `npm ci --include=dev && npx prisma generate && npx prisma migrate deploy` |
+| Start Command | `npm start` |
+| Health Check | `/api/v1/health` |
+| `ENABLE_WORKERS` | `true` (worker chạy chung process API) |
+
+Biến bắt buộc điền khi tạo Blueprint: `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `AES_SECRET_KEY`, `CLIENT_URL`, `APP_BASE_URL`, `FACEBOOK_REDIRECT_URI`.
+
+Biến tuỳ chọn (thêm trong Dashboard khi dùng): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `CLOUDINARY_*`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `RESEND_API_KEY`, `MAIL_FROM`, `OPENAI_API_KEY`, `PAYOS_*`, `SMTP_*`.
+
+> **Lưu ý:** `OPENAI_API_KEY`, `PAYOS_*`, `SMTP_*` hiện **chưa được module nào sử dụng**. `ENABLE_WORKERS=true` chỉ khởi động worker khung BullMQ; processor hiện log + báo success, chưa xử lý job nghiệp vụ.
+>
+> Gói free của Render không có Background Worker riêng, nên worker chạy chung Web Service. Khi service ngủ, job trong queue sẽ chờ tới khi có request đánh thức.
+
+### 3.2. Vercel (frontend)
+
+| Thuộc tính | Giá trị |
+| :--- | :--- |
+| Framework | Vite |
+| Root Directory | `frontend` |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Production Branch | `main` |
+
+Biến môi trường frontend:
+
+```text
+VITE_API_URL=https://<render-service>/api/v1
+VITE_GOOGLE_CLIENT_ID=<google-client-id>
 ```
+
+Sau khi có domain Vercel, cập nhật lại `CLIENT_URL` và `APP_BASE_URL` trên Render. Nếu dùng Google login, thêm domain vào *Authorized JavaScript origins*.
+
+### 3.3. Neon & Upstash
+
+- **Neon**: PostgreSQL; lấy connection string có `sslmode=require` và `connection_limit` hợp lý.
+- **Upstash**: Redis TLS (`rediss://`), dùng cho BullMQ + OAuth state/session.
+- Migration production chạy tự động trong Build Command (`prisma migrate deploy`).
 
 ---
 
-## 6. Sau khi CD hoạt động — Quy trình làm việc hàng ngày
+## 4. Quy trình làm việc
 
+```text
+feat/<ten>  ──PR──►  dev  ──PR──►  main
+                       │             │
+                       │             ├── CI chạy lại
+                       │             └── Auto-Deploy Render + Vercel
+                       └── CI chạy
 ```
-Feature branch (feat/auth-login)
-        │ git push origin feat/auth-login
-        ▼
-  Pull Request → dev
-        │ CI tự chạy (~3 phút)
-        │ ✅ pass → Merge vào dev
-        ▼
-  PR: dev → main (mỗi sprint/milestone)
-        │ CI tự chạy lần nữa + branch protection bắt buộc xanh mới merge được
-        │ ✅ pass → Merge vào main
-        ▼
-  Auto-Deploy tự kích hoạt (KHÔNG cần GitHub Actions CD)
-        │ Render → Backend API (gộp worker)
-        │ Vercel → Frontend
-        ▼
-  https://marka-capstone.vercel.app ✅ live
+
+- Không commit trực tiếp vào `main`.
+- Không merge khi lint/typecheck/test còn fail.
+- PR tạo preview Vercel; lưu ý `CLIENT_URL` chỉ nhận một origin nên domain preview có thể bị CORS chặn.
+
+---
+
+## 5. Lệnh kiểm tra tại máy local (chạy trước khi push)
+
+```bash
+# Frontend
+cd frontend
+npm run lint
+npm run build
+
+# Backend
+cd backend
+npm run lint
+npm run typecheck
+npm test
+npm run test:connection   # cần PostgreSQL + Redis đang chạy
 ```

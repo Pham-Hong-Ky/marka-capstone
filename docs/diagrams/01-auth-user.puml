@@ -1,0 +1,76 @@
+@startuml 01-auth-user
+hide circle
+hide stereotype
+!pragma layout smetana
+title Marka — Auth & User
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 24
+skinparam ranksep 40
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "authController" as authController {
+  - authService : authService
+  + register(req, res) : Promise<Response>
+  + login(req, res) : Promise<Response>
+  + googleLogin(req, res) : Promise<Response>
+  + logout(req, res) : Promise<Response>
+  + refreshToken(req, res) : Promise<Response>
+}
+
+class "authService" as authService {
+  - googleClient : GoogleOAuth2Client
+  - userRepository : userRepository
+  - issueTokens(user)
+  - assertNotSuspended(user)
+  - findOrCreateGoogleUser(profile)
+  + registerUser({ email, password, name })
+  + login(email, password)
+  + googleLogin(idToken)
+  + logout(userId?) : Promise<boolean>
+  + refreshToken(token?)
+}
+
+class "GoogleOAuth2Client" as googleOAuthClient {
+  - clientId : string
+  + verifyIdToken({ idToken, audience })
+}
+
+class "userController" as userController {
+  - userService : userService
+  + getMe(req, res) : Promise<Response>
+  + updateProfile(req, res) : Promise<Response>
+  + changePassword(req, res) : Promise<Response>
+}
+
+class "userService" as userService {
+  - userRepository : userRepository
+  + getProfile(userId)
+  + updateProfile(userId, { name, avatar })
+  + changePassword(userId, oldPassword, newPassword) : Promise<boolean>
+}
+
+class "userRepository" as userRepository {
+  - prisma : PrismaClient
+  + findUserById(userId)
+  + findUserByEmail(email)
+  + createUserWithDefaultWorkspace(data)
+  + linkGoogleAccount(userId, { googleId, avatar })
+  + updateUser(userId, data)
+  + incrementTokenVersion(userId)
+}
+
+authController --> authService
+authService --> userRepository
+authService --> googleOAuthClient
+userController --> userService
+userService --> userRepository
+
+@enduml

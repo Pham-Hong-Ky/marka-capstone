@@ -1,57 +1,67 @@
 @startuml 04-channel
-!pragma layout smetana
-skinparam dpi 120
-skinparam shadowing false
-skinparam classAttributeIconSize 0
-skinparam packageStyle rectangle
-skinparam class {
-  BackgroundColor #FFFFFF
-  BorderColor #37474F
-  ArrowColor #455A64
-  FontSize 12
-}
 hide circle
-title Channel — Class Diagram
+hide stereotype
+!pragma layout smetana
+title Marka — Channel & Facebook OAuth
 
-class ChannelController {
-  - channelService : ChannelService
-  + listChannels(workspaceId : string) : ChannelConnectionDTO[]
-  + connectFacebookChannel(input : ConnectChannelDTO) : ChannelConnectionDTO
-  + disconnectChannel(id : string) : void
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 24
+skinparam ranksep 40
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
 }
-class ChannelService {
-  - channelRepository : ChannelRepository
+
+class "channelController" as channelController {
+  - channelService : channelService
+  + listChannels(req, res)
+  + getFacebookAuthUrl(req, res)
+  + facebookCallback(req, res)
+  + getPendingFacebookPages(req, res)
+  + connectFacebookPages(req, res)
+  + disconnectChannel(req, res)
+}
+
+class "channelService" as channelService {
+  - channelRepository : channelRepository
   - facebookClient : FacebookClient
-  - encryptionService : EncryptionService
-  - queueManager : QueueManager
-  + listChannels(workspaceId : string) : ChannelConnectionDTO[]
-  + connectFacebookChannel(workspaceId : string, input : ConnectChannelDTO) : ChannelConnectionDTO
-  + disconnectChannel(channelId : string) : void
+  - buildClientRedirect(params) : string
+  - errorRedirect(reason) : string
+  - getSessionForUser(sessionId, userId, workspaceId)
+  + listChannels(workspaceId)
+  + createFacebookAuthUrl(workspaceId, userId)
+  + handleFacebookCallback(query)
+  + getFacebookPendingPages(sessionId, userId, workspaceId)
+  + connectFacebookPages(sessionId, userId, workspaceId, pageIds)
+  + disconnectChannel(channelId, workspaceId, userId)
 }
-class ChannelRepository {
+
+class "channelRepository" as channelRepository {
   - prisma : PrismaClient
-  + findChannelsByWorkspace(workspaceId : string) : ChannelConnection[]
-  + findChannelById(id : string) : ChannelConnection
-  + deleteChannelConnection(id : string) : void
-  + cancelScheduledPostsByChannel(id : string) : int
-  + createChannelConnection(workspaceId : string, input : ConnectChannelData) : ChannelConnection
+  + CHANNEL_PUBLIC_SELECT
+  + findChannelsByWorkspace(workspaceId)
+  + upsertFacebookChannels(workspaceId, pages)
+  + findChannelInWorkspace(channelId, workspaceId)
+  + deleteChannelAndCancelSchedules(channelId)
 }
 
-class FacebookClient {
-  - graphApiBaseUrl : string
-  - httpClient : HttpClient
-  + verifyPageAccessToken(pageId : string, token : string) : PageInfo
-  + publishToFacebook(pageToken : string, content : PublishContent) : PublishResult
+class "FacebookClient" as facebookClient {
+  - GRAPH_BASE : string
+  - AUTH_BASE : string
+  - SCOPES : string[]
+  + isFacebookConfigured() : boolean
+  + buildAuthorizationUrl(state) : string
+  + exchangeCodeForToken(code) : Promise<string>
+  + exchangeForLongLivedToken(token) : Promise<string>
+  + fetchManagedPages(userToken) : Promise<FacebookPage[]>
 }
 
-class QueueManager {
-  - connection : Redis
-  + enqueue(queueName : string, jobName : string, data : Json) : Job
-  + cancelJob(queueName : string, jobId : string) : void
-}
+channelController --> channelService
+channelService --> channelRepository
+channelService --> facebookClient
 
-ChannelController --> ChannelService
-ChannelService ..> ChannelRepository
-ChannelService ..> FacebookClient
-ChannelService ..> QueueManager
 @enduml
