@@ -107,11 +107,16 @@ Lưu trữ nội dung bài viết chính và vòng đời trạng thái của n�
 | `submittedAt` | TIMESTAMP | Nullable | Thời điểm gửi duyệt bài viết |
 | `reviewedById` | VARCHAR(36) | FK -> `users.id`, SetNull | Owner thực hiện phê duyệt/từ chối bài |
 | `reviewedAt` | TIMESTAMP | Nullable | Thời điểm đưa ra quyết định phê duyệt |
+| `assigneeId` | VARCHAR(36) | FK -> `users.id`, SetNull, Nullable | Thành viên được giao việc (UC49) |
+| `dueAt` | TIMESTAMP | Nullable | Hạn hoàn thành công việc (UC49) |
+| `priority` | ENUM | Default: 'MEDIUM', NOT NULL | Độ ưu tiên công việc (`LOW`, `MEDIUM`, `HIGH`) (UC49) |
+| `taskStatus` | ENUM | Default: 'TODO', NOT NULL | Trạng thái công việc (`TODO`, `IN_PROGRESS`, `DONE`) — **độc lập** với `status` duyệt/đăng (UC50) |
 | `deletedAt` | TIMESTAMP | Nullable | Thời điểm xóa mềm bài viết |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm tạo bài viết |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật bài viết lần cuối |
 
-* **Index**: Index trên cột `createdById` (phục vụ lọc UC09 / phân quyền xóa UC10).
+* **Index**: Index trên cột `createdById` (phục vụ lọc UC09 / phân quyền xóa UC10) và trên `assigneeId` (phục vụ lọc "Việc của tôi" — UC49/UC50).
+* **Ghi chú (2026-10-15)**: 4 cột `assigneeId`/`dueAt`/`priority`/`taskStatus` thuộc tính năng **Giao việc (UC49/UC50)** — *kế hoạch, chưa triển khai* trong `schema.prisma`.
 
 ### 2.6. Bảng `media_assets` (Thư viện hình ảnh và video)
 Thư viện tệp tin đa phương tiện **cấp Workspace**; việc gắn vào bài viết là **tùy chọn** (D1).

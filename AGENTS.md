@@ -42,6 +42,7 @@ Luồng: `route → validate(Zod) → controller → service → repository → 
 - Data server dùng **React Query**; state toàn cục dùng **Zustand**; form dùng **react-hook-form + Zod**.
 - Styling Tailwind; gộp class bằng `clsx`/`tailwind-merge`.
 - Env qua `config/env.ts` (Zod), truy cập qua `env`; không đọc `import.meta.env` rải rác.
+- **Trước khi viết/sửa UI trong `frontend/`, nạp skill `designing-marka-ui`** (`.opencode/skills/designing-marka-ui/SKILL.md`) để tránh dấu hiệu AI slop và bám luật thiết kế Marka.
 
 ## 4. Phong cách code
 

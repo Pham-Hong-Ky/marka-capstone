@@ -18,7 +18,7 @@ Không có vai trò tùy chỉnh, không có Reviewer/Social Media Manager/Viewe
 
 ---
 
-## Danh mục Phân hệ & Danh sách Use Cases (UC01 – UC51)
+## Danh mục Phân hệ & Danh sách Use Cases (UC01 – UC50)
 
 | Mã UC | Tên chức năng (Use Case) | Tác nhân chính (Actor) | Phân hệ / Tài liệu chi tiết | Ghi chú |
 | :--- | :--- | :--- | :--- | :--- |
@@ -74,11 +74,13 @@ Không có vai trò tùy chỉnh, không có Reviewer/Social Media Manager/Viewe
 | **UC42** | View Post Analytics | Content Creator, Owner | [08. Thống kê hiệu quả bài đăng](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md#85-api-endpoints) | Xem reactions/comments/shares của bài đã đăng |
 | **UC42b** | Refresh Post Metrics | Content Creator, Owner | [08. Thống kê hiệu quả bài đăng](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md#85-api-endpoints) | Làm mới số liệu thủ công cho 1 bài (rate-limit 30s) |
 | **UC43** | View Workspace Performance Overview | Content Creator, Owner | [08. Thống kê hiệu quả bài đăng](file:///f:/DATN/marka-capstone/docs/specs/08-post-analytics.md#85-api-endpoints) | Dashboard tổng hợp hiệu quả đăng bài theo Workspace |
-| **UC47** | List Credit Packages | Tất cả user (gói active) | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xem danh sách gói credit để nạp |
-| **UC48** | Create Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Tạo gói credit mới |
-| **UC49** | Update Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Cập nhật gói credit (giá, credit, `isActive`) |
-| **UC50** | Delete Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xoá mềm gói credit (`deletedAt`) |
-| **UC51** | View Credit Balance & History | Workspace member | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xem số dư và lịch sử giao dịch credit |
+| **UC44** | List Credit Packages | Tất cả user (gói active) | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xem danh sách gói credit để nạp |
+| **UC45** | Create Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Tạo gói credit mới |
+| **UC46** | Update Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Cập nhật gói credit (giá, credit, `isActive`) |
+| **UC47** | Delete Credit Package | System Admin | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xoá mềm gói credit (`deletedAt`) |
+| **UC48** | View Credit Balance & History | Workspace member | [06. Credit & Thanh toán PayOS](file:///f:/DATN/marka-capstone/docs/specs/06-billing-payos.md) | Xem số dư và lịch sử giao dịch credit |
+| **UC49** | Assign Content Task | Workspace Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#27-giao-việc-cho-thành-viên-task-assignment---uc49-uc50) | Giao việc cho thành viên (người nhận, hạn, độ ưu tiên) — **ngoài roadmap gốc** |
+| **UC50** | Update Task Status | Người nhận (assignee), Workspace Owner | [02. Soạn thảo & Thư viện Media](file:///f:/DATN/marka-capstone/docs/specs/02-content-media.md#27-giao-việc-cho-thành-viên-task-assignment---uc49-uc50) | Cập nhật trạng thái công việc (`TODO`/`IN_PROGRESS`/`DONE`) |
 
 ---
 

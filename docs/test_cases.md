@@ -375,6 +375,28 @@
 | 33.3 | Job đăng bài thất bại — lỗi Facebook API | Facebook API trả về lỗi | `scheduledPost.status = FAILED`, owner nhận thông báo lỗi | | |
 | 33.4 | Kiểm tra trạng thái post tổng thể khi tất cả kênh xong | Tất cả `scheduledPost` của post đều PUBLISHED | `post.status = PUBLISHED` | | |
 
+## Phân hệ 2.4 — Giao việc (UC49, UC50)
+
+> Tính năng ngoài roadmap gốc (2026-10-15) — xem `docs/superpowers/specs/2026-10-15-post-task-assignment-design.md`.
+
+### UC49 — Giao việc cho thành viên (`PATCH /workspaces/:id/posts/:postId/assignment`)
+
+| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
+|-----|-------|----------------|--------------------------|------------------------|------------|
+| 34.1 | Owner giao việc cho Creator thành công | Path: `/workspaces/<id>/posts/<postId>/assignment` (owner token), Body: `{ "assigneeId": "<userId>", "dueAt": "2026-10-20T10:00:00Z", "priority": "HIGH" }` | HTTP 200, `Post` có `assigneeId`, `dueAt`, `priority`; người nhận nhận thông báo | | |
+| 34.2 | Giao việc thất bại — không phải Owner | Path như trên (content creator token) | HTTP 403, lỗi phân quyền | | |
+| 34.3 | Gán người không thuộc workspace | Body: `{ "assigneeId": "<user ngoài workspace>" }` | HTTP 400, `{ "message": "Người nhận không thuộc workspace" }` | | |
+| 34.4 | Bỏ giao việc | Body: `{ "assigneeId": null }` | HTTP 200, `assigneeId = null`, `taskStatus` giữ nguyên | | |
+
+---
+
+### UC50 — Cập nhật trạng thái công việc (`PATCH /workspaces/:id/posts/:postId/task-status`)
+
+| STT | Mô tả | Dữ liệu đầu vào | Dữ liệu đầu ra mong muốn | Dữ liệu đầu ra thực tế | Trạng thái |
+|-----|-------|----------------|--------------------------|------------------------|------------|
+| 35.1 | Người nhận cập nhật trạng thái công việc | Path: `/workspaces/<id>/posts/<postId>/task-status` (assignee token), Body: `{ "taskStatus": "IN_PROGRESS" }` | HTTP 200, `{ "taskStatus": "IN_PROGRESS" }`, ghi audit log | | |
+| 35.2 | Cập nhật thất bại — không phải người nhận/Owner | Path như trên (creator khác token) | HTTP 403, `{ "message": "Bạn không phụ trách bài viết này" }` | | |
+
 ---
 
 ## Tổng kết
@@ -390,8 +412,9 @@
 | Brand Voice (UC24–26) | 6 | | | |
 | Credit & PayOS (UC30) | 6 | | | |
 | Admin (UC31) | 9 | | | |
+| Giao việc (UC49, UC50) | 6 | | | |
 | Background Worker | 4 | | | |
-| **Tổng** | **104** | | | |
+| **Tổng** | **110** | | | |
 
 ---
 

@@ -3,13 +3,9 @@ import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 
-interface GoogleLoginButtonProps {
-  onSuccess: (idToken: string) => void;
-}
-
 const MAX_WIDTH = 400;
 
-export const GoogleLoginButton = ({ onSuccess }: GoogleLoginButtonProps) => {
+export const GoogleLoginButton = ({ onSuccess }: { onSuccess: (idToken: string) => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const resolvedTheme = useResolvedTheme();

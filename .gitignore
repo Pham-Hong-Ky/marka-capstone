@@ -63,6 +63,12 @@ out
 **/.env.*
 !**/.env.example
 
+# superpowers scratch (ledger/briefs)
+.superpowers/
+
+# tài liệu (không commit)
+docs/
+
 # vercel
 .vercel
 

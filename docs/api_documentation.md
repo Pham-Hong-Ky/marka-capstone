@@ -902,6 +902,89 @@ Workspace owner ra quyết định phê duyệt hoặc từ chối bài viết. 
 
 ---
 
+## Phân hệ 2.4 — Giao việc (Task Assignment)
+
+> Tính năng **ngoài roadmap gốc** (2026-10-15) — ghi lại để triển khai sau. Chi tiết: `docs/superpowers/specs/2026-10-15-post-task-assignment-design.md`.
+
+---
+
+### UC49 — Assign Content Task (Giao việc cho thành viên)
+
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `PATCH` |
+| **Path** | `/workspaces/:workspaceId/posts/:postId/assignment` |
+| **Controller** | Post Controller |
+| **Service** | Post Service |
+| **Actors** | Workspace Owner |
+
+#### Đầu vào
+- **Path param**: `workspaceId`, `postId`
+- **Request Body** (cần ít nhất một trường):
+```json
+{
+  "assigneeId": "string | null",
+  "dueAt": "ISO-8601 | null",
+  "priority": "LOW | MEDIUM | HIGH"
+}
+```
+
+#### Xử lý nội bộ
+1. `findPostById(postId)` — kiểm tra bài thuộc workspace.
+2. Nếu `assigneeId` khác null → kiểm tra người nhận là **thành viên của workspace** (`findMember`).
+3. `assignPost(postId, data)` — cập nhật `assigneeId`, `dueAt`, `priority`.
+4. Nếu người nhận thay đổi → `createNotification(assigneeId, POST_ASSIGNED)`.
+5. `createAuditLog(POST_ASSIGNED)`.
+
+#### Kết quả trả về
+
+| Trường hợp | HTTP Status | Body |
+|---|---|---|
+| ✅ Giao việc thành công | `200 OK` | `Post` (kèm `assignee`, `dueAt`, `priority`, `taskStatus`) |
+| ❌ Không phải Owner | `403 Forbidden` | `{ message: "Chỉ Owner được giao việc" }` |
+| ❌ Người nhận không thuộc workspace | `400 Bad Request` | `{ message: "Người nhận không thuộc workspace" }` |
+| ❌ Bài viết không tồn tại | `404 Not Found` | `{ message: "Post not found" }` |
+
+#### Ý nghĩa
+Owner phân công bài viết cho một thành viên kèm hạn và độ ưu tiên; người nhận được thông báo ngay.
+
+---
+
+### UC50 — Update Task Status (Cập nhật trạng thái công việc)
+
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `PATCH` |
+| **Path** | `/workspaces/:workspaceId/posts/:postId/task-status` |
+| **Controller** | Post Controller |
+| **Service** | Post Service |
+| **Actors** | Người nhận (assignee) / Workspace Owner |
+
+#### Đầu vào (Request Body)
+```json
+{ "taskStatus": "TODO | IN_PROGRESS | DONE" }
+```
+
+#### Xử lý nội bộ
+1. `findPostById(postId)`.
+2. Kiểm tra actor là `post.assigneeId` **hoặc** Owner.
+3. `updatePostTaskStatus(postId, taskStatus)`.
+4. `createAuditLog(POST_TASK_STATUS_CHANGED)`.
+
+#### Kết quả trả về
+
+| Trường hợp | HTTP Status | Body |
+|---|---|---|
+| ✅ Cập nhật thành công | `200 OK` | `{ taskStatus }` |
+| ❌ Không phải người nhận/Owner | `403 Forbidden` | `{ message: "Bạn không phụ trách bài viết này" }` |
+
+#### Ý nghĩa
+Người phụ trách báo tiến độ công việc (`TODO → IN_PROGRESS → DONE`). Trạng thái này **độc lập** với trạng thái duyệt/đăng của bài viết.
+
+> **Việc của tôi**: `GET /workspaces/:workspaceId/posts` bổ sung query `assigneeId`, `mine=true`, `taskStatus` để lọc danh sách bài được giao cho bản thân.
+
+---
+
 ## Phân hệ 3 — AI Content
 
 ---
@@ -978,68 +1061,63 @@ Tích hợp OpenAI để sinh nội dung marketing theo brand voice của worksp
 
 ### UC28 — Connect Social Channel (Kết nối kênh mạng xã hội)
 
-Hỗ trợ **2 kịch bản**:
+Facebook Page dùng **Facebook Login (OAuth redirect)**. Kênh giả lập (Instagram/TikTok/Zalo) chưa triển khai trong đợt này.
 
-#### Kịch bản 1: Kết nối Facebook thật
+#### Bước 1: Lấy URL đăng nhập Facebook
 
 | Thuộc tính | Giá trị |
 |---|---|
-| **Method** | `POST` |
-| **Path** | `/channels/facebook/connect` |
+| **Method** | `GET` |
+| **Path** | `/channels/facebook/oauth/url?workspaceId=...` |
 | **Actors** | Workspace owner |
 
-##### Đầu vào (Request Body)
-```json
-{
-  "workspaceId": "string",
-  "pageId": "string",
-  "pageAccessToken": "string"
-}
-```
-> **App ID/Secret không truyền trong request và không lưu DB**: lấy từ biến môi trường `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` (D13).
+- Tạo `state` ngẫu nhiên, lưu Redis TTL 10 phút, gắn `userId + workspaceId`.
+- Trả `{ url }` để client chuyển hướng sang Facebook.
+- Scope: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
 
-##### Xử lý nội bộ
-1. `verifyPageAccessToken(pageId, pageAccessToken)` — Gọi **Facebook API** (App ID/Secret đọc từ env `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET`) để xác thực token.
-2. **Nếu token không hợp lệ**: Ghi log thất bại, trả về lỗi.
-3. `encryptToken(pageAccessToken)` — Mã hoá **Page Access Token** trước khi lưu.
-4. `upsertChannelConnection({ platform: FB, pageId, accessToken: encryptedToken, ... })` — Lưu kết nối (INSERT hoặc UPDATE nếu đã tồn tại); Page Token đã mã hoá lưu vào cột `ChannelConnection.accessToken`.
-5. `createAuditLog(CONNECT_SUCCESS)` — Ghi nhật ký.
+#### Bước 2: Facebook callback
 
-##### Kết quả trả về
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `GET` |
+| **Path** | `/channels/facebook/oauth/callback?code&state` |
 
-| Trường hợp | HTTP Status | Body |
-|---|---|---|
-| ✅ Kết nối thành công | `201 Created` | `ConnectionRecord` |
-| ❌ Token không hợp lệ | `400 Bad Request` | `{ message: "Invalid page access token" }` |
+- Đổi `code` lấy token, đổi sang long-lived token, gọi `/me/accounts`.
+- Lưu danh sách Page + token đã mã hoá vào Redis TTL 10 phút.
+- Redirect về `${CLIENT_URL}/channels?fb=select&session=...`.
+- Lỗi: redirect `/channels?fb=error&reason=access_denied|invalid_state|no_pages|token_exchange_failed`.
 
-#### Kịch bản 2: Kết nối kênh giả lập (Simulation)
+#### Bước 3: Lấy danh sách Page chờ chọn
+
+| Thuộc tính | Giá trị |
+|---|---|
+| **Method** | `GET` |
+| **Path** | `/channels/facebook/oauth/session/:sessionId` |
+| **Actors** | Workspace owner |
+
+Trả `{ pages: [{ id, name, avatar }] }`, không trả token.
+
+#### Bước 4: Kết nối các Page đã chọn
 
 | Thuộc tính | Giá trị |
 |---|---|
 | **Method** | `POST` |
-| **Path** | `/channels/simulate` |
+| **Path** | `/channels/facebook/oauth/session/:sessionId/connect` |
+| **Actors** | Workspace owner |
 
-##### Đầu vào (Request Body)
 ```json
 {
-  "workspaceId": "string",
-  "channelName": "string",
-  "platform": "string"
+  "pageIds": ["string"]
 }
 ```
 
-##### Xử lý nội bộ
-1. `upsertChannelConnection({ type: SIMULATED, ... })` — Tạo kênh giả lập, không cần xác thực API ngoài.
-2. `createAuditLog()` — Ghi nhật ký.
-
-##### Kết quả trả về
-
-| Trường hợp | HTTP Status | Body |
-|---|---|---|
-| ✅ Kết nối giả lập thành công | `201 Created` | `ConnectionRecord` |
+- Chỉ chấp nhận Page nằm trong session.
+- Mã hoá token AES-256, upsert theo `workspaceId + FACEBOOK + pageId`.
+- Kết nối lại cùng Page giữ nguyên channel id.
+- Trả `201 { channels }`, không có token.
 
 #### Ý nghĩa
-Cho phép kết nối tài khoản mạng xã hội thật hoặc tạo kênh giả lập phục vụ demo/kiểm thử mà không cần tài khoản Facebook thật. Facebook thật chỉ cần `pageId` + `pageAccessToken`; `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET` nằm ở biến môi trường, chỉ `pageAccessToken` được mã hoá AES-256 lưu trong `ChannelConnection.accessToken` (D13).
+Người dùng không phải lấy `pageId`/`pageAccessToken` thủ công. Backend xử lý OAuth, mã hoá token trước khi lưu và chỉ trả thông tin hiển thị của kênh.
 
 ---
 
@@ -1526,7 +1604,7 @@ Trả về danh sách thông báo của user kèm số lượng chưa đọc. H�
 
 ---
 
-### UC47 — List Credit Packages (Xem danh sách gói credit)
+### UC44 — List Credit Packages (Xem danh sách gói credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1556,7 +1634,7 @@ Trả về danh sách gói credit để hiển thị trên trang nạp tiền. A
 
 ---
 
-### UC48 — Create Credit Package (Tạo gói credit mới)
+### UC45 — Create Credit Package (Tạo gói credit mới)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1595,7 +1673,7 @@ System Admin tạo gói credit mới để người dùng có thể mua. Mỗi g
 
 ---
 
-### UC49 — Update Credit Package (Cập nhật gói credit)
+### UC46 — Update Credit Package (Cập nhật gói credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1636,7 +1714,7 @@ Cho phép Admin chỉnh sửa tên, mô tả, giá tiền, số credit, thứ t�
 
 ---
 
-### UC50 — Delete Credit Package (Xoá gói credit)
+### UC47 — Delete Credit Package (Xoá gói credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1666,7 +1744,7 @@ Xoá mềm gói credit. Gói đã xoá sẽ không hiển thị cho người dù
 
 ---
 
-### UC51 — View Credit Balance & History (Xem số dư và lịch sử credit)
+### UC48 — View Credit Balance & History (Xem số dư và lịch sử credit)
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -1759,6 +1837,8 @@ Thực hiện đăng bài tự động theo lịch đã đặt. Hỗ trợ cả 
 | UC09 | GET | `/posts` | Tìm kiếm bài viết |
 | UC10 | DELETE | `/posts/:id` | Xoá bài viết |
 | UC37 | POST | `/workspaces/:id/media` | Upload file media |
+| UC49 | PATCH | `/workspaces/:id/posts/:postId/assignment` | Giao việc cho thành viên |
+| UC50 | PATCH | `/workspaces/:id/posts/:postId/task-status` | Cập nhật trạng thái công việc |
 | UC11 | POST | `/posts/:id/submit` | Gửi bài viết lên duyệt |
 | UC14 | POST | `/posts/:id/review` | Duyệt / Từ chối bài viết |
 | UC12 | POST | `/posts/:id/schedule` | Lên lịch đăng bài |
@@ -1767,19 +1847,21 @@ Thực hiện đăng bài tự động theo lịch đã đặt. Hỗ trợ cả 
 | UC15 | POST | `/posts/:id/publish` | Đăng bài ngay |
 | UC06 | POST | `/workspaces/:id/ai/generate-text` | Sinh nội dung AI |
 | UC27 | GET | `/workspaces/:id/channels` | Xem kênh đã kết nối |
-| UC28a | POST | `/channels/facebook/connect` | Kết nối Facebook thật |
-| UC28b | POST | `/channels/simulate` | Kết nối kênh giả lập |
+| UC28 | GET | `/channels/facebook/oauth/url` | Lấy URL đăng nhập Facebook |
+| UC28 | GET | `/channels/facebook/oauth/callback` | Facebook callback |
+| UC28 | GET | `/channels/facebook/oauth/session/:sessionId` | Danh sách Page chờ chọn |
+| UC28 | POST | `/channels/facebook/oauth/session/:sessionId/connect` | Kết nối Page đã chọn |
 | UC29 | DELETE | `/channels/:id` | Ngắt kết nối kênh |
 | UC24/25 | PUT | `/workspaces/:id/brand-voice` | Tạo/Cập nhật Brand Voice |
 | UC26 | GET | `/workspaces/:id/brand-voice` | Xem Brand Voice |
 | UC30a | POST | `/workspaces/:id/orders` | Tạo đơn mua credit |
 | UC30b | POST | `/payos/webhook` | Webhook xác nhận thanh toán |
 | UC30c | GET | `/orders/:code` | Polling trạng thái đơn hàng |
-| UC51 | GET | `/workspaces/:id/credits` | Xem số dư & lịch sử credit |
-| UC47 | GET | `/credit-packages` | Xem danh sách gói credit |
-| UC48 | POST | `/credit-packages` | Tạo gói credit |
-| UC49 | PATCH | `/credit-packages/:id` | Cập nhật gói credit |
-| UC50 | DELETE | `/credit-packages/:id` | Xoá gói credit |
+| UC48 | GET | `/workspaces/:id/credits` | Xem số dư & lịch sử credit |
+| UC44 | GET | `/credit-packages` | Xem danh sách gói credit |
+| UC45 | POST | `/credit-packages` | Tạo gói credit |
+| UC46 | PATCH | `/credit-packages/:id` | Cập nhật gói credit |
+| UC47 | DELETE | `/credit-packages/:id` | Xoá gói credit |
 | UC31a | GET | `/admin/dashboard` | Xem thống kê Dashboard |
 | UC31b | GET | `/admin/audit-logs` | Xem nhật ký hệ thống |
 | UC39 | GET | `/notifications` | Xem danh sách thông báo |

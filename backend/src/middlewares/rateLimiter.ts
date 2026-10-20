@@ -1,5 +1,9 @@
 import { Request } from 'express';
 import rateLimit from 'express-rate-limit';
+import env from '../config/env.js';
+
+// Test chạy hàng trăm request đăng nhập/đăng ký liên tiếp nên không áp hạn mức xác thực.
+const skipInTest = () => env.NODE_ENV === 'test';
 
 export const getClientOrWorkspaceKey = (req: Request): string => {
   return req.workspaceId || req.user?.id || req.ip || 'unknown';
@@ -17,6 +21,7 @@ export const apiLimiter = rateLimit({
 });
 
 export const authLimiter = rateLimit({
+  skip: skipInTest,
   windowMs: 15 * 60 * 1000,
   max: 15,
   message: {
@@ -35,6 +40,7 @@ const extractLoginEmail = (req: Request): string => {
 // Chống brute-force đăng nhập: "sai quá 5 lần trong 15 phút cho cùng 1 IP/email" (UC02).
 // Chỉ đếm các lần THẤT BẠI (skipSuccessfulRequests) nên đăng nhập đúng không bị tính vào hạn mức.
 export const loginLimiter = rateLimit({
+  skip: skipInTest,
   windowMs: 15 * 60 * 1000,
   max: 5,
   skipSuccessfulRequests: true,

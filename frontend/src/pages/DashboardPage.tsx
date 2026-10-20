@@ -1,114 +1,102 @@
-import { Activity, Database, Layers, Server } from 'lucide-react';
-import { useHealth } from '@/hooks/useHealth';
-import { useCurrentUser } from '@/hooks/useAuth';
+import { Link } from 'react-router-dom';
+import { buttonClasses } from '@/components/ui/button.styles';
+import EmptyState from '@/components/ui/EmptyState';
+import PageHeader from '@/components/ui/PageHeader';
+import PostStatusBadge from '@/components/features/post/PostStatusBadge';
+import { useChannels } from '@/hooks/useChannels';
+import { usePosts } from '@/hooks/usePost';
+import { useAuthStore } from '@/stores/auth.store';
+import { getErrorMessage } from '@/utils/error';
+import { SkeletonList } from '@/components/ui/Skeleton';
+import { useActiveWorkspace } from '@/hooks/useWorkspace';
+import { formatNumber, formatDate } from '@/utils/format';
 
-const TABLES = [
-  'users',
-  'workspaces',
-  'workspace_members',
-  'workspace_invites',
-  'posts',
-  'media_assets',
-  'channel_connections',
-  'scheduled_posts',
-  'ai_generations',
-  'credit_transactions',
-  'credit_packages',
-  'orders',
-  'notifications',
-  'audit_logs',
-];
-
-const formatUptime = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  return `${hours}h ${minutes}m`;
-};
+const Stat = ({ label, value }: { label: string; value: string }) => (
+  <div className="px-5 py-4">
+    <dt className="text-sm text-muted">{label}</dt>
+    <dd className="mt-1 text-2xl font-semibold text-foreground tabular-nums">{value}</dd>
+  </div>
+);
 
 export const DashboardPage = () => {
-  const { data: health, isLoading } = useHealth();
-  const { data: user } = useCurrentUser();
+  const user = useAuthStore((state) => state.user);
+  const activeWorkspace = useActiveWorkspace();
+  const workspaceId = activeWorkspace?.id ?? null;
+
+  const posts = usePosts(workspaceId, { page: 1, limit: 5 });
+  const channels = useChannels(workspaceId);
+
+  if (!activeWorkspace) {
+    return (
+      <EmptyState
+        title="Bạn chưa có workspace nào."
+        description="Tạo workspace để bắt đầu soạn nội dung."
+      />
+    );
+  }
+
+  const recentPosts = posts.data?.posts ?? [];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          Xin chào, {user?.name ?? 'bạn'} 👋
-        </h1>
-        <p className="text-sm text-muted">
-          Kiến trúc phân tầng: Client → Router → Controller → Service → PostgreSQL.
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-8">
+      <PageHeader
+        title={`Xin chào, ${user?.name ?? 'bạn'}`}
+        description={`Tổng quan workspace ${activeWorkspace.name}.`}
+      />
 
-      <div className="rounded-2xl border border-border bg-surface p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Activity className="h-4 w-4 text-indigo-400" />
-          <h2 className="text-sm font-semibold text-foreground">Trạng thái kết nối hệ thống</h2>
+      <dl className="grid divide-y divide-border rounded-2xl border border-border bg-surface sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <Stat label="Bài viết" value={posts.data ? formatNumber(posts.data.meta.total) : '—'} />
+        <Stat
+          label="Kênh đã kết nối"
+          value={channels.data ? formatNumber(channels.data.channels.length) : '—'}
+        />
+        <Stat label="Credit còn lại" value={formatNumber(activeWorkspace.remainingCredit)} />
+      </dl>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-base font-semibold text-foreground">Bài viết gần đây</h2>
+          {recentPosts.length > 0 ? (
+            <Link to="/posts" className="text-sm text-accent-text hover:underline">
+              Xem tất cả
+            </Link>
+          ) : null}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-border bg-surface-2 p-4">
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span>Máy chủ API Express</span>
-              <Server className="h-4 w-4 text-subtle" />
-            </div>
-            <p className="mt-2 text-sm font-semibold text-emerald-400">
-              {isLoading ? 'Đang kiểm tra...' : `Cổng 5000 · uptime ${health ? formatUptime(health.uptime) : '—'}`}
-            </p>
-          </div>
+        {posts.isLoading ? <SkeletonList rows={5} /> : null}
 
-          <div className="rounded-xl border border-border bg-surface-2 p-4">
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span>PostgreSQL (Prisma)</span>
-              <Database className="h-4 w-4 text-subtle" />
-            </div>
-            <p className="mt-2 text-sm font-semibold text-foreground">
-              {health?.database === 'connected'
-                ? 'Đã kết nối thành công'
-                : health?.database === 'error'
-                  ? 'Lỗi kết nối cơ sở dữ liệu'
-                  : '14 bảng đã sẵn sàng'}
-            </p>
-          </div>
+        {posts.isError ? (
+          <p className="text-sm text-danger">{getErrorMessage(posts.error)}</p>
+        ) : null}
 
-          <div className="rounded-xl border border-border bg-surface-2 p-4">
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span>Hàng đợi BullMQ & Redis</span>
-              <Layers className="h-4 w-4 text-subtle" />
-            </div>
-            <p className="mt-2 text-sm font-semibold text-foreground">
-              {health?.redis === 'connected'
-                ? 'Đã kết nối thành công'
-                : health?.redis === 'error'
-                  ? 'Lỗi kết nối Redis'
-                  : '3 hàng đợi đã khởi tạo'}
-            </p>
-          </div>
-        </div>
-      </div>
+        {posts.data && recentPosts.length === 0 ? (
+          <EmptyState
+            title="Chưa có bài viết nào."
+            description="Soạn bài viết đầu tiên để bắt đầu quy trình duyệt và đăng bài."
+            action={
+              <Link to="/posts/new" className={buttonClasses('outline')}>
+                Tạo bài viết
+              </Link>
+            }
+          />
+        ) : null}
 
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Layers className="h-4 w-4 text-purple-400" />
-          <h2 className="text-sm font-semibold text-foreground">
-            14 bảng cơ sở dữ liệu (schema.prisma)
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {TABLES.map((table, index) => (
-            <div
-              key={table}
-              className="flex items-center gap-2 rounded-xl border border-border bg-surface p-3"
-            >
-              <span className="rounded bg-indigo-500/10 px-1.5 py-0.5 font-mono text-[11px] text-indigo-400">
-                #{index + 1}
-              </span>
-              <span className="truncate font-mono text-xs text-foreground">{table}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+        {recentPosts.length > 0 ? (
+          <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
+            {recentPosts.map((post) => (
+              <li key={post.id} className="flex items-center gap-4 px-5 py-3.5">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                  {post.title}
+                </span>
+                <PostStatusBadge status={post.status} />
+                <span className="hidden w-24 text-right text-sm text-muted tabular-nums sm:block">
+                  {formatDate(post.updatedAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
     </div>
   );
 };

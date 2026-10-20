@@ -55,6 +55,7 @@ describe('Kiểm thử Module Authentication & Phân quyền (RBAC)', () => {
       expect(res.body.data.user.name).toBe(testUser.name);
       expect(res.body.data.user.workspaces).toBeInstanceOf(Array);
       expect(res.body.data.user.workspaces[0].role).toBe('OWNER');
+      expect(res.body.data.user.workspaces[0].monthlyQuota).toBe(100);
 
       workspaceId = res.body.data.user.workspaces[0].id;
 

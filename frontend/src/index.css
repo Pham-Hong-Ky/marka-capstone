@@ -11,6 +11,12 @@
   --subtle: #94a3b8;
   --border: #e2e8f0;
   --sidebar: #ffffff;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-text: #4338ca;
+  --danger: #dc2626;
+  --success: #059669;
+  --warning: #b45309;
 }
 
 .dark {
@@ -22,6 +28,12 @@
   --subtle: #64748b;
   --border: #1e293b;
   --sidebar: #0e1017;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-text: #a5b4fc;
+  --danger: #f87171;
+  --success: #34d399;
+  --warning: #fbbf24;
 }
 
 @theme inline {
@@ -33,14 +45,84 @@
   --color-subtle: var(--subtle);
   --color-border: var(--border);
   --color-sidebar: var(--sidebar);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
 }
 
 @layer base {
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-family: var(--font-sans);
     background-color: var(--background);
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .marka-editor {
+    outline: none;
+  }
+
+  .marka-editor--editable {
+    min-height: 14rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .marka-editor > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .marka-editor p {
+    @apply text-foreground;
+  }
+
+  .marka-editor h2 {
+    @apply text-xl font-bold text-foreground;
+  }
+
+  .marka-editor h3 {
+    @apply text-lg font-semibold text-foreground;
+  }
+
+  .marka-editor ul {
+    @apply list-disc pl-5;
+  }
+
+  .marka-editor ol {
+    @apply list-decimal pl-5;
+  }
+
+  .marka-editor blockquote {
+    @apply border-l-2 border-border pl-3 text-muted;
+  }
+
+  .marka-editor a {
+    @apply text-accent-text underline;
+  }
+
+  .marka-editor code {
+    @apply rounded bg-surface-2 px-1 py-0.5 text-[0.85em];
+  }
+
+  .marka-editor pre {
+    @apply overflow-x-auto rounded-lg bg-surface-2 p-3;
+  }
+
+  .marka-editor pre code {
+    @apply bg-transparent p-0;
+  }
+
+  .marka-editor mark {
+    @apply rounded-sm px-0.5;
+  }
+
+  .marka-editor hr {
+    @apply my-4 border-border;
   }
 }

@@ -30,7 +30,7 @@
 | **D10 — Bất đồng bộ** | UC06 (sinh AI) và UC15 (đăng ngay) **đẩy job vào BullMQ** và trả `202` + `jobId`; worker mới gọi OpenAI / Facebook. | Tránh timeout; hỗ trợ retry; khớp `specs/README.md` và `content-generation-queue`/`publishing-queue`. |
 | **D11 — Ủy quyền đăng** | Creator chỉ được lên lịch/đăng khi `WorkspaceMember.allowDirectPublish = true`; Owner luôn được. Áp dụng ở UC12 và UC15. | Trước đây cờ này không được kiểm tra ở luồng nào. |
 | **D12 — Idempotency PayOS** | Webhook: verify chữ ký ở **Service**, rồi `updateMany({ where: { orderCode, status: 'PENDING' } })` trong transaction; chỉ cộng credit khi update thành công. Khóa là **`orderCode`**. | Chống cộng credit trùng khi PayOS retry. |
-| **D13 — Kết nối Facebook** | MVP dùng **nhập `pageId` + `pageAccessToken` thủ công** (không OAuth redirect). `appId/appSecret` để ở **biến môi trường**, KHÔNG lưu DB. Chỉ `accessToken` (Page Token) được mã hoá AES-256 lưu DB. | Khớp api/mapping/test; tránh lưu secret không có cột. OAuth là hạng mục Phase sau. |
+| **D13 — Kết nối Facebook** | Dùng **Facebook Login (OAuth redirect)**: Owner đăng nhập Facebook, cấp quyền, chọn Page cần kết nối. Backend đổi `code` lấy long-lived token, lấy danh sách Page qua `/me/accounts`, mã hoá Page Token bằng AES-256 trước khi lưu DB. `appId/appSecret/redirectUri` để ở **biến môi trường**, KHÔNG lưu DB. | Người dùng không phải lấy token thủ công; đúng UX cho người không rành kỹ thuật. Callback production: `https://marka.phamhongky.dev/api/v1/channels/facebook/oauth/callback`. |
 | **D14 — Từ vựng Credit** | Chuẩn theo enum schema: `CreditActionType = { GEN_TEXT, GEN_IMAGE, REGEN, SCORE, TOP_UP, RESET, REFUND }`; `AiGenType = { TEXT, IMAGE, VIRAL_SCORE, REGENERATE }`. Bảng giá trong `config/credit-cost` dùng khóa `GEN_TEXT/GEN_IMAGE/REGEN/SCORE`. | Trước đây dùng `GENERATE_TEXT/REGENERATE` lệch enum. |
 | **D15 — Máy trạng thái Post** | Bổ sung đầy đủ, gồm **`ARCHIVED`** và các transition: `REJECTED→PENDING`; `PENDING/APPROVED→DRAFT` (thu hồi); `PUBLISHED` **không xoá** (chỉ archive). Danh sách trung tâm nằm ở `specs/README.md §8`. | Trước đây state machine thiếu ARCHIVED, sơ đồ vẽ reject→Draft. |
 | **D16 — Xoá bài** | `DRAFT/REJECTED/FAILED`: creator của bài hoặc Owner xoá mềm. `PENDING/APPROVED`: thu hồi về `DRAFT` hoặc Owner xoá. `SCHEDULED`: huỷ job rồi xoá. `PUBLISHED`: **403** (chỉ archive). | Khớp spec02. Trước đây flow UC10 không chặn PUBLISHED. |
@@ -55,7 +55,7 @@
 | UC31a/b | Admin dashboard & audit log |
 | UC39–UC41 | Notifications |
 | **UC42, UC42b, UC43** | **Post Analytics** |
-| **UC47–UC51** | **Credit Package (List/Create/Update/Delete) + Credit Balance** *(đổi từ UC42–UC46 để hết trùng)* |
+| **UC44–UC48** | **Credit Package (List/Create/Update/Delete) + Credit Balance** |
 | UC34 | Gửi email xác thực tài khoản — **dời Phase 5**, chưa triển khai |
 
 ---

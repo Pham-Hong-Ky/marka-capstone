@@ -102,6 +102,19 @@ Enum OrderStatus {
   CANCELLED
 }
 
+// Kế hoạch — Giao việc (UC49/UC50), chưa triển khai trong schema.prisma
+Enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+Enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 Table users {
   id varchar(36) [pk]
   email varchar(255) [unique, not null]
@@ -181,6 +194,11 @@ Table posts {
   submittedAt timestamp
   reviewedById varchar(36) [ref: > users.id]
   reviewedAt timestamp
+  // Kế hoạch — Giao việc (UC49/UC50), chưa triển khai trong schema.prisma
+  assigneeId varchar(36) [ref: > users.id]
+  dueAt timestamp
+  priority TaskPriority [default: 'MEDIUM', not null]
+  taskStatus TaskStatus [default: 'TODO', not null]
   deletedAt timestamp
   createdAt timestamp [default: `now()`]
   updatedAt timestamp
@@ -188,6 +206,7 @@ Table posts {
   indexes {
     (workspaceId, status, deletedAt)
     createdById
+    assigneeId
   }
 }
 

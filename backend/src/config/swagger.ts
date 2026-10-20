@@ -12,6 +12,15 @@ import {
   changeMemberRoleBodySchema,
   inviteTokenParamSchema,
 } from '../modules/workspace/workspace.validation.js';
+import { brandVoiceBodySchema } from '../modules/brandvoice/brandvoice.validation.js';
+import {
+  createPostBodySchema,
+  updatePostBodySchema,
+  listPostsQuerySchema,
+  postIdParamSchema,
+  postMediaParamSchema,
+  reviewPostBodySchema,
+} from '../modules/post/post.validation.js';
 
 extendZodWithOpenApi(z);
 
@@ -230,6 +239,34 @@ registry.registerPath({
 });
 
 registry.registerPath({
+  method: 'post',
+  path: '/workspaces/{workspaceId}/logo',
+  tags: ['Workspace'],
+  summary: 'Cập nhật logo workspace (UC17)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: workspaceIdParamSchema,
+    body: {
+      content: {
+        'multipart/form-data': {
+          schema: z.object({
+            logo: z
+              .any()
+              .openapi({ type: 'string', format: 'binary', description: 'Ảnh JPG/PNG/WEBP, tối đa 2MB' }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: { description: 'Cập nhật logo thành công' },
+    400: { description: 'Chưa chọn ảnh, sai định dạng hoặc quá 2MB' },
+    403: { description: 'Không đủ quyền' },
+    404: { description: 'Workspace không tồn tại' },
+  },
+});
+
+registry.registerPath({
   method: 'get',
   path: '/workspaces/{workspaceId}/members',
   tags: ['Workspace'],
@@ -306,6 +343,192 @@ registry.registerPath({
   responses: {
     200: { description: 'Xóa thành công' },
     409: { description: 'Owner duy nhất' },
+  },
+});
+
+// 6. Brand Voice (UC24, UC25, UC26)
+registry.registerPath({
+  method: 'get',
+  path: '/workspaces/{workspaceId}/brand-voice',
+  tags: ['Workspace'],
+  summary: 'Xem cấu hình Brand Voice của workspace (UC26)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: workspaceIdParamSchema },
+  responses: {
+    200: { description: 'Thành công (brandVoice = null khi chưa thiết lập)' },
+    403: { description: 'Không phải thành viên workspace' },
+    404: { description: 'Workspace không tồn tại' },
+  },
+});
+
+registry.registerPath({
+  method: 'put',
+  path: '/workspaces/{workspaceId}/brand-voice',
+  tags: ['Workspace'],
+  summary: 'Tạo / cập nhật Brand Voice (UC24, UC25)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: workspaceIdParamSchema,
+    body: { content: { 'application/json': { schema: brandVoiceBodySchema } } },
+  },
+  responses: {
+    200: { description: 'Lưu Brand Voice thành công' },
+    403: { description: 'Chỉ Workspace Owner được chỉnh sửa Brand Voice' },
+    404: { description: 'Workspace không tồn tại' },
+    422: { description: 'Dữ liệu không hợp lệ' },
+  },
+});
+
+// 7. Posts (UC05, UC07, UC08, UC09, UC10, UC37)
+const postMediaUploadBodySchema = z.object({
+  file: z.any().openapi({ type: 'string', format: 'binary', description: 'Ảnh JPG/PNG/WEBP, tối đa 10MB' }),
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/workspaces/{workspaceId}/posts',
+  tags: ['Post'],
+  summary: 'Tạo bản nháp bài viết (UC05)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: workspaceIdParamSchema,
+    body: { content: { 'application/json': { schema: createPostBodySchema } } },
+  },
+  responses: {
+    201: { description: 'Tạo bản nháp thành công' },
+    403: { description: 'Không phải thành viên workspace' },
+    422: { description: 'Dữ liệu không hợp lệ' },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/workspaces/{workspaceId}/posts',
+  tags: ['Post'],
+  summary: 'Danh sách bài viết: phân trang, tìm kiếm, lọc (UC09)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: workspaceIdParamSchema,
+    query: listPostsQuerySchema,
+  },
+  responses: {
+    200: { description: 'Thành công (posts + meta phân trang)' },
+    403: { description: 'Không phải thành viên workspace' },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/workspaces/{workspaceId}/posts/{postId}',
+  tags: ['Post'],
+  summary: 'Chi tiết bài viết kèm ảnh (UC08)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: postIdParamSchema },
+  responses: {
+    200: { description: 'Thành công' },
+    404: { description: 'Bài viết không tồn tại' },
+  },
+});
+
+registry.registerPath({
+  method: 'patch',
+  path: '/workspaces/{workspaceId}/posts/{postId}',
+  tags: ['Post'],
+  summary: 'Cập nhật nội dung bài viết (UC07)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: postIdParamSchema,
+    body: { content: { 'application/json': { schema: updatePostBodySchema } } },
+  },
+  responses: {
+    200: { description: 'Cập nhật thành công' },
+    403: { description: 'Không có quyền thay đổi bài viết' },
+    404: { description: 'Bài viết không tồn tại' },
+    409: { description: 'Chỉ sửa được bài ở trạng thái bản nháp hoặc bị từ chối' },
+  },
+});
+
+registry.registerPath({
+  method: 'delete',
+  path: '/workspaces/{workspaceId}/posts/{postId}',
+  tags: ['Post'],
+  summary: 'Xóa mềm bài viết (UC10)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: postIdParamSchema },
+  responses: {
+    200: { description: 'Xóa thành công' },
+    403: { description: 'Không có quyền xóa bài viết' },
+    404: { description: 'Bài viết không tồn tại' },
+    409: { description: 'Chỉ sửa được bài ở trạng thái bản nháp hoặc bị từ chối' },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/workspaces/{workspaceId}/posts/{postId}/media',
+  tags: ['Post'],
+  summary: 'Tải ảnh lên cho bài viết (UC37)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: postIdParamSchema,
+    body: { content: { 'multipart/form-data': { schema: postMediaUploadBodySchema } } },
+  },
+  responses: {
+    201: { description: 'Tải ảnh lên thành công' },
+    400: { description: 'Chưa chọn ảnh, sai định dạng hoặc quá 10MB' },
+    403: { description: 'Không có quyền thay đổi bài viết' },
+    404: { description: 'Bài viết không tồn tại' },
+    409: { description: 'Chỉ sửa được bài ở trạng thái bản nháp hoặc bị từ chối' },
+  },
+});
+
+registry.registerPath({
+  method: 'delete',
+  path: '/workspaces/{workspaceId}/posts/{postId}/media/{mediaId}',
+  tags: ['Post'],
+  summary: 'Xóa ảnh của bài viết',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: postMediaParamSchema },
+  responses: {
+    200: { description: 'Xóa thành công' },
+    403: { description: 'Không có quyền thay đổi bài viết' },
+    404: { description: 'Bài viết hoặc ảnh không tồn tại' },
+    409: { description: 'Chỉ sửa được bài ở trạng thái bản nháp hoặc bị từ chối' },
+  },
+});
+
+// 8. Approval flow (UC11, UC14)
+registry.registerPath({
+  method: 'post',
+  path: '/workspaces/{workspaceId}/posts/{postId}/submit',
+  tags: ['Post'],
+  summary: 'Gửi duyệt bài viết (UC11)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: postIdParamSchema },
+  responses: {
+    200: { description: 'Chuyển bài viết sang trạng thái chờ duyệt (PENDING)' },
+    403: { description: 'Không có quyền gửi duyệt bài viết' },
+    404: { description: 'Bài viết không tồn tại' },
+    409: { description: 'Không thể chuyển trạng thái bài viết này' },
+  },
+});
+
+registry.registerPath({
+  method: 'patch',
+  path: '/workspaces/{workspaceId}/posts/{postId}/review',
+  tags: ['Post'],
+  summary: 'Duyệt hoặc từ chối bài viết (UC14)',
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: postIdParamSchema,
+    body: { content: { 'application/json': { schema: reviewPostBodySchema } } },
+  },
+  responses: {
+    200: { description: 'Duyệt / từ chối thành công' },
+    403: { description: 'Chỉ Workspace Owner được duyệt bài' },
+    404: { description: 'Bài viết không tồn tại' },
+    409: { description: 'Bài viết không ở trạng thái chờ duyệt' },
+    422: { description: 'Thiếu lý do khi từ chối bài viết' },
   },
 });
 

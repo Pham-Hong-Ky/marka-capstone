@@ -31,6 +31,8 @@
 
 **Mô tả**: Upload, lọc, quản lý ảnh/video dùng chung cho workspace.
 
+> **Ghi chú phạm vi (2026-10-10)**: Trong giai đoạn làm backend bản nháp, ảnh được xử lý **theo từng post** — upload trong ngữ cảnh bài viết, `MediaAsset.postId` gắn ngay khi tạo, chỉ `jpeg/png/webp` ≤ 10MB, không có thư viện dùng chung (lệch D1). Thư viện media cấp Workspace đầy đủ (`postId` nullable, quota, tag, lọc nâng cao) để giai đoạn sau. API đã có: `POST/DELETE /workspaces/:workspaceId/posts/:postId/media`.
+
 **Tác nhân (Actors)**: Content Creator, Workspace Owner
 
 **Luồng hoạt động**:
@@ -130,3 +132,34 @@
    - Xác nhận xóa → Client gửi yêu cầu `DELETE /posts/{postId}` lên Server.
    - Server kiểm tra quyền sở hữu và vai trò hiện tại của người dùng đối với bài viết và Workspace.
    - Thực hiện xóa mềm (Soft Delete) bằng cách set trường `deletedAt` trong database (giúp khôi phục lại dữ liệu nếu lỡ tay xóa nhầm và phục vụ audit log truy vết), hoặc xóa cứng khỏi cơ sở dữ liệu nếu bài viết là bản nháp rỗng.
+
+---
+
+## 2.7. Giao việc cho thành viên (Task Assignment - UC49, UC50)
+
+> **Ghi chú phạm vi (2026-10-15)**: Tính năng này **nằm ngoài roadmap gốc** trong `PROJECT_OVERVIEW.md` — ghi lại để triển khai sau khi luồng duyệt bài (UC11/UC14) và UI bài viết đã hoàn thiện. Chi tiết đầy đủ: `docs/superpowers/specs/2026-10-15-post-task-assignment-design.md`.
+
+**Mô tả**: Workspace Owner **giao việc** trên một bài viết — chỉ định người nhận, hạn hoàn thành và độ ưu tiên; người nhận **cập nhật trạng thái công việc** để báo tiến độ.
+
+**Tác nhân (Actors)**:
+- **UC49 (Assign Content Task)**: Workspace Owner
+- **UC50 (Update Task Status)**: Người nhận (assignee) hoặc Workspace Owner
+
+**Luồng hoạt động**:
+
+1. **Giao việc (UC49)**: Owner mở bài viết → khối "Giao việc" → chọn **thành viên** (chỉ thành viên của workspace), **hạn** (`dueAt`) và **độ ưu tiên** (`priority`) → `PATCH /workspaces/:workspaceId/posts/:postId/assignment`. Hệ thống ghi nhận và gửi thông báo in-app cho người nhận (`POST_ASSIGNED`).
+2. **Cập nhật trạng thái công việc (UC50)**: Người nhận (hoặc Owner) chuyển `taskStatus`: `TODO → IN_PROGRESS → DONE` qua `PATCH /workspaces/:workspaceId/posts/:postId/task-status`.
+3. **Việc của tôi**: Danh sách bài được giao cho bản thân (lọc `mine=true` / `assigneeId` trên `GET .../posts`), kèm badge **quá hạn** khi `dueAt < now` và `taskStatus != DONE`.
+
+**Lưu ý khi làm**:
+
+- **Chỉ Owner** được giao việc/đổi người nhận/hạn/ưu tiên; người nhận chỉ đổi được `taskStatus`. Người nhận bắt buộc là thành viên của workspace (`WorkspaceMember`).
+- `taskStatus` là **state thứ hai, độc lập** với `Post.status` (duyệt/đăng) — không tự đồng bộ, mọi thay đổi chỉ đi qua UC50. Điều này giữ đúng nguyên tắc "state machine ở một nơi" (D15).
+- Không tạo vai trò mới, không tạo bảng `Task` riêng — tái dùng `Notification`, `AuditLog`, `WorkspaceMember`.
+- Ghi `AuditLog` (`POST_ASSIGNED`, `POST_TASK_STATUS_CHANGED`) để truy vết phân công.
+
+**Edge Cases**:
+
+- **Gán người không thuộc workspace**: trả `400` — không cho giao việc ngoài workspace.
+- **Bài ở trạng thái `ARCHIVED`**: không cho giao việc.
+- **Bỏ giao việc** (`assigneeId = null`): giữ nguyên `taskStatus`, không tự reset.

@@ -33,6 +33,11 @@ const envSchema = z.object({
   PAYOS_CHECKSUM_KEY: z.string().default(''),
   FACEBOOK_APP_ID: z.string().default(''),
   FACEBOOK_APP_SECRET: z.string().default(''),
+  FACEBOOK_REDIRECT_URI: z
+    .string()
+    .url()
+    .or(z.literal(''))
+    .default('http://localhost:5000/api/v1/channels/facebook/oauth/callback'),
   RESEND_API_KEY: z.string().default(''),
   SMTP_HOST: z.string().default(''),
   SMTP_PORT: z.coerce.number().default(587),

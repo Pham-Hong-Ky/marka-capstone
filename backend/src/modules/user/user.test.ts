@@ -3,7 +3,7 @@ import request from 'supertest';
 import app from '../../app.js';
 import prisma from '../../config/db.js';
 import { generateAccessToken } from '../../utils/jwt.js';
-import { hashPassword } from './user.service.js';
+import { hashPassword } from '../../utils/password.js';
 
 describe('Kiểm thử Module User (Profile & Password)', () => {
   const testUser = {

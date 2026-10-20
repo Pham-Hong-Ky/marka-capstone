@@ -1,16 +1,8 @@
-import bcrypt from 'bcrypt';
 import userRepository from './user.repository.js';
+import { toAuthUser } from './user.mapper.js';
+import { hashPassword, verifyPassword } from '../../utils/password.js';
 import auditService from '../audit/audit.service.js';
 import { NotFoundError, UnauthorizedError, BadRequestError } from '../../utils/errors/index.js';
-
-export const hashPassword = async (password: string): Promise<string> => {
-  return bcrypt.hash(password, 10);
-};
-
-export const verifyPassword = async (password: string, hash: string | null): Promise<boolean> => {
-  if (!password || !hash) return false;
-  return bcrypt.compare(password, hash);
-};
 
 export const getProfile = async (userId: string) => {
   const user = await userRepository.findUserById(userId);
@@ -18,22 +10,7 @@ export const getProfile = async (userId: string) => {
     throw new NotFoundError('Người dùng không tồn tại');
   }
 
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    avatar: user.avatar,
-    systemRole: user.systemRole,
-    emailVerified: user.emailVerified,
-    workspaces: user.workspaceMembers.map((m) => ({
-      id: m.workspace.id,
-      name: m.workspace.name,
-      logo: m.workspace.logo,
-      role: m.role,
-      plan: m.workspace.plan,
-      remainingCredit: m.workspace.remainingCredit,
-    })),
-  };
+  return toAuthUser(user);
 };
 
 export const updateProfile = async (userId: string, data: { name?: string; avatar?: string | null }) => {
@@ -83,6 +60,4 @@ export default {
   getProfile,
   updateProfile,
   changePassword,
-  hashPassword,
-  verifyPassword,
 };

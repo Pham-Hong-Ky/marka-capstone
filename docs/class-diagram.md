@@ -7,7 +7,7 @@ Tài liệu này khắc phục phản hồi của giảng viên: **các class bu
 - Sơ đồ nguồn (PlantUML): [`docs/class-diagram.puml`](./class-diagram.puml)
 - Nguồn dữ liệu để suy ra attribute:
   - `backend/prisma/schema.prisma` — 14 bảng (User, Workspace, Post, Order, ...).
-  - `docs/specs/*.md` — đặc tả từng phân hệ (UC01–UC43).
+  - `docs/specs/*.md` — đặc tả từng phân hệ (UC01–UC50).
   - `docs/api_documentation.md` — danh sách endpoint + controller/service/repository.
   - `backend/src/workers/queues.ts`, `backend/src/workers/index.ts`, `backend/src/config/redis.ts` — queue/worker đã có trong code.
 
