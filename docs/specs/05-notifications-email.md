@@ -5,7 +5,7 @@
 > **Phạm vi:** phần đã có trong code: gửi email qua Resend (mời workspace, bài gửi duyệt, kết quả duyệt) và ghi notification in-app.
 > Mã nguồn: `backend/src/utils/mailer.client.ts`, `backend/src/templates/`, `modules/workspace/workspace.service.ts`, `modules/post/post.notification.ts`.
 >
-> **Không có trong code:** API đọc/đánh dấu notification (UC39–UC41), email nhắc hạn gói/hết credit/lịch đăng, email xác thực tài khoản, đẩy email qua `email-queue`.
+> **Không có trong code:** API đọc notification (UC38), email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`.
 
 ---
 
@@ -106,7 +106,7 @@ Bảng `notifications` (`Notification`): `id`, `userId`, `workspaceId?`, `type`,
 
 ### Chưa có API
 
-- Chưa có endpoint list notification, đếm chưa đọc, đánh dấu đã đọc, hay đánh dấu tất cả đã đọc (UC39–UC41). Toàn bộ bản ghi `isRead` luôn `false`.
+- Chưa có endpoint list notification hay đếm số chưa đọc (UC38). Toàn bộ bản ghi `isRead` luôn `false`.
 - Chưa có WebSocket/SSE; frontend chưa có cách đọc notification qua API.
 - Chưa có endpoint xoá notification hay lọc theo workspace/type.
 
@@ -127,10 +127,10 @@ Không có endpoint `/notifications`.
 
 ## 5.6. Chưa triển khai (Roadmap)
 
-1. **API notification (UC39–UC41):** `GET /notifications` (phân trang, lọc `isRead`), `PATCH /notifications/:id/read`, `PATCH /notifications/read-all`, đếm số chưa đọc.
+1. **API notification (UC38):** `GET /notifications` (phân trang, lọc `isRead`), đếm số chưa đọc.
 2. **Realtime:** WebSocket/SSE hoặc polling có kiểm soát; hiện chưa có.
 3. **Email nhắc hạn gói / hết credit:** dùng `Workspace.planExpiryWarningSentAt`, `creditWarningSentAt` (cờ đã có trong schema, chưa có cron).
 4. **Email nhắc lịch đăng:** dùng `ScheduledPost.reminderSentAt` (chưa có lịch đăng nên chưa dùng).
-5. **Email xác thực tài khoản (UC34)** và quên/đặt lại mật khẩu.
+5. **Quên/đặt lại mật khẩu.**
 6. **Đưa email vào `email-queue`:** processor hiện chỉ log, chưa xử lý job.
 7. **Thu hồi lời mời / email mời lại có kiểm soát** và template escape đầy đủ cho mọi trường người dùng nhập.

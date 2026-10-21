@@ -30,7 +30,7 @@ Mã hoá token (`utils/encryption.ts`): AES-256-GCM, key = `sha256(AES_SECRET_KE
 
 ---
 
-## 4.2. Xem kênh đã kết nối (UC27)
+## 4.2. Xem kênh đã kết nối (UC28)
 
 `GET /workspaces/:workspaceId/channels`
 
@@ -61,7 +61,7 @@ Mã hoá token (`utils/encryption.ts`): AES-256-GCM, key = `sha256(AES_SECRET_KE
 
 ---
 
-## 4.3. Kết nối Facebook Page (UC28)
+## 4.3. Kết nối Facebook Page (UC29)
 
 Luồng gồm 4 bước, trong đó bước 2 do Facebook gọi về server.
 
@@ -154,7 +154,7 @@ Không trả token.
 
 ---
 
-## 4.4. Ngắt kết nối kênh (UC29)
+## 4.4. Ngắt kết nối kênh (UC30)
 
 `DELETE /channels/:channelId`
 
@@ -217,8 +217,8 @@ Không trả token.
 ## 4.8. Chưa triển khai (Roadmap)
 
 1. **Kênh khác:** Instagram, TikTok, Zalo — kể cả chế độ giả lập (`ChannelType.SIMULATED`). Hiện không có endpoint nào tạo kênh ngoài Facebook.
-2. **Lên lịch & đăng bài (UC12, UC15):** tạo `ScheduledPost`, đẩy job vào `publishing-queue`, worker gọi Graph API đăng bài, lưu `externalPostId`, xử lý retry/`FAILED`/`PUBLISHED`.
-3. **Calendar & huỷ lịch (UC13, UC38):** API danh sách lịch theo khoảng thời gian, kéo-thả đổi giờ, huỷ lịch và xoá job.
+2. **Lên lịch & đăng bài (UC13, UC16):** tạo `ScheduledPost`, đẩy job vào `publishing-queue`, worker gọi Graph API đăng bài, lưu `externalPostId`, xử lý retry/`FAILED`/`PUBLISHED`.
+3. **Calendar & huỷ lịch (UC14, UC37):** API danh sách lịch theo khoảng thời gian, kéo-thả đổi giờ, huỷ lịch và xoá job.
 4. **Vòng đời token:** kiểm tra hạn token định kỳ, đánh dấu `EXPIRED`, thông báo Owner, làm mới token; xử lý rate limit Graph API.
 5. **Uỷ quyền đăng bài:** dùng `WorkspaceMember.allowDirectPublish` để cho Creator đăng/lên lịch bài đã duyệt (hiện trường này chưa được kiểm tra ở đâu).
 6. **Bài đã đăng:** sửa/nhân bản/xoá bài `PUBLISHED` (hiện không có trạng thái này trong luồng thực tế).

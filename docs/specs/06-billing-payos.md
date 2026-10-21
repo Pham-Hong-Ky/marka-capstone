@@ -11,10 +11,9 @@
 
 | UC | Chức năng | Tác nhân |
 | :--- | :--- | :--- |
-| **UC30** | Nạp credit / nâng cấp gói qua PayOS | Owner |
-| **UC44** | Xem danh sách gói credit | Thành viên |
-| **UC45–UC47** | Tạo/sửa/xoá gói credit | System Admin |
-| **UC48** | Xem số dư & lịch sử giao dịch credit | Thành viên |
+| **UC31** | Nạp credit / nâng cấp gói qua PayOS | Owner |
+| **UC40** | Xem danh sách gói credit | Thành viên |
+| **UC41** | Xem số dư & lịch sử giao dịch credit | Thành viên |
 
 Ngoài ra: trừ credit khi gọi AI, hoàn credit khi thất bại, reset credit theo chu kỳ tháng.
 
@@ -26,7 +25,7 @@ Ngoài ra: trừ credit khi gọi AI, hoàn credit khi thất bại, reset credi
 - Không có service/repository credit; không gọi PayOS; không có cron reset credit.
 - `env.ts` có khai báo `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` nhưng **không nơi nào đọc**.
 - `aiLimiter` (20 request/phút/workspace) đã khai báo trong `middlewares/rateLimiter.ts` nhưng chưa gắn vào route nào.
-- **UC48 — Một phần:** `remainingCredit` và `monthlyQuota` chỉ xuất hiện trong response workspace:
+- **UC41 — Một phần:** `remainingCredit` và `monthlyQuota` chỉ xuất hiện trong response workspace:
   - `GET /workspaces`
   - `POST /workspaces`
   - `PATCH /workspaces/:workspaceId`
@@ -71,7 +70,6 @@ Không có bất kỳ hàm/service nào cho:
 
 - Tạo link/QR PayOS, tạo `Order`, kiểm tra trạng thái đơn.
 - Webhook PayOS, xác thực chữ ký, cộng credit idempotent.
-- CRUD `CreditPackage` cho Admin.
 - Ghi/đọc `CreditTransaction`, trừ/hoàn credit khi gọi AI.
 - Reset credit theo `nextResetAt`, hạ gói khi hết hạn.
 
@@ -79,9 +77,9 @@ Không có bất kỳ hàm/service nào cho:
 
 ## 6.5. Roadmap
 
-1. **Gói & đơn:** API list package (UC44); Admin CRUD package (UC45–UC47, dùng `requireRoles('SYSTEM_ADMIN')` — middleware đã có nhưng chưa route nào dùng).
+1. **Gói & đơn:** API list package (UC40).
 2. **Thanh toán:** tạo `Order(PENDING)` + link PayOS; endpoint polling trạng thái; webhook verify chữ ký, cập nhật `Order` trong transaction, chỉ cộng credit khi `updateMany({ where: { orderCode, status: 'PENDING' } })` thành công (idempotent).
 3. **Sổ credit:** mọi thay đổi ghi `CreditTransaction` với `balanceBefore`/`balanceAfter`; trừ sau khi AI thành công, hoàn khi thất bại sau retry.
 4. **Chu kỳ:** cron dùng `billingCycleStart`/`nextResetAt` để reset `remainingCredit = monthlyQuota` và ghi `RESET`; hạ `plan = FREE` khi `planExpiresAt` quá hạn.
-5. **UC48:** API số dư + lịch sử giao dịch (phân trang), chỉ thành viên workspace.
+5. **UC41:** API số dư + lịch sử giao dịch (phân trang), chỉ thành viên workspace.
 6. **Email:** dùng `planExpiryWarningSentAt`, `creditWarningSentAt` để gửi nhắc một lần (xem [05](./05-notifications-email.md)).

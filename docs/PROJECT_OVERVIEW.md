@@ -56,7 +56,7 @@ Quy tắc:
 - Rate limit: 15 request/15 phút cho auth; 5 lần sai/15 phút cho login theo `IP:email`.
 - Refresh token nằm trong cookie HttpOnly; không lưu DB.
 
-**Chưa có:** xác thực email/OTP, quên mật khẩu, 2FA.
+**Chưa có:** quên mật khẩu, 2FA.
 
 ### 3.2. Workspace & thành viên ✅
 
@@ -114,14 +114,14 @@ Quy tắc:
 - Email thông báo bài viết: khi gửi duyệt, hệ thống gửi email cho các Owner; khi duyệt/từ chối, gửi email cho tác giả (`postReviewEmail.ts`, gọi từ `post.notification.ts`).
 - Nếu thiếu `RESEND_API_KEY`: bỏ qua gửi và trả `false` (trừ môi trường test luôn trả `true`).
 
-**Chưa có:** email xác thực tài khoản, nhắc lịch đăng, cảnh báo hết credit/gói, email marketing.
+**Chưa có:** nhắc lịch đăng, cảnh báo hết credit/gói, email marketing.
 
 ### 3.7. Thông báo in-app 🟡
 
 - Bảng `Notification` được ghi khi:
   - thành viên mới tham gia workspace (`MEMBER_JOINED`, gửi các Owner còn lại);
   - bài được gửi duyệt / được duyệt / bị từ chối.
-- **Chưa có API** đọc danh sách, đánh dấu đã đọc hay đếm số chưa đọc; frontend chưa hiển thị chuông thông báo.
+- **Chưa có API** đọc danh sách hay đếm số chưa đọc; frontend chưa hiển thị chuông thông báo.
 
 ### 3.8. Audit, health & hạ tầng ✅
 
@@ -144,9 +144,8 @@ Các phần dưới đây **không có** trong `backend/src/modules` hay `fronte
 | Lịch đăng & publish | Calendar, đặt lịch, đăng ngay, retry | bảng `scheduled_posts`, queue `publishing-queue`; chưa có service/endpoint |
 | Analytics | Đồng bộ metrics Facebook, biểu đồ | bảng `post_metrics`; chưa có service, không có n8n |
 | Admin | Quản lý user/workspace, dashboard hệ thống | `SYSTEM_ADMIN` trong schema/middleware; chưa có module admin |
-| Notification API | Đọc/đánh dấu thông báo, realtime | bảng `notifications`; chỉ ghi, chưa có API |
-| Giao việc | UC49/UC50 | chưa có cột trong `schema.prisma` |
-| Email xác thực | OTP/xác minh tài khoản | `emailVerified` có trong schema; chưa có luồng |
+| Notification API | Đọc thông báo, realtime | bảng `notifications`; chỉ ghi, chưa có API |
+| Giao việc | UC42/UC43 | chưa có cột trong `schema.prisma` |
 
 Frontend hiện có các trang placeholder: `/schedule`, `/ai`, `/publishing`, `/billing`.
 

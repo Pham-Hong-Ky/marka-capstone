@@ -2,7 +2,7 @@
 
 > [Quay lại Mục lục](README.md)
 >
-> **Phạm vi:** phần đã có trong code là **Brand Voice** (UC24, UC25, UC26). Chưa có bất kỳ tính năng AI nào (sinh nội dung, sinh ảnh, Viral Score), chưa gọi OpenAI, chưa trừ credit.
+> **Phạm vi:** phần đã có trong code là **Brand Voice** (UC25, UC26, UC27). Chưa có bất kỳ tính năng AI nào (sinh nội dung, sinh ảnh, Viral Score), chưa gọi OpenAI, chưa trừ credit.
 > Mã nguồn: `backend/src/modules/brandvoice/`.
 >
 > Phần AI chỉ được liệt kê ngắn ở cuối file dưới dạng Roadmap.
@@ -53,7 +53,7 @@ Body schema `brandVoiceBodySchema` (`brandvoice.validation.ts`):
 
 ---
 
-## 3.3. Xem Brand Voice (UC26)
+## 3.3. Xem Brand Voice (UC27)
 
 `GET /workspaces/:workspaceId/brand-voice`
 
@@ -77,7 +77,7 @@ Body schema `brandVoiceBodySchema` (`brandvoice.validation.ts`):
 
 ---
 
-## 3.4. Tạo / cập nhật Brand Voice (UC24, UC25)
+## 3.4. Tạo / cập nhật Brand Voice (UC25, UC26)
 
 `PUT /workspaces/:workspaceId/brand-voice`
 
@@ -130,7 +130,7 @@ Body schema `brandVoiceBodySchema` (`brandvoice.validation.ts`):
 
 Các mục sau **không có trong code** (không có route/service, không gọi provider AI):
 
-1. **UC06 — sinh nội dung bằng AI:** gọi LLM với prompt = Brand Voice + chủ đề; lưu `AiGeneration`; trả kết quả để tạo bài `DRAFT`.
+1. **UC07 — sinh nội dung bằng AI:** gọi LLM với prompt = Brand Voice + chủ đề; lưu `AiGeneration`; trả kết quả để tạo bài `DRAFT`.
 2. **Sinh ảnh AI:** tạo `MediaAsset` với `source = AI_GENERATED`, lưu file lâu dài (Cloudinary) thay vì URL tạm của provider.
 3. **Viral Score / 1-Click Fix:** chấm điểm và sinh lại nội dung; `AiGenType.VIRAL_SCORE`, `REGENERATE`.
 4. **Credit & rate limit:** trừ/hoàn credit theo `CreditActionType` (`GEN_TEXT`, `GEN_IMAGE`, `REGEN`, `SCORE`), dùng `aiLimiter` (20 request/phút/workspace — đã khai báo nhưng chưa gắn route).

@@ -5,7 +5,7 @@
 > **Phạm vi:** phần đã có trong code: CRUD bài viết, upload/xoá ảnh gắn với bài, luồng gửi duyệt – duyệt/từ chối, notification in-app và audit log phát sinh.
 > Mã nguồn: `backend/src/modules/post`, `middlewares/upload.ts`, `utils/cloudinary.client.ts`, `modules/workspace/workspace.repository.ts` (notification), `modules/audit`.
 >
-> **Không có trong code:** thư viện media độc lập cấp workspace, lịch đăng/publish, calendar, giao việc (UC49/UC50). Các mục này nằm ở Roadmap cuối file.
+> **Không có trong code:** thư viện media độc lập cấp workspace, lịch đăng/publish, calendar, giao việc (UC42/UC43). Các mục này nằm ở Roadmap cuối file.
 
 ---
 
@@ -52,9 +52,9 @@ DRAFT ──submit──▶ PENDING ──approve──▶ APPROVED
 
 ---
 
-## 2.2. Tạo, xem, tìm kiếm bài viết (UC05, UC08, UC09)
+## 2.2. Tạo, xem, tìm kiếm bài viết (UC06, UC09, UC10)
 
-### `POST /workspaces/:workspaceId/posts` (UC05)
+### `POST /workspaces/:workspaceId/posts` (UC06)
 
 Yêu cầu `requireAuth` + là thành viên workspace (mọi vai trò).
 
@@ -67,7 +67,7 @@ Yêu cầu `requireAuth` + là thành viên workspace (mọi vai trò).
 - **Không** ghi audit, **không** gửi notification.
 - Response `201` `"Tạo bản nháp thành công"`, `data` là bản ghi `Post` đầy đủ (gồm `id`, `workspaceId`, `title`, `content`, `status`, `createdById`, `createdAt`, `updatedAt`...).
 
-### `GET /workspaces/:workspaceId/posts` (UC09)
+### `GET /workspaces/:workspaceId/posts` (UC10)
 
 Yêu cầu `requireAuth` + là thành viên. Trả bài viết **chưa xoá mềm** của workspace, sắp xếp `updatedAt` giảm dần.
 
@@ -100,7 +100,7 @@ Response:
 - Danh sách chỉ trả các cột tóm tắt ở trên (không có `content`, không có media).
 - Không hỗ trợ lọc theo `campaignTag` hay theo người duyệt.
 
-### `GET /workspaces/:workspaceId/posts/:postId` (UC08)
+### `GET /workspaces/:workspaceId/posts/:postId` (UC09)
 
 Yêu cầu `requireAuth` + là thành viên.
 
@@ -132,7 +132,7 @@ Yêu cầu `requireAuth` + là thành viên.
 
 ---
 
-## 2.3. Sửa & xoá bài viết (UC07, UC10)
+## 2.3. Sửa & xoá bài viết (UC08, UC11)
 
 Quyền chung cho cả sửa và xoá (`assertCanModify` + `assertEditable`):
 
@@ -140,7 +140,7 @@ Quyền chung cho cả sửa và xoá (`assertCanModify` + `assertEditable`):
 - `CONTENT_CREATOR`: chỉ bài có `createdById` trùng user hiện tại; bài người khác → `403` `"Bạn không có quyền thay đổi bài viết này"`.
 - Chỉ bài `DRAFT` hoặc `REJECTED` mới được sửa/xoá; trạng thái khác → `409` `"Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối"`.
 
-### `PATCH /workspaces/:workspaceId/posts/:postId` (UC07)
+### `PATCH /workspaces/:workspaceId/posts/:postId` (UC08)
 
 | Field | Ràng buộc |
 | :--- | :--- |
@@ -152,17 +152,17 @@ Quyền chung cho cả sửa và xoá (`assertCanModify` + `assertEditable`):
 - Không ghi audit, không notification.
 - Response `200` `"Cập nhật bản nháp thành công"`, `data` là bản ghi sau cập nhật.
 
-### `DELETE /workspaces/:workspaceId/posts/:postId` (UC10)
+### `DELETE /workspaces/:workspaceId/posts/:postId` (UC11)
 
 - Chỉ xoá được `DRAFT`/`REJECTED`; bài `PENDING`/`APPROVED` (và các trạng thái khác) trả `409`.
 - **Xoá mềm**: set `deletedAt = now`; không xoá media, không xoá asset trên Cloudinary.
 - Không ghi audit.
 - Response `200`: `{ "success": true }`.
-- Hệ quả: bài đã xoá không còn trong list/detail và không thể khôi phục qua API. Đây là lý do UC10 được xếp **Một phần** (chưa có luồng thu hồi bài `PENDING`/`APPROVED` rồi xoá, chưa có xoá cứng).
+- Hệ quả: bài đã xoá không còn trong list/detail và không thể khôi phục qua API. Đây là lý do UC11 được xếp **Một phần** (chưa có luồng thu hồi bài `PENDING`/`APPROVED` rồi xoá, chưa có xoá cứng).
 
 ---
 
-## 2.4. Media gắn bài viết (UC37)
+## 2.4. Media gắn bài viết (thuộc UC06/UC08)
 
 Media hiện chỉ tồn tại **trong ngữ cảnh một bài viết**; không có thư viện dùng chung, không có quota, tag, video hay tìm kiếm media.
 
@@ -194,9 +194,9 @@ Yêu cầu `requireAuth` + là thành viên + quyền sửa bài (Owner hoặc n
 
 ---
 
-## 2.5. Gửi duyệt & duyệt bài (UC11, UC14)
+## 2.5. Gửi duyệt & duyệt bài (UC12, UC15)
 
-### `POST /workspaces/:workspaceId/posts/:postId/submit` (UC11)
+### `POST /workspaces/:workspaceId/posts/:postId/submit` (UC12)
 
 - Quyền: Owner hoặc người tạo bài.
 - Chỉ từ `DRAFT` hoặc `REJECTED`; nếu không → `409` `"Không thể chuyển trạng thái bài viết này"`.
@@ -208,7 +208,7 @@ Yêu cầu `requireAuth` + là thành viên + quyền sửa bài (Owner hoặc n
 - Nếu workspace chỉ có một Owner và chính Owner đó gửi duyệt → danh sách người nhận rỗng, **không** có notification/email.
 - Response `200` `"Gửi duyệt bài viết thành công"`, `data` là bản ghi sau cập nhật.
 
-### `PATCH /workspaces/:workspaceId/posts/:postId/review` (UC14)
+### `PATCH /workspaces/:workspaceId/posts/:postId/review` (UC15)
 
 Yêu cầu `requireAuth` + `OWNER`.
 
@@ -240,7 +240,7 @@ Chi tiết email & notification: xem [05](./05-notifications-email.md).
 | `POST_APPROVED` | Tác giả bài (`createdById`) | Duyệt thành công | `{ postId, postTitle, approved: true, reason: null }` |
 | `POST_REJECTED` | Tác giả bài | Từ chối | `{ postId, postTitle, approved: false, reason }` |
 
-- Bản ghi `Notification` có `isRead = false`; **chưa có API đọc/đánh dấu đã đọc**.
+- Bản ghi `Notification` có `isRead = false`; **chưa có API đọc danh sách**.
 - Notification/email chạy **sau** khi trạng thái đã đổi và **không** nằm trong cùng transaction; lỗi gửi email không làm fail request (xem 05), lỗi ghi notification có thể làm request trả lỗi dù trạng thái đã đổi.
 
 ### Audit
@@ -302,14 +302,14 @@ Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đ
 | `422` | `Cần cung cấp ít nhất một trường để cập nhật` | PATCH body rỗng |
 | `422` | `Cần nhập lý do khi từ chối bài viết` | Reject thiếu `rejectReason` |
 
-**Lưu ý về workspace đã xoá mềm:** các route bài viết chỉ kiểm tra membership qua `requireWorkspaceRole`, **không** kiểm tra `Workspace.deletedAt`. Vì vậy thành viên cũ vẫn có thể tạo/sửa/xem bài và media của workspace đã xoá mềm nếu còn giữ `workspaceId`. Đây là giới hạn hiện tại của code (xem [01 §1.9](./01-auth-workspace.md#delete-workspacesworkspaceid-uc18)).
+**Lưu ý về workspace đã xoá mềm:** các route bài viết chỉ kiểm tra membership qua `requireWorkspaceRole`, **không** kiểm tra `Workspace.deletedAt`. Vì vậy thành viên cũ vẫn có thể tạo/sửa/xem bài và media của workspace đã xoá mềm nếu còn giữ `workspaceId`. Đây là giới hạn hiện tại của code (xem [01 §1.9](./01-auth-workspace.md#delete-workspacesworkspaceid-uc19)).
 
 ---
 
 ## 2.10. Chưa triển khai (Roadmap)
 
 - **Thư viện media cấp workspace**: `MediaAsset.postId` nullable, upload độc lập, tag, quota, lọc/tìm kiếm, video/thumbnail. Hiện chỉ có ảnh gắn bài.
-- **Lên lịch & đăng bài**: `ScheduledPost`, calendar (UC12, UC13), publish worker, huỷ lịch (UC38) — xem [04](./04-social-publishing.md).
-- **Giao việc (UC49, UC50)**: chưa có cột `assigneeId`/`dueAt`/`taskStatus`, chưa có endpoint assignment/task-status, chưa có notification `POST_ASSIGNED`.
+- **Lên lịch & đăng bài**: `ScheduledPost`, calendar (UC13, UC14), publish worker, huỷ lịch (UC37) — xem [04](./04-social-publishing.md).
+- **Giao việc (UC42, UC43)**: chưa có cột `assigneeId`/`dueAt`/`taskStatus`, chưa có endpoint assignment/task-status, chưa có notification `POST_ASSIGNED`.
 - Lịch sử phiên bản bài viết, bình luận/góp ý theo bài, xuất CSV/Excel, lọc theo `campaignTag`, khôi phục bài đã xoá mềm.
 - Xoá cứng / xoá asset Cloudinary khi xoá media hoặc bài.

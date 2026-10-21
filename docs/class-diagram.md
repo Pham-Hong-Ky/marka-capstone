@@ -96,7 +96,7 @@ Mỗi sơ đồ có kèm file `.svg` cùng tên.
 
 ## 5. Phần không có trong code
 
-Không có lớp cho AI/OpenAI, Order/PayOS, Admin, lịch đăng/publish, analytics/n8n, Notification API hay UC49/UC50 — các phần này chỉ nằm trong Roadmap tại [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md).
+Không có lớp cho AI/OpenAI, Order/PayOS, Admin, lịch đăng/publish, analytics/n8n, Notification API hay UC42/UC43 — các phần này chỉ nằm trong Roadmap tại [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md).
 
 ## 6. Render lại sơ đồ
 
