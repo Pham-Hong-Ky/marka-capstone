@@ -1,4 +1,5 @@
 import redis from '../../config/redis.js';
+import logger from '../../utils/logger.js';
 
 const STATE_PREFIX = 'fb:oauth:state:';
 const SESSION_PREFIX = 'fb:oauth:session:';
@@ -31,7 +32,15 @@ export const saveOauthState = async (state: string, data: OauthState): Promise<v
 
 export const consumeOauthState = async (state: string): Promise<OauthState | null> => {
   const raw = await redis.getdel(stateKey(state));
-  return raw ? (JSON.parse(raw) as OauthState) : null;
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as OauthState;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`Dữ liệu OAuth state trong Redis không hợp lệ: ${message}`);
+    return null;
+  }
 };
 
 export const saveOauthSession = async (sessionId: string, data: OauthSession): Promise<void> => {
@@ -40,7 +49,15 @@ export const saveOauthSession = async (sessionId: string, data: OauthSession): P
 
 export const getOauthSession = async (sessionId: string): Promise<OauthSession | null> => {
   const raw = await redis.get(sessionKey(sessionId));
-  return raw ? (JSON.parse(raw) as OauthSession) : null;
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as OauthSession;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`Dữ liệu OAuth session trong Redis không hợp lệ: ${message}`);
+    return null;
+  }
 };
 
 export const deleteOauthSession = async (sessionId: string): Promise<void> => {

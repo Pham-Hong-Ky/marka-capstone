@@ -10,7 +10,7 @@ export const createPost = async (data: {
   return prisma.post.create({ data });
 };
 
-export const findPostWithMedia = async (postId: string, workspaceId: string) => {
+export const getPostById = async (postId: string, workspaceId: string) => {
   return prisma.post.findFirst({
     where: { id: postId, workspaceId },
     include: { mediaAssets: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } } },
@@ -103,7 +103,7 @@ export const softDeleteMedia = async (mediaId: string) => {
 
 export default {
   createPost,
-  findPostWithMedia,
+  getPostById,
   listPostsAndCount,
   updatePost,
   transitionPostStatus,
