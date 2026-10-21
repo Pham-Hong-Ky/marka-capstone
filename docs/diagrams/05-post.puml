@@ -8,12 +8,46 @@ skinparam classAttributeIconSize 0
 skinparam linetype ortho
 skinparam shadowing false
 skinparam defaultFontName Arial
-skinparam nodesep 24
-skinparam ranksep 40
+skinparam nodesep 40
+skinparam ranksep 50
 skinparam class {
   BackgroundColor #F8FAFC
   BorderColor #64748B
   ArrowColor #475569
+}
+
+class "Post" as Post {
+  + id : string
+  + workspaceId : string
+  + title : string
+  + content : Json
+  + status : PostStatus
+  + campaignTag : string?
+  + rejectReason : string?
+  + submittedById : string?
+  + createdById : string?
+  + submittedAt : Date?
+  + reviewedById : string?
+  + reviewedAt : Date?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "MediaAsset" as MediaAsset {
+  + id : string
+  + workspaceId : string
+  + postId : string?
+  + url : string
+  + type : MediaType
+  + mimeType : string?
+  + thumbnailUrl : string?
+  + size : number
+  + tags : string?
+  + source : MediaSource
+  + createdById : string?
+  + deletedAt : Date?
+  + createdAt : Date
 }
 
 class "postController" as postController {
@@ -37,7 +71,7 @@ class "postService" as postService {
   - transitionPost(post, data)
   - assertEditable(post)
   - assertCanModify(post, userId, role)
-  + createPost(workspaceId, userId, data)
+  + createPost(workspaceId, userId, { title, content })
   + getPost(workspaceId, postId)
   + listPosts(workspaceId, query)
   + updatePost(workspaceId, userId, role, postId, data)
@@ -45,13 +79,13 @@ class "postService" as postService {
   + uploadPostMedia(workspaceId, userId, role, postId, file?)
   + deletePostMedia(workspaceId, userId, role, postId, mediaId)
   + submitPost(workspaceId, userId, userName, role, postId)
-  + reviewPost(workspaceId, reviewerId, postId, data)
+  + reviewPost(workspaceId, reviewerId, postId, { decision, rejectReason })
 }
 
 class "postRepository" as postRepository {
   - prisma : PrismaClient
   + createPost(data)
-  + findPostWithMedia(postId, workspaceId)
+  + getPostById(postId, workspaceId)
   + listPostsAndCount(params)
   + updatePost(postId, data)
   + transitionPostStatus(postId, workspaceId, from, data)
@@ -62,8 +96,8 @@ class "postRepository" as postRepository {
 }
 
 class "PostNotification" as postNotification {
-  + notifyPostSubmitted(params)
-  + notifyPostReviewed(params)
+  + notifyPostSubmitted({ workspaceId, postId, postTitle, actorId, actorName })
+  + notifyPostReviewed({ workspaceId, postId, postTitle, authorId, approved, rejectReason })
 }
 
 class "MailerClient" as mailerClient {
@@ -81,5 +115,7 @@ postService --> postRepository
 postService --> postNotification
 postService --> cloudinaryClient
 postNotification --> mailerClient
+postRepository ..> Post
+postRepository ..> MediaAsset
 
 @enduml

@@ -8,12 +8,45 @@ skinparam classAttributeIconSize 0
 skinparam linetype ortho
 skinparam shadowing false
 skinparam defaultFontName Arial
-skinparam nodesep 24
-skinparam ranksep 40
+skinparam nodesep 40
+skinparam ranksep 50
 skinparam class {
   BackgroundColor #F8FAFC
   BorderColor #64748B
   ArrowColor #475569
+}
+
+class "User" as User {
+  + id : string
+  + email : string
+  + passwordHash : string?
+  + name : string
+  + avatar : string?
+  + authProvider : AuthProvider
+  + googleId : string?
+  + emailVerified : boolean
+  + systemRole : SystemRole
+  + tokenVersion : number
+  + isSuspended : boolean
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "Workspace" as Workspace {
+  + id : string
+  + name : string
+  + plan : WorkspacePlan
+  + remainingCredit : number
+  + monthlyQuota : number
+  + planExpiresAt : Date?
+  + billingCycleStart : Date?
+  + nextResetAt : Date?
+  + planExpiryWarningSentAt : Date?
+  + creditWarningSentAt : Date?
+  + brandVoice : Json?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
 }
 
 class "authController" as authController {
@@ -26,8 +59,8 @@ class "authController" as authController {
 }
 
 class "authService" as authService {
-  - googleClient : GoogleOAuth2Client
   - userRepository : userRepository
+  - googleClient : GoogleOAuth2Client
   - issueTokens(user)
   - assertNotSuspended(user)
   - findOrCreateGoogleUser(profile)
@@ -39,6 +72,7 @@ class "authService" as authService {
 }
 
 class "GoogleOAuth2Client" as googleOAuthClient {
+  - client : OAuth2Client
   - clientId : string
   + verifyIdToken({ idToken, audience })
 }
@@ -72,5 +106,8 @@ authService --> userRepository
 authService --> googleOAuthClient
 userController --> userService
 userService --> userRepository
+
+userRepository ..> User
+userRepository ..> Workspace
 
 @enduml

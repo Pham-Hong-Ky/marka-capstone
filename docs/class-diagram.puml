@@ -1,49 +1,408 @@
-@startuml class-diagram-overview
+﻿@startuml class-diagram-overview
 hide circle
 hide stereotype
 !pragma layout smetana
-title Marka — Sơ đồ lớp tổng quan
+title Marka â€” SÆ¡ Ä‘á»“ lá»›p tá»•ng quan
 
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
 skinparam shadowing false
 skinparam defaultFontName Arial
-skinparam nodesep 26
-skinparam ranksep 40
+skinparam nodesep 40
+skinparam ranksep 50
 skinparam class {
   BackgroundColor #F8FAFC
   BorderColor #64748B
   ArrowColor #475569
 }
 
-class "authController" as authController
-class "authService" as authService
-class "userController" as userController
-class "userService" as userService
-class "userRepository" as userRepository
+' ===== AUTH & USER =====
+together {
+class "authController" as authController {
+  - authService : authService
+  + register(req, res) : Promise<Response>
+  + login(req, res) : Promise<Response>
+  + googleLogin(req, res) : Promise<Response>
+  + logout(req, res) : Promise<Response>
+  + refreshToken(req, res) : Promise<Response>
+}
 
-class "workspaceController" as workspaceController
-class "workspaceService" as workspaceService
-class "workspaceRepository" as workspaceRepository
+class "authService" as authService {
+  - userRepository : userRepository
+  - googleClient : GoogleOAuth2Client
+  - issueTokens(user)
+  - assertNotSuspended(user)
+  - findOrCreateGoogleUser(profile)
+  + registerUser({ email, password, name })
+  + login(email, password)
+  + googleLogin(idToken)
+  + logout(userId?) : Promise<boolean>
+  + refreshToken(token?)
+}
 
-class "brandVoiceController" as brandVoiceController
-class "brandVoiceService" as brandVoiceService
-class "brandVoiceRepository" as brandVoiceRepository
+class "GoogleOAuth2Client" as googleOAuthClient {
+  - client : OAuth2Client
+  - clientId : string
+  + verifyIdToken({ idToken, audience })
+}
 
-class "channelController" as channelController
-class "channelService" as channelService
-class "channelRepository" as channelRepository
+class "userController" as userController {
+  - userService : userService
+  + getMe(req, res) : Promise<Response>
+  + updateProfile(req, res) : Promise<Response>
+  + changePassword(req, res) : Promise<Response>
+}
 
-class "postController" as postController
-class "postService" as postService
-class "postRepository" as postRepository
-class "PostNotification" as postNotification
+class "userService" as userService {
+  - userRepository : userRepository
+  + getProfile(userId)
+  + updateProfile(userId, { name, avatar })
+  + changePassword(userId, oldPassword, newPassword) : Promise<boolean>
+}
 
-class "GoogleOAuth2Client" as googleOAuthClient
-class "MailerClient" as mailerClient
-class "CloudinaryClient" as cloudinaryClient
-class "FacebookClient" as facebookClient
+class "userRepository" as userRepository {
+  - prisma : PrismaClient
+  + findUserById(userId)
+  + findUserByEmail(email)
+  + createUserWithDefaultWorkspace(data)
+  + linkGoogleAccount(userId, { googleId, avatar })
+  + updateUser(userId, data)
+  + incrementTokenVersion(userId)
+}
 
+}
+
+' ===== WORKSPACE =====
+together {
+class "workspaceController" as workspaceController {
+  - workspaceService : workspaceService
+  + createWorkspace(req, res)
+  + listWorkspaces(req, res)
+  + updateWorkspace(req, res)
+  + deleteWorkspace(req, res)
+  + listMembers(req, res)
+  + inviteMember(req, res)
+  + acceptInvite(req, res)
+  + leaveWorkspace(req, res)
+  + removeMember(req, res)
+  + changeMemberRole(req, res)
+}
+
+class "workspaceService" as workspaceService {
+  - workspaceRepository : workspaceRepository
+  - mailerClient : MailerClient
+  - INVITE_TTL_DAYS : number = 7
+  - ROLE_LABELS : Record<WorkspaceRole, string>
+  - assertWorkspaceExists(workspaceId)
+  - assertNotLastOwner(workspaceId, message)
+  - notifyOwners(workspaceId, actorId, payload)
+  + createWorkspace(userId, { name })
+  + listMyWorkspaces(userId)
+  + updateWorkspace(workspaceId, userId, { name })
+  + deleteWorkspace(workspaceId, userId)
+  + listMembers(workspaceId)
+  + inviteMember(workspaceId, inviter, { email, role })
+  + acceptInvite(token, currentUser?)
+  + leaveWorkspace(workspaceId, userId)
+  + removeMember(workspaceId, actorId, targetUserId)
+  + changeMemberRole(workspaceId, actorId, targetUserId, role)
+}
+
+class "workspaceRepository" as workspaceRepository {
+  - prisma : PrismaClient
+  + findWorkspacesByUserId(userId)
+  + findWorkspaceByNameAndOwner(userId, name)
+  + findWorkspaceById(workspaceId)
+  + createWorkspaceWithOwner({ name }, ownerId)
+  + updateWorkspace(workspaceId, data)
+  + softDeleteWorkspace(workspaceId)
+  + findMembersByWorkspace(workspaceId)
+  + findMember(workspaceId, userId)
+  + countOwners(workspaceId)
+  + findOwnerIds(workspaceId)
+  + createMember(workspaceId, userId, role)
+  + deleteMember(workspaceId, userId)
+  + updateMemberRole(workspaceId, userId, role)
+  + findInviteByToken(token)
+  + findPendingInvitesByWorkspace(workspaceId)
+  + findActiveInviteByEmail(workspaceId, email)
+  + createInvite(data)
+  + refreshInvite(inviteId, data)
+  + markInviteUsed(inviteId)
+  + acceptInviteAsMember(inviteId, workspaceId, userId, role)
+  + findUserByEmail(email)
+  + findUserById(userId)
+  + createNotification(data)
+}
+
+}
+
+' ===== BRAND VOICE =====
+together {
+class "brandVoiceController" as brandVoiceController {
+  - brandVoiceService : brandVoiceService
+  + getBrandVoice(req, res)
+  + updateBrandVoice(req, res)
+}
+
+class "brandVoiceService" as brandVoiceService {
+  - brandVoiceRepository : brandVoiceRepository
+  - dedupeKeywords(keywords) : string[]
+  + getBrandVoice(workspaceId)
+  + updateBrandVoice(workspaceId, userId, data)
+}
+
+class "brandVoiceRepository" as brandVoiceRepository {
+  - prisma : PrismaClient
+  + findWorkspaceById(workspaceId)
+  + getBrandVoiceByWorkspaceId(workspaceId)
+  + updateWorkspaceBrandVoice(workspaceId, brandVoice)
+}
+
+}
+
+' ===== CHANNEL =====
+together {
+class "channelController" as channelController {
+  - channelService : channelService
+  + listChannels(req, res)
+  + getFacebookAuthUrl(req, res)
+  + facebookCallback(req, res)
+  + getPendingFacebookPages(req, res)
+  + connectFacebookPages(req, res)
+  + disconnectChannel(req, res)
+}
+
+class "channelService" as channelService {
+  - channelRepository : channelRepository
+  - facebookClient : FacebookClient
+  - oauthStore : oauthStore
+  - buildClientRedirect(params) : string
+  - errorRedirect(reason) : string
+  - getSessionForUser(sessionId, userId, workspaceId)
+  + listChannels(workspaceId)
+  + createFacebookAuthUrl(workspaceId, userId)
+  + handleFacebookCallback(query)
+  + getFacebookPendingPages(sessionId, userId, workspaceId)
+  + connectFacebookPages(sessionId, userId, workspaceId, pageIds)
+  + disconnectChannel(channelId, workspaceId, userId)
+  + verifyChannelToken(channelId, workspaceId)
+}
+
+class "channelRepository" as channelRepository {
+  - prisma : PrismaClient
+  + CHANNEL_PUBLIC_SELECT
+  + findChannelsByWorkspace(workspaceId)
+  + upsertFacebookChannels(workspaceId, pages)
+  + findChannelInWorkspace(channelId, workspaceId)
+  + findChannelWithToken(channelId, workspaceId)
+  + updateChannelStatus(channelId, status)
+  + deleteChannelAndCancelSchedules(channelId)
+}
+
+class "FacebookClient" as facebookClient {
+  - graphBase : string
+  - authBase : string
+  - scopes : string[]
+  + isFacebookConfigured() : boolean
+  + buildAuthorizationUrl(state) : string
+  + isTokenExpiredError(error) : boolean
+  - graphGet(path, params) : Promise<T>
+  + exchangeCodeForToken(code) : Promise<string>
+  + exchangeForLongLivedToken(token) : Promise<string>
+  + fetchManagedPages(userToken) : Promise<FacebookPage[]>
+  + verifyPageToken(pageToken) : Promise<boolean>
+}
+
+class "oauthStore" as oauthStore {
+  - STATE_PREFIX : string
+  - SESSION_PREFIX : string
+  - TTL_SECONDS : number = 600
+  + saveOauthState(state, { userId, workspaceId }) : Promise<void>
+  + consumeOauthState(state) : Promise<OauthState | null>
+  + saveOauthSession(sessionId, session) : Promise<void>
+  + getOauthSession(sessionId) : Promise<OauthSession | null>
+  + deleteOauthSession(sessionId) : Promise<void>
+}
+
+}
+
+' ===== POST =====
+together {
+class "postController" as postController {
+  - postService : postService
+  + createPost(req, res)
+  + getPost(req, res)
+  + listPosts(req, res)
+  + updatePost(req, res)
+  + deletePost(req, res)
+  + uploadPostMedia(req, res)
+  + deletePostMedia(req, res)
+  + submitPost(req, res)
+  + reviewPost(req, res)
+}
+
+class "postService" as postService {
+  - postRepository : postRepository
+  - postNotification : PostNotification
+  - cloudinaryClient : CloudinaryClient
+  - ALLOWED_TRANSITIONS : Record<PostStatus, PostStatus[]>
+  - transitionPost(post, data)
+  - assertEditable(post)
+  - assertCanModify(post, userId, role)
+  + createPost(workspaceId, userId, { title, content })
+  + getPost(workspaceId, postId)
+  + listPosts(workspaceId, query)
+  + updatePost(workspaceId, userId, role, postId, data)
+  + deletePost(workspaceId, userId, role, postId)
+  + uploadPostMedia(workspaceId, userId, role, postId, file?)
+  + deletePostMedia(workspaceId, userId, role, postId, mediaId)
+  + submitPost(workspaceId, userId, userName, role, postId)
+  + reviewPost(workspaceId, reviewerId, postId, { decision, rejectReason })
+}
+
+class "postRepository" as postRepository {
+  - prisma : PrismaClient
+  + createPost(data)
+  + getPostById(postId, workspaceId)
+  + listPostsAndCount(params)
+  + updatePost(postId, data)
+  + transitionPostStatus(postId, workspaceId, from, data)
+  + softDeletePost(postId)
+  + createMedia(data)
+  + findMediaByIdAndPost(postId, mediaId)
+  + softDeleteMedia(mediaId)
+}
+
+class "PostNotification" as postNotification {
+  + notifyPostSubmitted({ workspaceId, postId, postTitle, actorId, actorName })
+  + notifyPostReviewed({ workspaceId, postId, postTitle, authorId, approved, rejectReason })
+}
+
+}
+
+' ===== CLIENT =====
+together {
+class "MailerClient" as mailerClient {
+  - resend : Resend
+  + sendEmail({ to, subject, html }) : Promise<boolean>
+}
+
+class "CloudinaryClient" as cloudinaryClient {
+  + isCloudinaryConfigured : boolean
+  + uploadImageBuffer(buffer, folder) : Promise<string>
+}
+
+}
+
+' ===== ENTITIES =====
+together {
+class "User" as User {
+  + id : string
+  + email : string
+  + passwordHash : string?
+  + name : string
+  + avatar : string?
+  + authProvider : AuthProvider
+  + googleId : string?
+  + emailVerified : boolean
+  + systemRole : SystemRole
+  + tokenVersion : number
+  + isSuspended : boolean
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "Workspace" as Workspace {
+  + id : string
+  + name : string
+  + plan : WorkspacePlan
+  + remainingCredit : number
+  + monthlyQuota : number
+  + planExpiresAt : Date?
+  + billingCycleStart : Date?
+  + nextResetAt : Date?
+  + planExpiryWarningSentAt : Date?
+  + creditWarningSentAt : Date?
+  + brandVoice : Json?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "WorkspaceMember" as WorkspaceMember {
+  + id : string
+  + workspaceId : string
+  + userId : string
+  + role : WorkspaceRole
+  + allowDirectPublish : boolean
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "WorkspaceInvite" as WorkspaceInvite {
+  + id : string
+  + email : string
+  + workspaceId : string
+  + role : WorkspaceRole
+  + token : string
+  + isUsed : boolean
+  + expiresAt : Date
+  + invitedById : string?
+  + createdAt : Date
+}
+
+class "ChannelConnection" as ChannelConnection {
+  + id : string
+  + workspaceId : string
+  + platform : SocialPlatform
+  + type : ChannelType
+  + name : string
+  + avatar : string?
+  + externalAccountId : string
+  + accessToken : string?
+  + status : ChannelStatus
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "Post" as Post {
+  + id : string
+  + workspaceId : string
+  + title : string
+  + content : Json
+  + status : PostStatus
+  + campaignTag : string?
+  + rejectReason : string?
+  + submittedById : string?
+  + createdById : string?
+  + submittedAt : Date?
+  + reviewedById : string?
+  + reviewedAt : Date?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "MediaAsset" as MediaAsset {
+  + id : string
+  + workspaceId : string
+  + postId : string?
+  + url : string
+  + type : MediaType
+  + mimeType : string?
+  + thumbnailUrl : string?
+  + size : number
+  + tags : string?
+  + source : MediaSource
+  + createdById : string?
+  + deletedAt : Date?
+  + createdAt : Date
+}
+
+}
+
+' ===== RELATIONS =====
 authController --> authService
 authService --> userRepository
 authService --> googleOAuthClient
@@ -60,11 +419,23 @@ brandVoiceService --> brandVoiceRepository
 channelController --> channelService
 channelService --> channelRepository
 channelService --> facebookClient
+channelService --> oauthStore
 
 postController --> postService
 postService --> postRepository
 postService --> postNotification
 postService --> cloudinaryClient
 postNotification --> mailerClient
+
+
+userRepository ..> User
+userRepository ..> Workspace
+workspaceRepository ..> Workspace
+workspaceRepository ..> WorkspaceMember
+workspaceRepository ..> WorkspaceInvite
+brandVoiceRepository ..> Workspace
+channelRepository ..> ChannelConnection
+postRepository ..> Post
+postRepository ..> MediaAsset
 
 @enduml

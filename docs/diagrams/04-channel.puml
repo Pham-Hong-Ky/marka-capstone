@@ -8,12 +8,26 @@ skinparam classAttributeIconSize 0
 skinparam linetype ortho
 skinparam shadowing false
 skinparam defaultFontName Arial
-skinparam nodesep 24
-skinparam ranksep 40
+skinparam nodesep 40
+skinparam ranksep 50
 skinparam class {
   BackgroundColor #F8FAFC
   BorderColor #64748B
   ArrowColor #475569
+}
+
+class "ChannelConnection" as ChannelConnection {
+  + id : string
+  + workspaceId : string
+  + platform : SocialPlatform
+  + type : ChannelType
+  + name : string
+  + avatar : string?
+  + externalAccountId : string
+  + accessToken : string?
+  + status : ChannelStatus
+  + createdAt : Date
+  + updatedAt : Date
 }
 
 class "channelController" as channelController {
@@ -29,6 +43,7 @@ class "channelController" as channelController {
 class "channelService" as channelService {
   - channelRepository : channelRepository
   - facebookClient : FacebookClient
+  - oauthStore : oauthStore
   - buildClientRedirect(params) : string
   - errorRedirect(reason) : string
   - getSessionForUser(sessionId, userId, workspaceId)
@@ -38,6 +53,7 @@ class "channelService" as channelService {
   + getFacebookPendingPages(sessionId, userId, workspaceId)
   + connectFacebookPages(sessionId, userId, workspaceId, pageIds)
   + disconnectChannel(channelId, workspaceId, userId)
+  + verifyChannelToken(channelId, workspaceId)
 }
 
 class "channelRepository" as channelRepository {
@@ -46,22 +62,40 @@ class "channelRepository" as channelRepository {
   + findChannelsByWorkspace(workspaceId)
   + upsertFacebookChannels(workspaceId, pages)
   + findChannelInWorkspace(channelId, workspaceId)
+  + findChannelWithToken(channelId, workspaceId)
+  + updateChannelStatus(channelId, status)
   + deleteChannelAndCancelSchedules(channelId)
 }
 
 class "FacebookClient" as facebookClient {
-  - GRAPH_BASE : string
-  - AUTH_BASE : string
-  - SCOPES : string[]
+  - graphBase : string = 'https://graph.facebook.com/v21.0'
+  - authBase : string = 'https://www.facebook.com/v21.0/dialog/oauth'
+  - scopes : string[]
   + isFacebookConfigured() : boolean
   + buildAuthorizationUrl(state) : string
+  + isTokenExpiredError(error) : boolean
+  - graphGet(path, params) : Promise<T>
   + exchangeCodeForToken(code) : Promise<string>
   + exchangeForLongLivedToken(token) : Promise<string>
   + fetchManagedPages(userToken) : Promise<FacebookPage[]>
+  + verifyPageToken(pageToken) : Promise<boolean>
+}
+
+class "oauthStore" as oauthStore {
+  - STATE_PREFIX : string = 'fb:oauth:state:'
+  - SESSION_PREFIX : string = 'fb:oauth:session:'
+  - TTL_SECONDS : number = 600
+  + saveOauthState(state, { userId, workspaceId }) : Promise<void>
+  + consumeOauthState(state) : Promise<OauthState | null>
+  + saveOauthSession(sessionId, session) : Promise<void>
+  + getOauthSession(sessionId) : Promise<OauthSession | null>
+  + deleteOauthSession(sessionId) : Promise<void>
 }
 
 channelController --> channelService
 channelService --> channelRepository
 channelService --> facebookClient
+channelService --> oauthStore
+channelRepository ..> ChannelConnection
 
 @enduml
