@@ -205,6 +205,37 @@ export const disconnectChannel = async (
   return { success: true };
 };
 
+export const verifyChannelToken = async (
+  channelId: string,
+  workspaceId: string
+): Promise<{ channelId: string; status: 'ACTIVE' | 'EXPIRED'; isValid: boolean }> => {
+  const channel = await channelRepository.findChannelWithToken(channelId, workspaceId);
+
+  if (!channel) {
+    throw new NotFoundError('Kênh không tồn tại');
+  }
+
+  if (!channel.accessToken) {
+    await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
+    return { channelId, status: 'EXPIRED', isValid: false };
+  }
+
+  const rawToken = decrypt(channel.accessToken);
+  if (!rawToken) {
+    await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
+    return { channelId, status: 'EXPIRED', isValid: false };
+  }
+
+  const isValid = await facebookClient.verifyPageToken(rawToken);
+  const newStatus = isValid ? 'ACTIVE' : 'EXPIRED';
+
+  if (channel.status !== newStatus) {
+    await channelRepository.updateChannelStatus(channelId, newStatus);
+  }
+
+  return { channelId, status: newStatus, isValid };
+};
+
 export default {
   listChannels,
   createFacebookAuthUrl,
@@ -212,4 +243,5 @@ export default {
   getFacebookPendingPages,
   connectFacebookPages,
   disconnectChannel,
+  verifyChannelToken,
 };
