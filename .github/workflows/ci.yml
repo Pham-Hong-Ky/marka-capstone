@@ -83,6 +83,7 @@ jobs:
     # (KHÔNG phải credentials production — không cần đặt trong GitHub Secrets)
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marka_test?schema=public&connection_limit=10&pool_timeout=10
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/marka_test?schema=public
       REDIS_URL: redis://127.0.0.1:6379
       NODE_ENV: test
       PORT: 5000
