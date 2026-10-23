@@ -98,12 +98,12 @@ Cả 6 sơ đồ module và sơ đồ tổng quan đều có lớp entity đầy
 
 ### Queue & Worker
 
-- 3 queue: `content-generation-queue`, `publishing-queue`, `email-queue`; `defaultJobOptions` có `attempts: 3`, backoff exponential 2s.
+- 3 queue: `content-generation-queue`, `schedule-queue`, `email-queue`; `defaultJobOptions` có `attempts: 3`, backoff exponential 2s.
 - Processor hiện chỉ log + `updateProgress(100)` + trả `{ success: true }`; **chưa module nào gọi `enqueue()`**.
 
 ## 5. Phần không có trong code
 
-Không có lớp cho AI/OpenAI, Order/PayOS, Admin, lịch đăng/publish, analytics/n8n, Notification API hay UC42/UC43 — các phần này chỉ nằm trong Roadmap tại [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md).
+Không có lớp cho AI/OpenAI, Order/PayOS, Admin, analytics/n8n, Notification API hay UC42/UC43 — các phần này chỉ nằm trong Roadmap tại [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md). Lịch đăng/publish đã có module `schedule` + `scheduleWorker`.
 
 ## 6. Render lại sơ đồ
 

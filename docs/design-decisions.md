@@ -11,7 +11,7 @@
 | :--- | :--- | :--- | :--- |
 | **D1 — Media** | `MediaAsset` thuộc workspace; `postId` nullable; có `deletedAt`. | ✅ | API hiện chỉ tạo media gắn trực tiếp vào bài (`POST /workspaces/:id/posts/:postId/media`). Chưa có API thư viện media độc lập. |
 | **D2 — Người tạo bài** | Dùng `Post.createdById`; service nhận `userId` từ JWT. | ✅ | `postService.createPost(workspaceId, userId, data)` ghi thẳng `createdById`. |
-| **D3 — Trạng thái lịch đăng** | `PublishStatus` có `CANCELLED`. | ✅ (schema) | Code dùng `CANCELLED` khi ngắt kênh (`deleteChannelAndCancelSchedules`). Chưa có luồng tạo/đăng lịch. |
+| **D3 — Trạng thái lịch đăng** | `PublishStatus = { SCHEDULED, PROCESSING, PUBLISHED, FAILED, CANCELLED }`. | ✅ | Có luồng tạo/đăng/huỷ lịch; `PROCESSING` dùng để claim và recovery worker. |
 | **D4 — Đơn hàng** | `OrderStatus = { PENDING, PAID, CANCELLED }`; `payosTransId` unique. | ⛔ | Chưa có module order/PayOS. |
 | **D5 — Analytics** | Có `PostMetric` (1-1 `ScheduledPost`). | ⛔ | Chưa có service/endpoint/n8n. |
 | **D6 — Quota & chu kỳ** | `Workspace` có `remainingCredit`, `monthlyQuota`, `billingCycleStart`, `nextResetAt`. | 🟡 | Cột đã có; chưa có cron reset credit hay hạ gói. |
@@ -23,18 +23,19 @@
 
 | ID | Quyết định | Trạng thái | Ghi chú theo code |
 | :--- | :--- | :--- | :--- |
-| **D10 — Bất đồng bộ** | AI/publish đẩy job BullMQ, trả `202 + jobId`. | ⛔ | Queue + worker khung đã có; processor chỉ log + success; chưa module nào `enqueue`. |
-| **D11 — Ủy quyền đăng** | Creator chỉ đăng/lên lịch khi `allowDirectPublish=true`. | ⛔ | Cột đã có, chưa có endpoint publish/schedule để kiểm tra. |
+| **D10 — Bất đồng bộ** | Publish/AI đẩy job BullMQ; API trả kết quả enqueue, worker xử lý nền. | ✅ | Đăng bài dùng `schedule-queue` + `scheduleWorker`; AI dùng `content-generation-queue` + `processContentJob`, frontend poll `AiGeneration`. |
+| **D11 — Ủy quyền đăng** | Mọi thành viên workspace được đăng/lên lịch bài `APPROVED`. | ✅ (thay đổi) | Không dùng `allowDirectPublish` trong đợt này; route dùng `requireWorkspaceRole()` không giới hạn role. |
 | **D12 — Idempotency PayOS** | Verify chữ ký + `updateMany` theo `orderCode` trong transaction. | ⛔ | Chưa triển khai. |
 | **D13 — Kết nối Facebook** | OAuth redirect, đổi code lấy long-lived token, chọn Page, mã hoá token AES-256-GCM; cấu hình qua env. | ✅ | `channel.service.ts`, `facebook.client.ts`, `channel.oauth-store.ts`, `utils/encryption.ts`. State/session lưu Redis 600 giây. |
-| **D14 — Từ vựng Credit** | Enum `CreditActionType`, `AiGenType` theo schema. | ⛔ | Chỉ có enum; chưa có module credit/AI. |
-| **D15 — Máy trạng thái Post** | `DRAFT → PENDING → APPROVED/REJECTED`; `REJECTED → PENDING`. | ✅ | `ALLOWED_TRANSITIONS` trong `post.service.ts` chỉ có 3 nhóm chuyển trên. `APPROVED/SCHEDULED/PUBLISHED/FAILED/ARCHIVED` không có transition. Các giá trị enum còn lại chưa dùng. |
+| **D14 — Từ vựng Credit** | Enum `CreditActionType`, `AiGenType` theo schema. | ✅ | AI dùng `AiGeneration`, `CreditTransaction` (`GEN_TEXT` 10, `GEN_IMAGE` 20, `REFUND`); `TOP_UP/RESET` và PayOS chưa có. |
+| **D15 — Máy trạng thái Post** | `DRAFT → PENDING → APPROVED/REJECTED`; `REJECTED → PENDING`; `APPROVED → SCHEDULED`; worker cập nhật `SCHEDULED → PUBLISHED/FAILED`. | ✅ | `ALLOWED_TRANSITIONS` có thêm `APPROVED → SCHEDULED`; worker tính trạng thái tổng từ các `ScheduledPost`. |
 | **D16 — Xoá bài** | Chỉ `DRAFT`/`REJECTED` được sửa/xoá; `OWNER` hoặc người tạo. | ✅ | `assertEditable` + `assertCanModify`. Chưa có thu hồi về `DRAFT`, huỷ job hay archive. |
-| **D17 — Ranh giới transaction** | Service sở hữu transaction nhiều bước; repository được tự mở transaction cho thao tác atomic. | ✅ | Ví dụ: `createUserWithDefaultWorkspace`, `createWorkspaceWithOwner`, `acceptInviteAsMember`, `deleteChannelAndCancelSchedules`. |
+| **D17 — Ranh giới transaction** | Service sở hữu transaction nhiều bước; repository được tự mở transaction cho thao tác atomic. | ✅ | Ví dụ: `createUserWithDefaultWorkspace`, `createWorkspaceWithOwner`, `acceptInviteAsMember`, `deleteChannelAndCancelSchedules`, `startTextGeneration`/`startImageGeneration` (credit + post + generation), `failGeneration` (FAILED + refund). |
 | **D18 — Xoá mềm** | `Workspace`, `Post`, `CreditPackage`, `MediaAsset`; Prisma extension tự lọc `deletedAt: null`. | ✅ | `config/prismaExtensions.ts`; đọc bản ghi đã xoá cần `basePrisma`. |
 | **D19 — Timezone** | UTC toàn hệ thống; API ISO-8601 UTC. | ✅ (quy ước) | Code dùng `Date`/ISO; không có xử lý timezone riêng ở service. |
 | **D20 — Realtime** | MVP dùng notification in-app + polling; WebSocket/SSE để sau. | 🟡 | Chỉ ghi bảng `Notification`; chưa có API đọc, chưa có polling/WebSocket. `socket.io` có trong dependencies nhưng không được dùng. |
-| **D21 — n8n** | n8n chỉ dùng cho analytics. | ⛔ | Không có code n8n. |
+| **D21 — n8n** | Không dùng n8n cho đăng bài; publish chạy bằng BullMQ worker. n8n (nếu có) chỉ dành cho analytics. | ✅ (đăng bài) | `schedule-queue` + `schedule.processor.ts`; không có code n8n. |
+| **D22 — Trạng thái job AI** | `AiGeneration` là nguồn trạng thái (`PENDING/PROCESSING/SUCCESS/FAILED`); frontend poll 2 giây; credit trừ khi enqueue, hoàn khi thất bại hẳn trong cùng transaction. | ✅ | `ai.service.ts`, `ai.processor.ts`, `workers/index.ts`; `GET /ai/generations/:id` không dùng `aiLimiter`. |
 
 ## C. Đánh số Use Case
 

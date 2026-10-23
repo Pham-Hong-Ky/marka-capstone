@@ -191,6 +191,10 @@ Yêu cầu `requireAuth` + là thành viên + quyền sửa bài (Owner hoặc n
 - Response `200`: `{ "success": true }`.
 
 > Vì `postId` là bắt buộc khi tạo media, `MediaAsset.postId` trên thực tế luôn khác `null`, dù schema cho phép `null`.
+>
+> Ảnh do AI tạo cũng là `MediaAsset` với `source = AI_GENERATED`, được gắn vào bài qua
+> `POST /workspaces/:workspaceId/ai/images` (xem [03 §3.5.2](./03-ai-brandvoice.md)).
+> Ảnh AI hiển thị chung mục “Ảnh đính kèm” và xoá được như ảnh upload.
 
 ---
 
@@ -309,7 +313,7 @@ Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đ
 ## 2.10. Chưa triển khai (Roadmap)
 
 - **Thư viện media cấp workspace**: `MediaAsset.postId` nullable, upload độc lập, tag, quota, lọc/tìm kiếm, video/thumbnail. Hiện chỉ có ảnh gắn bài.
-- **Lên lịch & đăng bài**: `ScheduledPost`, calendar (UC13, UC14), publish worker, huỷ lịch (UC37) — xem [04](./04-social-publishing.md).
+- **Calendar nâng cao**: kéo-thả đổi giờ, sửa lịch sau khi tạo — đăng ngay/lên lịch/huỷ lịch cơ bản đã có trong [04](./04-social-publishing.md).
 - **Giao việc (UC42, UC43)**: chưa có cột `assigneeId`/`dueAt`/`taskStatus`, chưa có endpoint assignment/task-status, chưa có notification `POST_ASSIGNED`.
 - Lịch sử phiên bản bài viết, bình luận/góp ý theo bài, xuất CSV/Excel, lọc theo `campaignTag`, khôi phục bài đã xoá mềm.
 - Xoá cứng / xoá asset Cloudinary khi xoá media hoặc bài.

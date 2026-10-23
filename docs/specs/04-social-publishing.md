@@ -1,11 +1,11 @@
-# Phân hệ 4 — Kênh & Facebook OAuth
+# Phân hệ 4 — Kênh, Facebook OAuth & Lịch đăng bài
 
 > [Quay lại Mục lục](README.md)
 >
-> **Phạm vi:** phần đã có trong code: xem kênh đã kết nối, kết nối **Facebook Page thật** qua OAuth, ngắt kết nối kênh.
-> Mã nguồn: `backend/src/modules/channel/`, `utils/encryption.ts`, `config/redis.ts`.
+> **Phạm vi:** phần đã có trong code: xem kênh đã kết nối, kết nối **Facebook Page thật** qua OAuth, ngắt kết nối kênh, đăng ngay/lên lịch bài đã duyệt lên nhiều Page.
+> Mã nguồn: `backend/src/modules/channel/`, `backend/src/modules/schedule/`, `utils/encryption.ts`, `config/redis.ts`, `workers/`.
 >
-> **Không có trong code:** Instagram/TikTok/Zalo (kể cả giả lập), lên lịch đăng, publish bài, calendar, làm mới token, đánh dấu kênh `EXPIRED` do token hết hạn. Các mục này ở Roadmap cuối file.
+> **Không có trong code:** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả, sửa giờ sau khi tạo, video, làm mới token tự động. Các mục này ở Roadmap cuối file.
 
 ---
 
@@ -166,7 +166,7 @@ Không trả token.
   2. Xoá cứng bản ghi `ChannelConnection`.
 - Ghi audit `CHANNEL_DISCONNECTED` (`metadata { pageId, name }`).
 - Response `200`: `{ "success": true }`.
-- Hiện **chưa có** `ScheduledPost` nào được tạo bởi hệ thống, nên bước 1 chỉ là chuẩn bị cho Roadmap.
+- Nếu kênh đã có lịch đang chờ, bước 1 chuyển chúng sang `CANCELLED` trước khi xoá kênh; trạng thái tổng của Post được tính lại.
 
 ---
 
@@ -214,11 +214,49 @@ Không trả token.
 
 ---
 
-## 4.8. Chưa triển khai (Roadmap)
+## 4.8. Lịch đăng & đăng bài (UC13, UC14, UC16, UC37)
+
+Mọi thành viên workspace được đăng/lên lịch bài ở trạng thái `APPROVED`.
+
+| Method | Path | Mô tả |
+| :--- | :--- | :--- |
+| POST | `/workspaces/:workspaceId/posts/:postId/schedules` | Body `{ channelIds: string[], scheduledAt?: ISO }`; bỏ `scheduledAt` = đăng ngay |
+| GET | `/workspaces/:workspaceId/schedules?status=&from=&to=&page=&limit=` | Danh sách lịch cho trang `/schedule` |
+| DELETE | `/workspaces/:workspaceId/schedules/:scheduleId` | Huỷ lịch đang `SCHEDULED` |
+
+**Validate:**
+
+- Post tồn tại, chưa xoá, `APPROVED`.
+- Chọn 1–10 Page thuộc workspace, `FACEBOOK`, `REAL`, `ACTIVE`.
+- `scheduledAt` ≥ hiện tại + 1 phút, ≤ hiện tại + 1 năm.
+- Nội dung text không rỗng, ≤ 63.206 ký tự; tối đa 10 ảnh; chưa hỗ trợ video.
+- Mỗi bài/Page chỉ có một `ScheduledPost` (unique `postId, channelId`).
+
+**Worker (`schedule-queue`):**
+
+- `scheduleWorker` đăng ký job scheduler `schedule-due` chạy mỗi 60 giây.
+- Mỗi lượt: recovery `PROCESSING` quá 10 phút → `FAILED`; claim các lịch `SCHEDULED` đến hạn; upload từng ảnh với `published=false`; gọi `/{page-id}/feed` với `message` + `attached_media`; lưu `externalPostId`, `publishedAt`.
+- Lỗi token 190 → Page `EXPIRED`, lịch `FAILED`, không retry.
+- Lỗi mạng/5xx/rate limit trước khi gửi feed → retry tối đa 3 lần (30s → 2 phút → 10 phút). Thời điểm thử lại lưu ở `retryAt`, giữ nguyên `scheduledAt` gốc.
+- Timeout sau khi đã gửi feed → `FAILED`, không tự retry để tránh đăng trùng.
+- Bài `FAILED`/`PUBLISHED` được đăng lại hoặc lên lịch trên Page chưa có lịch `SCHEDULED/PROCESSING/PUBLISHED` (thử lại Page lỗi, đăng thêm Page mới); chọn Page đã đăng/đang chờ → `409`.
+
+**Trạng thái Post:**
+
+- Còn lịch `SCHEDULED`/`PROCESSING` → `SCHEDULED`.
+- Tất cả kết thúc, có ít nhất một `PUBLISHED` → `PUBLISHED`.
+- Tất cả kết thúc, không có `PUBLISHED`, có `FAILED` → `FAILED`.
+- Tất cả `CANCELLED` → `APPROVED`.
+
+**Vận hành:** `ENABLE_WORKERS=true` để chạy worker chung API (dev), hoặc `npm run worker` ở service riêng (production). Backend phải always-on để scheduler chạy đúng giờ.
+
+---
+
+## 4.9. Chưa triển khai (Roadmap)
 
 1. **Kênh khác:** Instagram, TikTok, Zalo — kể cả chế độ giả lập (`ChannelType.SIMULATED`). Hiện không có endpoint nào tạo kênh ngoài Facebook.
-2. **Lên lịch & đăng bài (UC13, UC16):** tạo `ScheduledPost`, đẩy job vào `publishing-queue`, worker gọi Graph API đăng bài, lưu `externalPostId`, xử lý retry/`FAILED`/`PUBLISHED`.
-3. **Calendar & huỷ lịch (UC14, UC37):** API danh sách lịch theo khoảng thời gian, kéo-thả đổi giờ, huỷ lịch và xoá job.
-4. **Vòng đời token:** kiểm tra hạn token định kỳ, đánh dấu `EXPIRED`, thông báo Owner, làm mới token; xử lý rate limit Graph API.
-5. **Uỷ quyền đăng bài:** dùng `WorkspaceMember.allowDirectPublish` để cho Creator đăng/lên lịch bài đã duyệt (hiện trường này chưa được kiểm tra ở đâu).
-6. **Bài đã đăng:** sửa/nhân bản/xoá bài `PUBLISHED` (hiện không có trạng thái này trong luồng thực tế).
+2. **Calendar nâng cao (UC14, UC37):** calendar tháng/tuần, kéo-thả đổi giờ, sửa lịch sau khi tạo.
+3. **Vòng đời token:** kiểm tra hạn token định kỳ, thông báo Owner, làm mới token tự động.
+4. **Uỷ quyền đăng bài:** dùng `WorkspaceMember.allowDirectPublish` nếu sau này muốn giới hạn Creator.
+5. **Bài đã đăng:** sửa/nhân bản/xoá bài `PUBLISHED`.
+6. **Video & Analytics:** đăng video, đồng bộ `PostMetric` từ Facebook.

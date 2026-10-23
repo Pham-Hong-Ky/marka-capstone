@@ -2,7 +2,7 @@
 
 Tài liệu này đặc tả chi tiết thiết kế cơ sở dữ liệu vật lý của hệ thống Marka, bao gồm danh sách các bảng, kiểu dữ liệu, các ràng buộc và mối quan hệ giữa các bảng. Hệ thống sử dụng cơ sở dữ liệu quan hệ **PostgreSQL** và được quản lý thông qua **Prisma ORM**.
 
-> **Trạng thái:** nội dung khớp `backend/prisma/schema.prisma` (15 bảng). API hiện chỉ dùng 9 bảng; 6 bảng `scheduled_posts`, `post_metrics`, `ai_generations`, `credit_transactions`, `credit_packages`, `orders` chưa có endpoint/service tương ứng.
+> **Trạng thái:** nội dung khớp `backend/prisma/schema.prisma` (15 bảng). API hiện dùng 12 bảng; 3 bảng `post_metrics`, `credit_packages`, `orders` chưa có endpoint/service tương ứng.
 
 ---
 
@@ -164,20 +164,24 @@ Lưu trữ thông tin xác thực/mã hóa các kênh phân phối bài viết.
 | `channelId` | VARCHAR(36) | FK -> `channel_connections.id`, Cascade | Kênh liên kết sẽ được xuất bản |
 | `customContent` | JSON | Nullable | Nội dung đã được tối ưu riêng biệt cho kênh này |
 | `scheduledAt` | TIMESTAMP | Nullable | Thời gian hẹn giờ đăng bài (null nếu đăng ngay) |
-| `status` | ENUM | Default: 'SCHEDULED', NOT NULL | Trạng thái đăng bài (`SCHEDULED`, `PUBLISHED`, `FAILED`, `CANCELLED`) |
+| `status` | ENUM | Default: 'SCHEDULED', NOT NULL | Trạng thái đăng bài (`SCHEDULED`, `PROCESSING`, `PUBLISHED`, `FAILED`, `CANCELLED`) |
 | `externalPostId` | VARCHAR(255) | Nullable | ID bài viết thực tế sau khi đăng thành công (MXH cung cấp) |
 | `errorMessage` | TEXT | Nullable | Nhật ký lỗi phản hồi từ API khi đăng bài thất bại |
 | `retryCount` | INTEGER | Default: 0, NOT NULL | Số lần tự động thử lại của Worker khi gặp lỗi |
+| `processingStartedAt` | TIMESTAMP | Nullable | Thời điểm worker claim lịch; dùng phát hiện job treo |
+| `retryAt` | TIMESTAMP | Nullable | Thời điểm thử lại sau lỗi tạm thời; worker nhặt khi đến hạn, không ghi đè `scheduledAt` |
+| `publishedAt` | TIMESTAMP | Nullable | Thời điểm đăng thành công lên Page |
 | `reminderSentAt` | TIMESTAMP | Nullable | Cờ chống gửi trùng email/thông báo nhắc lịch đăng (D7) |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm khởi tạo lịch trình |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật lịch trình |
 
-* **Index**: Composite Index trên `(status, scheduledAt)`, index trên `channelId` và `postId`.
-* **Trạng thái code:** chưa có endpoint/service tạo lịch đăng. API hiện chỉ cập nhật bảng này khi ngắt kênh (`SCHEDULED → CANCELLED`).
+* **Index**: Unique `(postId, channelId)`; Composite Index trên `(status, scheduledAt)`, index trên `channelId` và `postId`.
+* **Trạng thái code:** đã có module `schedule` tạo/đăng/huỷ lịch. Worker cập nhật `SCHEDULED → PROCESSING → PUBLISHED/FAILED`; ngắt kênh chuyển `SCHEDULED → CANCELLED`.
 
 ### 2.9. Bảng `ai_generations` (Lịch sử sử dụng AI)
 
-> **Trạng thái code:** các bảng 2.9–2.12 (`ai_generations`, `credit_transactions`, `credit_packages`, `orders`) chỉ có trong schema, **chưa có module/service/endpoint** nào sử dụng (Roadmap AI & thanh toán).
+> **Trạng thái code:** `ai_generations` và `credit_transactions` đã được dùng cho trợ lý AI
+> (text + image). `credit_packages` và `orders` vẫn chưa có module/service/endpoint (Roadmap thanh toán).
 
 Lưu nhật ký prompts và logs để kiểm tra chi phí/dashboard của System Admin.
 
@@ -188,13 +192,15 @@ Lưu nhật ký prompts và logs để kiểm tra chi phí/dashboard của Syste
 | `userId` | VARCHAR(36) | FK -> `users.id`, SetNull | Người yêu cầu sinh AI |
 | `postId` | VARCHAR(36) | FK -> `posts.id`, SetNull, Nullable | ID bài viết đích nhận nội dung AI (nếu có) |
 | `type` | ENUM | NOT NULL | Loại tác vụ (`TEXT`, `IMAGE`, `VIRAL_SCORE`, `REGENERATE`) |
-| `provider` | VARCHAR(100) | NOT NULL | Nhà cung cấp AI (ví dụ: `OpenAI`) |
-| `model` | VARCHAR(100) | NOT NULL | Phiên bản model sử dụng (ví dụ: `gpt-4o`, `dall-e-3`) |
-| `status` | ENUM | Default: 'SUCCESS', NOT NULL | Kết quả gọi API (`SUCCESS` hoặc `FAILED`) |
-| `prompt` | TEXT | NOT NULL | Prompt đầy đủ gửi lên AI |
-| `response` | TEXT | NOT NULL | Kết quả văn bản hoặc URL ảnh trả về từ AI |
-| `creditCost` | INTEGER | NOT NULL | Số credit đã trừ của Workspace cho giao dịch này |
+| `provider` | VARCHAR(100) | NOT NULL | Nhà cung cấp AI (`gemini`, `cloudflare`) |
+| `model` | VARCHAR(100) | NOT NULL | Phiên bản model sử dụng (ví dụ: `gemini-flash-lite-latest`, `@cf/black-forest-labs/flux-1-schnell`) |
+| `status` | ENUM | Default: 'PENDING', NOT NULL | Trạng thái job: `PENDING`, `PROCESSING`, `SUCCESS`, `FAILED` |
+| `prompt` | TEXT | NOT NULL | Prompt đầy đủ gửi lên AI (JSON) |
+| `response` | TEXT | Nullable | Kết quả JSON; NULL khi PENDING/FAILED |
+| `errorMessage` | VARCHAR(500) | Nullable | Thông báo lỗi thân thiện khi FAILED |
+| `creditCost` | INTEGER | NOT NULL | Số credit đã trừ; set `0` khi đã hoàn credit |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm gọi AI |
+| `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật trạng thái gần nhất |
 
 ### 2.10. Bảng `credit_transactions` (Nhật ký giao dịch Credit)
 Lịch sử thay đổi tài chính trong Workspace. Phục vụ truy vết số dư.
