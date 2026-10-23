@@ -7,14 +7,15 @@ import Button from '@/components/ui/Button';
 import GoogleLoginButton from '@/components/auth/GoogleLoginButton';
 import { useRegister, useGoogleLogin } from '@/hooks/useAuth';
 import { registerSchema, type RegisterFormValues } from '@/services/auth';
-import { getSafeRedirect } from '@/utils/redirect';
+import { getSafeRedirect, withRedirect } from '@/utils/redirect';
 
 export const RegisterPage = () => {
   const registerAccount = useRegister();
   const googleLogin = useGoogleLogin();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirectTo = getSafeRedirect(searchParams.get('redirect'));
+  const redirectParam = searchParams.get('redirect');
+  const redirectTo = getSafeRedirect(redirectParam);
   const {
     register,
     handleSubmit,
@@ -93,7 +94,7 @@ export const RegisterPage = () => {
 
       <p className="mt-4 text-center text-sm text-muted">
         Đã có tài khoản?{' '}
-        <Link to="/login" className="text-accent-text hover:underline">
+        <Link to={withRedirect('/login', redirectParam)} className="text-accent-text hover:underline">
           Đăng nhập
         </Link>
       </p>
