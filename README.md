@@ -53,6 +53,7 @@ npm run worker
 | Biến | Ý nghĩa |
 | :--- | :--- |
 | `DATABASE_URL` | Chuỗi kết nối PostgreSQL (kèm `connection_limit`) |
+| `DIRECT_URL` | Chuỗi kết nối trực tiếp cho Prisma Migrate (Neon: bỏ `-pooler` ở host) |
 | `REDIS_URL` | Redis (BullMQ + cache). Upstash dùng `rediss://` (TLS) |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Tối thiểu 32 ký tự |
 | `AES_SECRET_KEY` | Khoá mã hoá token 3rd party, tối thiểu 32 ký tự |
