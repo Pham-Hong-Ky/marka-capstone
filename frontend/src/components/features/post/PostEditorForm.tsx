@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +8,10 @@ import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import ImageUploadField from '@/components/ui/ImageUploadField';
+import PostAIAssistant from './PostAIAssistant';
+import PostAIImageGenerator from './PostAIImageGenerator';
 import { EMPTY_DOC, isContentEmpty, postEditorSchema, type PostDetail, type PostEditorValues } from '@/services/post';
+import type { AiTextResult } from '@/services/ai';
 import { useCreatePost, useDeletePostMedia, useUpdatePost, useUploadPostMedia } from '@/hooks/usePost';
 import {
   clearDraft,
@@ -30,9 +33,11 @@ const DRAFT_DEBOUNCE_MS = 1000;
 export const PostEditorForm = ({
   workspaceId,
   post,
+  initialAiGenerationId = null,
 }: {
   workspaceId: string;
   post: PostDetail | null;
+  initialAiGenerationId?: string | null;
 }) => {
   const navigate = useNavigate();
   const createPost = useCreatePost();
@@ -56,6 +61,8 @@ export const PostEditorForm = ({
   const [contentError, setContentError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingImage[]>([]);
   const [restored, setRestored] = useState(Boolean(initialDraft));
+  const [aiBusy, setAiBusy] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
 
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
@@ -77,6 +84,28 @@ export const PostEditorForm = ({
   });
 
   const title = watch('title');
+
+  const handleApplyText = useCallback(
+    (result: AiTextResult) => {
+      reset({ title: result.title });
+      setContent(result.content as JSONContent);
+      setContentError(null);
+      setEditorKey((current) => current + 1);
+    },
+    [reset]
+  );
+
+  useEffect(() => {
+    if (!aiBusy) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [aiBusy]);
 
   useEffect(() => {
     if (initialDraft) {
@@ -135,6 +164,8 @@ export const PostEditorForm = ({
   };
 
   const onSubmit = handleSubmit(async (values) => {
+    if (aiBusy) return;
+
     if (isContentEmpty(content)) {
       setContentError('Nội dung không được để trống');
       return;
@@ -182,17 +213,28 @@ export const PostEditorForm = ({
         </div>
       ) : null}
 
+      <PostAIAssistant
+        workspaceId={workspaceId}
+        postId={post?.id ?? null}
+        disabled={isSaving}
+        onBusyChange={setAiBusy}
+        onApplyText={handleApplyText}
+      />
+
       <TextField
         label="Tiêu đề"
         placeholder="Ví dụ: Khuyến mãi mùa thu"
         error={errors.title?.message}
+        disabled={aiBusy || isSaving}
         {...register('title')}
       />
 
       <div className="space-y-1.5">
         <span className="block text-sm font-medium text-foreground">Nội dung</span>
         <RichTextEditor
+          key={editorKey}
           value={content}
+          editable={!aiBusy}
           onChange={(json) => {
             setContent(json);
             setContentError(null);
@@ -212,6 +254,14 @@ export const PostEditorForm = ({
                 className="relative overflow-hidden rounded-lg border border-border"
               >
                 <img src={media.url} alt="" className="h-24 w-full object-cover" />
+                {media.source === 'AI_GENERATED' ? (
+                  <span
+                    title="Ảnh tạo bởi AI"
+                    className="absolute bottom-2 left-2 rounded-md bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-accent-text"
+                  >
+                    AI
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   aria-label="Gỡ ảnh"
@@ -249,16 +299,26 @@ export const PostEditorForm = ({
           label="Thêm ảnh"
           hint="JPG, PNG hoặc WEBP, tối đa 10MB. Ảnh sẽ được tải lên khi lưu bài."
           maxSize={10 * 1024 * 1024}
-          disabled={isSaving}
+          disabled={isSaving || aiBusy}
           onSelect={addImage}
+        />
+
+        <PostAIImageGenerator
+          workspaceId={workspaceId}
+          postId={post?.id ?? null}
+          title={title}
+          content={content}
+          disabled={isSaving || aiBusy}
+          pendingImageCount={pending.length}
+          initialImageGenerationId={initialAiGenerationId}
         />
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={cancel}>
+        <Button type="button" variant="outline" onClick={cancel} disabled={aiBusy}>
           Hủy
         </Button>
-        <Button type="submit" isLoading={isSaving}>
+        <Button type="submit" isLoading={isSaving} disabled={aiBusy}>
           {post ? 'Lưu' : 'Tạo bài viết'}
         </Button>
       </div>
