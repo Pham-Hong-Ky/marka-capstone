@@ -297,6 +297,32 @@ describe('Channel (UC27, UC28, UC29)', () => {
     ]);
   });
 
+  it('UC28 — Lưu được avatar URL dài hơn 255 ký tự', async () => {
+    const longAvatar = `https://scontent.example.com/${'a'.repeat(300)}.jpg`;
+    const sessionId = await createOauthSession([
+      {
+        id: 'page-long-avatar',
+        name: 'Page Avatar Dài',
+        access_token: 'page-token-long-avatar',
+        picture: { data: { url: longAvatar } },
+      },
+    ]);
+
+    const res = await request(app)
+      .post(`/api/v1/channels/facebook/oauth/session/${sessionId}/connect`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .set('x-workspace-id', wsId)
+      .send({ pageIds: ['page-long-avatar'] });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.channels[0].avatar).toBe(longAvatar);
+
+    const row = await prisma.channelConnection.findFirst({
+      where: { workspaceId: wsId, externalAccountId: 'page-long-avatar' },
+    });
+    expect(row?.avatar).toBe(longAvatar);
+  });
+
   it('UC28 — URL lấy workspace từ header, không dùng query lệch', async () => {
     const urlRes = await request(app)
       .get(`/api/v1/channels/facebook/oauth/url?workspaceId=${outsiderWorkspaceId}`)
@@ -400,7 +426,7 @@ describe('Channel (UC27, UC28, UC29)', () => {
       where: { workspaceId: wsId, externalAccountId: 'page-1' },
     });
     const post = await prisma.post.create({
-      data: { workspaceId: wsId, title: 'Bài lên lịch', content: {} },
+      data: { workspaceId: wsId, title: 'Bài lên lịch', content: {}, status: 'SCHEDULED' },
     });
     const scheduled = await prisma.scheduledPost.create({
       data: {
@@ -424,6 +450,9 @@ describe('Channel (UC27, UC28, UC29)', () => {
     // mục tiêu nghiệp vụ là không còn lịch đăng nào chạy trên kênh đã ngắt.
     const schedule = await prisma.scheduledPost.findUnique({ where: { id: scheduled.id } });
     expect(schedule).toBeNull();
+
+    const savedPost = await prisma.post.findUnique({ where: { id: post.id } });
+    expect(savedPost?.status).toBe('APPROVED');
   });
 
   it('UC29 — Thiếu workspace header bị từ chối', async () => {

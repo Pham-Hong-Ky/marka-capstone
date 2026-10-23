@@ -10,6 +10,21 @@ export class FacebookTokenExpiredError extends BadRequestError {
   }
 }
 
+/** Lỗi tạm thời (mạng/5xx) — có thể thử lại an toàn. */
+export class FacebookTransientError extends BadRequestError {
+  constructor(message = 'Không thể kết nối tới Facebook. Vui lòng thử lại.') {
+    super(message);
+    this.name = 'FacebookTransientError';
+  }
+}
+
+export class FacebookRateLimitError extends FacebookTransientError {
+  constructor(message = 'Facebook đang giới hạn tần suất. Hệ thống sẽ thử lại sau.') {
+    super(message);
+    this.name = 'FacebookRateLimitError';
+  }
+}
+
 export interface FacebookPage {
   id: string;
   name: string;
@@ -73,16 +88,38 @@ export class FacebookClient {
     return false;
   }
 
-  private async graphGet<T>(path: string, params: Record<string, string>): Promise<T> {
+  private async graphRequest<T>(
+    method: 'GET' | 'POST',
+    path: string,
+    params: Record<string, string>,
+    form?: Record<string, string>,
+    timeoutMs = 10_000
+  ): Promise<T> {
     const url = new URL(`${this.graphBase}${path}`);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      const body = (await response.json()) as T & FacebookErrorBody;
+      const init: RequestInit = {
+        method,
+        signal: AbortSignal.timeout(timeoutMs),
+      };
+      if (form) {
+        init.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+        init.body = new URLSearchParams(form).toString();
+      }
 
-      if (!response.ok || body.error) {
-        const err = body.error;
+      const response = await fetch(url, init);
+
+      const rawBody = await response.text();
+      let body: (T & FacebookErrorBody) | null = null;
+      try {
+        body = rawBody ? (JSON.parse(rawBody) as T & FacebookErrorBody) : null;
+      } catch {
+        body = null;
+      }
+
+      const err = body?.error;
+      if (!response.ok || err) {
         const message = err?.message ?? `HTTP ${response.status}`;
         logger.warn(
           `Facebook Graph API lỗi [code: ${err?.code ?? 'N/A'}, subcode: ${err?.error_subcode ?? 'N/A'}]: ${message}`
@@ -90,6 +127,16 @@ export class FacebookClient {
 
         if (err?.code === 190) {
           throw new FacebookTokenExpiredError();
+        }
+
+        if (
+          err?.code === 4 ||
+          err?.code === 17 ||
+          err?.code === 32 ||
+          err?.code === 613 ||
+          response.status === 429
+        ) {
+          throw new FacebookRateLimitError();
         }
 
         if (
@@ -103,19 +150,69 @@ export class FacebookClient {
           throw new BadRequestError('Tài khoản Facebook không đủ quyền hoặc đã từ chối cấp quyền.');
         }
 
+        if (response.status >= 500) {
+          throw new FacebookTransientError('Facebook đang gặp sự cố. Hệ thống sẽ thử lại sau.');
+        }
+
         throw new BadRequestError(
           err?.message ? `Facebook: ${err.message}` : 'Facebook từ chối yêu cầu. Vui lòng thử lại.'
         );
       }
 
-      return body;
+      return (body ?? {}) as T;
     } catch (error) {
       if (error instanceof BadRequestError) throw error;
 
       const message = error instanceof Error ? error.message : String(error);
       logger.warn(`Không gọi được Facebook Graph API: ${message}`);
-      throw new BadRequestError('Không thể kết nối tới Facebook. Vui lòng thử lại.');
+      throw new FacebookTransientError();
     }
+  }
+
+  private async graphGet<T>(path: string, params: Record<string, string>): Promise<T> {
+    return this.graphRequest<T>('GET', path, params);
+  }
+
+  async uploadPagePhoto(pageId: string, accessToken: string, imageUrl: string): Promise<string> {
+    const response = await this.graphRequest<{ id: string }>(
+      'POST',
+      `/${pageId}/photos`,
+      {},
+      {
+        published: 'false',
+        url: imageUrl,
+        access_token: accessToken,
+      },
+      30_000
+    );
+
+    return response.id;
+  }
+
+  async createPageFeedPost(
+    pageId: string,
+    accessToken: string,
+    message: string,
+    mediaIds: string[] = []
+  ): Promise<string> {
+    const form: Record<string, string> = {
+      message,
+      access_token: accessToken,
+    };
+
+    if (mediaIds.length > 0) {
+      form.attached_media = JSON.stringify(mediaIds.map((id) => ({ media_fbid: id })));
+    }
+
+    const response = await this.graphRequest<{ id: string }>(
+      'POST',
+      `/${pageId}/feed`,
+      {},
+      form,
+      30_000
+    );
+
+    return response.id;
   }
 
   async exchangeCodeForToken(code: string): Promise<string> {

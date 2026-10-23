@@ -5,7 +5,7 @@ import healthController from '../modules/health/health.controller.js';
 import { validate } from '../middlewares/validate.js';
 import { requireAuth, requireWorkspaceRole, optionalAuth } from '../middlewares/auth.js';
 import { uploadPostMedia } from '../middlewares/upload.js';
-import { authLimiter, loginLimiter } from '../middlewares/rateLimiter.js';
+import { authLimiter, loginLimiter, aiLimiter } from '../middlewares/rateLimiter.js';
 import {
   registerSchema,
   loginSchema,
@@ -48,6 +48,18 @@ import {
   deletePostMediaSchema,
   reviewPostSchema,
 } from '../modules/post/post.validation.js';
+import scheduleController from '../modules/schedule/schedule.controller.js';
+import {
+  createScheduleSchema,
+  listSchedulesSchema,
+  scheduleIdSchema,
+} from '../modules/schedule/schedule.validation.js';
+import aiController from '../modules/ai/ai.controller.js';
+import {
+  generateTextSchema,
+  generateImageSchema,
+  generationIdSchema,
+} from '../modules/ai/ai.validation.js';
 
 const router = Router();
 
@@ -249,6 +261,54 @@ router.patch(
   validate(reviewPostSchema),
   requireWorkspaceRole('OWNER'),
   postController.reviewPost
+);
+
+// AI assistant (UC07 — sinh nội dung & ảnh cho bài viết)
+router.post(
+  '/workspaces/:workspaceId/ai/text',
+  requireAuth,
+  validate(generateTextSchema),
+  requireWorkspaceRole(),
+  aiLimiter,
+  aiController.generateText
+);
+router.post(
+  '/workspaces/:workspaceId/ai/images',
+  requireAuth,
+  validate(generateImageSchema),
+  requireWorkspaceRole(),
+  aiLimiter,
+  aiController.generateImage
+);
+router.get(
+  '/workspaces/:workspaceId/ai/generations/:generationId',
+  requireAuth,
+  validate(generationIdSchema),
+  requireWorkspaceRole(),
+  aiController.getGeneration
+);
+
+// Schedule — đăng ngay / lên lịch lên Facebook Page (UC13, UC14, UC16, UC37)
+router.post(
+  '/workspaces/:workspaceId/posts/:postId/schedules',
+  requireAuth,
+  validate(createScheduleSchema),
+  requireWorkspaceRole(),
+  scheduleController.createSchedules
+);
+router.get(
+  '/workspaces/:workspaceId/schedules',
+  requireAuth,
+  validate(listSchedulesSchema),
+  requireWorkspaceRole(),
+  scheduleController.listSchedules
+);
+router.delete(
+  '/workspaces/:workspaceId/schedules/:scheduleId',
+  requireAuth,
+  validate(scheduleIdSchema),
+  requireWorkspaceRole(),
+  scheduleController.cancelSchedule
 );
 
 export default router;

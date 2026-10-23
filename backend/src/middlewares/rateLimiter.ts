@@ -62,6 +62,7 @@ export const createWorkspaceLimiter = ({
   return rateLimit({
     windowMs,
     max,
+    skip: skipInTest,
     keyGenerator: getClientOrWorkspaceKey,
     validate: { keyGeneratorIpFallback: false },
     message: {

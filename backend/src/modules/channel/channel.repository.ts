@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../../config/db.js';
+import { recomputePostStatus } from '../schedule/schedule.repository.js';
 
 export const CHANNEL_PUBLIC_SELECT = {
   id: true,
@@ -104,11 +105,21 @@ export const updateChannelStatus = async (
 
 export const deleteChannelAndCancelSchedules = async (channelId: string): Promise<void> => {
   await prisma.$transaction(async (tx) => {
+    const affectedPosts = await tx.scheduledPost.findMany({
+      where: { channelId },
+      select: { postId: true },
+      distinct: ['postId'],
+    });
+
     await tx.scheduledPost.updateMany({
       where: { channelId, status: 'SCHEDULED' },
       data: { status: 'CANCELLED' },
     });
     await tx.channelConnection.delete({ where: { id: channelId } });
+
+    for (const { postId } of affectedPosts) {
+      await recomputePostStatus(tx, postId);
+    }
   });
 };
 
