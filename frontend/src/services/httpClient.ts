@@ -72,7 +72,12 @@ httpClient.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then(() => httpClient(originalRequest))
+          .then(() => {
+            // Request xếp hàng vẫn mang token cũ; interceptor request không ghi đè header có sẵn.
+            originalRequest._retry = true;
+            originalRequest.headers.Authorization = `Bearer ${localStorage.getItem('access_token')}`;
+            return httpClient(originalRequest);
+          })
           .catch((err) => Promise.reject(err));
       }
 
