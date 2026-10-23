@@ -8,7 +8,7 @@ export const findWorkspaceById = async (workspaceId: string) => {
   });
 };
 
-export const getWorkspaceBrandVoice = async (workspaceId: string) => {
+export const getBrandVoiceByWorkspaceId = async (workspaceId: string) => {
   return prisma.workspace.findUnique({
     where: { id: workspaceId },
     select: { brandVoice: true },
@@ -28,6 +28,6 @@ export const updateWorkspaceBrandVoice = async (
 
 export default {
   findWorkspaceById,
-  getWorkspaceBrandVoice,
+  getBrandVoiceByWorkspaceId,
   updateWorkspaceBrandVoice,
 };

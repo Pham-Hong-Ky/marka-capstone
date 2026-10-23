@@ -261,7 +261,7 @@ Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIR
   - bài được gửi duyệt (type `POST_SUBMITTED`, gửi các Owner);
   - bài được duyệt/từ chối (type `POST_APPROVED`/`POST_REJECTED`, gửi tác giả).
 - **Email bài viết**: `post.notification.ts` gửi email cho Owner khi có bài chờ duyệt và cho tác giả khi bài được duyệt/từ chối, dùng template trong `templates/postReviewEmail.ts`.
-- API hiện **chưa có endpoint đọc/đánh dấu đã đọc** thông báo.
+- API hiện **chưa có endpoint đọc danh sách** thông báo.
 - **Log**: Winston; development log màu + text, production log JSON; morgan ghi access log qua `morganStream`.
 - **Health**: `GET /health` trả uptime, trạng thái DB (`SELECT 1`), Redis (`PING`), RSS, timestamp, version. Endpoint công khai, không yêu cầu auth.
 
@@ -292,6 +292,5 @@ Các mục dưới đây **chưa được triển khai**; tài liệu chi tiết
 - Lịch đăng bài, publish worker thật, Calendar.
 - Post Analytics, `PostMetric`, n8n.
 - Admin panel, quản lý user/workspace, dashboard hệ thống.
-- API Notification (đọc/đánh dấu đã đọc), WebSocket/SSE.
-- Gửi email xác thực tài khoản (OTP).
-- Giao việc cho thành viên (UC49/UC50).
+- API Notification (đọc thông báo), WebSocket/SSE.
+- Giao việc cho thành viên (UC42/UC43).

@@ -6,7 +6,7 @@ import { NotFoundError } from '../../utils/errors/index.js';
 const dedupeKeywords = (keywords: string[]) => [...new Set(keywords)];
 
 export const getBrandVoice = async (workspaceId: string) => {
-  const workspace = await brandVoiceRepository.getWorkspaceBrandVoice(workspaceId);
+  const workspace = await brandVoiceRepository.getBrandVoiceByWorkspaceId(workspaceId);
   if (!workspace) {
     throw new NotFoundError('Workspace không tồn tại');
   }

@@ -11,8 +11,7 @@
 
 | UC | Chức năng | Tác nhân |
 | :--- | :--- | :--- |
-| **UC42** | Xem chỉ số tương tác của một bài đã đăng | Creator, Owner |
-| **UC43** | Xem tổng quan hiệu quả của workspace | Creator, Owner |
+| **UC39** | Xem tổng quan hiệu quả của workspace | Creator, Owner |
 
 Chỉ số dự kiến: **reactions, comments, shares** cho bài đăng trên Facebook Page thật. `reach`/`impressions` chỉ hiển thị khi Facebook trả về (phụ thuộc Page Insights).
 
@@ -74,6 +73,6 @@ Không có hàm/service nào cho:
 1. **Phụ thuộc bắt buộc:** hoàn thành publish bài thật (Phân hệ 4) và lưu `externalPostId` + `status = PUBLISHED`.
 2. **Đồng bộ:** gọi các edge `/{post-id}?fields=shares,permalink_url`, `/{post-id}/comments?summary=true`, `/{post-id}/reactions?summary=true` bằng Page token đã giải mã; upsert `PostMetric` (idempotent theo `scheduledPostId`), ghi `fetchedAt`/`syncError`.
 3. **Làm mới thủ công:** endpoint refresh cho 1 bài, có rate limit.
-4. **API xem (UC42, UC43):** chỉ số theo bài và tổng hợp workspace (tổng/trung bình/top bài), lọc theo khoảng thời gian/kênh.
+4. **API xem (UC39):** tổng hợp hiệu quả workspace (tổng/trung bình/top bài), lọc theo khoảng thời gian/kênh.
 5. **Tuỳ chọn:** reach/impressions qua Insights (chỉ hiển thị khi có dữ liệu); snapshot theo thời gian nếu cần biểu đồ xu hướng.
 6. **n8n (nếu dùng):** chỉ dùng để kích hoạt đồng bộ metrics qua endpoint nội bộ có API key; **không** dùng n8n để đăng bài.

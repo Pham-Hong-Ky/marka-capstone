@@ -4,7 +4,7 @@
 > Nội dung bám theo code đang chạy: `backend/src/routes/index.ts`, `backend/src/modules/**`,
 > `backend/src/middlewares/**`, `backend/src/utils/**`, `backend/prisma/schema.prisma`.
 > Các tính năng chưa có endpoint (AI, credit/PayOS, admin, lịch đăng/publish, analytics/n8n,
-> API notification, UC49/UC50) **không được vẽ sơ đồ**, chỉ liệt kê ở
+> API notification, UC42/UC43) **không được vẽ sơ đồ**, chỉ liệt kê ở
 > [mục 9](#9-chưa-triển-khai-roadmap).
 
 ## Mục lục
@@ -13,12 +13,12 @@
 | :-: | :--- | :--- |
 | [0](#0-quy-ước-đọc-sơ-đồ) | Quy ước đọc sơ đồ | middleware, mã lỗi, audit |
 | [1](#1-health) | Health | `GET /health` |
-| [2](#2-auth-và-tài-khoản) | Auth và tài khoản | UC01, UC02, UC02b, UC03, UC33, UC04, `GET /users/me`, UC32 |
-| [3](#3-workspace-và-thành-viên) | Workspace và thành viên | UC16, UC35, UC17, UC18, UC19, UC20, UC21, UC22, UC23, UC36 |
-| [4](#4-brand-voice) | Brand Voice | UC24, UC25, UC26 |
-| [5](#5-channel-và-facebook-oauth) | Channel và Facebook OAuth | UC27, UC28 (4 bước), UC29 |
-| [6](#6-post-và-media) | Post và Media | UC05, UC09, UC08, UC07, UC10, UC37 |
-| [7](#7-luồng-duyệt-bài) | Luồng duyệt bài | UC11, UC14 |
+| [2](#2-auth-và-tài-khoản) | Auth và tài khoản | UC01, UC02, UC03, UC04, UC05, UC33, UC34, `GET /users/me` |
+| [3](#3-workspace-và-thành-viên) | Workspace và thành viên | UC17, UC35, UC18, UC19, UC20, UC21, UC22, UC23, UC24, UC36 |
+| [4](#4-brand-voice) | Brand Voice | UC25, UC26, UC27 |
+| [5](#5-channel-và-facebook-oauth) | Channel và Facebook OAuth | UC28, UC29 (4 bước), UC30 |
+| [6](#6-post-và-media) | Post và Media | UC06, UC08, UC09, UC10, UC11 (kèm media) |
+| [7](#7-luồng-duyệt-bài) | Luồng duyệt bài | UC12, UC15 |
 | [8](#8-bảng-đối-chiếu-uc-endpoint-và-hàm) | Bảng đối chiếu UC, endpoint và hàm | — |
 | [9](#9-chưa-triển-khai-roadmap) | Chưa triển khai (Roadmap) | — |
 
@@ -256,7 +256,7 @@ sequenceDiagram
 `loginLimiter` chỉ đếm request **thất bại** (`skipSuccessfulRequests`), key là `IP:email`.
 Sai email và sai mật khẩu trả cùng một message để tránh dò tài khoản.
 
-### UC02b. Đăng nhập Google (`POST /auth/google`)
+### UC03. Đăng nhập Google (`POST /auth/google`)
 
 ```mermaid
 sequenceDiagram
@@ -329,7 +329,7 @@ sequenceDiagram
 Backend chỉ liên kết tài khoản local với Google khi `email_verified = true`; nếu user đã có
 `googleId` thì đăng nhập luôn, không ghi đè.
 
-### UC03. Đăng xuất (`POST /auth/logout`)
+### UC04. Đăng xuất (`POST /auth/logout`)
 
 ```mermaid
 sequenceDiagram
@@ -379,64 +379,7 @@ sequenceDiagram
 Body `{ refreshToken }` được validate nhưng service **không dùng**; mọi access/refresh token
 cũ mất hiệu lực nhờ tăng `tokenVersion`.
 
-### UC33. Làm mới token (`POST /auth/refresh-token`)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor U as Client
-    participant RT as routes/index.ts
-    participant V as validate
-    participant C as authController.refreshToken
-    participant S as authService.refreshToken
-    participant R as userRepository
-    participant DB as PostgreSQL
-
-    U->>RT: POST /api/v1/auth/refresh-token kèm cookie hoặc body
-    RT->>V: validate(refreshTokenSchema)
-    alt Body sai schema
-        V-->>U: 422 Dữ liệu không hợp lệ
-    else Hợp lệ
-        V->>C: refreshToken(req, res)
-        C->>C: token = req.cookies.refreshToken hoặc req.body.refreshToken
-        C->>S: refreshToken(token)
-
-        alt Không có token
-            S-->>C: throw UnauthorizedError
-            C-->>U: 401 Refresh token không được để trống
-        else Có token
-            S->>S: verifyRefreshToken(token)
-            alt Token sai hoặc hết hạn
-                S-->>C: throw UnauthorizedError
-                C-->>U: 401 Refresh token không hợp lệ hoặc đã hết hạn
-            else Token hợp lệ
-                S->>R: findUserById(decoded.id)
-                R->>DB: prisma.user.findUnique
-                DB-->>R: User hoặc null
-                alt Không có user hoặc tokenVersion lệch
-                    S-->>C: throw UnauthorizedError
-                    C-->>U: 401 Phiên đăng nhập đã hết hạn
-                else Hợp lệ
-                    S->>S: assertNotSuspended(user)
-                    alt isSuspended = true
-                        S-->>C: throw ForbiddenError
-                        C-->>U: 403 Tài khoản đã bị tạm khóa
-                    else Tài khoản hoạt động
-                        S->>S: issueTokens(user)
-                        S-->>C: accessToken, refreshToken mới
-                        C->>C: setRefreshTokenCookie(res, refreshToken mới)
-                        C-->>U: 200 accessToken, cookie refreshToken mới
-                    end
-                end
-            end
-        end
-    end
-```
-
-Endpoint không yêu cầu access token. Response chỉ trả `accessToken`; refresh token mới đi qua
-cookie `refreshToken`.
-
-### UC04. Đổi mật khẩu (`PATCH /users/me/password`)
+### UC05. Đổi mật khẩu (`PATCH /users/me/password`)
 
 ```mermaid
 sequenceDiagram
@@ -537,7 +480,7 @@ sequenceDiagram
 
 `requireAuth` đã nạp user nhưng service vẫn truy vấn lại DB để lấy kèm danh sách workspace.
 
-### UC32. Cập nhật thông tin tài khoản (`PATCH /users/me`)
+### UC33. Cập nhật thông tin tài khoản (`PATCH /users/me`)
 
 ```mermaid
 sequenceDiagram
@@ -587,11 +530,68 @@ sequenceDiagram
 Body cho phép `name` (2–100 ký tự) và `avatar` (URL hợp lệ hoặc `null`); không bắt buộc
 phải có field nào.
 
+### UC34. Làm mới token (`POST /auth/refresh-token`)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Client
+    participant RT as routes/index.ts
+    participant V as validate
+    participant C as authController.refreshToken
+    participant S as authService.refreshToken
+    participant R as userRepository
+    participant DB as PostgreSQL
+
+    U->>RT: POST /api/v1/auth/refresh-token kèm cookie hoặc body
+    RT->>V: validate(refreshTokenSchema)
+    alt Body sai schema
+        V-->>U: 422 Dữ liệu không hợp lệ
+    else Hợp lệ
+        V->>C: refreshToken(req, res)
+        C->>C: token = req.cookies.refreshToken hoặc req.body.refreshToken
+        C->>S: refreshToken(token)
+
+        alt Không có token
+            S-->>C: throw UnauthorizedError
+            C-->>U: 401 Refresh token không được để trống
+        else Có token
+            S->>S: verifyRefreshToken(token)
+            alt Token sai hoặc hết hạn
+                S-->>C: throw UnauthorizedError
+                C-->>U: 401 Refresh token không hợp lệ hoặc đã hết hạn
+            else Token hợp lệ
+                S->>R: findUserById(decoded.id)
+                R->>DB: prisma.user.findUnique
+                DB-->>R: User hoặc null
+                alt Không có user hoặc tokenVersion lệch
+                    S-->>C: throw UnauthorizedError
+                    C-->>U: 401 Phiên đăng nhập đã hết hạn
+                else Hợp lệ
+                    S->>S: assertNotSuspended(user)
+                    alt isSuspended = true
+                        S-->>C: throw ForbiddenError
+                        C-->>U: 403 Tài khoản đã bị tạm khóa
+                    else Tài khoản hoạt động
+                        S->>S: issueTokens(user)
+                        S-->>C: accessToken, refreshToken mới
+                        C->>C: setRefreshTokenCookie(res, refreshToken mới)
+                        C-->>U: 200 accessToken, cookie refreshToken mới
+                    end
+                end
+            end
+        end
+    end
+```
+
+Endpoint không yêu cầu access token. Response chỉ trả `accessToken`; refresh token mới đi qua
+cookie `refreshToken`.
+
 ---
 
 ## 3. Workspace và thành viên
 
-### UC16. Tạo workspace (`POST /workspaces`)
+### UC17. Tạo workspace (`POST /workspaces`)
 
 ```mermaid
 sequenceDiagram
@@ -680,7 +680,7 @@ sequenceDiagram
 Workspace đã xoá mềm bị loại khỏi danh sách. Mỗi phần tử trả `id`, `name`, `plan`,
 `role`, `remainingCredit`, `monthlyQuota`.
 
-### UC17. Cập nhật workspace (`PATCH /workspaces/:workspaceId`)
+### UC18. Cập nhật workspace (`PATCH /workspaces/:workspaceId`)
 
 ```mermaid
 sequenceDiagram
@@ -736,7 +736,7 @@ sequenceDiagram
 `SYSTEM_ADMIN` được `requireWorkspaceRole` cho qua với `workspaceRole = OWNER` mà không cần
 bản ghi `WorkspaceMember`.
 
-### UC18. Xoá workspace (`DELETE /workspaces/:workspaceId`)
+### UC19. Xoá workspace (`DELETE /workspaces/:workspaceId`)
 
 ```mermaid
 sequenceDiagram
@@ -790,7 +790,7 @@ sequenceDiagram
 `WORKSPACE_DELETE` chỉ có `actorId`, `targetType`, `targetId` (service không truyền
 `workspaceId`).
 
-### UC19. Danh sách thành viên (`GET /workspaces/:workspaceId/members`)
+### UC20. Danh sách thành viên (`GET /workspaces/:workspaceId/members`)
 
 ```mermaid
 sequenceDiagram
@@ -842,7 +842,7 @@ sequenceDiagram
 `pendingInvites` chỉ gồm lời mời chưa dùng và còn hạn. Member trả `memberId`, `userId`,
 `name`, `email`, `avatar`, `role`, `allowDirectPublish`, `status = ACTIVE`, `joinedAt`.
 
-### UC20. Mời thành viên (`POST /workspaces/:workspaceId/invites`)
+### UC21. Mời thành viên (`POST /workspaces/:workspaceId/invites`)
 
 ```mermaid
 sequenceDiagram
@@ -924,7 +924,7 @@ sequenceDiagram
 Email được gửi **trước** khi ghi/ghi đè lời mời; gửi lỗi thì không tạo bản ghi. Mời lại cùng
 email sẽ cấp token và hạn mới, token cũ hết hiệu lực.
 
-### UC21. Chấp nhận lời mời (`GET /invites/:token`)
+### UC22. Chấp nhận lời mời (`GET /invites/:token`)
 
 ```mermaid
 sequenceDiagram
@@ -1007,7 +1007,7 @@ sequenceDiagram
 Token sai/hết hạn không làm `optionalAuth` trả lỗi; request tiếp tục như khách. Lời mời đã dùng
 vẫn bị chặn `409` trước khi kiểm tra người dùng.
 
-### UC22. Rời workspace (`DELETE /workspaces/:workspaceId/members/me`)
+### UC23. Rời workspace (`DELETE /workspaces/:workspaceId/members/me`)
 
 ```mermaid
 sequenceDiagram
@@ -1070,7 +1070,7 @@ sequenceDiagram
     end
 ```
 
-### UC23. Xoá thành viên (`DELETE /workspaces/:workspaceId/members/:memberId`)
+### UC24. Xoá thành viên (`DELETE /workspaces/:workspaceId/members/:memberId`)
 
 ```mermaid
 sequenceDiagram
@@ -1210,7 +1210,7 @@ Nếu role không đổi, service trả sớm và **không** ghi audit.
 
 ## 4. Brand Voice
 
-### UC24 và UC25. Cập nhật Brand Voice (`PUT /workspaces/:workspaceId/brand-voice`)
+### UC25 và UC26. Cập nhật Brand Voice (`PUT /workspaces/:workspaceId/brand-voice`)
 
 ```mermaid
 sequenceDiagram
@@ -1263,7 +1263,7 @@ sequenceDiagram
 Hai mảng `keywordsShouldUse` và `keywordsAvoid` được khử trùng lặp bằng `Set` trước khi lưu.
 `fewShotExamples` tối đa 3 bài, mỗi bài `content` 10–5000 ký tự.
 
-### UC26. Lấy Brand Voice (`GET /workspaces/:workspaceId/brand-voice`)
+### UC27. Lấy Brand Voice (`GET /workspaces/:workspaceId/brand-voice`)
 
 ```mermaid
 sequenceDiagram
@@ -1314,7 +1314,7 @@ Chưa cấu hình trả `brandVoice = null`, `isConfigured = false` với HTTP `
 
 ## 5. Channel và Facebook OAuth
 
-### UC27. Danh sách kênh (`GET /workspaces/:workspaceId/channels`)
+### UC28. Danh sách kênh (`GET /workspaces/:workspaceId/channels`)
 
 ```mermaid
 sequenceDiagram
@@ -1358,7 +1358,7 @@ sequenceDiagram
 
 `CHANNEL_PUBLIC_SELECT` không có `accessToken`; token Page không bao giờ trả về client.
 
-### UC28. Kết nối Facebook Page qua OAuth
+### UC29. Kết nối Facebook Page qua OAuth
 
 #### Bước 1 — Lấy URL đăng nhập Facebook (`GET /channels/facebook/oauth/url`)
 
@@ -1607,7 +1607,7 @@ sequenceDiagram
 `ChannelConnection.accessToken`; `decrypt` chỉ dùng để kiểm tra token đọc được. Nếu ciphertext
 hỏng, `decrypt` ném lỗi; `connectFacebookPages` không bắt lỗi này nên `errorHandler` trả `500`.
 
-### UC29. Ngắt kết nối kênh (`DELETE /channels/:channelId`)
+### UC30. Ngắt kết nối kênh (`DELETE /channels/:channelId`)
 
 ```mermaid
 sequenceDiagram
@@ -1670,7 +1670,7 @@ Mọi endpoint post đều yêu cầu `requireAuth` + `requireWorkspaceRole()` (
 Quyền sửa/xoá ở tầng service: `OWNER` thao tác mọi bài, `CONTENT_CREATOR` chỉ thao tác bài có
 `createdById = userId`.
 
-### UC05. Tạo bài viết (`POST /workspaces/:workspaceId/posts`)
+### UC06. Tạo bài viết (`POST /workspaces/:workspaceId/posts`)
 
 ```mermaid
 sequenceDiagram
@@ -1714,7 +1714,7 @@ sequenceDiagram
 
 Tạo bài **không** ghi audit và **không** tự gắn kênh hay lịch đăng.
 
-### UC09. Danh sách và tìm kiếm bài viết (`GET /workspaces/:workspaceId/posts`)
+### UC10. Danh sách và tìm kiếm bài viết (`GET /workspaces/:workspaceId/posts`)
 
 ```mermaid
 sequenceDiagram
@@ -1760,7 +1760,7 @@ sequenceDiagram
 `findMany` chỉ select `id`, `title`, `status`, `createdById`, `createdAt`, `updatedAt`.
 Prisma extension tự thêm `deletedAt = null` cho `Post`, nên bài xoá mềm không xuất hiện.
 
-### UC08. Xem chi tiết bài viết (`GET /workspaces/:workspaceId/posts/:postId`)
+### UC09. Xem chi tiết bài viết (`GET /workspaces/:workspaceId/posts/:postId`)
 
 ```mermaid
 sequenceDiagram
@@ -1808,7 +1808,7 @@ sequenceDiagram
 
 Bài của workspace khác trả `404` vì truy vấn luôn kèm `workspaceId`.
 
-### UC07. Cập nhật bài viết (`PATCH /workspaces/:workspaceId/posts/:postId`)
+### UC08. Cập nhật bài viết (`PATCH /workspaces/:workspaceId/posts/:postId`)
 
 ```mermaid
 sequenceDiagram
@@ -1868,7 +1868,7 @@ sequenceDiagram
     end
 ```
 
-### UC10. Xoá bài viết (`DELETE /workspaces/:workspaceId/posts/:postId`)
+### UC11. Xoá bài viết (`DELETE /workspaces/:workspaceId/posts/:postId`)
 
 ```mermaid
 sequenceDiagram
@@ -1929,7 +1929,7 @@ sequenceDiagram
 
 Xoá bài là xoá mềm (`Post.deletedAt`), không xoá `MediaAsset` liên quan và không ghi audit.
 
-### UC37. Upload và xoá media của bài viết
+### Media của bài viết (thuộc UC06/UC08)
 
 #### Upload ảnh (`POST /workspaces/:workspaceId/posts/:postId/media`)
 
@@ -2091,7 +2091,7 @@ Trạng thái bài viết chỉ chuyển qua các cặp sau (nguồn: `ALLOWED_T
 Các trạng thái `SCHEDULED`, `PUBLISHED`, `FAILED`, `ARCHIVED` có trong enum nhưng chưa có
 endpoint nào chuyển tới.
 
-### UC11. Gửi bài duyệt (`POST /workspaces/:workspaceId/posts/:postId/submit`)
+### UC12. Gửi bài duyệt (`POST /workspaces/:workspaceId/posts/:postId/submit`)
 
 ```mermaid
 sequenceDiagram
@@ -2182,7 +2182,7 @@ sequenceDiagram
 Chỉ `DRAFT` và `REJECTED` được chuyển sang `PENDING`; gửi lại bài bị từ chối sẽ xoá
 `rejectReason`. Kết quả `mailerClient.sendEmail` cho Owner **không** được kiểm tra, khác với email mời.
 
-### UC14. Duyệt hoặc từ chối bài (`PATCH /workspaces/:workspaceId/posts/:postId/review`)
+### UC15. Duyệt hoặc từ chối bài (`PATCH /workspaces/:workspaceId/posts/:postId/review`)
 
 ```mermaid
 sequenceDiagram
@@ -2275,39 +2275,39 @@ Bảng dùng để tra nhanh lớp xử lý của từng endpoint. Tên đầy �
 | Health | `GET /health` | `apiLimiter` toàn cục | `healthController.checkHealth` | `healthService.getSystemHealth` | `prisma.$queryRaw`, `cacheConnection.ping` | Không audit |
 | UC01 | `POST /auth/register` | `authLimiter`, `validate(registerSchema)` | `authController.register` | `authService.registerUser` | `userRepository.findUserByEmail`, `createUserWithDefaultWorkspace` | `USER_REGISTER`; set cookie refresh |
 | UC02 | `POST /auth/login` | `loginLimiter`, `validate(loginSchema)` | `authController.login` | `authService.login` | `userRepository.findUserByEmail` | `USER_LOGIN`; set cookie refresh |
-| UC02b | `POST /auth/google` | `authLimiter`, `validate(googleLoginSchema)` | `authController.googleLogin` | `authService.googleLogin` | `findUserByEmail`, `createUserWithDefaultWorkspace`, `linkGoogleAccount` | `USER_GOOGLE_LOGIN`; set cookie refresh |
-| UC03 | `POST /auth/logout` | `requireAuth`, `validate(logoutSchema)` | `authController.logout` | `authService.logout` | `userRepository.incrementTokenVersion` | `USER_LOGOUT`; clear cookie refresh |
-| UC33 | `POST /auth/refresh-token` | `validate(refreshTokenSchema)` | `authController.refreshToken` | `authService.refreshToken` | `userRepository.findUserById` | Cấp lại cặp token, set cookie mới |
-| UC04 | `PATCH /users/me/password` | `requireAuth`, `validate(changePasswordSchema)` | `userController.changePassword` | `userService.changePassword` | `findUserById`, `updateUser`, `incrementTokenVersion` | `USER_CHANGE_PASSWORD` |
+| UC03 | `POST /auth/google` | `authLimiter`, `validate(googleLoginSchema)` | `authController.googleLogin` | `authService.googleLogin` | `findUserByEmail`, `createUserWithDefaultWorkspace`, `linkGoogleAccount` | `USER_GOOGLE_LOGIN`; set cookie refresh |
+| UC04 | `POST /auth/logout` | `requireAuth`, `validate(logoutSchema)` | `authController.logout` | `authService.logout` | `userRepository.incrementTokenVersion` | `USER_LOGOUT`; clear cookie refresh |
+| UC05 | `PATCH /users/me/password` | `requireAuth`, `validate(changePasswordSchema)` | `userController.changePassword` | `userService.changePassword` | `findUserById`, `updateUser`, `incrementTokenVersion` | `USER_CHANGE_PASSWORD` |
 | — | `GET /users/me` | `requireAuth` | `userController.getMe` | `userService.getProfile` | `userRepository.findUserById` | Không audit |
-| UC32 | `PATCH /users/me` | `requireAuth`, `validate(updateProfileSchema)` | `userController.updateProfile` | `userService.updateProfile` | `userRepository.updateUser` | `USER_UPDATE_PROFILE` |
-| UC16 | `POST /workspaces` | `requireAuth`, `validate(createWorkspaceSchema)` | `workspaceController.createWorkspace` | `workspaceService.createWorkspace` | `findWorkspaceByNameAndOwner`, `createWorkspaceWithOwner` | `WORKSPACE_CREATE` |
+| UC33 | `PATCH /users/me` | `requireAuth`, `validate(updateProfileSchema)` | `userController.updateProfile` | `userService.updateProfile` | `userRepository.updateUser` | `USER_UPDATE_PROFILE` |
+| UC34 | `POST /auth/refresh-token` | `validate(refreshTokenSchema)` | `authController.refreshToken` | `authService.refreshToken` | `userRepository.findUserById` | Cấp lại cặp token, set cookie mới |
+| UC17 | `POST /workspaces` | `requireAuth`, `validate(createWorkspaceSchema)` | `workspaceController.createWorkspace` | `workspaceService.createWorkspace` | `findWorkspaceByNameAndOwner`, `createWorkspaceWithOwner` | `WORKSPACE_CREATE` |
 | UC35 | `GET /workspaces` | `requireAuth` | `workspaceController.listWorkspaces` | `workspaceService.listMyWorkspaces` | `findWorkspacesByUserId` | Không audit |
-| UC17 | `PATCH /workspaces/:workspaceId` | `requireAuth`, `validate(updateWorkspaceSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.updateWorkspace` | `workspaceService.updateWorkspace` | `findWorkspaceById`, `updateWorkspace` | `WORKSPACE_UPDATE` |
-| UC18 | `DELETE /workspaces/:workspaceId` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.deleteWorkspace` | `workspaceService.deleteWorkspace` | `findWorkspaceById`, `softDeleteWorkspace` | `WORKSPACE_DELETE`; xoá mềm |
-| UC19 | `GET /workspaces/:workspaceId/members` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `workspaceController.listMembers` | `workspaceService.listMembers` | `findWorkspaceById`, `findMembersByWorkspace`, `findPendingInvitesByWorkspace` | Không audit |
-| UC20 | `POST /workspaces/:workspaceId/invites` | `requireAuth`, `validate(inviteMemberSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.inviteMember` | `workspaceService.inviteMember` | `findWorkspaceById`, `findUserByEmail`, `findMember`, `findActiveInviteByEmail`, `createInvite` / `refreshInvite` | `MEMBER_INVITED`; `mailerClient.sendEmail`, lỗi gửi → 502 |
-| UC21 | `GET /invites/:token` | `optionalAuth`, `validate(inviteTokenSchema)` | `workspaceController.acceptInvite` | `workspaceService.acceptInvite` | `findInviteByToken`, `findMember`, `markInviteUsed`, `acceptInviteAsMember`, `findOwnerIds`, `createNotification` | `MEMBER_JOINED`; notification Owner |
-| UC22 | `DELETE /workspaces/:workspaceId/members/me` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `workspaceController.leaveWorkspace` | `workspaceService.leaveWorkspace` | `findMember`, `countOwners`, `deleteMember` | `MEMBER_LEFT` |
-| UC23 | `DELETE /workspaces/:workspaceId/members/:memberId` | `requireAuth`, `validate(memberActionSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.removeMember` | `workspaceService.removeMember` | `findMember`, `countOwners`, `deleteMember` | `MEMBER_REMOVED`; `memberId` là userId |
+| UC18 | `PATCH /workspaces/:workspaceId` | `requireAuth`, `validate(updateWorkspaceSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.updateWorkspace` | `workspaceService.updateWorkspace` | `findWorkspaceById`, `updateWorkspace` | `WORKSPACE_UPDATE` |
+| UC19 | `DELETE /workspaces/:workspaceId` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.deleteWorkspace` | `workspaceService.deleteWorkspace` | `findWorkspaceById`, `softDeleteWorkspace` | `WORKSPACE_DELETE`; xoá mềm |
+| UC20 | `GET /workspaces/:workspaceId/members` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `workspaceController.listMembers` | `workspaceService.listMembers` | `findWorkspaceById`, `findMembersByWorkspace`, `findPendingInvitesByWorkspace` | Không audit |
+| UC21 | `POST /workspaces/:workspaceId/invites` | `requireAuth`, `validate(inviteMemberSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.inviteMember` | `workspaceService.inviteMember` | `findWorkspaceById`, `findUserByEmail`, `findMember`, `findActiveInviteByEmail`, `createInvite` / `refreshInvite` | `MEMBER_INVITED`; `mailerClient.sendEmail`, lỗi gửi → 502 |
+| UC22 | `GET /invites/:token` | `optionalAuth`, `validate(inviteTokenSchema)` | `workspaceController.acceptInvite` | `workspaceService.acceptInvite` | `findInviteByToken`, `findMember`, `markInviteUsed`, `acceptInviteAsMember`, `findOwnerIds`, `createNotification` | `MEMBER_JOINED`; notification Owner |
+| UC23 | `DELETE /workspaces/:workspaceId/members/me` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `workspaceController.leaveWorkspace` | `workspaceService.leaveWorkspace` | `findMember`, `countOwners`, `deleteMember` | `MEMBER_LEFT` |
+| UC24 | `DELETE /workspaces/:workspaceId/members/:memberId` | `requireAuth`, `validate(memberActionSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.removeMember` | `workspaceService.removeMember` | `findMember`, `countOwners`, `deleteMember` | `MEMBER_REMOVED`; `memberId` là userId |
 | UC36 | `PATCH /workspaces/:workspaceId/members/:memberId` | `requireAuth`, `validate(changeMemberRoleSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.changeMemberRole` | `workspaceService.changeMemberRole` | `findMember`, `countOwners`, `updateMemberRole` | `MEMBER_ROLE_CHANGED`; đổi cùng role thì bỏ qua |
-| UC26 | `GET /workspaces/:workspaceId/brand-voice` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `brandVoiceController.getBrandVoice` | `brandVoiceService.getBrandVoice` | `brandVoiceRepository.getWorkspaceBrandVoice` | Không audit |
-| UC24, UC25 | `PUT /workspaces/:workspaceId/brand-voice` | `requireAuth`, `validate(brandVoiceSchema)`, `requireWorkspaceRole('OWNER')` | `brandVoiceController.updateBrandVoice` | `brandVoiceService.updateBrandVoice` | `findWorkspaceById`, `updateWorkspaceBrandVoice` | `BRAND_VOICE_UPDATED`; dedupe keyword |
-| UC27 | `GET /workspaces/:workspaceId/channels` | `requireAuth`, `validate(listChannelsSchema)`, `requireWorkspaceRole()` | `channelController.listChannels` | `channelService.listChannels` | `findChannelsByWorkspace` | Không trả `accessToken` |
-| UC28.1 | `GET /channels/facebook/oauth/url` | `requireAuth`, `validate(facebookOauthUrlSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.getFacebookAuthUrl` | `channelService.createFacebookAuthUrl` | `oauthStore.saveOauthState`, `facebook.buildAuthorizationUrl` | Redis state TTL 600s |
-| UC28.2 | `GET /channels/facebook/oauth/callback` | `validate(facebookCallbackSchema)` | `channelController.facebookCallback` | `channelService.handleFacebookCallback` | `oauthStore.consumeOauthState`, `facebook.exchangeCodeForToken`, `exchangeForLongLivedToken`, `fetchManagedPages`, `oauthStore.saveOauthSession` | `encrypt` token Page; redirect 302 |
-| UC28.3 | `GET /channels/facebook/oauth/session/:sessionId` | `requireAuth`, `validate(oauthSessionSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.getPendingFacebookPages` | `channelService.getFacebookPendingPages` | `oauthStore.getOauthSession` | Không trả token |
-| UC28.4 | `POST /channels/facebook/oauth/session/:sessionId/connect` | `requireAuth`, `validate(connectFacebookSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.connectFacebookPages` | `channelService.connectFacebookPages` | `oauthStore.getOauthSession`, `decrypt`, `upsertFacebookChannels`, `oauthStore.deleteOauthSession` | `CHANNEL_CONNECTED` từng kênh |
-| UC29 | `DELETE /channels/:channelId` | `requireAuth`, `validate(channelIdSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.disconnectChannel` | `channelService.disconnectChannel` | `findChannelInWorkspace`, `deleteChannelAndCancelSchedules` | `CHANNEL_DISCONNECTED`; huỷ lịch SCHEDULED |
-| UC05 | `POST /workspaces/:workspaceId/posts` | `requireAuth`, `validate(createPostSchema)`, `requireWorkspaceRole()` | `postController.createPost` | `postService.createPost` | `postRepository.createPost` | Không audit; status DRAFT |
-| UC09 | `GET /workspaces/:workspaceId/posts` | `requireAuth`, `validate(listPostsSchema)`, `requireWorkspaceRole()` | `postController.listPosts` | `postService.listPosts` | `listPostsAndCount` | Không audit; trả `meta` |
-| UC08 | `GET /workspaces/:workspaceId/posts/:postId` | `requireAuth`, `validate(postIdSchema)`, `requireWorkspaceRole()` | `postController.getPost` | `postService.getPost` | `findPostWithMedia` | Không audit |
-| UC07 | `PATCH /workspaces/:workspaceId/posts/:postId` | `requireAuth`, `validate(updatePostSchema)`, `requireWorkspaceRole()` | `postController.updatePost` | `postService.updatePost` | `findPostWithMedia`, `updatePost` | Không audit; kiểm tra quyền và trạng thái |
-| UC10 | `DELETE /workspaces/:workspaceId/posts/:postId` | `requireAuth`, `validate(postIdSchema)`, `requireWorkspaceRole()` | `postController.deletePost` | `postService.deletePost` | `findPostWithMedia`, `softDeletePost` | Không audit; xoá mềm |
-| UC37 | `POST /workspaces/:workspaceId/posts/:postId/media` | `requireAuth`, `validate(postMediaSchema)`, `requireWorkspaceRole()`, `uploadPostMedia` | `postController.uploadPostMedia` | `postService.uploadPostMedia` | `findPostWithMedia`, `createMedia`, `cloudinaryClient.uploadImageBuffer` | `MediaAsset` type IMAGE, source UPLOADED |
-| UC37 | `DELETE /workspaces/:workspaceId/posts/:postId/media/:mediaId` | `requireAuth`, `validate(deletePostMediaSchema)`, `requireWorkspaceRole()` | `postController.deletePostMedia` | `postService.deletePostMedia` | `findPostWithMedia`, `findMediaByIdAndPost`, `softDeleteMedia` | Xoá mềm media |
-| UC11 | `POST /workspaces/:workspaceId/posts/:postId/submit` | `requireAuth`, `validate(postIdSchema)`, `requireWorkspaceRole()` | `postController.submitPost` | `postService.submitPost` | `findPostWithMedia`, `transitionPostStatus`, `postNotification.notifyPostSubmitted` | `POST_SUBMITTED`; notification + email Owner |
-| UC14 | `PATCH /workspaces/:workspaceId/posts/:postId/review` | `requireAuth`, `validate(reviewPostSchema)`, `requireWorkspaceRole('OWNER')` | `postController.reviewPost` | `postService.reviewPost` | `findPostWithMedia`, `transitionPostStatus`, `postNotification.notifyPostReviewed` | `POST_APPROVED` / `POST_REJECTED`; notification + email tác giả |
+| UC27 | `GET /workspaces/:workspaceId/brand-voice` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `brandVoiceController.getBrandVoice` | `brandVoiceService.getBrandVoice` | `brandVoiceRepository.getWorkspaceBrandVoice` | Không audit |
+| UC25, UC26 | `PUT /workspaces/:workspaceId/brand-voice` | `requireAuth`, `validate(brandVoiceSchema)`, `requireWorkspaceRole('OWNER')` | `brandVoiceController.updateBrandVoice` | `brandVoiceService.updateBrandVoice` | `findWorkspaceById`, `updateWorkspaceBrandVoice` | `BRAND_VOICE_UPDATED`; dedupe keyword |
+| UC28 | `GET /workspaces/:workspaceId/channels` | `requireAuth`, `validate(listChannelsSchema)`, `requireWorkspaceRole()` | `channelController.listChannels` | `channelService.listChannels` | `findChannelsByWorkspace` | Không trả `accessToken` |
+| UC29.1 | `GET /channels/facebook/oauth/url` | `requireAuth`, `validate(facebookOauthUrlSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.getFacebookAuthUrl` | `channelService.createFacebookAuthUrl` | `oauthStore.saveOauthState`, `facebook.buildAuthorizationUrl` | Redis state TTL 600s |
+| UC29.2 | `GET /channels/facebook/oauth/callback` | `validate(facebookCallbackSchema)` | `channelController.facebookCallback` | `channelService.handleFacebookCallback` | `oauthStore.consumeOauthState`, `facebook.exchangeCodeForToken`, `exchangeForLongLivedToken`, `fetchManagedPages`, `oauthStore.saveOauthSession` | `encrypt` token Page; redirect 302 |
+| UC29.3 | `GET /channels/facebook/oauth/session/:sessionId` | `requireAuth`, `validate(oauthSessionSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.getPendingFacebookPages` | `channelService.getFacebookPendingPages` | `oauthStore.getOauthSession` | Không trả token |
+| UC29.4 | `POST /channels/facebook/oauth/session/:sessionId/connect` | `requireAuth`, `validate(connectFacebookSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.connectFacebookPages` | `channelService.connectFacebookPages` | `oauthStore.getOauthSession`, `decrypt`, `upsertFacebookChannels`, `oauthStore.deleteOauthSession` | `CHANNEL_CONNECTED` từng kênh |
+| UC30 | `DELETE /channels/:channelId` | `requireAuth`, `validate(channelIdSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.disconnectChannel` | `channelService.disconnectChannel` | `findChannelInWorkspace`, `deleteChannelAndCancelSchedules` | `CHANNEL_DISCONNECTED`; huỷ lịch SCHEDULED |
+| UC06 | `POST /workspaces/:workspaceId/posts` | `requireAuth`, `validate(createPostSchema)`, `requireWorkspaceRole()` | `postController.createPost` | `postService.createPost` | `postRepository.createPost` | Không audit; status DRAFT |
+| UC10 | `GET /workspaces/:workspaceId/posts` | `requireAuth`, `validate(listPostsSchema)`, `requireWorkspaceRole()` | `postController.listPosts` | `postService.listPosts` | `listPostsAndCount` | Không audit; trả `meta` |
+| UC09 | `GET /workspaces/:workspaceId/posts/:postId` | `requireAuth`, `validate(postIdSchema)`, `requireWorkspaceRole()` | `postController.getPost` | `postService.getPost` | `findPostWithMedia` | Không audit |
+| UC08 | `PATCH /workspaces/:workspaceId/posts/:postId` | `requireAuth`, `validate(updatePostSchema)`, `requireWorkspaceRole()` | `postController.updatePost` | `postService.updatePost` | `findPostWithMedia`, `updatePost` | Không audit; kiểm tra quyền và trạng thái |
+| UC11 | `DELETE /workspaces/:workspaceId/posts/:postId` | `requireAuth`, `validate(postIdSchema)`, `requireWorkspaceRole()` | `postController.deletePost` | `postService.deletePost` | `findPostWithMedia`, `softDeletePost` | Không audit; xoá mềm |
+| UC06, UC08 | `POST /workspaces/:workspaceId/posts/:postId/media` | `requireAuth`, `validate(postMediaSchema)`, `requireWorkspaceRole()`, `uploadPostMedia` | `postController.uploadPostMedia` | `postService.uploadPostMedia` | `findPostWithMedia`, `createMedia`, `cloudinaryClient.uploadImageBuffer` | `MediaAsset` type IMAGE, source UPLOADED |
+| UC06, UC08 | `DELETE /workspaces/:workspaceId/posts/:postId/media/:mediaId` | `requireAuth`, `validate(deletePostMediaSchema)`, `requireWorkspaceRole()` | `postController.deletePostMedia` | `postService.deletePostMedia` | `findPostWithMedia`, `findMediaByIdAndPost`, `softDeleteMedia` | Xoá mềm media |
+| UC12 | `POST /workspaces/:workspaceId/posts/:postId/submit` | `requireAuth`, `validate(postIdSchema)`, `requireWorkspaceRole()` | `postController.submitPost` | `postService.submitPost` | `findPostWithMedia`, `transitionPostStatus`, `postNotification.notifyPostSubmitted` | `POST_SUBMITTED`; notification + email Owner |
+| UC15 | `PATCH /workspaces/:workspaceId/posts/:postId/review` | `requireAuth`, `validate(reviewPostSchema)`, `requireWorkspaceRole('OWNER')` | `postController.reviewPost` | `postService.reviewPost` | `findPostWithMedia`, `transitionPostStatus`, `postNotification.notifyPostReviewed` | `POST_APPROVED` / `POST_REJECTED`; notification + email tác giả |
 
 Ghi chú:
 
@@ -2339,5 +2339,5 @@ Không dùng tài liệu này để suy ra API đã tồn tại.
 - **Analytics, PostMetric, n8n:** chưa có module, endpoint hay job tích hợp.
   `PostMetric` có trong schema nhưng không được ghi/đọc.
 - **API Notification:** bảng `Notification` chỉ được ghi tự động (thành viên mới, bài gửi
-  duyệt/duyệt/từ chối). Chưa có endpoint đọc danh sách, đánh dấu đã đọc, chưa có WebSocket/SSE.
-- **UC49/UC50 (giao việc cho thành viên):** chưa có model, endpoint và luồng nghiệp vụ.
+  duyệt/duyệt/từ chối). Chưa có endpoint đọc danh sách, chưa có WebSocket/SSE.
+- **UC42/UC43 (giao việc cho thành viên):** chưa có model, endpoint và luồng nghiệp vụ.

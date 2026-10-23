@@ -3,6 +3,13 @@ import env from '../../config/env.js';
 import logger from '../../utils/logger.js';
 import { BadRequestError } from '../../utils/errors/index.js';
 
+export class FacebookTokenExpiredError extends BadRequestError {
+  constructor(message = 'Phiên đăng nhập hoặc Token Facebook đã hết hạn / bị thu hồi. Vui lòng kết nối lại.') {
+    super(message);
+    this.name = 'FacebookTokenExpiredError';
+  }
+}
+
 export interface FacebookPage {
   id: string;
   name: string;
@@ -10,8 +17,16 @@ export interface FacebookPage {
   accessToken: string;
 }
 
+export interface FacebookApiError {
+  message?: string;
+  type?: string;
+  code?: number;
+  error_subcode?: number;
+  fbtrace_id?: string;
+}
+
 interface FacebookErrorBody {
-  error?: { message?: string };
+  error?: FacebookApiError;
 }
 
 interface FacebookTokenResponse {
@@ -25,6 +40,10 @@ interface FacebookAccountsResponse {
     access_token: string;
     picture?: { data?: { url?: string } };
   }>;
+  paging?: {
+    cursors?: { before?: string; after?: string };
+    next?: string;
+  };
 }
 
 export class FacebookClient {
@@ -46,6 +65,14 @@ export class FacebookClient {
     return url.toString();
   }
 
+  isTokenExpiredError(error: unknown): boolean {
+    if (error instanceof FacebookTokenExpiredError) return true;
+    if (error instanceof Error && (error.message.includes('190') || error.message.includes('hết hạn'))) {
+      return true;
+    }
+    return false;
+  }
+
   private async graphGet<T>(path: string, params: Record<string, string>): Promise<T> {
     const url = new URL(`${this.graphBase}${path}`);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
@@ -55,9 +82,30 @@ export class FacebookClient {
       const body = (await response.json()) as T & FacebookErrorBody;
 
       if (!response.ok || body.error) {
-        const message = body.error?.message ?? `HTTP ${response.status}`;
-        logger.warn(`Facebook Graph API lỗi: ${message}`);
-        throw new BadRequestError('Facebook từ chối yêu cầu. Vui lòng thử lại.');
+        const err = body.error;
+        const message = err?.message ?? `HTTP ${response.status}`;
+        logger.warn(
+          `Facebook Graph API lỗi [code: ${err?.code ?? 'N/A'}, subcode: ${err?.error_subcode ?? 'N/A'}]: ${message}`
+        );
+
+        if (err?.code === 190) {
+          throw new FacebookTokenExpiredError();
+        }
+
+        if (
+          err?.code === 100 &&
+          (message.includes('code') || message.includes('expired') || message.includes('consumed'))
+        ) {
+          throw new BadRequestError('Mã xác thực Facebook không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.');
+        }
+
+        if (err?.code === 10 || err?.code === 200 || err?.code === 102) {
+          throw new BadRequestError('Tài khoản Facebook không đủ quyền hoặc đã từ chối cấp quyền.');
+        }
+
+        throw new BadRequestError(
+          err?.message ? `Facebook: ${err.message}` : 'Facebook từ chối yêu cầu. Vui lòng thử lại.'
+        );
       }
 
       return body;
@@ -97,22 +145,57 @@ export class FacebookClient {
       .update(userToken)
       .digest('hex');
 
-    const response = await this.graphGet<FacebookAccountsResponse>('/me/accounts', {
-      fields: 'id,name,access_token,picture{url}',
-      limit: '100',
-      access_token: userToken,
-      appsecret_proof: appSecretProof,
-    });
+    const allPages: FacebookPage[] = [];
+    let afterCursor: string | undefined = undefined;
+    const MAX_PAGES_FETCH = 500;
 
-    // Page không có access_token nghĩa là user không có quyền quản lý Page đó.
-    return response.data
-      .filter((page) => Boolean(page.access_token))
-      .map((page) => ({
-        id: page.id,
-        name: page.name,
-        avatar: page.picture?.data?.url ?? null,
-        accessToken: page.access_token,
-      }));
+    do {
+      const params: Record<string, string> = {
+        fields: 'id,name,access_token,picture{url}',
+        limit: '100',
+        access_token: userToken,
+        appsecret_proof: appSecretProof,
+      };
+
+      if (afterCursor) {
+        params.after = afterCursor;
+      }
+
+      const response = await this.graphGet<FacebookAccountsResponse>('/me/accounts', params);
+
+      const validPages = response.data
+        .filter((page) => Boolean(page.access_token))
+        .map((page) => ({
+          id: page.id,
+          name: page.name,
+          avatar: page.picture?.data?.url ?? null,
+          accessToken: page.access_token,
+        }));
+
+      allPages.push(...validPages);
+
+      afterCursor =
+        response.paging?.next && response.paging?.cursors?.after
+          ? response.paging.cursors.after
+          : undefined;
+    } while (afterCursor && allPages.length < MAX_PAGES_FETCH);
+
+    return allPages;
+  }
+
+  async verifyPageToken(pageToken: string): Promise<boolean> {
+    try {
+      await this.graphGet<{ id: string }>('/me', {
+        fields: 'id',
+        access_token: pageToken,
+      });
+      return true;
+    } catch (error) {
+      if (this.isTokenExpiredError(error)) {
+        return false;
+      }
+      throw error;
+    }
   }
 }
 

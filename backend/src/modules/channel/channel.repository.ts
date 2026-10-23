@@ -81,6 +81,27 @@ export const findChannelInWorkspace = async (channelId: string, workspaceId: str
     },
   });
 
+export const findChannelWithToken = async (channelId: string, workspaceId: string) =>
+  prisma.channelConnection.findFirst({
+    where: { id: channelId, workspaceId },
+    select: {
+      id: true,
+      workspaceId: true,
+      platform: true,
+      status: true,
+      accessToken: true,
+    },
+  });
+
+export const updateChannelStatus = async (
+  channelId: string,
+  status: 'ACTIVE' | 'EXPIRED'
+) =>
+  prisma.channelConnection.update({
+    where: { id: channelId },
+    data: { status },
+  });
+
 export const deleteChannelAndCancelSchedules = async (channelId: string): Promise<void> => {
   await prisma.$transaction(async (tx) => {
     await tx.scheduledPost.updateMany({
@@ -96,5 +117,7 @@ export default {
   findChannelsByWorkspace,
   upsertFacebookChannels,
   findChannelInWorkspace,
+  findChannelWithToken,
+  updateChannelStatus,
   deleteChannelAndCancelSchedules,
 };

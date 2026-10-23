@@ -11,7 +11,7 @@
 
 | UC | Chức năng | Tác nhân |
 | :--- | :--- | :--- |
-| **UC31** | Dashboard tổng quan, quản lý user/workspace, xem audit log | System Admin, Owner |
+| **UC32** | Dashboard tổng quan, quản lý user/workspace, xem audit log | System Admin, Owner |
 
 - **System Admin:** thống kê toàn hệ thống (user, workspace, doanh thu, credit), quản lý user/workspace.
 - **Workspace Owner:** thống kê trong workspace của mình và xem audit log của workspace (Content Creator không có quyền xem audit log).
@@ -82,7 +82,7 @@ Không có hàm/service nào cho:
 
 ## 7.5. Roadmap
 
-1. **Audit API (UC31b):** `GET /workspaces/:workspaceId/audit-logs` cho Owner (chỉ log của workspace) và `GET /admin/audit-logs` cho System Admin; filter + phân trang.
+1. **Audit API (UC32b):** `GET /workspaces/:workspaceId/audit-logs` cho Owner (chỉ log của workspace) và `GET /admin/audit-logs` cho System Admin; filter + phân trang.
 2. **Dashboard workspace:** số bài theo trạng thái, số thành viên, mức dùng credit (dữ liệu đã có sẵn).
 3. **Dashboard hệ thống:** số user/workspace, tỉ lệ gói, doanh thu (phụ thuộc Phân hệ 6).
 4. **Quản lý user:** list, khoá/mở khoá (`isSuspended` + tăng `tokenVersion` để buộc đăng xuất), đổi `systemRole`; bảo vệ bằng `requireRoles('SYSTEM_ADMIN')`.

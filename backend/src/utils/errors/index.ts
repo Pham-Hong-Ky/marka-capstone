@@ -49,6 +49,12 @@ export class BadRequestError extends AppError {
   }
 }
 
+export class ServiceUnavailableError extends AppError {
+  constructor(message = 'Dịch vụ tạm thời không khả dụng') {
+    super(message, 503);
+  }
+}
+
 export default {
   AppError,
   NotFoundError,
@@ -57,4 +63,5 @@ export default {
   ConflictError,
   ValidationError,
   BadRequestError,
+  ServiceUnavailableError,
 };

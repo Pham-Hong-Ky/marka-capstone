@@ -5,7 +5,10 @@ import catchAsync from '../../utils/catchAsync.js';
 
 export const checkHealth = catchAsync(async (_req: Request, res: Response) => {
   const healthData = await healthService.getSystemHealth();
-  const isHealthy = healthData.database === 'connected' && healthData.redis === 'connected';
+  // Redis chỉ còn đọc vẫn trả 200: Render dùng endpoint này làm health check và sẽ
+  // restart dịch vụ liên tục nếu nhận 503, trong khi phần lớn API vẫn chạy được.
+  const redisUsable = healthData.redis === 'connected' || healthData.redis === 'read-only';
+  const isHealthy = healthData.database === 'connected' && redisUsable;
 
   if (!isHealthy) {
     return res.status(503).json({

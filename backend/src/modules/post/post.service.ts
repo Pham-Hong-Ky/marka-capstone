@@ -48,7 +48,7 @@ export const createPost = async (
 };
 
 export const getPost = async (workspaceId: string, postId: string) => {
-  const post = await postRepository.findPostWithMedia(postId, workspaceId);
+  const post = await postRepository.getPostById(postId, workspaceId);
   if (!post) {
     throw new NotFoundError('Bài viết không tồn tại');
   }

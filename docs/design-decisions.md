@@ -42,22 +42,21 @@ Xem bảng đầy đủ và trạng thái từng UC tại [`specs/README.md`](./
 
 | Dải | Nội dung | Trạng thái |
 | :--- | :--- | :--- |
-| UC01, UC02, UC02b | Register, Login, Google OAuth | ✅ |
-| UC03, UC33, UC04, UC32 | Logout, Refresh token, Đổi mật khẩu, Cập nhật hồ sơ | ✅ |
-| UC05–UC11, UC14, UC37 | Bài viết, media, gửi duyệt, duyệt/từ chối | ✅ (trừ UC06 AI, UC12/13/15 lịch đăng/đăng bài) |
-| UC16–UC23, UC35, UC36 | Workspace & thành viên | ✅ |
-| UC24–UC29 | Brand Voice, kênh (chỉ Facebook) | 🟡 (Instagram/TikTok/Zalo chưa có) |
-| UC30a/b/c | PayOS/Credit | ⛔ |
-| UC31a/b | Admin | ⛔ |
-| UC39–UC41 | Notification API | ⛔ (chỉ ghi DB) |
-| UC42–UC43 | Post Analytics | ⛔ |
-| UC44–UC48 | Credit package/balance | ⛔ |
-| UC34 | Email xác thực tài khoản | ⛔ |
-| UC49–UC50 | Giao việc | ⛔ (không có cột trong schema) |
+| UC01, UC02, UC03 | Register, Login, Google OAuth | ✅ |
+| UC04, UC05, UC33, UC34 | Logout, Đổi mật khẩu, Cập nhật hồ sơ, Refresh token | ✅ |
+| UC06, UC08–UC12, UC15 | Bài viết, media, gửi duyệt, duyệt/từ chối | ✅ (trừ UC07 AI, UC13/14/16 lịch đăng/đăng bài) |
+| UC17–UC24, UC35, UC36 | Workspace & thành viên | ✅ |
+| UC25–UC30 | Brand Voice, kênh (chỉ Facebook) | 🟡 (Instagram/TikTok/Zalo chưa có) |
+| UC31a/b/c | PayOS/Credit | ⛔ |
+| UC32a/b | Admin | ⛔ |
+| UC38 | Notification API (đọc danh sách) | ⛔ (chỉ ghi DB) |
+| UC39 | Post Analytics (hiệu quả workspace) | ⛔ |
+| UC40, UC41 | Credit package/balance | ⛔ |
+| UC42–UC43 | Giao việc | ⛔ (không có cột trong schema) |
 
 ## D. Việc còn lại
 
 - AI generation, credit, PayOS, admin, lịch đăng/publish, analytics/n8n, Notification API.
 - Cron reset credit/hạ gói và email cảnh báo (D6, D7).
-- WebSocket/SSE, 2FA, email xác thực.
-- Giao việc UC49/UC50 (cần bổ sung cột vào schema trước).
+- WebSocket/SSE, 2FA.
+- Giao việc UC42/UC43 (cần bổ sung cột vào schema trước).

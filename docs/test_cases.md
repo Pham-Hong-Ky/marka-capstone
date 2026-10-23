@@ -8,13 +8,13 @@
 
 | # | Module / nhóm | Số test | File test |
 |---|---------------|---------|-----------|
-| 1 | Auth, RBAC, refresh/logout (UC01–UC03, UC33) | 12 | `backend/src/modules/auth/auth.test.ts` |
-| 2 | Google login | 3 | `backend/src/modules/auth/auth.google.test.ts` |
-| 3 | User — hồ sơ & mật khẩu (UC04, UC32) | 4 | `backend/src/modules/user/user.test.ts` |
-| 4 | Workspace, thành viên, lời mời (UC16–UC23, UC35, UC36) | 21 | `backend/src/modules/workspace/workspace.test.ts` |
-| 5 | Brand Voice (UC24–UC26) | 12 | `backend/src/modules/brandvoice/brandvoice.test.ts` |
-| 6 | Channel & Facebook OAuth (UC27–UC29) | 21 | `backend/src/modules/channel/channel.test.ts` |
-| 7 | Post, media, gửi duyệt & duyệt bài (UC05, UC07–UC11, UC14, UC37) | 51 | `backend/src/modules/post/post.test.ts` |
+| 1 | Auth, RBAC, refresh/logout (UC01–UC04, UC34) | 12 | `backend/src/modules/auth/auth.test.ts` |
+| 2 | Google login (UC03) | 3 | `backend/src/modules/auth/auth.google.test.ts` |
+| 3 | User — hồ sơ & mật khẩu (UC05, UC33) | 4 | `backend/src/modules/user/user.test.ts` |
+| 4 | Workspace, thành viên, lời mời (UC17–UC24, UC35, UC36) | 21 | `backend/src/modules/workspace/workspace.test.ts` |
+| 5 | Brand Voice (UC25–UC27) | 12 | `backend/src/modules/brandvoice/brandvoice.test.ts` |
+| 6 | Channel & Facebook OAuth (UC28–UC30) | 21 | `backend/src/modules/channel/channel.test.ts` |
+| 7 | Post, media, gửi duyệt & duyệt bài (UC06, UC08–UC12, UC15) | 51 | `backend/src/modules/post/post.test.ts` |
 | 8 | Health check | 1 | `backend/src/modules/health/health.test.ts` |
 | 9 | Queue Manager (BullMQ) | 6 | `backend/src/workers/queue-manager.test.ts` |
 | 10 | Middleware `enforceHttps` | 2 | `backend/src/middlewares/enforceHttps.test.ts` |
@@ -53,7 +53,7 @@ Ghi chú:
 | A08 | Cho phép OWNER truy cập tài nguyên của Workspace với header x-workspace-id | App test `GET /test/workspace/owner` | Bearer token + `x-workspace-id` = workspace của mình | 200; message `Owner access granted` | `auth.test.ts` |
 | A09 | Từ chối nếu người dùng là OWNER nhưng API yêu cầu role CONTENT_CREATOR riêng | App test `GET /test/workspace/creator` | Bearer token OWNER + `x-workspace-id` | 403 | `auth.test.ts` |
 
-### 2.3. Refresh token & đăng xuất (UC33, UC03)
+### 2.3. Refresh token & đăng xuất (UC34, UC04)
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
@@ -63,7 +63,7 @@ Ghi chú:
 
 ---
 
-## 3. Google login
+## 3. Google login (UC03)
 
 **File:** `backend/src/modules/auth/auth.google.test.ts` (mock `google-auth-library`)
 
@@ -95,26 +95,26 @@ Ghi chú:
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
 | W01 | UC35 — Đăng ký owner và tạo workspace mặc định | `POST /api/v1/auth/register` | owner mới | 201; `workspaces[0].role = OWNER` | `workspace.test.ts` |
-| W02 | UC16 — Tạo workspace mới thành công (201) | `POST /api/v1/workspaces` | `{ name: "WS Test <stamp>" }` | 201; `data.name` đúng; `data.role = OWNER` | `workspace.test.ts` |
-| W03 | UC16 — Báo lỗi 409 khi tạo trùng tên workspace | `POST /api/v1/workspaces` | trùng `name` với W02 | 409; `status = "fail"` | `workspace.test.ts` |
-| W04 | UC16 — Báo lỗi 422 khi tên không hợp lệ | `POST /api/v1/workspaces` | `{ name: "x" }` | 422 | `workspace.test.ts` |
+| W02 | UC17 — Tạo workspace mới thành công (201) | `POST /api/v1/workspaces` | `{ name: "WS Test <stamp>" }` | 201; `data.name` đúng; `data.role = OWNER` | `workspace.test.ts` |
+| W03 | UC17 — Báo lỗi 409 khi tạo trùng tên workspace | `POST /api/v1/workspaces` | trùng `name` với W02 | 409; `status = "fail"` | `workspace.test.ts` |
+| W04 | UC17 — Báo lỗi 422 khi tên không hợp lệ | `POST /api/v1/workspaces` | `{ name: "x" }` | 422 | `workspace.test.ts` |
 | W05 | UC35 — Danh sách workspace chứa workspace vừa tạo | `GET /api/v1/workspaces` | Bearer owner | 200; danh sách chứa cả workspace mặc định và workspace vừa tạo | `workspace.test.ts` |
-| W06 | UC17 — Cập nhật tên workspace thành công (200) | `PATCH /api/v1/workspaces/:workspaceId` | `{ name: "<tên> Updated" }` | 200; `data.name` là tên mới | `workspace.test.ts` |
-| W07 | UC19 — Xem thành viên: ban đầu chỉ có Owner | `GET /api/v1/workspaces/:workspaceId/members` | Bearer owner | 200; 1 member role `OWNER`; `pendingInvites` rỗng | `workspace.test.ts` |
-| W08 | UC20 — Mời thành viên thành công, trả invite token (201) | `POST /api/v1/workspaces/:workspaceId/invites` | `{ email, role: "CONTENT_CREATOR" }` | 201; `invite.email` đúng; `inviteUrl` chứa `/invites/` | `workspace.test.ts` |
-| W09 | UC20 — Mời lại email đang chờ: cấp token mới, token cũ hết hiệu lực (201) | `POST .../invites` + `GET /api/v1/invites/:oldToken` | mời lại cùng email | 201; token mới khác token cũ; token cũ trả 404 | `workspace.test.ts` |
-| W10 | UC20 — Gửi email thất bại: báo lỗi 502 và không lưu lời mời | `POST .../invites` | `mailerClient.sendEmail` mock trả `false` | 502; `pendingInvites` **không** chứa email vừa mời | `workspace.test.ts` |
-| W11 | UC21 — Khách chưa đăng nhập xem lời mời cần đăng ký | `GET /api/v1/invites/:token` | không gửi token đăng nhập | 200; `requiresRegistration = true`; `email` đúng | `workspace.test.ts` |
-| W12 | UC21 — Đăng ký member rồi chấp nhận lời mời thành công (200) | `POST /auth/register` + `GET /api/v1/invites/:token` | member mới + Bearer token | Đăng ký 201; xem lời mời 200; `workspaceId` đúng workspace được mời | `workspace.test.ts` |
-| W13 | UC21 — Dùng lại token đã dùng báo lỗi 409 | `GET /api/v1/invites/:token` | token đã chấp nhận | 409 | `workspace.test.ts` |
-| W14 | UC19 — Sau khi tham gia có 2 thành viên | `GET .../members` | Bearer owner | 200; 2 member; có role `CONTENT_CREATOR` | `workspace.test.ts` |
+| W06 | UC18 — Cập nhật tên workspace thành công (200) | `PATCH /api/v1/workspaces/:workspaceId` | `{ name: "<tên> Updated" }` | 200; `data.name` là tên mới | `workspace.test.ts` |
+| W07 | UC20 — Xem thành viên: ban đầu chỉ có Owner | `GET /api/v1/workspaces/:workspaceId/members` | Bearer owner | 200; 1 member role `OWNER`; `pendingInvites` rỗng | `workspace.test.ts` |
+| W08 | UC21 — Mời thành viên thành công, trả invite token (201) | `POST /api/v1/workspaces/:workspaceId/invites` | `{ email, role: "CONTENT_CREATOR" }` | 201; `invite.email` đúng; `inviteUrl` chứa `/invites/` | `workspace.test.ts` |
+| W09 | UC21 — Mời lại email đang chờ: cấp token mới, token cũ hết hiệu lực (201) | `POST .../invites` + `GET /api/v1/invites/:oldToken` | mời lại cùng email | 201; token mới khác token cũ; token cũ trả 404 | `workspace.test.ts` |
+| W10 | UC21 — Gửi email thất bại: báo lỗi 502 và không lưu lời mời | `POST .../invites` | `mailerClient.sendEmail` mock trả `false` | 502; `pendingInvites` **không** chứa email vừa mời | `workspace.test.ts` |
+| W11 | UC22 — Khách chưa đăng nhập xem lời mời cần đăng ký | `GET /api/v1/invites/:token` | không gửi token đăng nhập | 200; `requiresRegistration = true`; `email` đúng | `workspace.test.ts` |
+| W12 | UC22 — Đăng ký member rồi chấp nhận lời mời thành công (200) | `POST /auth/register` + `GET /api/v1/invites/:token` | member mới + Bearer token | Đăng ký 201; xem lời mời 200; `workspaceId` đúng workspace được mời | `workspace.test.ts` |
+| W13 | UC22 — Dùng lại token đã dùng báo lỗi 409 | `GET /api/v1/invites/:token` | token đã chấp nhận | 409 | `workspace.test.ts` |
+| W14 | UC20 — Sau khi tham gia có 2 thành viên | `GET .../members` | Bearer owner | 200; 2 member; có role `CONTENT_CREATOR` | `workspace.test.ts` |
 | W15 | RBAC — Content Creator không được cập nhật workspace (403) | `PATCH /api/v1/workspaces/:workspaceId` | Bearer CONTENT_CREATOR, `{ name: "Hack name" }` | 403 | `workspace.test.ts` |
 | W16 | UC36 — Owner đổi vai trò member thành OWNER (200) | `PATCH .../members/:memberId` | `{ role: "OWNER" }` | 200; `data.role = OWNER` | `workspace.test.ts` |
 | W17 | UC36 — Không thể hạ Owner duy nhất (409) | `PATCH .../members/:memberId` | workspace chỉ có 1 owner, `{ role: "CONTENT_CREATOR" }` | 409 | `workspace.test.ts` |
-| W18 | UC23 — Owner xóa thành viên (200) | `DELETE .../members/:memberId` | memberId của CONTENT_CREATOR | 200; `data.removedMemberId` đúng | `workspace.test.ts` |
-| W19 | UC22 — Owner duy nhất không thể rời workspace (409) | `DELETE .../members/me` | Bearer sole owner | 409 | `workspace.test.ts` |
-| W20 | UC18 — Xóa mềm workspace và ẩn khỏi danh sách (200) | `DELETE /api/v1/workspaces/:workspaceId` + `GET /workspaces` | Bearer owner | 200; workspace không còn trong danh sách | `workspace.test.ts` |
-| W21 | UC18 — Workspace đã xóa trả 404 khi truy cập thành viên | `GET .../members` | workspace vừa xoá | 404 | `workspace.test.ts` |
+| W18 | UC24 — Owner xóa thành viên (200) | `DELETE .../members/:memberId` | memberId của CONTENT_CREATOR | 200; `data.removedMemberId` đúng | `workspace.test.ts` |
+| W19 | UC23 — Owner duy nhất không thể rời workspace (409) | `DELETE .../members/me` | Bearer sole owner | 409 | `workspace.test.ts` |
+| W20 | UC19 — Xóa mềm workspace và ẩn khỏi danh sách (200) | `DELETE /api/v1/workspaces/:workspaceId` + `GET /workspaces` | Bearer owner | 200; workspace không còn trong danh sách | `workspace.test.ts` |
+| W21 | UC19 — Workspace đã xóa trả 404 khi truy cập thành viên | `GET .../members` | workspace vừa xoá | 404 | `workspace.test.ts` |
 
 ---
 
@@ -124,12 +124,12 @@ Ghi chú:
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
-| B01 | UC26 — Creator xem Brand Voice khi chưa cấu hình (200, chưa thiết lập) | `GET .../brand-voice` | Bearer CONTENT_CREATOR | 200; `brandVoice = null`; `isConfigured = false` | `brandvoice.test.ts` |
-| B02 | UC24 — Owner tạo Brand Voice lần đầu (200) | `PUT .../brand-voice` | industry, targetAudience, writingStyle, keywords, 1 fewShotExample | 200; `isConfigured = true`; `brandVoice` bằng payload | `brandvoice.test.ts` |
-| B03 | UC26 — Creator xem đúng cấu hình Owner vừa lưu | `GET .../brand-voice` | Bearer CONTENT_CREATOR | 200; `brandVoice` bằng cấu hình ở B02 | `brandvoice.test.ts` |
-| B04 | UC25 — Owner cập nhật Brand Voice: dữ liệu cũ bị thay thế, không nhân bản | `PUT .../brand-voice` | payload mới (mỹ phẩm, 18–25 tuổi) | 200; response và `workspace.brandVoice` trong DB đều bằng payload mới | `brandvoice.test.ts` |
-| B05 | UC24 — Từ khoá trùng lặp được khử trùng lặp | `PUT .../brand-voice` | `keywordsShouldUse: ["ưu đãi","ưu đãi","sale"]` | 200; kết quả `["ưu đãi","sale"]` | `brandvoice.test.ts` |
-| B06 | UC25 — Ghi audit log khi cập nhật Brand Voice | DB `auditLog.findFirst` | sau khi PUT | Có log `BRAND_VOICE_UPDATED`; `actorId` = owner; `targetType = "Workspace"`; `targetId` = workspaceId | `brandvoice.test.ts` |
+| B01 | UC27 — Creator xem Brand Voice khi chưa cấu hình (200, chưa thiết lập) | `GET .../brand-voice` | Bearer CONTENT_CREATOR | 200; `brandVoice = null`; `isConfigured = false` | `brandvoice.test.ts` |
+| B02 | UC25 — Owner tạo Brand Voice lần đầu (200) | `PUT .../brand-voice` | industry, targetAudience, writingStyle, keywords, 1 fewShotExample | 200; `isConfigured = true`; `brandVoice` bằng payload | `brandvoice.test.ts` |
+| B03 | UC27 — Creator xem đúng cấu hình Owner vừa lưu | `GET .../brand-voice` | Bearer CONTENT_CREATOR | 200; `brandVoice` bằng cấu hình ở B02 | `brandvoice.test.ts` |
+| B04 | UC26 — Owner cập nhật Brand Voice: dữ liệu cũ bị thay thế, không nhân bản | `PUT .../brand-voice` | payload mới (mỹ phẩm, 18–25 tuổi) | 200; response và `workspace.brandVoice` trong DB đều bằng payload mới | `brandvoice.test.ts` |
+| B05 | UC25 — Từ khoá trùng lặp được khử trùng lặp | `PUT .../brand-voice` | `keywordsShouldUse: ["ưu đãi","ưu đãi","sale"]` | 200; kết quả `["ưu đãi","sale"]` | `brandvoice.test.ts` |
+| B06 | UC26 — Ghi audit log khi cập nhật Brand Voice | DB `auditLog.findFirst` | sau khi PUT | Có log `BRAND_VOICE_UPDATED`; `actorId` = owner; `targetType = "Workspace"`; `targetId` = workspaceId | `brandvoice.test.ts` |
 | B07 | RBAC — Content Creator không được cập nhật Brand Voice (403) | `PUT .../brand-voice` | Bearer CONTENT_CREATOR | 403 | `brandvoice.test.ts` |
 | B08 | RBAC — Người ngoài workspace không xem được Brand Voice (403) | `GET .../brand-voice` | Bearer outsider | 403 | `brandvoice.test.ts` |
 | B09 | RBAC — Người ngoài workspace không cập nhật được Brand Voice (403) | `PUT .../brand-voice` | Bearer outsider | 403 | `brandvoice.test.ts` |
@@ -145,27 +145,27 @@ Ghi chú:
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
-| C01 | UC27 — Creator xem danh sách kênh, không lộ accessToken | `GET /api/v1/workspaces/:workspaceId/channels` | Bearer CONTENT_CREATOR | 200; `data.channels = []` | `channel.test.ts` |
-| C02 | UC27 — Outsider không xem được kênh workspace khác | `GET .../channels` | Bearer outsider | 403 | `channel.test.ts` |
-| C03 | UC28 — Owner lấy URL đăng nhập Facebook | `GET /api/v1/channels/facebook/oauth/url?workspaceId=` | Bearer OWNER | 200; host `www.facebook.com`; `client_id` đúng env; `redirect_uri` đúng env; `scope` chứa `pages_show_list` | `channel.test.ts` |
-| C04 | UC28 — Creator không lấy được URL đăng nhập Facebook | `GET /channels/facebook/oauth/url` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
-| C05 | UC28 — Callback tạo session và redirect về trang chọn Page | `GET /channels/facebook/oauth/callback` | `code`, `state` hợp lệ | 302; gọi Facebook 3 lần; `location` có path `/channels`, `fb=select`, `session` khớp `^[a-f0-9]{48}$` | `channel.test.ts` |
-| C06 | UC28 — State sai bị từ chối | callback | `state=bad` | 302; `location` chứa `reason=invalid_state` | `channel.test.ts` |
-| C07 | UC28 — State dùng lại lần hai bị từ chối | callback | dùng lại cùng `state` | Lần 1 `fb=select`; lần 2 `reason=invalid_state` | `channel.test.ts` |
-| C08 | UC28 — Người dùng từ chối cấp quyền được báo lỗi | callback | `error=access_denied` | 302; `location` chứa `reason=access_denied` | `channel.test.ts` |
-| C09 | UC28 — Tài khoản không có Page nào trả no_pages | callback | Facebook trả `data: []` | 302; `location` chứa `reason=no_pages` | `channel.test.ts` |
-| C10 | UC28 — Owner xem danh sách Page chờ chọn, không có token | `GET .../oauth/session/:sessionId` | Bearer OWNER + `x-workspace-id` | 200; `pages` chỉ gồm `{ id, name, avatar }` | `channel.test.ts` |
-| C11 | UC28 — Người khác không đọc được session chọn Page | `GET .../oauth/session/:sessionId` | Bearer outsider + workspace của outsider | 404 | `channel.test.ts` |
-| C12 | UC28 — Chọn Page lưu token đã mã hoá, không trả token | `POST .../oauth/session/:sessionId/connect` | `{ pageIds: ["page-1"] }` | 201; `channels[0].name` đúng; `accessToken` là `undefined`; token trong DB khác plaintext và `decrypt(token)` = `page-token-1` | `channel.test.ts` |
-| C13 | UC28 — Page không thuộc session bị từ chối | `POST .../connect` | `{ pageIds: ["page-khac"] }` | 400; không tạo `channelConnection` cho page đó | `channel.test.ts` |
-| C14 | UC28 — Bỏ Page thiếu access_token khỏi danh sách chọn | callback + `GET .../oauth/session/:sessionId` | danh sách Page có 1 page thiếu token | 200; `pages` chỉ còn page có token | `channel.test.ts` |
-| C15 | UC28 — URL lấy workspace từ header, không dùng query lệch | `GET /channels/facebook/oauth/url` | query workspaceId của outsider + header workspace của owner | 200; session tạo ra vẫn đọc được bằng owner + `x-workspace-id` | `channel.test.ts` |
-| C16 | UC28 — Creator không được kết nối Page | `POST .../connect` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
-| C17 | UC28 — Kết nối lại cùng Page giữ nguyên channel id | `POST .../connect` hai lần | cùng `pageIds: ["page-1"]`, token mới | 201; cùng `channel.id`; tên mới được cập nhật; DB decrypt ra token mới | `channel.test.ts` |
-| C18 | UC28 — Session bị xoá sau khi kết nối | `GET .../oauth/session/:sessionId` | session vừa connect | 404 | `channel.test.ts` |
-| C19 | UC29 — Creator không được ngắt kết nối | `DELETE /api/v1/channels/:channelId` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
-| C20 | UC29 — Ngắt kết nối huỷ lịch đăng và xoá kênh | `DELETE /api/v1/channels/:channelId` | Bearer OWNER; kênh có 1 `ScheduledPost` | 200; `data.success = true`; `channelConnection` bị xoá; bản ghi `scheduledPost` không còn (service chuyển `CANCELLED`, sau đó FK cascade xoá khi xoá kênh) | `channel.test.ts` |
-| C21 | UC29 — Thiếu workspace header bị từ chối | `DELETE /api/v1/channels/:channelId` | Bearer owner, **không** có `x-workspace-id` | 400 | `channel.test.ts` |
+| C01 | UC28 — Creator xem danh sách kênh, không lộ accessToken | `GET /api/v1/workspaces/:workspaceId/channels` | Bearer CONTENT_CREATOR | 200; `data.channels = []` | `channel.test.ts` |
+| C02 | UC28 — Outsider không xem được kênh workspace khác | `GET .../channels` | Bearer outsider | 403 | `channel.test.ts` |
+| C03 | UC29 — Owner lấy URL đăng nhập Facebook | `GET /api/v1/channels/facebook/oauth/url?workspaceId=` | Bearer OWNER | 200; host `www.facebook.com`; `client_id` đúng env; `redirect_uri` đúng env; `scope` chứa `pages_show_list` | `channel.test.ts` |
+| C04 | UC29 — Creator không lấy được URL đăng nhập Facebook | `GET /channels/facebook/oauth/url` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
+| C05 | UC29 — Callback tạo session và redirect về trang chọn Page | `GET /channels/facebook/oauth/callback` | `code`, `state` hợp lệ | 302; gọi Facebook 3 lần; `location` có path `/channels`, `fb=select`, `session` khớp `^[a-f0-9]{48}$` | `channel.test.ts` |
+| C06 | UC29 — State sai bị từ chối | callback | `state=bad` | 302; `location` chứa `reason=invalid_state` | `channel.test.ts` |
+| C07 | UC29 — State dùng lại lần hai bị từ chối | callback | dùng lại cùng `state` | Lần 1 `fb=select`; lần 2 `reason=invalid_state` | `channel.test.ts` |
+| C08 | UC29 — Người dùng từ chối cấp quyền được báo lỗi | callback | `error=access_denied` | 302; `location` chứa `reason=access_denied` | `channel.test.ts` |
+| C09 | UC29 — Tài khoản không có Page nào trả no_pages | callback | Facebook trả `data: []` | 302; `location` chứa `reason=no_pages` | `channel.test.ts` |
+| C10 | UC29 — Owner xem danh sách Page chờ chọn, không có token | `GET .../oauth/session/:sessionId` | Bearer OWNER + `x-workspace-id` | 200; `pages` chỉ gồm `{ id, name, avatar }` | `channel.test.ts` |
+| C11 | UC29 — Người khác không đọc được session chọn Page | `GET .../oauth/session/:sessionId` | Bearer outsider + workspace của outsider | 404 | `channel.test.ts` |
+| C12 | UC29 — Chọn Page lưu token đã mã hoá, không trả token | `POST .../oauth/session/:sessionId/connect` | `{ pageIds: ["page-1"] }` | 201; `channels[0].name` đúng; `accessToken` là `undefined`; token trong DB khác plaintext và `decrypt(token)` = `page-token-1` | `channel.test.ts` |
+| C13 | UC29 — Page không thuộc session bị từ chối | `POST .../connect` | `{ pageIds: ["page-khac"] }` | 400; không tạo `channelConnection` cho page đó | `channel.test.ts` |
+| C14 | UC29 — Bỏ Page thiếu access_token khỏi danh sách chọn | callback + `GET .../oauth/session/:sessionId` | danh sách Page có 1 page thiếu token | 200; `pages` chỉ còn page có token | `channel.test.ts` |
+| C15 | UC29 — URL lấy workspace từ header, không dùng query lệch | `GET /channels/facebook/oauth/url` | query workspaceId của outsider + header workspace của owner | 200; session tạo ra vẫn đọc được bằng owner + `x-workspace-id` | `channel.test.ts` |
+| C16 | UC29 — Creator không được kết nối Page | `POST .../connect` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
+| C17 | UC29 — Kết nối lại cùng Page giữ nguyên channel id | `POST .../connect` hai lần | cùng `pageIds: ["page-1"]`, token mới | 201; cùng `channel.id`; tên mới được cập nhật; DB decrypt ra token mới | `channel.test.ts` |
+| C18 | UC29 — Session bị xoá sau khi kết nối | `GET .../oauth/session/:sessionId` | session vừa connect | 404 | `channel.test.ts` |
+| C19 | UC30 — Creator không được ngắt kết nối | `DELETE /api/v1/channels/:channelId` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
+| C20 | UC30 — Ngắt kết nối huỷ lịch đăng và xoá kênh | `DELETE /api/v1/channels/:channelId` | Bearer OWNER; kênh có 1 `ScheduledPost` | 200; `data.success = true`; `channelConnection` bị xoá; bản ghi `scheduledPost` không còn (service chuyển `CANCELLED`, sau đó FK cascade xoá khi xoá kênh) | `channel.test.ts` |
+| C21 | UC30 — Thiếu workspace header bị từ chối | `DELETE /api/v1/channels/:channelId` | Bearer owner, **không** có `x-workspace-id` | 400 | `channel.test.ts` |
 
 ---
 
@@ -173,58 +173,58 @@ Ghi chú:
 
 **File:** `backend/src/modules/post/post.test.ts` (mock `cloudinary`)
 
-### 8.1. Tạo, xem, danh sách (UC05, UC08, UC09)
+### 8.1. Tạo, xem, danh sách (UC06, UC09, UC10)
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
-| P01 | UC05 — Tạo bản nháp thành công (201) | `POST .../posts` | `title: "Nháp đầu tiên"`, `content: { type: "doc", content: [] }` | 201; title đúng; `status = DRAFT`; `createdById` = owner | `post.test.ts` |
-| P02 | UC05 — Thiếu title trả 422 | `POST .../posts` | chỉ có `content` | 422 | `post.test.ts` |
-| P03 | UC08 — Xem chi tiết bản nháp (200), kèm mediaAssets rỗng | `GET .../posts/:postId` | Bearer owner | 200; `data.id` đúng; `mediaAssets = []` | `post.test.ts` |
-| P04 | UC08 — Bài thuộc workspace khác trả 404 khi đổi workspaceId | `GET /workspaces/:wsKhác/posts/:postId` | Bearer creator A, workspace riêng của A | 404 | `post.test.ts` |
-| P05 | UC09 — Danh sách trả posts + meta phân trang | `GET .../posts?page=1&limit=10` | Bearer owner | 200; `data.posts` là mảng; `meta` gồm `page = 1`, `limit = 10`, `total` là number | `post.test.ts` |
-| P06 | UC09 — Tìm theo tiêu đề (không phân biệt hoa/thường) | `GET .../posts?search=NHÁP` | từ khoá viết hoa | 200; danh sách chứa `postId` của P01 | `post.test.ts` |
-| P07 | UC09 — Lọc theo người tạo | `GET .../posts?createdById=<ownerId>` | ownerId | 200; mọi post có `createdById` = ownerId | `post.test.ts` |
-| P08 | UC09 — Lọc theo trạng thái | `GET .../posts?status=DRAFT` | `status = DRAFT` | 200; mọi post `status = DRAFT`; chứa `postId` P01 | `post.test.ts` |
-| P09 | UC09 — Trạng thái không hợp lệ trả 422 | `GET .../posts?status=KHONGCO` | giá trị ngoài enum | 422 | `post.test.ts` |
-| P10 | UC09 — Query sai trả 422 (page=0, limit=99, dateTo<dateFrom) | `GET .../posts` | 3 request: `page=0`; `limit=99`; `dateFrom > dateTo` | Cả 3 trả 422 | `post.test.ts` |
-| P11 | UC09 — Không lộ bài viết của workspace khác | `GET .../posts` | workspace của owner; có bài tạo ở workspace riêng của A | 200; không chứa bài `"Bài workspace riêng A"` | `post.test.ts` |
+| P01 | UC06 — Tạo bản nháp thành công (201) | `POST .../posts` | `title: "Nháp đầu tiên"`, `content: { type: "doc", content: [] }` | 201; title đúng; `status = DRAFT`; `createdById` = owner | `post.test.ts` |
+| P02 | UC06 — Thiếu title trả 422 | `POST .../posts` | chỉ có `content` | 422 | `post.test.ts` |
+| P03 | UC09 — Xem chi tiết bản nháp (200), kèm mediaAssets rỗng | `GET .../posts/:postId` | Bearer owner | 200; `data.id` đúng; `mediaAssets = []` | `post.test.ts` |
+| P04 | UC09 — Bài thuộc workspace khác trả 404 khi đổi workspaceId | `GET /workspaces/:wsKhác/posts/:postId` | Bearer creator A, workspace riêng của A | 404 | `post.test.ts` |
+| P05 | UC10 — Danh sách trả posts + meta phân trang | `GET .../posts?page=1&limit=10` | Bearer owner | 200; `data.posts` là mảng; `meta` gồm `page = 1`, `limit = 10`, `total` là number | `post.test.ts` |
+| P06 | UC10 — Tìm theo tiêu đề (không phân biệt hoa/thường) | `GET .../posts?search=NHÁP` | từ khoá viết hoa | 200; danh sách chứa `postId` của P01 | `post.test.ts` |
+| P07 | UC10 — Lọc theo người tạo | `GET .../posts?createdById=<ownerId>` | ownerId | 200; mọi post có `createdById` = ownerId | `post.test.ts` |
+| P08 | UC10 — Lọc theo trạng thái | `GET .../posts?status=DRAFT` | `status = DRAFT` | 200; mọi post `status = DRAFT`; chứa `postId` P01 | `post.test.ts` |
+| P09 | UC10 — Trạng thái không hợp lệ trả 422 | `GET .../posts?status=KHONGCO` | giá trị ngoài enum | 422 | `post.test.ts` |
+| P10 | UC10 — Query sai trả 422 (page=0, limit=99, dateTo<dateFrom) | `GET .../posts` | 3 request: `page=0`; `limit=99`; `dateFrom > dateTo` | Cả 3 trả 422 | `post.test.ts` |
+| P11 | UC10 — Không lộ bài viết của workspace khác | `GET .../posts` | workspace của owner; có bài tạo ở workspace riêng của A | 200; không chứa bài `"Bài workspace riêng A"` | `post.test.ts` |
 | P12 | setup — Creator A tạo bản nháp của mình | `POST .../posts` | Bearer creator A | 201; lưu `creatorAPostId` | `post.test.ts` |
-| P13 | UC09 — page tràn số trả 422 (không 500) | `GET .../posts?page=1000000000000000000000` | page vượt giới hạn | 422 | `post.test.ts` |
+| P13 | UC10 — page tràn số trả 422 (không 500) | `GET .../posts?page=1000000000000000000000` | page vượt giới hạn | 422 | `post.test.ts` |
 
-### 8.2. Cập nhật bài (UC07)
+### 8.2. Cập nhật bài (UC08)
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
-| P14 | UC07 — Chủ bài (Creator) sửa bản nháp của mình (200) | `PATCH .../posts/:postId` | Bearer creator A, `{ title: "Đã sửa" }` | 200; title mới | `post.test.ts` |
-| P15 | UC07 — Creator khác sửa bài người khác trả 403 | `PATCH .../posts/:postId` | Bearer creator B | 403 | `post.test.ts` |
-| P16 | UC07 — Owner sửa được bài của Creator (200) | `PATCH .../posts/:postId` | Bearer owner, đổi `content` | 200 | `post.test.ts` |
-| P17 | UC07 — PATCH rỗng trả 422 | `PATCH .../posts/:postId` | `{}` | 422 | `post.test.ts` |
-| P18 | UC07 — Sửa bài không phải DRAFT trả 409 | `PATCH .../posts/:postId` | bài tạo trực tiếp ở DB với `status = PENDING` | 409 | `post.test.ts` |
-| P19 | UC07 — Sửa được bài đã bị từ chối (200) | `PATCH .../posts/:postId` | bài `REJECTED`, `{ title: "Đã bổ sung thông tin" }` | 200; title mới | `post.test.ts` |
+| P14 | UC08 — Chủ bài (Creator) sửa bản nháp của mình (200) | `PATCH .../posts/:postId` | Bearer creator A, `{ title: "Đã sửa" }` | 200; title mới | `post.test.ts` |
+| P15 | UC08 — Creator khác sửa bài người khác trả 403 | `PATCH .../posts/:postId` | Bearer creator B | 403 | `post.test.ts` |
+| P16 | UC08 — Owner sửa được bài của Creator (200) | `PATCH .../posts/:postId` | Bearer owner, đổi `content` | 200 | `post.test.ts` |
+| P17 | UC08 — PATCH rỗng trả 422 | `PATCH .../posts/:postId` | `{}` | 422 | `post.test.ts` |
+| P18 | UC08 — Sửa bài không phải DRAFT trả 409 | `PATCH .../posts/:postId` | bài tạo trực tiếp ở DB với `status = PENDING` | 409 | `post.test.ts` |
+| P19 | UC08 — Sửa được bài đã bị từ chối (200) | `PATCH .../posts/:postId` | bài `REJECTED`, `{ title: "Đã bổ sung thông tin" }` | 200; title mới | `post.test.ts` |
 
-### 8.3. Xoá bài (UC10)
+### 8.3. Xoá bài (UC11)
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
 | P20 | setup — Creator A tạo 2 bản nháp để xóa | `POST .../posts` | 2 request | Cả 2 trả 201; lưu id | `post.test.ts` |
-| P21 | UC10 — Chủ bài xóa bản nháp của mình (200) | `DELETE .../posts/:postId` | Bearer creator A | 200 | `post.test.ts` |
-| P22 | UC10 — Sau khi xóa, chi tiết trả 404 | `GET .../posts/:postId` | bài vừa xoá | 404 | `post.test.ts` |
-| P23 | UC10 — Creator khác xóa bài người khác trả 403 | `DELETE .../posts/:postId` | Bearer creator B | 403 | `post.test.ts` |
-| P24 | UC10 — Owner xóa được bài của Creator (200) | `DELETE .../posts/:postId` | Bearer owner | 200 | `post.test.ts` |
+| P21 | UC11 — Chủ bài xóa bản nháp của mình (200) | `DELETE .../posts/:postId` | Bearer creator A | 200 | `post.test.ts` |
+| P22 | UC11 — Sau khi xóa, chi tiết trả 404 | `GET .../posts/:postId` | bài vừa xoá | 404 | `post.test.ts` |
+| P23 | UC11 — Creator khác xóa bài người khác trả 403 | `DELETE .../posts/:postId` | Bearer creator B | 403 | `post.test.ts` |
+| P24 | UC11 — Owner xóa được bài của Creator (200) | `DELETE .../posts/:postId` | Bearer owner | 200 | `post.test.ts` |
 
-### 8.4. Media (UC37)
+### 8.4. Media (thuộc UC06/UC08)
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
-| P25 | UC37 — Upload ảnh vào bài của mình (201) | `POST .../posts/:postId/media` | Bearer creator A, file `a.png` (`image/png`) | 201; `url` chứa `res.cloudinary.com`; `type = IMAGE` | `post.test.ts` |
-| P26 | UC37 — Chi tiết bài chứa ảnh vừa upload | `GET .../posts/:postId` | Bearer creator A | `mediaAssets.length > 0` | `post.test.ts` |
-| P27 | UC37 — Upload sai định dạng trả 400 | `POST .../media` | file `a.txt` (`text/plain`) | 400 | `post.test.ts` |
-| P28 | UC37 — Upload ảnh vượt 10MB trả 400 | `POST .../media` | buffer 10MB + 1 byte | 400 | `post.test.ts` |
-| P29 | UC37 — Creator khác upload vào bài người khác trả 403 | `POST .../media` | Bearer creator B | 403 | `post.test.ts` |
+| P25 | UC06/UC08 — Upload ảnh vào bài của mình (201) | `POST .../posts/:postId/media` | Bearer creator A, file `a.png` (`image/png`) | 201; `url` chứa `res.cloudinary.com`; `type = IMAGE` | `post.test.ts` |
+| P26 | UC06/UC08 — Chi tiết bài chứa ảnh vừa upload | `GET .../posts/:postId` | Bearer creator A | `mediaAssets.length > 0` | `post.test.ts` |
+| P27 | UC06/UC08 — Upload sai định dạng trả 400 | `POST .../media` | file `a.txt` (`text/plain`) | 400 | `post.test.ts` |
+| P28 | UC06/UC08 — Upload ảnh vượt 10MB trả 400 | `POST .../media` | buffer 10MB + 1 byte | 400 | `post.test.ts` |
+| P29 | UC06/UC08 — Creator khác upload vào bài người khác trả 403 | `POST .../media` | Bearer creator B | 403 | `post.test.ts` |
 | P30 | setup — Upload thêm 1 ảnh để test quyền gỡ | `POST .../media` | file `b.png` | 201; lưu `mediaId2` | `post.test.ts` |
-| P31 | UC37 — Gỡ ảnh khỏi bài của mình (200) | `DELETE .../posts/:postId/media/:mediaId` | Bearer creator A | 200 | `post.test.ts` |
-| P32 | UC37 — Gỡ ảnh không thuộc bài trả 404 | `DELETE .../media/00000000-0000-0000-0000-000000000000` | mediaId không tồn tại | 404 | `post.test.ts` |
-| P33 | UC37 — Creator khác gỡ ảnh bài người khác trả 403 | `DELETE .../media/:mediaId2` | Bearer creator B | 403 | `post.test.ts` |
+| P31 | UC06/UC08 — Gỡ ảnh khỏi bài của mình (200) | `DELETE .../posts/:postId/media/:mediaId` | Bearer creator A | 200 | `post.test.ts` |
+| P32 | UC06/UC08 — Gỡ ảnh không thuộc bài trả 404 | `DELETE .../media/00000000-0000-0000-0000-000000000000` | mediaId không tồn tại | 404 | `post.test.ts` |
+| P33 | UC06/UC08 — Creator khác gỡ ảnh bài người khác trả 403 | `DELETE .../media/:mediaId2` | Bearer creator B | 403 | `post.test.ts` |
 
 ### 8.5. Cách ly workspace (RBAC)
 
@@ -233,31 +233,31 @@ Ghi chú:
 | P34 | RBAC — Chặn lệch workspace giữa header và URL (403, không lộ dữ liệu) | `GET /workspaces/:wsA/posts` | token owner, `x-workspace-id` = workspace khác | 403 | `post.test.ts` |
 | P35 | RBAC — Không tạo được bài chéo workspace qua header (403) | `POST /workspaces/:wsA/posts` | token + header lệch workspace | 403 | `post.test.ts` |
 
-### 8.6. Gửi duyệt (UC11)
+### 8.6. Gửi duyệt (UC12)
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
 | P36 | setup — Creator A tạo bài để gửi duyệt | `POST .../posts` | Bearer creator A | 201; `status = DRAFT` | `post.test.ts` |
-| P37 | UC11 — Creator khác gửi duyệt bài của người khác trả 403 | `POST .../posts/:postId/submit` | Bearer creator B | 403 | `post.test.ts` |
-| P38 | UC11 — Gửi duyệt bài của workspace khác trả 404 | `POST /workspaces/:wsKhác/posts/:postId/submit` | Bearer creator A | 404 | `post.test.ts` |
-| P39 | UC11 — Tác giả gửi duyệt bài của mình (200) → PENDING | `POST .../submit` | Bearer creator A | 200; `status = PENDING`; `submittedById` = creator A; `submittedAt` có giá trị | `post.test.ts` |
-| P40 | UC11 — Gửi duyệt thông báo cho Owner | DB `notification.count` | sau khi submit | Có ≥ 1 notification `POST_SUBMITTED` cho owner trong workspace | `post.test.ts` |
-| P41 | UC11 — Gửi duyệt lại khi bài đang PENDING trả 409 | `POST .../submit` | bài đang `PENDING` | 409 | `post.test.ts` |
-| P42 | UC11 — Gửi lại bài bị từ chối (200) → PENDING, xoá lý do cũ | `POST .../submit` | bài `REJECTED` | 200; `status = PENDING`; `rejectReason = null` | `post.test.ts` |
-| P43 | UC11 — Owner gửi duyệt bài của Creator (200) | `POST .../submit` | Bearer owner trên bài của creator A | 200; `status = PENDING` | `post.test.ts` |
+| P37 | UC12 — Creator khác gửi duyệt bài của người khác trả 403 | `POST .../posts/:postId/submit` | Bearer creator B | 403 | `post.test.ts` |
+| P38 | UC12 — Gửi duyệt bài của workspace khác trả 404 | `POST /workspaces/:wsKhác/posts/:postId/submit` | Bearer creator A | 404 | `post.test.ts` |
+| P39 | UC12 — Tác giả gửi duyệt bài của mình (200) → PENDING | `POST .../submit` | Bearer creator A | 200; `status = PENDING`; `submittedById` = creator A; `submittedAt` có giá trị | `post.test.ts` |
+| P40 | UC12 — Gửi duyệt thông báo cho Owner | DB `notification.count` | sau khi submit | Có ≥ 1 notification `POST_SUBMITTED` cho owner trong workspace | `post.test.ts` |
+| P41 | UC12 — Gửi duyệt lại khi bài đang PENDING trả 409 | `POST .../submit` | bài đang `PENDING` | 409 | `post.test.ts` |
+| P42 | UC12 — Gửi lại bài bị từ chối (200) → PENDING, xoá lý do cũ | `POST .../submit` | bài `REJECTED` | 200; `status = PENDING`; `rejectReason = null` | `post.test.ts` |
+| P43 | UC12 — Owner gửi duyệt bài của Creator (200) | `POST .../submit` | Bearer owner trên bài của creator A | 200; `status = PENDING` | `post.test.ts` |
 
-### 8.7. Duyệt / từ chối (UC14)
+### 8.7. Duyệt / từ chối (UC15)
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
-| P44 | UC14 — Creator gọi duyệt bài trả 403 | `PATCH .../posts/:postId/review` | Bearer CONTENT_CREATOR, `{ decision: "APPROVED" }` | 403 | `post.test.ts` |
-| P45 | UC14 — Từ chối thiếu lý do trả 422 | `PATCH .../review` | `{ decision: "REJECTED" }` | 422 | `post.test.ts` |
-| P46 | UC14 — Owner từ chối kèm lý do (200) → REJECTED | `PATCH .../review` | `{ decision: "REJECTED", rejectReason: "Thiếu thông tin sản phẩm" }` | 200; `status = REJECTED`; `rejectReason` đúng; `reviewedById` = owner; `reviewedAt` có giá trị | `post.test.ts` |
-| P47 | UC14 — Từ chối thông báo cho tác giả | DB `notification.count` | sau khi từ chối | Có ≥ 1 notification `POST_REJECTED` cho creator A | `post.test.ts` |
-| P48 | UC14 — Owner duyệt bài (200) → APPROVED | `PATCH .../review` | `{ decision: "APPROVED" }` | 200; `status = APPROVED`; `reviewedById` = owner | `post.test.ts` |
-| P49 | UC14 — Duyệt thông báo cho tác giả | DB `notification.count` | sau khi duyệt | Có ≥ 1 notification `POST_APPROVED` cho creator A | `post.test.ts` |
-| P50 | UC14 — Duyệt lại bài đã APPROVED trả 409 | `PATCH .../review` | bài `APPROVED` | 409 | `post.test.ts` |
-| P51 | UC14 — Hai lượt duyệt đồng thời chỉ một lượt thành công | `PATCH .../review` gọi song song | 1 `APPROVED` + 1 `REJECTED` cùng lúc | Status sắp xếp = `[200, 409]`; DB chỉ có đúng 1 audit log `POST_APPROVED`/`POST_REJECTED` cho bài đó | `post.test.ts` |
+| P44 | UC15 — Creator gọi duyệt bài trả 403 | `PATCH .../posts/:postId/review` | Bearer CONTENT_CREATOR, `{ decision: "APPROVED" }` | 403 | `post.test.ts` |
+| P45 | UC15 — Từ chối thiếu lý do trả 422 | `PATCH .../review` | `{ decision: "REJECTED" }` | 422 | `post.test.ts` |
+| P46 | UC15 — Owner từ chối kèm lý do (200) → REJECTED | `PATCH .../review` | `{ decision: "REJECTED", rejectReason: "Thiếu thông tin sản phẩm" }` | 200; `status = REJECTED`; `rejectReason` đúng; `reviewedById` = owner; `reviewedAt` có giá trị | `post.test.ts` |
+| P47 | UC15 — Từ chối thông báo cho tác giả | DB `notification.count` | sau khi từ chối | Có ≥ 1 notification `POST_REJECTED` cho creator A | `post.test.ts` |
+| P48 | UC15 — Owner duyệt bài (200) → APPROVED | `PATCH .../review` | `{ decision: "APPROVED" }` | 200; `status = APPROVED`; `reviewedById` = owner | `post.test.ts` |
+| P49 | UC15 — Duyệt thông báo cho tác giả | DB `notification.count` | sau khi duyệt | Có ≥ 1 notification `POST_APPROVED` cho creator A | `post.test.ts` |
+| P50 | UC15 — Duyệt lại bài đã APPROVED trả 409 | `PATCH .../review` | bài `APPROVED` | 409 | `post.test.ts` |
+| P51 | UC15 — Hai lượt duyệt đồng thời chỉ một lượt thành công | `PATCH .../review` gọi song song | 1 `APPROVED` + 1 `REJECTED` cùng lúc | Status sắp xếp = `[200, 409]`; DB chỉ có đúng 1 audit log `POST_APPROVED`/`POST_REJECTED` cho bài đó | `post.test.ts` |
 
 ---
 
@@ -294,7 +294,7 @@ Ghi chú:
 |----|-------------------------------|----------------|-------------|------------------|------|
 | M01 | Chuyển hướng 301 sang HTTPS khi request là HTTP | middleware `enforceHttps` trên `GET /ping` | `Host: api.marka.vn`, không có `x-forwarded-proto` | 301; `location = https://api.marka.vn/ping` | `enforceHttps.test.ts` |
 | M02 | Cho qua khi reverse proxy báo x-forwarded-proto = https | `enforceHttps` trên `GET /ping` | `x-forwarded-proto: https` | 200; body `{ ok: true }` | `enforceHttps.test.ts` |
-| S01 | đăng ký luồng duyệt bài UC11/UC14 | `swaggerSpec.paths` | — | Có path `/workspaces/{workspaceId}/posts/{postId}/submit` và `.../review` | `swagger.test.ts` |
+| S01 | đăng ký luồng duyệt bài UC12/UC15 | `swaggerSpec.paths` | — | Có path `/workspaces/{workspaceId}/posts/{postId}/submit` và `.../review` | `swagger.test.ts` |
 
 ---
 
@@ -359,10 +359,10 @@ Các hành vi **đã có trong code** nhưng **không có test tự động** t�
 
 Các phần sau **không có endpoint/module tương ứng** trong `backend/src/routes/index.ts`, nên không có test:
 
-- **Sinh nội dung AI (UC06)** — không có module/route AI; `aiLimiter` trong `rateLimiter.ts` hiện không được gắn vào route nào.
-- **Credit / gói credit / PayOS / Order (UC30)** — model Prisma có nhưng không có route/service.
-- **Admin dashboard & API audit log (UC31)** — module `audit` chỉ có service/repository, không expose route.
-- **Lên lịch đăng & calendar (UC12, UC13), đăng ngay/publish (UC15)** — model `ScheduledPost` có nhưng không có API; worker `publishing` chỉ là processor mẫu.
-- **Analytics / `PostMetric`** — không có API.
+- **Sinh nội dung AI (UC07)** — không có module/route AI; `aiLimiter` trong `rateLimiter.ts` hiện không được gắn vào route nào.
+- **Credit / gói credit / PayOS / Order (UC31, UC40, UC41)** — model Prisma có nhưng không có route/service.
+- **Admin dashboard & API audit log (UC32)** — module `audit` chỉ có service/repository, không expose route.
+- **Lên lịch đăng & calendar (UC13, UC14), đăng ngay/publish (UC16)** — model `ScheduledPost` có nhưng không có API; worker `publishing` chỉ là processor mẫu.
+- **Analytics / `PostMetric` (UC39)** — không có API.
 - **API thông báo (notification)** — chỉ ghi DB, không có endpoint đọc.
-- **Giao việc / trạng thái công việc (assignment, task-status)** — không có module/route.
+- **Giao việc / trạng thái công việc (UC42, UC43)** — không có module/route.

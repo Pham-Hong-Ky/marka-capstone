@@ -1,12 +1,13 @@
 # Sơ đồ lớp (Class Diagram) — Marka
 
 > **Nguồn sự thật:** `backend/src/` và `backend/prisma/schema.prisma`.
-> Sơ đồ chỉ mô tả các lớp nghiệp vụ đang có trong code và các client bên thứ ba thực sự được dùng.
+> Sơ đồ chỉ mô tả các lớp nghiệp vụ đang có trong code, entity Prisma tương ứng và các client bên thứ ba thực sự được dùng.
 
 ## 1. Quy ước
 
 - Mỗi class nghiệp vụ tương ứng **1 file module**; tên class trùng tên object export mặc định (`authController`, `workspaceService`, `postRepository`...).
 - `+` là hàm export, `-` là helper nội bộ hoặc dependency được inject.
+- **Lớp entity** (ánh xạ model Prisma) khai báo trực tiếp trong sơ đồ, tên class trùng tên model trong `schema.prisma` (`User`, `Workspace`...), chỉ gồm entity mà module/luồng trực tiếp dùng. Entity liệt kê **đầy đủ field scalar** kèm kiểu dữ liệu; không có method vì model Prisma chỉ mô tả dữ liệu. Quan hệ giữa entity (nếu có) vẽ bằng đường kết hợp, bội số ghi trong `docs/database_spec.md`.
 - Các **client bên thứ ba** được đặt tên theo vai trò:
 
 | Class trên sơ đồ | File/công nghệ tương ứng |
@@ -17,7 +18,10 @@
 | `FacebookClient` | `modules/channel/facebook.client.ts` (Graph API) |
 | `BullMQ` | thư viện `bullmq` |
 
-- Không đưa vào sơ đồ: entity Prisma, DTO, validation schema, mapper, middleware, utils JWT/password/cookie, config. Các phần này nằm ở tài liệu kiến trúc và cơ sở dữ liệu.
+`oauthStore` không phải client mà là module Redis lưu state/session OAuth của Facebook (`modules/channel/channel.oauth-store.ts`).
+
+- Không đưa vào sơ đồ: DTO, validation schema, mapper, middleware, utils JWT/password/cookie, config, enum.
+- Phần dùng chung không vẽ: `auditService`/`auditRepository` (ghi `AuditLog`) và `Notification` — là tác dụng phụ cross-cutting của nhiều service, mô tả ở mục 4.
 - Module không dùng client bên thứ ba (User, Brand Voice) chỉ có Controller → Service → Repository.
 
 ## 2. Danh sách sơ đồ
@@ -34,17 +38,19 @@
 
 Mỗi sơ đồ có kèm file `.svg` cùng tên.
 
+Cả 6 sơ đồ module và sơ đồ tổng quan đều có lớp entity đầy đủ field scalar theo `schema.prisma`.
+
 ## 3. Module và client sử dụng
 
-| Module | Controller | Service | Repository | Client bên thứ ba |
-| :--- | :--- | :--- | :--- | :--- |
-| `auth` | `authController` | `authService` | dùng `userRepository` | `GoogleOAuth2Client` |
-| `user` | `userController` | `userService` | `userRepository` | — |
-| `workspace` | `workspaceController` | `workspaceService` | `workspaceRepository` | `MailerClient` |
-| `brandvoice` | `brandVoiceController` | `brandVoiceService` | `brandVoiceRepository` | — |
-| `channel` | `channelController` | `channelService` | `channelRepository` | `FacebookClient` |
-| `post` | `postController` | `postService` | `postRepository` | `CloudinaryClient`, `MailerClient` (qua `PostNotification`) |
-| `workers` | — | — | — | `BullMQ` |
+| Module | Controller | Service | Repository | Entity | Client bên thứ ba |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `auth` | `authController` | `authService` | dùng `userRepository` | `User`, `Workspace` (tạo mặc định) | `GoogleOAuth2Client` |
+| `user` | `userController` | `userService` | `userRepository` | `User` | — |
+| `workspace` | `workspaceController` | `workspaceService` | `workspaceRepository` | `Workspace`, `WorkspaceMember`, `WorkspaceInvite` | `MailerClient` |
+| `brandvoice` | `brandVoiceController` | `brandVoiceService` | `brandVoiceRepository` | `Workspace` (cột `brandVoice`) | — |
+| `channel` | `channelController` | `channelService` | `channelRepository` | `ChannelConnection` | `FacebookClient`, `oauthStore` |
+| `post` | `postController` | `postService` | `postRepository` | `Post`, `MediaAsset` | `CloudinaryClient`, `MailerClient` (qua `PostNotification`) |
+| `workers` | — | — | — | — | `BullMQ` |
 
 ## 4. Ghi chú hành vi (không vẽ trong sơ đồ)
 
@@ -68,10 +74,11 @@ Mỗi sơ đồ có kèm file `.svg` cùng tên.
 
 ### Channel
 
-- OAuth dùng `state` và `session` lưu Redis 600 giây; Page token mã hoá AES-256-GCM.
+- OAuth dùng `state` và `session` lưu Redis 600 giây (`oauthStore`); Page token mã hoá AES-256-GCM.
 - `FacebookClient` gọi Graph API v21.0 với các scope `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
 - `connectFacebookPages` upsert theo `(workspaceId, FACEBOOK, externalAccountId)`.
 - `disconnectChannel` chuyển `ScheduledPost` đang `SCHEDULED` sang `CANCELLED` rồi xoá kênh.
+- `verifyChannelToken` giải mã token, kiểm tra qua Graph API và cập nhật `ChannelConnection.status` (`ACTIVE`/`EXPIRED`).
 
 ### Post
 
@@ -96,15 +103,16 @@ Mỗi sơ đồ có kèm file `.svg` cùng tên.
 
 ## 5. Phần không có trong code
 
-Không có lớp cho AI/OpenAI, Order/PayOS, Admin, lịch đăng/publish, analytics/n8n, Notification API hay UC49/UC50 — các phần này chỉ nằm trong Roadmap tại [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md).
+Không có lớp cho AI/OpenAI, Order/PayOS, Admin, lịch đăng/publish, analytics/n8n, Notification API hay UC42/UC43 — các phần này chỉ nằm trong Roadmap tại [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md).
 
 ## 6. Render lại sơ đồ
 
 Cần Java + `plantuml.jar`:
 
 ```powershell
-java -jar plantuml.jar -tpng -charset UTF-8 docs/class-diagram.puml docs/diagrams
-java -jar plantuml.jar -tsvg -charset UTF-8 docs/class-diagram.puml docs/diagrams
+# Sơ đồ tổng quan rộng hơn 4096px nên cần nới giới hạn xuất ảnh của PlantUML
+java -DPLANTUML_LIMIT_SIZE=16384 -jar plantuml.jar -tpng -charset UTF-8 docs/class-diagram.puml docs/diagrams
+java -DPLANTUML_LIMIT_SIZE=16384 -jar plantuml.jar -tsvg -charset UTF-8 docs/class-diagram.puml docs/diagrams
 ```
 
 Hoặc mở file `.puml` bằng extension PlantUML trong VS Code (`Alt + D`).

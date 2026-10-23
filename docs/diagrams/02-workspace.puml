@@ -8,12 +8,51 @@ skinparam classAttributeIconSize 0
 skinparam linetype ortho
 skinparam shadowing false
 skinparam defaultFontName Arial
-skinparam nodesep 24
-skinparam ranksep 40
+skinparam nodesep 40
+skinparam ranksep 50
 skinparam class {
   BackgroundColor #F8FAFC
   BorderColor #64748B
   ArrowColor #475569
+}
+
+class "Workspace" as Workspace {
+  + id : string
+  + name : string
+  + plan : WorkspacePlan
+  + remainingCredit : number
+  + monthlyQuota : number
+  + planExpiresAt : Date?
+  + billingCycleStart : Date?
+  + nextResetAt : Date?
+  + planExpiryWarningSentAt : Date?
+  + creditWarningSentAt : Date?
+  + brandVoice : Json?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "WorkspaceMember" as WorkspaceMember {
+  + id : string
+  + workspaceId : string
+  + userId : string
+  + role : WorkspaceRole
+  + allowDirectPublish : boolean
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "WorkspaceInvite" as WorkspaceInvite {
+  + id : string
+  + email : string
+  + workspaceId : string
+  + role : WorkspaceRole
+  + token : string
+  + isUsed : boolean
+  + expiresAt : Date
+  + invitedById : string?
+  + createdAt : Date
 }
 
 class "workspaceController" as workspaceController {
@@ -85,5 +124,8 @@ class "MailerClient" as mailerClient {
 workspaceController --> workspaceService
 workspaceService --> workspaceRepository
 workspaceService --> mailerClient
+workspaceRepository ..> Workspace
+workspaceRepository ..> WorkspaceMember
+workspaceRepository ..> WorkspaceInvite
 
 @enduml

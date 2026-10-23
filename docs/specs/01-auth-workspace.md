@@ -113,7 +113,7 @@
 
 ---
 
-## 1.3. Đăng nhập Google (UC02b)
+## 1.3. Đăng nhập Google (UC03)
 
 `POST /auth/google` — công khai, dùng chung `authLimiter`.
 
@@ -141,7 +141,7 @@ Cùng cấu trúc `POST /auth/login`, message `"Đăng nhập Google thành côn
 
 ---
 
-## 1.4. Đăng xuất (UC03)
+## 1.4. Đăng xuất (UC04)
 
 `POST /auth/logout` — yêu cầu `Authorization: Bearer <accessToken>`.
 
@@ -151,7 +151,7 @@ Cùng cấu trúc `POST /auth/login`, message `"Đăng nhập Google thành côn
 
 ---
 
-## 1.5. Refresh token (UC33)
+## 1.5. Refresh token (UC34)
 
 `POST /auth/refresh-token` — không cần access token.
 
@@ -209,7 +209,7 @@ Dùng cho `GET /invites/:token`: nếu có Bearer hợp lệ thì gán `req.user
 
 ---
 
-## 1.7. Hồ sơ cá nhân (UC32)
+## 1.7. Hồ sơ cá nhân (UC33)
 
 ### `GET /users/me`
 
@@ -248,7 +248,7 @@ Yêu cầu `requireAuth`.
 
 ---
 
-## 1.8. Đổi mật khẩu (UC04)
+## 1.8. Đổi mật khẩu (UC05)
 
 `PATCH /users/me/password` — yêu cầu `requireAuth`.
 
@@ -271,9 +271,9 @@ Không kiểm tra `newPassword` khác `oldPassword`, không có OTP/email xác n
 
 ---
 
-## 1.9. Workspace (UC16, UC17, UC18, UC35)
+## 1.9. Workspace (UC17, UC18, UC19, UC35)
 
-### `POST /workspaces` (UC16)
+### `POST /workspaces` (UC17)
 
 Yêu cầu `requireAuth`.
 
@@ -294,7 +294,7 @@ Yêu cầu `requireAuth`. Trả các workspace user là thành viên, **bỏ qua
 { "status": "success", "message": "Lấy danh sách workspace thành công", "data": { "workspaces": [ { "id": "uuid", "name": "...", "plan": "FREE", "role": "OWNER", "remainingCredit": 100, "monthlyQuota": 100 } ] } }
 ```
 
-### `PATCH /workspaces/:workspaceId` (UC17)
+### `PATCH /workspaces/:workspaceId` (UC18)
 
 Yêu cầu `requireAuth` + `OWNER`.
 
@@ -308,7 +308,7 @@ Yêu cầu `requireAuth` + `OWNER`.
 - Ghi audit `WORKSPACE_UPDATE` với `metadata` là body.
 - Response `200`: `{ id, name, plan, remainingCredit, monthlyQuota }` — **không có `role`**.
 
-### `DELETE /workspaces/:workspaceId` (UC18)
+### `DELETE /workspaces/:workspaceId` (UC19)
 
 Yêu cầu `requireAuth` + `OWNER`.
 
@@ -324,9 +324,9 @@ Yêu cầu `requireAuth` + `OWNER`.
 
 ---
 
-## 1.10. Thành viên workspace (UC19, UC22, UC23, UC36)
+## 1.10. Thành viên workspace (UC20, UC23, UC24, UC36)
 
-### `GET /workspaces/:workspaceId/members` (UC19)
+### `GET /workspaces/:workspaceId/members` (UC20)
 
 Yêu cầu `requireAuth` + là thành viên (không giới hạn vai trò).
 
@@ -349,7 +349,7 @@ Yêu cầu `requireAuth` + là thành viên (không giới hạn vai trò).
 - `pendingInvites` chỉ gồm lời mời `isUsed = false` và còn hạn, mới nhất trước.
 - **`memberId` là id bản ghi `WorkspaceMember`**, còn hai API sửa/xoá bên dưới nhận **`userId`** ở cùng vị trí path — client phải dùng đúng trường.
 
-### `DELETE /workspaces/:workspaceId/members/me` (UC22)
+### `DELETE /workspaces/:workspaceId/members/me` (UC23)
 
 Yêu cầu `requireAuth` + là thành viên.
 
@@ -357,7 +357,7 @@ Yêu cầu `requireAuth` + là thành viên.
 - Là `OWNER` và là Owner duy nhất → `409` `"Bạn là Owner duy nhất. Hãy chuyển quyền hoặc xóa workspace"`.
 - Xoá bản ghi `WorkspaceMember`, ghi audit `MEMBER_LEFT`; response `200` `{ success: true }`.
 
-### `DELETE /workspaces/:workspaceId/members/:memberId` (UC23)
+### `DELETE /workspaces/:workspaceId/members/:memberId` (UC24)
 
 Yêu cầu `requireAuth` + `OWNER`; `:memberId` là **userId**.
 
@@ -382,9 +382,9 @@ Yêu cầu `requireAuth` + `OWNER`; `:memberId` là **userId**.
 
 ---
 
-## 1.11. Lời mời tham gia (UC20, UC21)
+## 1.11. Lời mời tham gia (UC21, UC22)
 
-### `POST /workspaces/:workspaceId/invites` (UC20)
+### `POST /workspaces/:workspaceId/invites` (UC21)
 
 Yêu cầu `requireAuth` + `OWNER`.
 
@@ -419,7 +419,7 @@ Response `201`:
 
 `inviteUrl` được trả về để tiện test/dev; trong production link thật nằm trong email.
 
-### `GET /invites/:token` (UC21)
+### `GET /invites/:token` (UC22)
 
 Công khai, dùng `optionalAuth` (có thể gọi khi chưa đăng nhập).
 
@@ -490,7 +490,6 @@ Chưa có endpoint đọc audit log (xem [07](./07-admin-analytics.md)).
 
 ## 1.14. Chưa triển khai (Roadmap)
 
-- **UC34 — xác thực email:** cột `User.emailVerified` đã có (Google = `true`, local = `false`) nhưng không có gửi OTP/link xác thực, không chặn đăng nhập khi chưa xác thực.
 - Quên mật khẩu / đặt lại mật khẩu qua email.
 - Upload avatar người dùng (hiện chỉ nhận URL).
 - Đổi email (cần OTP), xoá tài khoản.
