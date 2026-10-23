@@ -2,7 +2,6 @@
 hide circle
 hide stereotype
 !pragma layout smetana
-title Marka — Workspace & Member
 
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
@@ -72,7 +71,7 @@ class "workspaceController" as workspaceController {
 class "workspaceService" as workspaceService {
   - workspaceRepository : workspaceRepository
   - mailerClient : MailerClient
-  - INVITE_TTL_DAYS : number = 7
+  - INVITE_TTL_DAYS : number
   - ROLE_LABELS : Record<WorkspaceRole, string>
   - assertWorkspaceExists(workspaceId)
   - assertNotLastOwner(workspaceId, message)
@@ -121,9 +120,9 @@ class "MailerClient" as mailerClient {
   + sendEmail({ to, subject, html }) : Promise<boolean>
 }
 
-workspaceController --> workspaceService
-workspaceService --> workspaceRepository
-workspaceService --> mailerClient
+workspaceController ..> workspaceService
+workspaceService ..> workspaceRepository
+workspaceService ..> mailerClient
 workspaceRepository ..> Workspace
 workspaceRepository ..> WorkspaceMember
 workspaceRepository ..> WorkspaceInvite

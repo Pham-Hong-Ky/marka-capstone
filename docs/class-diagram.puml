@@ -2,7 +2,6 @@
 hide circle
 hide stereotype
 !pragma layout smetana
-title Marka â€” SÆ¡ Ä‘á»“ lá»›p tá»•ng quan
 
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
@@ -91,7 +90,7 @@ class "workspaceController" as workspaceController {
 class "workspaceService" as workspaceService {
   - workspaceRepository : workspaceRepository
   - mailerClient : MailerClient
-  - INVITE_TTL_DAYS : number = 7
+  - INVITE_TTL_DAYS : number
   - ROLE_LABELS : Record<WorkspaceRole, string>
   - assertWorkspaceExists(workspaceId)
   - assertNotLastOwner(workspaceId, message)
@@ -217,7 +216,7 @@ class "FacebookClient" as facebookClient {
 class "oauthStore" as oauthStore {
   - STATE_PREFIX : string
   - SESSION_PREFIX : string
-  - TTL_SECONDS : number = 600
+  - TTL_SECONDS : number
   + saveOauthState(state, { userId, workspaceId }) : Promise<void>
   + consumeOauthState(state) : Promise<OauthState | null>
   + saveOauthSession(sessionId, session) : Promise<void>
@@ -244,7 +243,6 @@ class "postController" as postController {
 
 class "postService" as postService {
   - postRepository : postRepository
-  - postNotification : PostNotification
   - cloudinaryClient : CloudinaryClient
   - ALLOWED_TRANSITIONS : Record<PostStatus, PostStatus[]>
   - transitionPost(post, data)
@@ -272,11 +270,6 @@ class "postRepository" as postRepository {
   + createMedia(data)
   + findMediaByIdAndPost(postId, mediaId)
   + softDeleteMedia(mediaId)
-}
-
-class "PostNotification" as postNotification {
-  + notifyPostSubmitted({ workspaceId, postId, postTitle, actorId, actorName })
-  + notifyPostReviewed({ workspaceId, postId, postTitle, authorId, approved, rejectReason })
 }
 
 }
@@ -403,29 +396,28 @@ class "MediaAsset" as MediaAsset {
 }
 
 ' ===== RELATIONS =====
-authController --> authService
-authService --> userRepository
-authService --> googleOAuthClient
-userController --> userService
-userService --> userRepository
+authController ..> authService
+authService ..> userRepository
+authService ..> googleOAuthClient
+userController ..> userService
+userService ..> userRepository
 
-workspaceController --> workspaceService
-workspaceService --> workspaceRepository
-workspaceService --> mailerClient
+workspaceController ..> workspaceService
+workspaceService ..> workspaceRepository
+workspaceService ..> mailerClient
 
-brandVoiceController --> brandVoiceService
-brandVoiceService --> brandVoiceRepository
+brandVoiceController ..> brandVoiceService
+brandVoiceService ..> brandVoiceRepository
 
-channelController --> channelService
-channelService --> channelRepository
-channelService --> facebookClient
-channelService --> oauthStore
+channelController ..> channelService
+channelService ..> channelRepository
+channelService ..> facebookClient
+channelService ..> oauthStore
 
-postController --> postService
-postService --> postRepository
-postService --> postNotification
-postService --> cloudinaryClient
-postNotification --> mailerClient
+postController ..> postService
+postService ..> postRepository
+postService ..> cloudinaryClient
+postService ..> mailerClient
 
 
 userRepository ..> User

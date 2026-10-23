@@ -2,7 +2,6 @@
 hide circle
 hide stereotype
 !pragma layout smetana
-title Marka — Channel & Facebook OAuth
 
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
@@ -68,8 +67,8 @@ class "channelRepository" as channelRepository {
 }
 
 class "FacebookClient" as facebookClient {
-  - graphBase : string = 'https://graph.facebook.com/v21.0'
-  - authBase : string = 'https://www.facebook.com/v21.0/dialog/oauth'
+  - graphBase : string
+  - authBase : string
   - scopes : string[]
   + isFacebookConfigured() : boolean
   + buildAuthorizationUrl(state) : string
@@ -82,9 +81,9 @@ class "FacebookClient" as facebookClient {
 }
 
 class "oauthStore" as oauthStore {
-  - STATE_PREFIX : string = 'fb:oauth:state:'
-  - SESSION_PREFIX : string = 'fb:oauth:session:'
-  - TTL_SECONDS : number = 600
+  - STATE_PREFIX : string
+  - SESSION_PREFIX : string
+  - TTL_SECONDS : number
   + saveOauthState(state, { userId, workspaceId }) : Promise<void>
   + consumeOauthState(state) : Promise<OauthState | null>
   + saveOauthSession(sessionId, session) : Promise<void>
@@ -92,10 +91,10 @@ class "oauthStore" as oauthStore {
   + deleteOauthSession(sessionId) : Promise<void>
 }
 
-channelController --> channelService
-channelService --> channelRepository
-channelService --> facebookClient
-channelService --> oauthStore
+channelController ..> channelService
+channelService ..> channelRepository
+channelService ..> facebookClient
+channelService ..> oauthStore
 channelRepository ..> ChannelConnection
 
 @enduml

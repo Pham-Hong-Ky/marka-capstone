@@ -2,7 +2,6 @@
 hide circle
 hide stereotype
 !pragma layout smetana
-title Marka — Queue & Worker (BullMQ)
 
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
@@ -58,9 +57,9 @@ class "BullMQ" as bullmq {
   + Worker
 }
 
-workerStart --> workers
-workers --> queues
-workers --> bullmq
-queueManager --> queues
+workerStart ..> workers
+workers ..> queues
+workers ..> bullmq
+queueManager ..> queues
 
 @enduml

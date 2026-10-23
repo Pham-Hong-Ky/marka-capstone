@@ -2,7 +2,6 @@
 hide circle
 hide stereotype
 !pragma layout smetana
-title Marka — Brand Voice
 
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
@@ -53,8 +52,8 @@ class "brandVoiceRepository" as brandVoiceRepository {
   + updateWorkspaceBrandVoice(workspaceId, brandVoice)
 }
 
-brandVoiceController --> brandVoiceService
-brandVoiceService --> brandVoiceRepository
+brandVoiceController ..> brandVoiceService
+brandVoiceService ..> brandVoiceRepository
 brandVoiceRepository ..> Workspace
 
 @enduml
