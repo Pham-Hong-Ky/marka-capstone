@@ -2,6 +2,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AiContentPolicyError, AiOutputError, AiProviderError } from './ai.errors.js';
 import { cloudflareImageClient, geminiClient } from './ai.providers.js';
 
+// Key giả để test không phụ thuộc .env của máy chạy (CI không có key thật).
+vi.mock('../../config/env.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../config/env.js')>();
+  const env = {
+    ...actual.default,
+    GEMINI_API_KEY: 'test-gemini-key',
+    CLOUDFLARE_ACCOUNT_ID: 'test-account',
+    CLOUDFLARE_API_TOKEN: 'test-token',
+  };
+  return { ...actual, env, default: env };
+});
+
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
