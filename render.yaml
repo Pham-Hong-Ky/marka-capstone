@@ -36,6 +36,10 @@ services:
       # ----- Bắt buộc (điền khi tạo Blueprint) -----
       - key: DATABASE_URL
         sync: false
+      # Chuỗi kết nối TRỰC TIẾP (Neon: bỏ "-pooler" ở host).
+      # Prisma Migrate dùng biến này; DATABASE_URL (pooled) vẫn dùng cho runtime.
+      - key: DIRECT_URL
+        sync: false
       - key: REDIS_URL
         sync: false
       - key: JWT_ACCESS_SECRET
