@@ -6,8 +6,8 @@
 # Các biến đánh dấu `sync: false` sẽ được Render yêu cầu điền khi tạo service
 # (giá trị mật / phụ thuộc môi trường, KHÔNG lưu trong git).
 #
-# API và worker BullMQ chạy CHUNG một service (ENABLE_WORKERS=true) vì
-# Background Worker riêng là dịch vụ trả phí trên Render.
+# Worker BullMQ tạm tắt ở service API (ENABLE_WORKERS=false) vì chưa có job nào
+# được enqueue; khi cần chạy nền thì bật lại (service worker riêng là dịch vụ trả phí).
 
 services:
   - type: web
@@ -25,8 +25,9 @@ services:
       - key: NODE_ENV
         value: production
       # true = chạy worker BullMQ chung tiến trình API (không cần service worker riêng, tốn phí)
+      # Tạm tắt vì các worker hiện chưa có job nào được enqueue (processor còn là stub).
       - key: ENABLE_WORKERS
-        value: "true"
+        value: "false"
       - key: JWT_ACCESS_EXPIRES_IN
         value: 15m
       - key: JWT_REFRESH_EXPIRES_IN
