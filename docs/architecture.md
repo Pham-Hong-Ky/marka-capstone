@@ -59,7 +59,7 @@ backend/src/
   workers/                # queue BullMQ + worker
 ```
 
-Các module hiện có: `auth`, `user`, `workspace`, `brandvoice`, `channel`, `post`, `audit`, `health`.
+Các module hiện có: `auth`, `user`, `workspace`, `brandvoice`, `ai`, `credit`, `channel`, `post`, `schedule`, `audit`, `health`.
 
 ### 2.1. Router & Middleware
 
@@ -87,7 +87,7 @@ Middleware nghiệp vụ trong `middlewares/`:
 | `rateLimiter.ts` | `apiLimiter` | 200 request/phút/IP cho `/api/` |
 | | `authLimiter` | 15 request/15 phút cho `POST /auth/register` và `POST /auth/google` |
 | | `loginLimiter` | 5 lần **thất bại**/15 phút theo `IP:email` |
-| | `createWorkspaceLimiter` / `aiLimiter` | Hàm khung theo workspace (chưa gắn route AI) |
+| | `createWorkspaceLimiter` / `aiLimiter` | Hàm khung theo workspace; `aiLimiter` (20/phút) gắn cho 2 endpoint POST AI, không gắn cho GET poll |
 | `upload.ts` | `uploadPostMedia` | Multer memory, chỉ JPG/PNG/WEBP, media ≤ 10MB |
 | `error.ts` | `errorHandler` | Chuẩn hoá lỗi (mục 3) |
 | `requestId.ts` | `requestId` | Sinh/truyền `req.id` |
@@ -189,7 +189,7 @@ Lỗi:
   - `channelRepository.upsertFacebookChannels` — upsert nhiều Page.
   - `channelRepository.deleteChannelAndCancelSchedules` — huỷ lịch + xoá kênh.
   - `postRepository.listPostsAndCount` — `findMany` + `count`.
-- `utils/transaction.ts` có helper `withTransaction(action, { maxWait, timeout })` nhưng hiện chưa module nào dùng.
+- `utils/transaction.ts` có helper `withTransaction(action, { maxWait, timeout })`; module AI dùng helper này cho transaction trừ credit + tạo Post + tạo AiGeneration, và cho fail/refund.
 
 ### 6.2. Xoá mềm
 
@@ -212,13 +212,16 @@ Bản ghi đã xoá chỉ đọc được bằng `basePrisma` (export từ `conf
 | Queue | Tên |
 | :--- | :--- |
 | content generation | `content-generation-queue` |
-| publishing | `publishing-queue` |
+| schedule | `schedule-queue` |
 | email | `email-queue` |
 
 - `workers/queue-manager.ts` cung cấp `enqueue`, `getJobStatus`, `cancelJob`, `retryJob`, `pauseQueue`, `resumeQueue`, `getQueueStats`, `closeQueues`.
-- `workers/index.ts` tạo `contentWorker`, `publishingWorker`, `emailWorker`; processor hiện chỉ log, `updateProgress(100)` và trả `{ success: true }`.
-- **Chưa có module nào enqueue job**, chưa có xử lý AI/đăng bài/gửi email qua worker.
-- `ENABLE_WORKERS=true` (mặc định) → `server.ts` import `workers/start.ts` và chạy worker cùng process API. Production có thể đặt `false` và chạy `npm run worker` (`worker-server.ts`) riêng.
+- `workers/index.ts` tạo `contentWorker`, `scheduleWorker`, `emailWorker`.
+- `scheduleWorker` dùng processor thật: job `schedule-due` chạy mỗi 60 giây (đăng ký bằng `upsertJobScheduler`), job `schedule-one` xử lý đăng ngay.
+- `contentWorker` dùng `processContentJob`: job `ai:text` gọi Gemini, job `ai:image` gọi Cloudflare Flux → Cloudinary → tạo `MediaAsset`. Khi job thất bại hẳn, listener hoàn credit và set `AiGeneration.FAILED`.
+- `emailWorker` vẫn là processor mẫu.
+- `ENABLE_WORKERS=true` (mặc định) → `server.ts` import `workers/start.ts` và chạy worker cùng process API. Production có thể đặt `false` và chạy `npm run worker` (`worker-server.ts`) riêng. Scheduler và AI job chỉ hoạt động khi worker chạy và backend không ngủ.
+- Ở môi trường test, BullMQ dùng prefix `marka-test` (production dùng prefix mặc định `bull`) để worker production không nhặt job của test.
 
 ---
 
@@ -232,6 +235,15 @@ Bản ghi đã xoá chỉ đọc được bằng `basePrisma` (export từ `conf
 4. `GET /channels/facebook/oauth/session/:sessionId` trả danh sách Page (không kèm token).
 5. `POST /channels/facebook/oauth/session/:sessionId/connect` lưu các Page đã chọn vào `ChannelConnection` (upsert theo `workspaceId + FACEBOOK + externalAccountId`).
 6. `DELETE /channels/:channelId` xoá kênh và chuyển các `ScheduledPost` đang `SCHEDULED` sang `CANCELLED`.
+
+### 8.2. Đăng bài Facebook
+
+1. `POST /workspaces/:workspaceId/posts/:postId/schedules` tạo một `ScheduledPost` cho mỗi Page được chọn; bài chuyển `APPROVED → SCHEDULED`.
+2. Nếu không có `scheduledAt`, backend enqueue job `schedule-one`; nếu có, scheduler `schedule-due` sẽ nhặt khi đến hạn.
+3. Worker claim `SCHEDULED → PROCESSING`, giải mã Page token, upload từng ảnh với `published=false`, rồi gọi `/{page-id}/feed` với `message` + `attached_media`.
+4. Lưu `externalPostId`, `publishedAt`, chuyển lịch sang `PUBLISHED` và tính lại trạng thái tổng của Post.
+5. Lỗi token 190 → Page `EXPIRED`; lỗi tạm thời trước khi gửi feed → retry tối đa 3 lần; timeout sau khi gửi feed → `FAILED` để tránh đăng trùng.
+6. `DELETE /workspaces/:workspaceId/schedules/:scheduleId` huỷ lịch đang `SCHEDULED`.
 
 Scope xin: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
 Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIRECT_URI`.
@@ -250,6 +262,20 @@ Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIR
 - Nếu chưa cấu hình Cloudinary → 400 `"Chưa cấu hình Cloudinary để tải ảnh lên"`.
 - Media bài viết: upload vào `marka/workspaces/:workspaceId/posts/:postId`.
 - Media bài viết lưu `MediaAsset` với `type=IMAGE`, `source=UPLOADED`.
+- Ảnh AI lưu cùng cây thư mục với hậu tố `/ai`, `source=AI_GENERATED`, `mimeType=image/jpeg`.
+
+### 8.4. AI (Gemini & Cloudflare Workers AI)
+
+- Text: gọi REST `POST /v1beta/models/{GEMINI_MODEL}:generateContent` với
+  `responseMimeType=application/json` + `responseSchema`; mặc định `gemini-flash-lite-latest`.
+  Không cần SDK; dùng `fetch` + `AbortSignal.timeout(60_000)`.
+- Ảnh: gọi Cloudflare Workers AI `@cf/black-forest-labs/flux-1-schnell`, nhận `result.image`
+  base64 (JPEG) → upload Cloudinary → `MediaAsset`.
+- Job chạy qua `content-generation-queue`; trạng thái lưu trong `AiGeneration`
+  (`PENDING/PROCESSING/SUCCESS/FAILED`), frontend poll API.
+- Credit trừ khi enqueue, hoàn khi job thất bại hẳn; transaction bảo đảm trạng thái + refund
+  không bị race. Lỗi không đáng retry dùng `UnrecoverableError`.
+- Thiếu `GEMINI_API_KEY` / `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` → 503 trước khi trừ credit.
 
 ---
 

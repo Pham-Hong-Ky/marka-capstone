@@ -77,6 +77,7 @@ enum ChannelStatus {
 
 enum PublishStatus {
   SCHEDULED
+  PROCESSING
   PUBLISHED
   FAILED
   CANCELLED
@@ -90,6 +91,8 @@ enum AiGenType {
 }
 
 enum AiGenStatus {
+  PENDING
+  PROCESSING
   SUCCESS
   FAILED
 }
@@ -292,7 +295,7 @@ model ChannelConnection {
   platform          SocialPlatform
   type              ChannelType    @default(SIMULATED)
   name              String         @db.VarChar(255)
-  avatar            String?        @db.VarChar(255)
+  avatar            String?        @db.VarChar(2048)
   externalAccountId String         @db.VarChar(255)
   accessToken       String?        @db.Text
   status            ChannelStatus  @default(ACTIVE)
@@ -314,19 +317,23 @@ model ScheduledPost {
   channelId      String        @db.VarChar(36)
   customContent  Json?
   scheduledAt    DateTime?
-  status         PublishStatus @default(SCHEDULED)
-  externalPostId String?       @db.VarChar(255)
-  errorMessage   String?       @db.Text
-  retryCount     Int           @default(0)
-  reminderSentAt DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  status              PublishStatus @default(SCHEDULED)
+  externalPostId      String?       @db.VarChar(255)
+  errorMessage        String?       @db.Text
+  retryCount          Int           @default(0)
+  processingStartedAt DateTime?
+  retryAt             DateTime?
+  publishedAt         DateTime?
+  reminderSentAt      DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
   // Relationships
   post    Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
   channel ChannelConnection  @relation(fields: [channelId], references: [id], onDelete: Cascade)
   metric  PostMetric?
 
+  @@unique([postId, channelId])
   @@index([status, scheduledAt])
   @@index([channelId])
   @@index([postId])
@@ -364,11 +371,13 @@ model AiGeneration {
   type        AiGenType
   provider    String      @db.VarChar(100)
   model       String      @db.VarChar(100)
-  status      AiGenStatus @default(SUCCESS)
+  status      AiGenStatus @default(PENDING)
   prompt      String      @db.Text
-  response    String      @db.Text
+  response    String?     @db.Text
+  errorMessage String?    @db.VarChar(500)
   creditCost  Int
   createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   // Relationships
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

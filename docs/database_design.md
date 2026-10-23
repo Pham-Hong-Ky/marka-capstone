@@ -2,7 +2,7 @@
 
 > **Database:** PostgreSQL &nbsp;|&nbsp; **ORM:** Prisma &nbsp;|&nbsp; **Tổng số bảng:** 15
 >
-> **Trạng thái:** tài liệu mô tả đúng `backend/prisma/schema.prisma`. Schema có 15 bảng, nhưng API hiện chỉ dùng 9 bảng: `users`, `workspaces`, `workspace_members`, `workspace_invites`, `posts`, `media_assets`, `channel_connections`, `notifications`, `audit_logs`. Sáu bảng `scheduled_posts`, `post_metrics`, `ai_generations`, `credit_transactions`, `credit_packages`, `orders` đã có trong schema nhưng **chưa có endpoint/service** (xem Roadmap).
+> **Trạng thái:** tài liệu mô tả đúng `backend/prisma/schema.prisma`. Schema có 15 bảng; API hiện dùng 12 bảng: `users`, `workspaces`, `workspace_members`, `workspace_invites`, `posts`, `media_assets`, `channel_connections`, `notifications`, `audit_logs`, `scheduled_posts`, `ai_generations`, `credit_transactions`. Ba bảng `post_metrics`, `credit_packages`, `orders` đã có trong schema nhưng **chưa có endpoint/service** (xem Roadmap).
 
 ---
 
@@ -160,15 +160,20 @@
 | `channelId` | VARCHAR(36) | FK → channel_connections | Kênh đăng |
 | `customContent` | JSON | NULL | Nội dung tuỳ chỉnh theo kênh |
 | `scheduledAt` | DATETIME | NULL | Thời điểm dự kiến đăng |
-| `status` | ENUM | DEFAULT SCHEDULED | Trạng thái: `SCHEDULED`, `PUBLISHED`, `FAILED`, `CANCELLED` |
+| `status` | ENUM | DEFAULT SCHEDULED | Trạng thái: `SCHEDULED`, `PROCESSING`, `PUBLISHED`, `FAILED`, `CANCELLED` |
 | `externalPostId` | VARCHAR(255) | NULL | ID bài đăng trên nền tảng |
 | `errorMessage` | TEXT | NULL | Thông báo lỗi khi thất bại |
 | `retryCount` | INT | DEFAULT 0 | Số lần thử lại |
+| `processingStartedAt` | DATETIME | NULL | Thời điểm worker claim |
+| `retryAt` | DATETIME | NULL | Thời điểm thử lại sau lỗi tạm thời (giữ nguyên `scheduledAt` gốc) |
+| `publishedAt` | DATETIME | NULL | Thời điểm đăng thành công |
 | `reminderSentAt` | DATETIME | NULL | Cờ chống gửi trùng nhắc lịch đăng (D7) |
 | `createdAt` | DATETIME | NOT NULL | Thời điểm tạo |
 | `updatedAt` | DATETIME | NOT NULL | Thời điểm cập nhật |
 
-> **Trạng thái code:** bảng đã có trong schema nhưng **chưa có endpoint/service tạo lịch đăng**. API hiện chỉ dùng bảng này để chuyển `SCHEDULED → CANCELLED` khi ngắt kết nối kênh.
+> **Ràng buộc:** UNIQUE(`postId`, `channelId`).
+
+> **Trạng thái code:** đã có module `schedule` tạo/đăng/huỷ lịch; worker cập nhật trạng thái từng Page. Ngắt kênh chuyển `SCHEDULED → CANCELLED`.
 
 ### Bảng `post_metrics`
 
@@ -194,7 +199,8 @@
 
 ## 5. Nhóm AI & Credit
 
-> **Trạng thái code:** cả 4 bảng dưới đây mới chỉ có trong schema, chưa có module/service/endpoint nào sử dụng. AI, credit và thanh toán PayOS nằm trong Roadmap.
+> **Trạng thái code:** `ai_generations` và `credit_transactions` đã được dùng cho trợ lý AI
+> (text + image). `credit_packages` và `orders` vẫn chưa có module/endpoint (thanh toán PayOS nằm trong Roadmap).
 
 ### Bảng `ai_generations`
 
@@ -205,13 +211,15 @@
 | `userId` | VARCHAR(36) | FK → users, NULL | Người dùng yêu cầu |
 | `postId` | VARCHAR(36) | FK → posts, NULL | Bài viết liên kết |
 | `type` | ENUM | NOT NULL | Loại: `TEXT`, `IMAGE`, `VIRAL_SCORE`, `REGENERATE` |
-| `provider` | VARCHAR(100) | NOT NULL | Nhà cung cấp AI (vd: `openai`) |
-| `model` | VARCHAR(100) | NOT NULL | Mô hình AI (vd: `gpt-4o`) |
-| `status` | ENUM | DEFAULT SUCCESS | Trạng thái: `SUCCESS`, `FAILED` |
-| `prompt` | TEXT | NOT NULL | Prompt gửi lên AI |
-| `response` | TEXT | NOT NULL | Kết quả trả về từ AI |
-| `creditCost` | INT | NOT NULL | Số credit tiêu thụ |
+| `provider` | VARCHAR(100) | NOT NULL | Nhà cung cấp AI (`gemini`, `cloudflare`) |
+| `model` | VARCHAR(100) | NOT NULL | Mô hình AI (vd: `gemini-flash-lite-latest`, `@cf/black-forest-labs/flux-1-schnell`) |
+| `status` | ENUM | DEFAULT PENDING | Trạng thái: `PENDING`, `PROCESSING`, `SUCCESS`, `FAILED` |
+| `prompt` | TEXT | NOT NULL | Prompt gửi lên AI (JSON: system/user hoặc image prompt) |
+| `response` | TEXT | NULL | Kết quả trả về (JSON); NULL khi PENDING/FAILED |
+| `errorMessage` | VARCHAR(500) | NULL | Thông báo lỗi thân thiện khi FAILED |
+| `creditCost` | INT | NOT NULL | Số credit đã trừ; set `0` khi đã hoàn credit |
 | `createdAt` | DATETIME | NOT NULL | Thời điểm tạo |
+| `updatedAt` | DATETIME | NOT NULL | Thời điểm cập nhật trạng thái gần nhất |
 
 ### Bảng `credit_transactions`
 

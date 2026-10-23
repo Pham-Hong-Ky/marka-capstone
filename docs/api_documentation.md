@@ -556,7 +556,7 @@ Yêu cầu `requireAuth` + `OWNER`.
 
 ---
 
-## 6. Channel & Facebook OAuth
+## 6. Channel, Facebook OAuth & Schedule
 
 ### `GET /workspaces/:workspaceId/channels`
 
@@ -672,6 +672,44 @@ Yêu cầu `requireAuth` + `OWNER`. Kênh phải thuộc workspace hiện tại 
 **Xử lý**: chuyển `ScheduledPost` đang `SCHEDULED` của kênh sang `CANCELLED`, xoá `ChannelConnection`; audit `CHANNEL_DISCONNECTED`.
 
 **Response 200**: `{ "status": "success", "message": "Ngắt kết nối kênh thành công", "data": { "success": true } }`
+
+### `POST /workspaces/:workspaceId/posts/:postId/schedules`
+
+Yêu cầu `requireAuth` + là thành viên workspace. Mọi thành viên được đăng/lên lịch bài `APPROVED`.
+
+**Body**
+
+```json
+{ "channelIds": ["uuid-page-1", "uuid-page-2"], "scheduledAt": "2026-10-24T09:00:00.000Z" }
+```
+
+- `channelIds`: 1–10 UUID, thuộc workspace, `FACEBOOK`, `REAL`, `ACTIVE`.
+- `scheduledAt`: bỏ trống hoặc `null` để đăng ngay; nếu có phải ≥ hiện tại + 1 phút.
+- Bài phải `APPROVED`, có nội dung text, tối đa 10 ảnh, không có video.
+
+**Xử lý**: tạo một `ScheduledPost` cho mỗi Page, chuyển Post sang `SCHEDULED`, audit `SCHEDULE_CREATED`. Đăng ngay thì enqueue job `schedule-one`; lên lịch thì worker `schedule-due` nhặt khi đến hạn.
+
+**Response 201**
+
+```json
+{
+  "status": "success",
+  "message": "Lên lịch đăng bài thành công",
+  "data": { "schedules": [ { "id": "uuid", "status": "SCHEDULED", "scheduledAt": "...", "channel": { ... } } ] }
+}
+```
+
+### `GET /workspaces/:workspaceId/schedules`
+
+Yêu cầu `requireAuth` + là thành viên. Query: `status` (`SCHEDULED|PROCESSING|PUBLISHED|FAILED|CANCELLED`), `from`, `to`, `page`, `limit` (1–200, mặc định 20). `from/to` lọc theo `scheduledAt`; lịch đăng ngay (`scheduledAt = null`) lọc theo `createdAt`.
+
+**Response 200**: `data.schedules[]` + `meta { page, limit, total, totalPages }`. Không trả `accessToken`.
+
+### `DELETE /workspaces/:workspaceId/schedules/:scheduleId`
+
+Yêu cầu `requireAuth` + là thành viên. Chỉ huỷ được lịch `SCHEDULED`; lịch `PROCESSING` trả `409`.
+
+**Response 200**: `{ "status": "success", "message": "Huỷ lịch đăng thành công", "data": { "success": true } }`
 
 ---
 
@@ -839,7 +877,124 @@ Message khi từ chối: `"Từ chối bài viết thành công"`.
 
 ---
 
-## 8. Bảng tổng hợp endpoint
+## 8. AI Assistant
+
+Tất cả endpoint dưới đây yêu cầu `requireAuth` + là thành viên workspace. `aiLimiter` (20 request/phút/workspace)
+chỉ gắn cho hai endpoint POST; endpoint GET dùng để poll nên không bị giới hạn bởi `aiLimiter`.
+
+### `POST /workspaces/:workspaceId/ai/text`
+
+Enqueue sinh nội dung bằng Gemini. Trừ **10 credit** ngay khi enqueue.
+
+**Body**
+
+```json
+{
+  "topic": "Ra mắt bộ sưu tập áo thu đông cho nữ văn phòng",
+  "instructions": "Nhấn mạnh chất liệu, giọng thân thiện",
+  "postId": "uuid (tuỳ chọn)"
+}
+```
+
+- `topic`: 5–1000 ký tự, bắt buộc.
+- `instructions`: ≤ 500 ký tự, tuỳ chọn.
+- `postId`: nếu có, bài phải thuộc workspace, đang `DRAFT`/`REJECTED` và user có quyền sửa.
+
+**Response 202**
+
+```json
+{
+  "status": "success",
+  "message": "Đã đưa yêu cầu tạo nội dung vào hàng đợi",
+  "data": {
+    "generationId": "uuid",
+    "status": "PENDING",
+    "postId": null,
+    "creditCost": 10,
+    "remainingCredit": 90
+  }
+}
+```
+
+### `POST /workspaces/:workspaceId/ai/images`
+
+Enqueue sinh 1 ảnh bằng Cloudflare Flux. Trừ **20 credit** ngay khi enqueue.
+
+**Body** (bài đã có):
+
+```json
+{ "postId": "uuid", "prompt": "phong cách tối giản, ánh sáng tự nhiên" }
+```
+
+**Body** (bài mới — tự tạo nháp trong cùng transaction):
+
+```json
+{
+  "title": "Áo sơ mi trắng thanh lịch",
+  "content": { "type": "doc", "content": [] },
+  "prompt": "phong cách tối giản"
+}
+```
+
+- Không đủ credit → rollback toàn bộ, không tạo Post nháp mồ côi.
+- Ảnh xong được lưu Cloudinary và tạo `MediaAsset` với `source = AI_GENERATED`.
+
+**Response 202**
+
+```json
+{
+  "status": "success",
+  "message": "Đã đưa yêu cầu tạo ảnh vào hàng đợi",
+  "data": {
+    "generationId": "uuid",
+    "status": "PENDING",
+    "postId": "uuid",
+    "creditCost": 20,
+    "remainingCredit": 80
+  }
+}
+```
+
+### `GET /workspaces/:workspaceId/ai/generations/:generationId`
+
+Poll trạng thái job. Frontend gọi mỗi 2 giây tới khi `SUCCESS`/`FAILED`.
+
+**Response 200**
+
+```json
+{
+  "status": "success",
+  "message": "Lấy trạng thái tạo nội dung AI thành công",
+  "data": {
+    "id": "uuid",
+    "type": "TEXT",
+    "status": "SUCCESS",
+    "provider": "gemini",
+    "model": "gemini-flash-lite-latest",
+    "postId": null,
+    "creditCost": 10,
+    "result": {
+      "title": "Tiêu đề",
+      "content": { "type": "doc", "content": [] }
+    },
+    "errorMessage": null,
+    "createdAt": "2026-10-23T12:00:00.000Z",
+    "updatedAt": "2026-10-23T12:00:12.000Z"
+  }
+}
+```
+
+- `type = IMAGE` → `result = { "media": { "id", "url", "mimeType", "size" } }`.
+- `status = FAILED` → `result = null`, `errorMessage` là thông báo tiếng Việt; credit đã được hoàn.
+- Generation của workspace khác → `404`.
+
+**Lỗi**: `402` không đủ credit; `403` không phải thành viên/không có quyền sửa bài; `404` bài/generation không tồn tại;
+`409` bài không còn `DRAFT`/`REJECTED`; `422` body sai; `503` thiếu cấu hình provider hoặc không enqueue được.
+
+---
+
+## 9. Bảng tổng hợp endpoint
+
 
 | Method | Path | Auth | Workspace role |
 | :--- | :--- | :--- | :--- |
@@ -864,6 +1019,9 @@ Message khi từ chối: `"Từ chối bài viết thành công"`.
 | GET | `/invites/:token` | Optional | — |
 | GET | `/workspaces/:workspaceId/brand-voice` | Bearer | Thành viên |
 | PUT | `/workspaces/:workspaceId/brand-voice` | Bearer | OWNER |
+| POST | `/workspaces/:workspaceId/ai/text` | Bearer | Thành viên |
+| POST | `/workspaces/:workspaceId/ai/images` | Bearer | Thành viên (quyền sửa bài) |
+| GET | `/workspaces/:workspaceId/ai/generations/:generationId` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/channels` | Bearer | Thành viên |
 | GET | `/channels/facebook/oauth/url` | Bearer | OWNER |
 | GET | `/channels/facebook/oauth/callback` | — | — |
@@ -879,5 +1037,8 @@ Message khi từ chối: `"Từ chối bài viết thành công"`.
 | DELETE | `/workspaces/:workspaceId/posts/:postId/media/:mediaId` | Bearer | Thành viên (bài của mình) |
 | POST | `/workspaces/:workspaceId/posts/:postId/submit` | Bearer | Thành viên (bài của mình) |
 | PATCH | `/workspaces/:workspaceId/posts/:postId/review` | Bearer | OWNER |
+| POST | `/workspaces/:workspaceId/posts/:postId/schedules` | Bearer | Thành viên |
+| GET | `/workspaces/:workspaceId/schedules` | Bearer | Thành viên |
+| DELETE | `/workspaces/:workspaceId/schedules/:scheduleId` | Bearer | Thành viên |
 
-**Không có trong code** (đừng gọi): endpoint AI sinh nội dung, lịch đăng, publish, credit/PayOS, admin, notification, analytics, upload media độc lập.
+**Không có trong code** (đừng gọi): calendar kéo-thả, credit/PayOS, admin, notification, analytics, upload media độc lập.

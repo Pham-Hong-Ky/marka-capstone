@@ -3,7 +3,7 @@
 > **Phạm vi:** Chỉ các UC có endpoint trong `backend/src/routes/index.ts`.
 > Nội dung bám theo code đang chạy: `backend/src/routes/index.ts`, `backend/src/modules/**`,
 > `backend/src/middlewares/**`, `backend/src/utils/**`, `backend/prisma/schema.prisma`.
-> Các tính năng chưa có endpoint (AI, credit/PayOS, admin, lịch đăng/publish, analytics/n8n,
+> Các tính năng chưa có endpoint (AI, credit/PayOS, admin, calendar nâng cao, analytics/n8n,
 > API notification, UC42/UC43) **không được vẽ sơ đồ**, chỉ liệt kê ở
 > [mục 9](#9-chưa-triển-khai-roadmap).
 
@@ -2312,8 +2312,8 @@ Bảng dùng để tra nhanh lớp xử lý của từng endpoint. Tên đầy �
 Ghi chú:
 
 - Không có endpoint nào dùng `requireRoles`; phân quyền hiện tại chỉ dựa trên vai trò workspace.
-- `createWorkspaceLimiter` và `aiLimiter` tồn tại trong `middlewares/rateLimiter.ts` nhưng chưa
-  gắn vào route nào.
+- `aiLimiter` đã gắn cho `POST /ai/text` và `POST /ai/images` (sau `requireWorkspaceRole`);
+  `GET /ai/generations/:id` không dùng limiter này để tránh chặn polling.
 - Các repository tự mở transaction: `createUserWithDefaultWorkspace`,
   `createWorkspaceWithOwner`, `acceptInviteAsMember`, `softDeleteWorkspace`,
   `upsertFacebookChannels`, `deleteChannelAndCancelSchedules`, `listPostsAndCount`.
@@ -2326,16 +2326,17 @@ Ghi chú:
 Các mục dưới đây **không có endpoint, controller, service hoặc route** trong code hiện tại.
 Không dùng tài liệu này để suy ra API đã tồn tại.
 
-- **AI sinh nội dung:** chưa có module, chưa có route; `aiLimiter` mới là hàm khung.
-  `AiGeneration`, `AiGenType`, `AiGenStatus` có trong schema nhưng không được gọi.
-- **Credit, CreditPackage, Order, PayOS, webhook thanh toán:** chưa có module và endpoint.
-  `Workspace.remainingCredit` / `monthlyQuota`, `CreditTransaction`, `CreditPackage`, `Order`
-  chỉ là dữ liệu có sẵn trong schema, không có luồng trừ tiền hay thanh toán.
+- **AI sinh nội dung/ảnh:** đã có module `ai`, route `/ai/text`, `/ai/images`,
+  `/ai/generations/:id` và `contentWorker`. Còn Viral Score, regenerate, nhiều ảnh/lần,
+  lịch sử AI UI và sweeper job kẹt.
+- **Credit, CreditPackage, Order, PayOS, webhook thanh toán:** module `credit` đã có
+  `reserve`/`refund` nội bộ cho AI; **chưa có** endpoint nạp credit, gói credit, Order,
+  PayOS hay webhook.
 - **Admin panel:** chưa có route quản trị user/workspace/dashboard. `requireRoles` đã viết
   nhưng chưa được gắn vào route nào; chưa có màn hình admin.
-- **Lịch đăng bài và publish:** chưa có endpoint tạo/sửa/huỷ lịch, chưa có Calendar.
-  `ScheduledPost` và `publishing-queue` tồn tại nhưng chưa module nào enqueue job; worker
-  processor hiện chỉ log, `updateProgress(100)` và trả `{ success: true }`.
+- **Lịch đăng bài và publish:** đã có module `schedule` + `scheduleWorker` (`schedule-queue`).
+  API tạo lịch/đăng ngay, danh sách lịch và huỷ lịch; worker gọi Graph API và retry.
+  Calendar kéo-thả/sửa giờ sau khi tạo vẫn là Roadmap.
 - **Analytics, PostMetric, n8n:** chưa có module, endpoint hay job tích hợp.
   `PostMetric` có trong schema nhưng không được ghi/đọc.
 - **API Notification:** bảng `Notification` chỉ được ghi tự động (thành viên mới, bài gửi

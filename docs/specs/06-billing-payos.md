@@ -1,9 +1,12 @@
-# Phân hệ 6 — Credit & Thanh toán PayOS (Roadmap)
+# Phân hệ 6 — Credit & Thanh toán PayOS (Một phần)
 
 > [Quay lại Mục lục](README.md)
 >
-> **Trạng thái: CHƯA TRIỂN KHAI.** Không có module, service, controller hay route nào cho credit/thanh toán trong `backend/src`.
-> Tài liệu này giữ lại mục tiêu, phần schema đã có và các việc cần làm — **không** mô tả như chức năng đang hoạt động.
+> **Trạng thái: MỘT PHẦN.** Đã có `modules/credit` (trừ/hoàn credit cố định cho AI) và
+> `CreditTransaction` được ghi khi enqueue/refund. **Chưa có** endpoint nạp credit, gói credit,
+> Order hay PayOS.
+> Tài liệu này giữ lại mục tiêu, phần schema đã có và các việc cần làm — **không** mô tả
+> phần thanh toán như chức năng đang hoạt động.
 
 ---
 
@@ -15,17 +18,19 @@
 | **UC40** | Xem danh sách gói credit | Thành viên |
 | **UC41** | Xem số dư & lịch sử giao dịch credit | Thành viên |
 
-Ngoài ra: trừ credit khi gọi AI, hoàn credit khi thất bại, reset credit theo chu kỳ tháng.
+Ngoài ra: trừ credit khi gọi AI (đã có), hoàn credit khi thất bại (đã có), reset credit theo chu kỳ tháng (chưa có).
 
 ---
 
 ## 6.2. Hiện trạng trong code
 
-- **Không có endpoint** nào dưới `/credits`, `/packages`, `/orders`, `/payments`, `/webhooks/payos`.
-- Không có service/repository credit; không gọi PayOS; không có cron reset credit.
+- **Đã có:** `modules/credit` với `reserve`/`refund` dùng transaction, gọi từ module AI
+  (`GEN_TEXT` 10, `GEN_IMAGE` 20, `REFUND` khi job thất bại hẳn).
+- **Chưa có endpoint** nào dưới `/credits`, `/packages`, `/orders`, `/payments`, `/webhooks/payos`.
+- Không gọi PayOS; không có cron reset credit; `CreditPackage`/`Order` chưa có service.
 - `env.ts` có khai báo `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` nhưng **không nơi nào đọc**.
-- `aiLimiter` (20 request/phút/workspace) đã khai báo trong `middlewares/rateLimiter.ts` nhưng chưa gắn vào route nào.
-- **UC41 — Một phần:** `remainingCredit` và `monthlyQuota` chỉ xuất hiện trong response workspace:
+- `aiLimiter` (20 request/phút/workspace) đã gắn cho 2 endpoint POST AI; không gắn cho GET poll.
+- **UC41 — Một phần:** `remainingCredit` và `monthlyQuota` xuất hiện trong response workspace:
   - `GET /workspaces`
   - `POST /workspaces`
   - `PATCH /workspaces/:workspaceId`

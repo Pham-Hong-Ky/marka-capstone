@@ -1,5 +1,6 @@
 import type { Prisma, PostStatus } from '@prisma/client';
 import prisma from '../../config/db.js';
+import { SCHEDULE_PUBLIC_SELECT } from '../schedule/schedule.repository.js';
 
 export const createPost = async (data: {
   workspaceId: string;
@@ -13,7 +14,13 @@ export const createPost = async (data: {
 export const getPostById = async (postId: string, workspaceId: string) => {
   return prisma.post.findFirst({
     where: { id: postId, workspaceId },
-    include: { mediaAssets: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } } },
+    include: {
+      mediaAssets: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
+      scheduledPosts: {
+        orderBy: [{ scheduledAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }],
+        select: SCHEDULE_PUBLIC_SELECT,
+      },
+    },
   });
 };
 

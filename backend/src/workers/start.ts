@@ -1,6 +1,7 @@
 import logger from '../utils/logger.js';
 import { queueConnection } from '../config/redis.js';
-import { contentWorker, publishingWorker, emailWorker, closeWorkers } from './index.js';
+import { registerScheduleScheduler } from '../modules/schedule/schedule.processor.js';
+import { contentWorker, scheduleWorker, emailWorker, closeWorkers } from './index.js';
 import { closeQueues } from './queue-manager.js';
 import { QUEUE_NAMES } from './types.js';
 
@@ -12,6 +13,12 @@ import { QUEUE_NAMES } from './types.js';
  *   `ENABLE_WORKERS=false` ở service API để API và worker scale độc lập.
  */
 export const startWorkers = async (): Promise<void> => {
+  try {
+    await registerScheduleScheduler();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(`[Workers] Không đăng ký được scheduler đăng bài: ${message}`);
+  }
   logger.info(`[Workers] Đã khởi động: ${Object.values(QUEUE_NAMES).join(', ')}`);
 };
 
@@ -24,6 +31,6 @@ export const stopWorkers = async (): Promise<void> => {
   logger.info('[Workers] Đã dừng toàn bộ worker an toàn.');
 };
 
-export const workers = { contentWorker, publishingWorker, emailWorker };
+export const workers = { contentWorker, scheduleWorker, emailWorker };
 
 export default { startWorkers, stopWorkers, workers };

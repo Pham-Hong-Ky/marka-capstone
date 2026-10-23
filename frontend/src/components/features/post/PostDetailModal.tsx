@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import type { JSONContent } from '@tiptap/react';
-import { Check, Eye, Pencil, Send, Trash2, X } from 'lucide-react';
+import { CalendarClock, Check, Eye, Pencil, Send, Trash2, X } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import PostStatusBadge from './PostStatusBadge';
 import PostPreviewModal from './PostPreviewModal';
-import type { PostDetail } from '@/services/post';
+import PublishScheduleModal from '@/components/features/schedule/PublishScheduleModal';
+import ScheduleStatusBadge from '@/components/features/schedule/ScheduleStatusBadge';
+import { PUBLISHABLE_POST_STATUSES, type PostDetail } from '@/services/post';
 import { usePost, useReviewPost, useSubmitPost } from '@/hooks/usePost';
 import { getErrorMessage } from '@/utils/error';
 import type { WorkspaceRole } from '@/services/auth';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
+import { formatDateTime } from '@/utils/format';
 
 export const PostDetailModal = ({
   open,
@@ -38,9 +41,12 @@ export const PostDetailModal = ({
   const submitPost = useSubmitPost();
   const reviewPost = useReviewPost();
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [publishMode, setPublishMode] = useState<'now' | 'schedule' | null>(null);
 
   const canEdit = post?.status === 'DRAFT' || post?.status === 'REJECTED';
   const canReview = post?.status === 'PENDING' && role === 'OWNER';
+  const canPublish = Boolean(post && PUBLISHABLE_POST_STATUSES.includes(post.status));
+  const schedules = post?.schedules ?? [];
 
   return (
     <Modal
@@ -49,7 +55,7 @@ export const PostDetailModal = ({
       title={post?.title ?? 'Chi tiết bài viết'}
       className="max-w-2xl"
       footer={
-        post && (canEdit || canReview) ? (
+        post && (canEdit || canReview || canPublish) ? (
           <>
             {canEdit ? (
               <Button type="button" variant="outline" onClick={() => onEdit(post)} className="mr-auto">
@@ -99,6 +105,19 @@ export const PostDetailModal = ({
                 </Button>
               </>
             ) : null}
+
+            {canPublish ? (
+              <>
+                <Button type="button" variant="outline" onClick={() => setPublishMode('schedule')}>
+                  <CalendarClock className="h-4 w-4" />
+                  Lên lịch
+                </Button>
+                <Button type="button" onClick={() => setPublishMode('now')}>
+                  <Send className="h-4 w-4" />
+                  Đăng ngay
+                </Button>
+              </>
+            ) : null}
           </>
         ) : undefined
       }
@@ -129,6 +148,40 @@ export const PostDetailModal = ({
             <RichTextEditor value={post.content as JSONContent} editable={false} />
           </div>
 
+          {schedules.length > 0 ? (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-foreground">Lịch đăng</h3>
+              {schedules.map((schedule) => (
+                <div key={schedule.id} className="rounded-lg border border-border p-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">{schedule.channel.name}</span>
+                    <ScheduleStatusBadge status={schedule.status} />
+                    <span className="text-xs text-muted">
+                      {schedule.publishedAt
+                        ? formatDateTime(schedule.publishedAt)
+                        : schedule.scheduledAt
+                          ? formatDateTime(schedule.scheduledAt)
+                          : 'Đăng ngay'}
+                    </span>
+                  </div>
+                  {schedule.errorMessage ? (
+                    <p className="mt-1 text-danger">{schedule.errorMessage}</p>
+                  ) : null}
+                  {schedule.externalPostId ? (
+                    <a
+                      href={`https://www.facebook.com/${schedule.externalPostId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-block text-xs font-medium text-accent-text hover:underline"
+                    >
+                      Xem bài trên Facebook
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
             <Eye className="h-4 w-4" />
             Xem bài viết
@@ -141,6 +194,17 @@ export const PostDetailModal = ({
         onClose={() => setPreviewOpen(false)}
         post={post ?? null}
       />
+
+      {post ? (
+        <PublishScheduleModal
+          open={publishMode !== null}
+          mode={publishMode ?? 'now'}
+          workspaceId={workspaceId}
+          post={post}
+          onClose={() => setPublishMode(null)}
+          onScheduled={() => setPublishMode(null)}
+        />
+      ) : null}
     </Modal>
   );
 };

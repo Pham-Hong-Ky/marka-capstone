@@ -10,10 +10,10 @@ const ALLOWED_TRANSITIONS: Record<PostStatus, PostStatus[]> = {
   DRAFT: ['PENDING'],
   PENDING: ['APPROVED', 'REJECTED'],
   REJECTED: ['PENDING'],
-  APPROVED: [],
+  APPROVED: ['SCHEDULED'],
   SCHEDULED: [],
-  PUBLISHED: [],
-  FAILED: [],
+  PUBLISHED: ['SCHEDULED'],
+  FAILED: ['SCHEDULED'],
   ARCHIVED: [],
 };
 
@@ -52,7 +52,9 @@ export const getPost = async (workspaceId: string, postId: string) => {
   if (!post) {
     throw new NotFoundError('Bài viết không tồn tại');
   }
-  return post;
+
+  const { scheduledPosts, ...rest } = post;
+  return { ...rest, schedules: scheduledPosts };
 };
 
 export const listPosts = async (workspaceId: string, query: ListPostsQuery) => {

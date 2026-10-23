@@ -25,6 +25,11 @@ const envSchema = z.object({
 
   // ---- Third-party integrations (tuỳ chọn; điền ở .env khi dùng) ----
   OPENAI_API_KEY: z.string().default(''),
+  GEMINI_API_KEY: z.string().default(''),
+  GEMINI_MODEL: z.string().default('gemini-flash-lite-latest'),
+  CLOUDFLARE_ACCOUNT_ID: z.string().default(''),
+  CLOUDFLARE_API_TOKEN: z.string().default(''),
+  CLOUDFLARE_IMAGE_MODEL: z.string().default('@cf/black-forest-labs/flux-1-schnell'),
   CLOUDINARY_CLOUD_NAME: z.string().default(''),
   CLOUDINARY_API_KEY: z.string().default(''),
   CLOUDINARY_API_SECRET: z.string().default(''),

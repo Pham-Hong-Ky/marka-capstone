@@ -1,10 +1,13 @@
-import { Worker, type Job } from 'bullmq';
+import { UnrecoverableError, Worker, type Job } from 'bullmq';
 import { queueConnection } from '../config/redis.js';
 import logger from '../utils/logger.js';
-import { QUEUE_NAMES, type QueueName } from './types.js';
+import { processScheduleJob } from '../modules/schedule/schedule.processor.js';
+import { buildAiFailureMessage, processContentJob } from '../modules/ai/ai.processor.js';
+import aiService from '../modules/ai/ai.service.js';
+import { QUEUE_NAMES, QUEUE_PREFIX, type QueueName } from './types.js';
 import { hasRemainingAttempts } from './queue-manager.js';
 
-type WorkerLabel = 'ContentWorker' | 'PublishingWorker' | 'EmailWorker';
+type WorkerLabel = 'ContentWorker' | 'ScheduleWorker' | 'EmailWorker';
 
 // Processor mẫu. Khi có module nghiệp vụ, thay thân hàm bằng logic thật:
 // dùng `job.updateProgress()` để báo "đang xử lý" và `throw` để đánh dấu lỗi (BullMQ tự retry).
@@ -16,7 +19,14 @@ const createProcessor =
     return { success: true };
   };
 
-const attachLifecycle = (worker: Worker, label: WorkerLabel): void => {
+const isUnrecoverableError = (error: Error): boolean =>
+  error instanceof UnrecoverableError || error.name === 'UnrecoverableError';
+
+const attachLifecycle = (
+  worker: Worker,
+  label: WorkerLabel,
+  onFinalFailure?: (job: Job, error: Error) => Promise<void>
+): void => {
   worker.on('progress', (job, progress) => {
     logger.debug(`[${label}] job ${job.id} tiến độ: ${JSON.stringify(progress)}`);
   });
@@ -26,7 +36,9 @@ const attachLifecycle = (worker: Worker, label: WorkerLabel): void => {
   });
 
   worker.on('failed', (job, error) => {
-    if (job && hasRemainingAttempts(job)) {
+    const isFinalFailure = !job || !hasRemainingAttempts(job) || isUnrecoverableError(error);
+
+    if (job && !isFinalFailure) {
       logger.warn(
         `[${label}] job ${job.id} lỗi lần ${job.attemptsMade}/${job.opts.attempts ?? 1}, sẽ thử lại: ${error.message}`
       );
@@ -34,6 +46,13 @@ const attachLifecycle = (worker: Worker, label: WorkerLabel): void => {
     }
 
     logger.error(`[${label}] job ${job?.id ?? '(không xác định)'} → failed hẳn: ${error.message}`);
+
+    if (job && onFinalFailure) {
+      void onFinalFailure(job, error).catch((handlerError: unknown) => {
+        const message = handlerError instanceof Error ? handlerError.message : String(handlerError);
+        logger.error(`[${label}] không xử lý được final failure của job ${job.id}: ${message}`);
+      });
+    }
   });
 
   worker.on('stalled', (jobId) => {
@@ -45,18 +64,46 @@ const attachLifecycle = (worker: Worker, label: WorkerLabel): void => {
   });
 };
 
-const createWorker = (queueName: QueueName, label: WorkerLabel): Worker => {
-  const worker = new Worker(queueName, createProcessor(label), { connection: queueConnection });
-  attachLifecycle(worker, label);
+const createWorker = (
+  queueName: QueueName,
+  label: WorkerLabel,
+  processor: (job: Job) => Promise<unknown> = createProcessor(label),
+  onFinalFailure?: (job: Job, error: Error) => Promise<void>
+): Worker => {
+  const worker = new Worker(queueName, processor, {
+    connection: queueConnection,
+    prefix: QUEUE_PREFIX,
+  });
+  attachLifecycle(worker, label, onFinalFailure);
   return worker;
 };
 
-export const contentWorker = createWorker(QUEUE_NAMES.contentGeneration, 'ContentWorker');
-export const publishingWorker = createWorker(QUEUE_NAMES.publishing, 'PublishingWorker');
+const handleAiFinalFailure = async (job: Job, error: Error) => {
+  const generationId = (job.data as { generationId?: string }).generationId;
+  if (!generationId) {
+    logger.error(`[ContentWorker] job ${job.id} thất bại nhưng thiếu generationId`);
+    return;
+  }
+
+  const message = buildAiFailureMessage(job.name === 'ai:image' ? 'IMAGE' : 'TEXT', error);
+  await aiService.failGeneration(generationId, message);
+};
+
+export const contentWorker = createWorker(
+  QUEUE_NAMES.contentGeneration,
+  'ContentWorker',
+  processContentJob,
+  handleAiFinalFailure
+);
+export const scheduleWorker = createWorker(
+  QUEUE_NAMES.schedule,
+  'ScheduleWorker',
+  processScheduleJob
+);
 export const emailWorker = createWorker(QUEUE_NAMES.email, 'EmailWorker');
 
 export const closeWorkers = async (): Promise<void> => {
-  await Promise.allSettled([contentWorker.close(), publishingWorker.close(), emailWorker.close()]);
+  await Promise.allSettled([contentWorker.close(), scheduleWorker.close(), emailWorker.close()]);
 };
 
-export default { contentWorker, publishingWorker, emailWorker, closeWorkers };
+export default { contentWorker, scheduleWorker, emailWorker, closeWorkers };

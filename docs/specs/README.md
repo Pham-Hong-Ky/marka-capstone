@@ -112,7 +112,7 @@ Mọi truy vấn dữ liệu nghiệp vụ đều lọc theo `workspaceId`; khô
 - `loginLimiter`: 5 lần **thất bại**/15 phút theo khoá `IP:email` cho `POST /auth/login` (đăng nhập đúng không bị tính).
 - Hai limiter xác thực bị **bỏ qua khi `NODE_ENV=test`**. Vượt giới hạn → `429` với `{ "status": "fail", "message": "..." }`.
 - **Audit log:** service gọi `auditService.recordAuditLog(...)`. Ghi audit lỗi **không làm hỏng request** (chỉ `console.warn`). Chưa có API đọc audit log.
-- **Queue/worker:** BullMQ có 3 queue (`content-generation-queue`, `publishing-queue`, `email-queue`) và processor khung (chỉ log + `updateProgress(100)` + trả `{ success: true }`). **Chưa module nào enqueue job**; email hiện gửi đồng bộ trong request.
+- **Queue/worker:** BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`). `scheduleWorker` xử lý đăng bài thật; `contentWorker` xử lý job `ai:text`/`ai:image` (Gemini/Cloudflare, hoàn credit khi thất bại); `email` vẫn là processor khung. Email hiện gửi đồng bộ trong request. Khi `NODE_ENV=test`, BullMQ dùng prefix `marka-test` (production dùng `bull`).
 - **Health:** `GET /health` công khai, kiểm tra PostgreSQL (`SELECT 1`) và Redis (`PING`); trả `503` (status `error`, kèm `data`) nếu một trong hai lỗi.
 
 ---
@@ -133,16 +133,16 @@ Cột **Trạng thái**:
 | **UC04** | Logout | User | Đã triển khai | `POST /auth/logout` | [01](./01-auth-workspace.md) |
 | **UC05** | Change Password | User | Đã triển khai | `PATCH /users/me/password` | [01](./01-auth-workspace.md) |
 | **UC06** | Create Content | Creator, Owner | Đã triển khai | `POST /workspaces/:workspaceId/posts` | [02](./02-content-media.md) |
-| **UC07** | Generate AI Content | Creator, Owner | Chưa triển khai (Roadmap) | — | [03](./03-ai-brandvoice.md) |
+| **UC07** | Generate AI Content | Creator, Owner | Đã triển khai (text + ảnh) | `POST /workspaces/:workspaceId/ai/text`, `POST /workspaces/:workspaceId/ai/images` | [03](./03-ai-brandvoice.md) |
 | **UC08** | Update Content | Creator, Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/posts/:postId` | [02](./02-content-media.md) |
 | **UC09** | View Content | Creator, Owner | Đã triển khai | `GET /workspaces/:workspaceId/posts/:postId` | [02](./02-content-media.md) |
 | **UC10** | Search Content | Creator, Owner | Đã triển khai | `GET /workspaces/:workspaceId/posts` | [02](./02-content-media.md) |
 | **UC11** | Delete Content | Creator, Owner | Một phần | `DELETE /workspaces/:workspaceId/posts/:postId` (chỉ `DRAFT`/`REJECTED`) | [02](./02-content-media.md) |
 | **UC12** | Submit Content for Approval | Creator, Owner | Đã triển khai | `POST /workspaces/:workspaceId/posts/:postId/submit` | [02](./02-content-media.md) |
-| **UC13** | Schedule Content | Owner | Chưa triển khai (Roadmap) | — | [04](./04-social-publishing.md) |
-| **UC14** | View Content Schedule | Creator, Owner | Chưa triển khai (Roadmap) | — | [04](./04-social-publishing.md) |
+| **UC13** | Schedule Content | Mọi thành viên | Đã triển khai (cơ bản) | `POST /workspaces/:workspaceId/posts/:postId/schedules` | [04](./04-social-publishing.md) |
+| **UC14** | View Content Schedule | Mọi thành viên | Đã triển khai (cơ bản) | `GET /workspaces/:workspaceId/schedules`, trang `/schedule` | [04](./04-social-publishing.md) |
 | **UC15** | Review Content | Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/posts/:postId/review` | [02](./02-content-media.md) |
-| **UC16** | Post Content to Social Media | Owner | Chưa triển khai (Roadmap) | — | [04](./04-social-publishing.md) |
+| **UC16** | Post Content to Social Media | Mọi thành viên | Đã triển khai (Facebook Page) | Worker `schedule-queue` gọi Graph API | [04](./04-social-publishing.md) |
 | **UC17** | Create Workspace | User | Đã triển khai | `POST /workspaces` | [01](./01-auth-workspace.md) |
 | **UC18** | Update Workspace | Owner | Đã triển khai | `PATCH /workspaces/:workspaceId` | [01](./01-auth-workspace.md) |
 | **UC19** | Delete Workspace | Owner | Đã triển khai | `DELETE /workspaces/:workspaceId` | [01](./01-auth-workspace.md) |
@@ -163,7 +163,7 @@ Cột **Trạng thái**:
 | **UC34** | Refresh Token | User | Đã triển khai | `POST /auth/refresh-token` | [01](./01-auth-workspace.md) |
 | **UC35** | List Workspaces | User | Đã triển khai | `GET /workspaces` | [01](./01-auth-workspace.md) |
 | **UC36** | Change Member Role | Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/members/:memberId` | [01](./01-auth-workspace.md) |
-| **UC37** | Cancel Scheduled Post | Owner | Chưa triển khai (Roadmap) | — | [04](./04-social-publishing.md) |
+| **UC37** | Cancel Scheduled Post | Mọi thành viên | Đã triển khai | `DELETE /workspaces/:workspaceId/schedules/:scheduleId` | [04](./04-social-publishing.md) |
 | **UC38** | List Notifications | User | Chưa triển khai (Roadmap) | — (bảng `Notification` có ghi dữ liệu) | [05](./05-notifications-email.md) |
 | **UC39** | View Workspace Performance Overview | Creator, Owner | Chưa triển khai (Roadmap) | — | [08](./08-post-analytics.md) |
 | **UC40** | List Credit Packages | User | Chưa triển khai (Roadmap) | — | [06](./06-billing-payos.md) |
@@ -183,7 +183,7 @@ Cột **Trạng thái**:
 | UC32a | Admin Dashboard | Chưa triển khai (Roadmap) | — |
 | UC32b | View Audit Log | Chưa triển khai (Roadmap) | Audit log chỉ được ghi, không có API đọc |
 
-**Thống kê:** 28 UC đã triển khai · 3 UC một phần (UC11, UC29, UC41) · 12 UC chưa triển khai.
+**Thống kê:** 29 UC đã triển khai · 3 UC một phần (UC11, UC29, UC41) · 11 UC chưa triển khai.
 
 ---
 
@@ -194,7 +194,7 @@ Cột **Trạng thái**:
 | 1. Xác thực & Workspace | [01-auth-workspace.md](./01-auth-workspace.md) | Đăng ký/đăng nhập/Google/logout/refresh, hồ sơ, đổi mật khẩu, workspace, thành viên, lời mời |
 | 2. Nội dung & Media | [02-content-media.md](./02-content-media.md) | CRUD bài viết, upload/xoá ảnh theo bài, state machine duyệt bài, notification + audit |
 | 3. Brand Voice & AI | [03-ai-brandvoice.md](./03-ai-brandvoice.md) | Chỉ Brand Voice; phần AI là Roadmap |
-| 4. Kênh & Đăng bài | [04-social-publishing.md](./04-social-publishing.md) | Chỉ Facebook Page OAuth (kết nối/ngắt kết nối); lịch đăng/publish là Roadmap |
+| 4. Kênh & Đăng bài | [04-social-publishing.md](./04-social-publishing.md) | Facebook Page OAuth; đăng ngay/lên lịch nhiều Page, worker BullMQ, trang `/schedule`; calendar nâng cao là Roadmap |
 | 5. Email & Thông báo | [05-notifications-email.md](./05-notifications-email.md) | Email mời, email duyệt/từ chối (Resend); ghi notification in-app; chưa có API đọc |
 | 6. Credit & PayOS | [06-billing-payos.md](./06-billing-payos.md) | Roadmap — schema đã có, chưa có service/endpoint |
 | 7. Quản trị & Báo cáo | [07-admin-analytics.md](./07-admin-analytics.md) | Roadmap — audit log được ghi, chưa có dashboard/API quản trị |
@@ -206,10 +206,10 @@ Cột **Trạng thái**:
 
 Các mục sau **chưa có trong code** (chi tiết ở file tương ứng):
 
-1. **AI (03):** sinh nội dung bằng LLM, sinh ảnh, Viral Score, trừ credit; bảng `AiGeneration` và queue `content-generation-queue` mới chỉ là khung.
-2. **Đăng bài (04):** Instagram/TikTok/Zalo (kể cả giả lập), lên lịch (`ScheduledPost`), publish worker, calendar, huỷ lịch (UC37), làm mới token Facebook/hạ trạng thái `EXPIRED`.
+1. **AI (03):** trợ lý sinh nội dung/ảnh, trừ/hoàn credit cố định, queue `content-generation-queue` đã chạy; còn Viral Score, sinh lại, nhiều ảnh/lần, lịch sử AI UI, sweeper job kẹt.
+2. **Đăng bài (04):** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả/sửa giờ, video, làm mới token Facebook tự động.
 3. **Thông báo (05):** API đọc thông báo (UC38), email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`.
-4. **Thanh toán (06):** CreditPackage, Order, PayOS, webhook, trừ/hoàn credit, reset credit theo chu kỳ (UC31, UC40–UC41).
+4. **Thanh toán (06):** CreditPackage, Order, PayOS, webhook, nạp credit, reset credit theo chu kỳ (UC31, UC40–UC41).
 5. **Quản trị (07):** admin panel, quản lý user/workspace, dashboard, API đọc audit log (UC32).
 6. **Post Analytics (08):** đồng bộ `PostMetric` từ Facebook Graph API, dashboard hiệu quả, n8n (UC39).
 7. **Giao việc (02):** UC42/UC43 — giao việc và trạng thái công việc trên bài viết.

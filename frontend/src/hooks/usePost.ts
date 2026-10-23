@@ -8,6 +8,7 @@ import {
   type UpdatePostPayload,
 } from '@/services/post';
 import { getErrorMessage } from '@/utils/error';
+import { hasPublishInProgress, PUBLISH_POLL_INTERVAL_MS } from '@/utils/schedule';
 
 const postKeys = {
   list: (workspaceId: string, params: PostListParams) => ['posts', workspaceId, params] as const,
@@ -31,6 +32,8 @@ export const usePost = (workspaceId: string | null, postId: string | null) =>
     queryKey: postKeys.detail(workspaceId ?? '', postId ?? ''),
     queryFn: () => postService.getPost(workspaceId as string, postId as string),
     enabled: Boolean(workspaceId && postId),
+    refetchInterval: (query) =>
+      hasPublishInProgress(query.state.data?.schedules) ? PUBLISH_POLL_INTERVAL_MS : false,
   });
 
 export const useCreatePost = () => {

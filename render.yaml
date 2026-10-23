@@ -6,8 +6,8 @@
 # Các biến đánh dấu `sync: false` sẽ được Render yêu cầu điền khi tạo service
 # (giá trị mật / phụ thuộc môi trường, KHÔNG lưu trong git).
 #
-# Worker BullMQ tạm tắt ở service API (ENABLE_WORKERS=false) vì chưa có job nào
-# được enqueue; khi cần chạy nền thì bật lại (service worker riêng là dịch vụ trả phí).
+# Worker BullMQ chạy chung service API (ENABLE_WORKERS=true) để xử lý job AI và schedule.
+# Render free ngủ khi rỗng request; production nên dùng backend always-on hoặc worker service riêng.
 
 services:
   - type: web
@@ -24,10 +24,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # true = chạy worker BullMQ chung tiến trình API (không cần service worker riêng, tốn phí)
-      # Tạm tắt vì các worker hiện chưa có job nào được enqueue (processor còn là stub).
+      # true = chạy worker BullMQ chung tiến trình API (không cần service worker riêng, tốn phí).
+      # Cần bật để scheduler đăng bài chạy. Lưu ý Render free ngủ khi rỗng request:
+      # lịch có thể trễ; production nên dùng backend always-on hoặc worker service riêng.
       - key: ENABLE_WORKERS
-        value: "false"
+        value: "true"
       - key: JWT_ACCESS_EXPIRES_IN
         value: 15m
       - key: JWT_REFRESH_EXPIRES_IN
@@ -58,6 +59,7 @@ services:
 
       # ----- Tuỳ chọn (thêm trong Dashboard khi cần) -----
       # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+      # GEMINI_API_KEY, GEMINI_MODEL, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, CLOUDFLARE_IMAGE_MODEL
       # OPENAI_API_KEY, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
       # PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY
       # FACEBOOK_APP_ID, FACEBOOK_APP_SECRET

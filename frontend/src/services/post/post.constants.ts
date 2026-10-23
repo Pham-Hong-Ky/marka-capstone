@@ -22,6 +22,8 @@ export const POST_STATUS_BADGE_CLASSES: Record<PostStatus, string> = {
   ARCHIVED: 'bg-surface-2 text-subtle',
 };
 
+export const PUBLISHABLE_POST_STATUSES: PostStatus[] = ['APPROVED', 'FAILED', 'PUBLISHED'];
+
 export interface PostStatusTab {
   value: PostStatus | null;
   label: string;
@@ -33,4 +35,7 @@ export const POST_STATUS_TABS: PostStatusTab[] = [
   { value: 'PENDING', label: 'Chờ duyệt' },
   { value: 'APPROVED', label: 'Đã duyệt' },
   { value: 'REJECTED', label: 'Bị từ chối' },
+  { value: 'SCHEDULED', label: 'Đã lên lịch' },
+  { value: 'PUBLISHED', label: 'Đã đăng' },
+  { value: 'FAILED', label: 'Đăng lỗi' },
 ];

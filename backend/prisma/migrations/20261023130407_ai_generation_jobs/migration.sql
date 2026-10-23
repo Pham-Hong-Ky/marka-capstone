@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "AiGenStatus" ADD VALUE 'PENDING';
+ALTER TYPE "AiGenStatus" ADD VALUE 'PROCESSING';

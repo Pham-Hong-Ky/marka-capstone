@@ -22,7 +22,7 @@ Chỉ số dự kiến: **reactions, comments, shares** cho bài đăng trên Fa
 - **Không có endpoint** `/posts/:id/metrics`, `/workspaces/:id/analytics/*`, `/internal/metrics/*`.
 - Không có service/repository analytics; không gọi Facebook Graph API để đọc chỉ số.
 - Không có n8n trong repo/backend.
-- **Chưa có dữ liệu để phân tích:** luồng publish chưa tồn tại (xem [04](./04-social-publishing.md)), nên `ScheduledPost` chưa được tạo và `externalPostId` luôn `null`.
+- **Đã có dữ liệu publish:** luồng đăng bài đã tạo `ScheduledPost` và lưu `externalPostId` (xem [04](./04-social-publishing.md)); analytics vẫn chưa đồng bộ chỉ số.
 - Schema `PostMetric` đã có sẵn nhưng chưa được ghi/đọc ở đâu.
 
 ---

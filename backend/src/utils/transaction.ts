@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../config/db.js';
 import logger from './logger.js';
+import { AppError } from './errors/index.js';
 
 export const withTransaction = async <T>(
   action: (tx: Prisma.TransactionClient) => Promise<T>,
@@ -13,9 +14,14 @@ export const withTransaction = async <T>(
       return await action(tx as unknown as Prisma.TransactionClient);
     }, options);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const stack = error instanceof Error ? error.stack : undefined;
-    logger.error(`❌ Transaction thất bại: ${message}`, { stack });
+    const isExpectedBusinessError = error instanceof AppError && error.statusCode < 500;
+
+    if (!isExpectedBusinessError) {
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      logger.error(`❌ Transaction thất bại: ${message}`, { stack });
+    }
+
     throw error;
   }
 };

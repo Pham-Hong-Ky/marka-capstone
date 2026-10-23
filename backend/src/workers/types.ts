@@ -1,8 +1,13 @@
 import type { JobProgress, JobState as BullJobState } from 'bullmq';
 
+const isTest = process.env.NODE_ENV === 'test';
+
+// Queue test dùng prefix riêng để worker production (prefix mặc định `bull`) không nhặt job của test.
+export const QUEUE_PREFIX = isTest ? 'marka-test' : 'bull';
+
 export const QUEUE_NAMES = {
   contentGeneration: 'content-generation-queue',
-  publishing: 'publishing-queue',
+  schedule: 'schedule-queue',
   email: 'email-queue',
 } as const;
 

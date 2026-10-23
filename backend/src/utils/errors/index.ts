@@ -49,6 +49,12 @@ export class BadRequestError extends AppError {
   }
 }
 
+export class PaymentRequiredError extends AppError {
+  constructor(message = 'Không đủ credit để thực hiện yêu cầu') {
+    super(message, 402);
+  }
+}
+
 export class ServiceUnavailableError extends AppError {
   constructor(message = 'Dịch vụ tạm thời không khả dụng') {
     super(message, 503);
@@ -63,5 +69,6 @@ export default {
   ConflictError,
   ValidationError,
   BadRequestError,
+  PaymentRequiredError,
   ServiceUnavailableError,
 };

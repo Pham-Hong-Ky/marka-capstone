@@ -2,7 +2,7 @@
 
 > Tài liệu lập từ **test tự động có thật** trong repo, không phải từ đề xuất tính năng.
 > Nguồn đối chiếu: `backend/src/**/*.test.ts`, `backend/src/routes/index.ts`, `docs/api_documentation.md`.
-> Cập nhật: 2026-10-20. Tổng: **134 test case** trong **11 file**.
+> Cập nhật: 2026-10-23. Tổng: **207 test case** trong **21 file**.
 
 ## 1. Bảng tổng hợp
 
@@ -15,11 +15,13 @@
 | 5 | Brand Voice (UC25–UC27) | 12 | `backend/src/modules/brandvoice/brandvoice.test.ts` |
 | 6 | Channel & Facebook OAuth (UC28–UC30) | 21 | `backend/src/modules/channel/channel.test.ts` |
 | 7 | Post, media, gửi duyệt & duyệt bài (UC06, UC08–UC12, UC15) | 51 | `backend/src/modules/post/post.test.ts` |
+| 7.1 | AI service, processor, provider, prompt, route, credit | 34 | `backend/src/modules/ai/*.test.ts`, `backend/src/modules/credit/*.test.ts` |
+| 7.2 | Schedule đăng bài Facebook | 28 | `backend/src/modules/schedule/*.test.ts` |
 | 8 | Health check | 1 | `backend/src/modules/health/health.test.ts` |
 | 9 | Queue Manager (BullMQ) | 6 | `backend/src/workers/queue-manager.test.ts` |
 | 10 | Middleware `enforceHttps` | 2 | `backend/src/middlewares/enforceHttps.test.ts` |
 | 11 | Swagger spec | 1 | `backend/src/config/swagger.test.ts` |
-| **Tổng** | | **134** | |
+| **Tổng** | | **207** | |
 
 Ghi chú:
 
@@ -261,6 +263,32 @@ Ghi chú:
 
 ---
 
+### 8.1. AI Assistant (UC07)
+
+**Files:** `backend/src/modules/ai/ai.test.ts`, `ai.service.test.ts`, `ai.processor.test.ts`, `ai.providers.test.ts`, `ai.prompt.test.ts`, `backend/src/modules/credit/credit.service.test.ts`
+
+| Mã | Test | Kỳ vọng |
+| :--- | :--- | :--- |
+| AI01 | Tạo text generation | `202`, trừ 10 credit, `AiGeneration` PENDING, enqueue `ai:text` |
+| AI02 | Không đủ credit | `402`, không tạo generation, số dư không đổi |
+| AI03 | Ảnh cho bài mới | Tạo Post DRAFT + generation trong cùng transaction, trừ 20 credit |
+| AI04 | Ảnh bài mới thiếu credit | Rollback, không còn Post nháp mồ côi |
+| AI05 | Ảnh cho post workspace khác | `404`, không trừ credit |
+| AI06 | Enqueue lỗi | Hoàn credit, generation `FAILED`, có giao dịch `REFUND` |
+| AI07 | GET generation | Chỉ trả trong đúng workspace; workspace khác `404` |
+| AI08 | Text success | Lưu Tiptap JSON vào `response`, `status=SUCCESS` |
+| AI09 | Image success | Upload Cloudinary, tạo `MediaAsset` `AI_GENERATED`, response chứa media |
+| AI10 | Schema text sai | Retry lần đầu, lần hai `UnrecoverableError` |
+| AI11 | Bài rời DRAFT/REJECTED | Fail + hoàn credit, không tạo media |
+| AI12 | Chạy lại generation đã SUCCESS | Không tạo media trùng |
+| AI13 | `failGeneration` idempotent | Chỉ hoàn credit một lần |
+| AI14 | Provider tests | Gemini structured output, content policy, JSON lỗi, HTTP lỗi; Cloudflare decode JPEG/lỗi |
+| AI15 | Prompt helpers | Parse/title, Tiptap heading/list, Brand Voice, giới hạn 2048 ký tự |
+| AI16 | Credit service | OUTFLOW đúng số dư, 402, REFUND INFLOW đúng số dư |
+| AI17 | Route | `202` text/image, `422` body sai, `403` người ngoài workspace |
+
+---
+
 ## 9. Health check
 
 **File:** `backend/src/modules/health/health.test.ts`
@@ -346,9 +374,13 @@ Các hành vi **đã có trong code** nhưng **không có test tự động** t�
 - Audit `POST_SUBMITTED`; `POST_APPROVED`/`POST_REJECTED` chỉ assert gián tiếp ở P51.
 - Thông báo khi Owner tự gửi duyệt bài của chính mình.
 
-### 12.7. Hạ tầng & cấu hình
+### 12.7. Schedule & đăng bài
+- File `schedule.test.ts` (17 test) + `schedule.content.test.ts` (6 test): tạo lịch nhiều Page, đăng ngay, validate trạng thái/quyền/Page/ảnh/video/giờ hẹn, huỷ lịch, worker đăng thành công nhiều ảnh, token hết hạn, retry, timeout sau feed, recovery, chống đăng trùng, post detail kèm schedules.
+- Chưa test job scheduler `schedule-due` chạy thật trong BullMQ; service `processDueSchedules` được test trực tiếp.
+
+### 12.8. Hạ tầng & cấu hình
 - Health: nhánh 503 chưa được ép buộc (test chấp nhận 200 hoặc 503).
-- Worker processor thật (`email`, `publishing`, `content-generation`): hiện là processor mẫu, chưa test xử lý job thành công/thất bại.
+- Worker processor thật: `content-generation` đã test qua `executeAiGeneration` (không qua Redis); `email` vẫn là processor mẫu, chưa test xử lý job thành công/thất bại.
 - `retryJob` thành công trên job `failed`; `hasRemainingAttempts` với job không cấu hình `attempts`.
 - Middleware `validate`, `error`, `upload`, `requireAuth` (thiếu/sai token) chưa có test riêng; CORS/helmet/404 handler chưa test.
 - Swagger: chỉ assert sự tồn tại của 3 path, chưa assert schema request/response.
@@ -359,10 +391,9 @@ Các hành vi **đã có trong code** nhưng **không có test tự động** t�
 
 Các phần sau **không có endpoint/module tương ứng** trong `backend/src/routes/index.ts`, nên không có test:
 
-- **Sinh nội dung AI (UC07)** — không có module/route AI; `aiLimiter` trong `rateLimiter.ts` hiện không được gắn vào route nào.
-- **Credit / gói credit / PayOS / Order (UC31, UC40, UC41)** — model Prisma có nhưng không có route/service.
+- **Credit / gói credit / PayOS / Order (UC31, UC40, UC41)** — model Prisma có nhưng không có route/service nạp credit, gói, order, PayOS. Module `credit` hiện chỉ dùng nội bộ cho trừ/hoàn credit AI.
 - **Admin dashboard & API audit log (UC32)** — module `audit` chỉ có service/repository, không expose route.
-- **Lên lịch đăng & calendar (UC13, UC14), đăng ngay/publish (UC16)** — model `ScheduledPost` có nhưng không có API; worker `publishing` chỉ là processor mẫu.
+- **Calendar nâng cao (UC14):** kéo-thả đổi giờ, sửa lịch sau khi tạo — chưa có API/UI.
 - **Analytics / `PostMetric` (UC39)** — không có API.
 - **API thông báo (notification)** — chỉ ghi DB, không có endpoint đọc.
 - **Giao việc / trạng thái công việc (UC42, UC43)** — không có module/route.

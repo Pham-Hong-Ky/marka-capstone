@@ -2,8 +2,8 @@
 
 Đồ án capstone (DATN). Monorepo gồm `backend` (Express + Prisma + BullMQ) và `frontend` (React + Vite).
 
-**Phạm vi đã triển khai:** xác thực (email/password + Google), workspace & thành viên, Brand Voice, kết nối Facebook Page qua OAuth, bài viết + media + luồng duyệt bài, audit log, health check.
-**Roadmap (chưa code):** AI sinh nội dung, credit/PayOS, admin, lịch đăng/publish, analytics, API notification — xem [`docs/PROJECT_OVERVIEW.md`](./docs/PROJECT_OVERVIEW.md).
+**Phạm vi đã triển khai:** xác thực (email/password + Google), workspace & thành viên, Brand Voice, trợ lý AI trong editor (Gemini sinh nội dung, Cloudflare sinh ảnh, trừ/hoàn credit, BullMQ + polling), kết nối Facebook Page qua OAuth, bài viết + media + luồng duyệt bài, đăng ngay/lên lịch bài lên nhiều Page bằng BullMQ, audit log, health check.
+**Roadmap (chưa code):** Viral Score/regenerate, nạp credit & PayOS, admin, calendar nâng cao, analytics, API notification — xem [`docs/PROJECT_OVERVIEW.md`](./docs/PROJECT_OVERVIEW.md).
 
 > Tài liệu đầy đủ nằm trong [`docs/`](./docs). **Không dùng Docker** — chạy trực tiếp trên PostgreSQL + Redis local hoặc cloud free tier.
 
@@ -57,12 +57,14 @@ npm run worker
 | `REDIS_URL` | Redis (BullMQ + cache). Upstash dùng `rediss://` (TLS) |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Tối thiểu 32 ký tự |
 | `AES_SECRET_KEY` | Khoá mã hoá token 3rd party, tối thiểu 32 ký tự |
-| `ENABLE_WORKERS` | `true` (dev, chạy kèm API) / `false` (production, worker chạy riêng) |
+| `ENABLE_WORKERS` | `true` để chạy worker BullMQ kèm API (dev và Render free); `false` nếu chạy worker riêng bằng `npm run worker` |
 | `APP_BASE_URL` | URL frontend, dùng khi tạo link trong email |
 | `CLIENT_URL` | Origin được phép CORS |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Gemini sinh nội dung; model mặc định `gemini-flash-lite-latest` |
+| `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_IMAGE_MODEL` | Cloudflare Workers AI sinh ảnh; model mặc định `@cf/black-forest-labs/flux-1-schnell` |
 | `FACEBOOK_REDIRECT_URI` | Callback OAuth, phải khớp **Valid OAuth Redirect URI** của Facebook App |
 
-Các key 3rd party (`OPENAI_API_KEY`, `CLOUDINARY_*`, `PAYOS_*`, `FACEBOOK_*`, `SMTP_*`) là **tuỳ chọn** — để trống cũng chạy được phần lõi.
+Các key 3rd party (`OPENAI_API_KEY`, `GEMINI_*`, `CLOUDFLARE_*`, `CLOUDINARY_*`, `PAYOS_*`, `FACEBOOK_*`, `SMTP_*`) là **tuỳ chọn** — để trống vẫn chạy phần lõi, riêng tính năng AI cần key Gemini/Cloudflare.
 
 ---
 

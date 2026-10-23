@@ -1,6 +1,6 @@
 import { Queue, type DefaultJobOptions } from 'bullmq';
 import { queueConnection } from '../config/redis.js';
-import { QUEUE_NAMES, type QueueName } from './types.js';
+import { QUEUE_NAMES, QUEUE_PREFIX, type QueueName } from './types.js';
 
 export const defaultJobOptions: DefaultJobOptions = {
   attempts: 3,
@@ -12,23 +12,26 @@ export const defaultJobOptions: DefaultJobOptions = {
 
 export const contentGenerationQueue = new Queue(QUEUE_NAMES.contentGeneration, {
   connection: queueConnection,
+  prefix: QUEUE_PREFIX,
   defaultJobOptions,
 });
 
-export const publishingQueue = new Queue(QUEUE_NAMES.publishing, {
+export const scheduleQueue = new Queue(QUEUE_NAMES.schedule, {
   connection: queueConnection,
+  prefix: QUEUE_PREFIX,
   defaultJobOptions,
 });
 
 export const emailQueue = new Queue(QUEUE_NAMES.email, {
   connection: queueConnection,
+  prefix: QUEUE_PREFIX,
   defaultJobOptions,
 });
 
 export const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.contentGeneration]: contentGenerationQueue,
-  [QUEUE_NAMES.publishing]: publishingQueue,
+  [QUEUE_NAMES.schedule]: scheduleQueue,
   [QUEUE_NAMES.email]: emailQueue,
 };
 
-export default { contentGenerationQueue, publishingQueue, emailQueue, queues };
+export default { contentGenerationQueue, scheduleQueue, emailQueue, queues };

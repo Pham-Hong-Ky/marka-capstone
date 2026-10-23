@@ -1,3 +1,5 @@
+import type { ScheduleItem } from '../schedule/schedule.types';
+
 export type PostStatus =
   | 'DRAFT'
   | 'PENDING'
@@ -9,6 +11,7 @@ export type PostStatus =
   | 'ARCHIVED';
 
 export type MediaType = 'IMAGE' | 'VIDEO';
+export type MediaSource = 'UPLOADED' | 'AI_GENERATED';
 
 export interface PostSummary {
   id: string;
@@ -23,6 +26,7 @@ export interface PostMedia {
   id: string;
   url: string;
   type: MediaType;
+  source: MediaSource;
   mimeType: string | null;
   size: number;
   createdAt: string;
@@ -38,6 +42,7 @@ export interface PostDetail extends PostSummary {
   submittedAt: string | null;
   reviewedAt: string | null;
   mediaAssets: PostMedia[];
+  schedules: ScheduleItem[];
 }
 
 export interface PaginationMeta {

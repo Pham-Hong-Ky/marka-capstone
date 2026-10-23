@@ -130,7 +130,7 @@ Không có endpoint `/notifications`.
 1. **API notification (UC38):** `GET /notifications` (phân trang, lọc `isRead`), đếm số chưa đọc.
 2. **Realtime:** WebSocket/SSE hoặc polling có kiểm soát; hiện chưa có.
 3. **Email nhắc hạn gói / hết credit:** dùng `Workspace.planExpiryWarningSentAt`, `creditWarningSentAt` (cờ đã có trong schema, chưa có cron).
-4. **Email nhắc lịch đăng:** dùng `ScheduledPost.reminderSentAt` (chưa có lịch đăng nên chưa dùng).
+4. **Email nhắc lịch đăng:** dùng `ScheduledPost.reminderSentAt` (đã có lịch đăng nhưng chưa có job nhắc).
 5. **Quên/đặt lại mật khẩu.**
 6. **Đưa email vào `email-queue`:** processor hiện chỉ log, chưa xử lý job.
 7. **Thu hồi lời mời / email mời lại có kiểm soát** và template escape đầy đủ cho mọi trường người dùng nhập.

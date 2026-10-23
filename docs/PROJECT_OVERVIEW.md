@@ -79,7 +79,19 @@ Quy tắc:
 - Khử trùng lặp từ khoá; ghi audit.
 - Chỉ `OWNER` được cập nhật; mọi thành viên được xem.
 
-**Chưa có:** dùng Brand Voice để sinh nội dung AI (chưa có module AI).
+**Chưa có:** lịch sử phiên bản Brand Voice, gợi ý Brand Voice tự động.
+
+### 3.3.1. Trợ lý AI cho bài viết ✅
+
+- Panel “Trợ lý AI” trong editor bài viết; mọi thành viên workspace dùng được.
+- Sinh tiêu đề + nội dung từ chủ đề, tự động dùng Brand Voice; kết quả điền thẳng vào editor (khoá editor trong lúc chờ).
+- Sinh 1 ảnh minh hoạ từ tiêu đề/nội dung/ghi chú; ảnh lưu Cloudinary và gắn vào bài với `source = AI_GENERATED`.
+- Bài mới chưa lưu: tự tạo nháp trong cùng transaction với trừ credit + tạo job.
+- Chạy nền qua `content-generation-queue`; frontend poll trạng thái 2 giây/lần.
+- Trừ **10 credit** cho nội dung, **20 credit** cho ảnh; hoàn credit nếu job thất bại hẳn.
+- Provider: Gemini (text), Cloudflare Workers AI Flux Schnell (ảnh).
+
+**Chưa có:** Viral Score, sinh lại theo góp ý, nhiều ảnh/lần, chọn tỉ lệ/style, lịch sử AI có UI, nạp/reset credit, sweeper job kẹt.
 
 ### 3.4. Kênh & Facebook OAuth ✅
 
@@ -91,8 +103,12 @@ Quy tắc:
   - chọn Page để lưu vào `ChannelConnection`.
 - Ngắt kết nối kênh; huỷ các `ScheduledPost` đang `SCHEDULED` của kênh.
 - Chỉ `OWNER` được kết nối/ngắt kênh.
+- Đăng ngay hoặc lên lịch bài `APPROVED` lên nhiều Facebook Page (tối đa 10 Page/lần).
+- Worker `schedule-queue` tự đăng đúng giờ: upload ảnh, gọi Graph API, lưu `externalPostId`, retry khi lỗi tạm thời.
+- Chỉnh sửa trạng thái từng Page, huỷ lịch đang chờ, xem danh sách ở trang `/schedule`.
+- Mọi thành viên workspace được đăng/lên lịch bài đã duyệt.
 
-**Chưa có:** Instagram/TikTok/Zalo (kể cả giả lập), đăng bài, lịch đăng, làm mới token tự động.
+**Chưa có:** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả, sửa giờ sau khi tạo, video, làm mới token tự động.
 
 ### 3.5. Bài viết, media & duyệt bài ✅
 
@@ -101,12 +117,13 @@ Quy tắc:
 - Xem chi tiết bài kèm media.
 - Sửa/xoá bài khi `DRAFT` hoặc `REJECTED`; `OWNER` hoặc người tạo bài.
 - Upload ảnh JPG/PNG/WEBP ≤ 10MB qua Cloudinary; xoá mềm ảnh.
+- Ảnh AI tạo bởi trợ lý cũng là `MediaAsset` (`source = AI_GENERATED`) và hiển thị chung mục ảnh đính kèm.
 - Gửi duyệt: `DRAFT`/`REJECTED` → `PENDING`.
 - Owner duyệt/từ chối: `PENDING` → `APPROVED`/`REJECTED`, bắt buộc lý do khi từ chối.
 - Ghi notification in-app cho Owner (khi gửi duyệt) và tác giả (khi duyệt/từ chối).
 - Ghi audit log cho submit/approve/reject.
 
-**Chưa có:** lưu nháp tự động, template, campaign tag (cột có trong schema nhưng API chưa nhận), lịch sử phiên bản, bình luận, giao việc, lịch đăng, đăng bài, archive.
+**Chưa có:** lưu nháp tự động, template, campaign tag (cột có trong schema nhưng API chưa nhận), lịch sử phiên bản, bình luận, giao việc, archive.
 
 ### 3.6. Email ✅
 
@@ -127,7 +144,7 @@ Quy tắc:
 
 - Audit log cho các hành động auth, workspace, member, Brand Voice, kênh, duyệt bài.
 - `GET /health` kiểm tra PostgreSQL + Redis.
-- BullMQ có 3 queue (`content-generation-queue`, `publishing-queue`, `email-queue`) và worker khung; **processor chỉ log + trả success**, chưa module nào enqueue.
+- BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`); `scheduleWorker` đăng bài thật, `content`/`email` vẫn là worker khung.
 - Soft delete bằng Prisma Client Extension cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset`.
 - Log Winston + requestId, morgan; helmet, CORS theo `CLIENT_URL`, rate limit, HTTPS ở production.
 
@@ -141,13 +158,13 @@ Các phần dưới đây **không có** trong `backend/src/modules` hay `fronte
 | :--- | :--- | :--- |
 | AI | Sinh text/ảnh, Viral Score, 1-Click Fix | deps `openai`, env `OPENAI_API_KEY`, bảng `ai_generations`; chưa có service/endpoint |
 | Credit & thanh toán | Ví credit, gói credit, Order, PayOS, webhook | deps `@payos/node`, env `PAYOS_*`, bảng `credit_*`, `orders`; chưa có service/endpoint |
-| Lịch đăng & publish | Calendar, đặt lịch, đăng ngay, retry | bảng `scheduled_posts`, queue `publishing-queue`; chưa có service/endpoint |
+| Calendar nâng cao | Kéo-thả đổi giờ, sửa lịch sau khi tạo | Đăng ngay/lên lịch/huỷ lịch cơ bản đã có; calendar nâng cao là Roadmap |
 | Analytics | Đồng bộ metrics Facebook, biểu đồ | bảng `post_metrics`; chưa có service, không có n8n |
 | Admin | Quản lý user/workspace, dashboard hệ thống | `SYSTEM_ADMIN` trong schema/middleware; chưa có module admin |
 | Notification API | Đọc thông báo, realtime | bảng `notifications`; chỉ ghi, chưa có API |
 | Giao việc | UC42/UC43 | chưa có cột trong `schema.prisma` |
 
-Frontend hiện có các trang placeholder: `/schedule`, `/ai`, `/publishing`, `/billing`.
+Frontend hiện có các trang placeholder: `/ai`, `/publishing`, `/billing`.
 
 ---
 
@@ -158,7 +175,7 @@ Frontend hiện có các trang placeholder: `/schedule`, `/ai`, `/publishing`, `
 | Frontend | React 19, Vite, TypeScript, Tailwind CSS v4, React Router, React Query, Zustand, react-hook-form + Zod |
 | Backend | Node.js, TypeScript ESM, Express 4, Zod |
 | Database | PostgreSQL + Prisma 5 |
-| Cache/Queue | Redis + BullMQ (worker khung) |
+| Cache/Queue | Redis + BullMQ (`scheduleWorker` thật; `content`/`email` khung) |
 | Email | Resend |
 | Ảnh | Cloudinary |
 | Facebook | Graph API v21.0, OAuth redirect |
