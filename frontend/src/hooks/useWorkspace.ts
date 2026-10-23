@@ -8,7 +8,7 @@ import { getErrorMessage } from '@/utils/error';
 
 export const workspaceKeys = {
   members: (id: string) => ['workspace', id, 'members'] as const,
-  invite: (token: string) => ['invite', token] as const,
+  invite: (token: string, viewerId: string) => ['invite', token, viewerId] as const,
 };
 
 export const syncSessionUser = async (): Promise<AuthUser | null> => {
@@ -37,15 +37,21 @@ export const useWorkspaceMembers = (workspaceId: string | null) =>
     enabled: Boolean(workspaceId),
   });
 
-export const useInviteDetails = (token: string | null) =>
-  useQuery({
-    queryKey: workspaceKeys.invite(token ?? ''),
+export const useInviteDetails = (token: string | null) => {
+  // Kết quả phụ thuộc người gọi: khách nhận yêu cầu đăng ký, người đã đăng nhập
+  // thì được thêm vào workspace. Đổi người xem phải gọi lại API, nếu không cache
+  // "requiresRegistration" của khách sẽ chặn việc tham gia sau khi đăng nhập.
+  const viewerId = useAuthStore((state) => state.user?.id ?? 'guest');
+
+  return useQuery({
+    queryKey: workspaceKeys.invite(token ?? '', viewerId),
     queryFn: () => workspaceService.acceptInvite(token as string),
     enabled: Boolean(token),
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+};
 
 export const useCreateWorkspace = () =>
   useMutation({

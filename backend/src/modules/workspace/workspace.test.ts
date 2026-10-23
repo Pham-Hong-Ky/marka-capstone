@@ -191,6 +191,14 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     expect(res.status).toBe(409);
   });
 
+  it('UC21 — Access token không hợp lệ trả 401 để client làm mới phiên', async () => {
+    const res = await request(app)
+      .get(`/api/v1/invites/${inviteToken}`)
+      .set('Authorization', 'Bearer token_khong_hop_le');
+
+    expect(res.status).toBe(401);
+  });
+
   it('UC19 — Sau khi tham gia có 2 thành viên', async () => {
     const res = await request(app)
       .get(`/api/v1/workspaces/${createdWorkspaceId}/members`)

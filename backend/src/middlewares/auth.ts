@@ -79,19 +79,23 @@ export const requireAuth = async (req: Request, _res: Response, next: NextFuncti
   }
 };
 
-// Route công khai nhưng cần biết người gọi (nếu đã đăng nhập). Token sai/hết hạn
-// không làm hỏng request — coi như khách chưa đăng nhập.
+// Route công khai: không có token thì coi là khách. Nhưng nếu có token mà sai/hết hạn
+// thì trả 401 để client làm mới phiên, tránh âm thầm hạ quyền người đã đăng nhập
+// thành khách (ví dụ trang nhận lời mời sẽ hiện nhầm yêu cầu đăng ký).
 export const optionalAuth = async (req: Request, _res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return next();
+  }
+
   try {
-    const authHeader = req.headers.authorization;
-    if (authHeader?.startsWith('Bearer ')) {
-      req.user = await loadUserFromToken(authHeader.split(' ')[1]);
-    }
+    req.user = await loadUserFromToken(authHeader.split(' ')[1]);
+    next();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.warn(`Bỏ qua token không hợp lệ ở optionalAuth: ${message}`);
+    logger.warn(`Token không hợp lệ ở optionalAuth: ${message}`);
+    next(error);
   }
-  next();
 };
 
 export const requireRoles = (...allowedRoles: SystemRole[]) => {
