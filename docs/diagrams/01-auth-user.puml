@@ -2,7 +2,6 @@
 hide circle
 hide stereotype
 !pragma layout smetana
-title Marka — Auth & User
 
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
@@ -101,11 +100,11 @@ class "userRepository" as userRepository {
   + incrementTokenVersion(userId)
 }
 
-authController --> authService
-authService --> userRepository
-authService --> googleOAuthClient
-userController --> userService
-userService --> userRepository
+authController ..> authService
+authService ..> userRepository
+authService ..> googleOAuthClient
+userController ..> userService
+userService ..> userRepository
 
 userRepository ..> User
 userRepository ..> Workspace
