@@ -1,5 +1,6 @@
 import redis from '../../config/redis.js';
 import logger from '../../utils/logger.js';
+import { ServiceUnavailableError } from '../../utils/errors/index.js';
 
 const STATE_PREFIX = 'fb:oauth:state:';
 const SESSION_PREFIX = 'fb:oauth:session:';
@@ -26,12 +27,26 @@ export interface OauthSession {
 const stateKey = (state: string) => `${STATE_PREFIX}${state}`;
 const sessionKey = (sessionId: string) => `${SESSION_PREFIX}${sessionId}`;
 
+// Redis có thể chỉ còn đọc (hết hạn mức, quyền hạn, mất kết nối tạm thời).
+// Trả 503 để người dùng biết là sự cố tạm thời, thay vì 500 "lỗi hệ thống".
+const runRedis = async <T>(action: string, command: () => Promise<T>): Promise<T> => {
+  try {
+    return await command();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`Redis lỗi khi ${action} phiên OAuth Facebook: ${message}`);
+    throw new ServiceUnavailableError(
+      'Tạm thời không truy cập được bộ nhớ phiên kết nối Facebook. Vui lòng thử lại sau ít phút.'
+    );
+  }
+};
+
 export const saveOauthState = async (state: string, data: OauthState): Promise<void> => {
-  await redis.setex(stateKey(state), TTL_SECONDS, JSON.stringify(data));
+  await runRedis('lưu state', () => redis.setex(stateKey(state), TTL_SECONDS, JSON.stringify(data)));
 };
 
 export const consumeOauthState = async (state: string): Promise<OauthState | null> => {
-  const raw = await redis.getdel(stateKey(state));
+  const raw = await runRedis('đọc state', () => redis.getdel(stateKey(state)));
   if (!raw) return null;
 
   try {
@@ -44,11 +59,13 @@ export const consumeOauthState = async (state: string): Promise<OauthState | nul
 };
 
 export const saveOauthSession = async (sessionId: string, data: OauthSession): Promise<void> => {
-  await redis.setex(sessionKey(sessionId), TTL_SECONDS, JSON.stringify(data));
+  await runRedis('lưu session', () =>
+    redis.setex(sessionKey(sessionId), TTL_SECONDS, JSON.stringify(data))
+  );
 };
 
 export const getOauthSession = async (sessionId: string): Promise<OauthSession | null> => {
-  const raw = await redis.get(sessionKey(sessionId));
+  const raw = await runRedis('đọc session', () => redis.get(sessionKey(sessionId)));
   if (!raw) return null;
 
   try {
@@ -61,7 +78,7 @@ export const getOauthSession = async (sessionId: string): Promise<OauthSession |
 };
 
 export const deleteOauthSession = async (sessionId: string): Promise<void> => {
-  await redis.del(sessionKey(sessionId));
+  await runRedis('xoá session', () => redis.del(sessionKey(sessionId)));
 };
 
 export default {
