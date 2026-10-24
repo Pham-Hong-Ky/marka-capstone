@@ -2,7 +2,7 @@
 
 > Tài liệu lập từ **test tự động có thật** trong repo, không phải từ đề xuất tính năng.
 > Nguồn đối chiếu: `backend/src/**/*.test.ts`, `backend/src/routes/index.ts`, `docs/api_documentation.md`.
-> Cập nhật: 2026-10-23. Tổng: **207 test case** trong **21 file**.
+> Cập nhật: 2026-10-24. Tổng: **225 test case** trong **22 file**.
 
 ## 1. Bảng tổng hợp
 
@@ -11,17 +11,19 @@
 | 1 | Auth, RBAC, refresh/logout (UC01–UC04, UC34) | 12 | `backend/src/modules/auth/auth.test.ts` |
 | 2 | Google login (UC03) | 3 | `backend/src/modules/auth/auth.google.test.ts` |
 | 3 | User — hồ sơ & mật khẩu (UC05, UC33) | 4 | `backend/src/modules/user/user.test.ts` |
-| 4 | Workspace, thành viên, lời mời (UC17–UC24, UC35, UC36) | 21 | `backend/src/modules/workspace/workspace.test.ts` |
+| 4 | Workspace, thành viên, lời mời (UC17–UC24, UC35, UC36) | 22 | `backend/src/modules/workspace/workspace.test.ts` |
 | 5 | Brand Voice (UC25–UC27) | 12 | `backend/src/modules/brandvoice/brandvoice.test.ts` |
-| 6 | Channel & Facebook OAuth (UC28–UC30) | 21 | `backend/src/modules/channel/channel.test.ts` |
-| 7 | Post, media, gửi duyệt & duyệt bài (UC06, UC08–UC12, UC15) | 51 | `backend/src/modules/post/post.test.ts` |
-| 7.1 | AI service, processor, provider, prompt, route, credit | 34 | `backend/src/modules/ai/*.test.ts`, `backend/src/modules/credit/*.test.ts` |
-| 7.2 | Schedule đăng bài Facebook | 28 | `backend/src/modules/schedule/*.test.ts` |
+| 6 | Channel & Facebook OAuth (UC28–UC30) | 28 | `backend/src/modules/channel/*.test.ts` |
+| 7 | Post, media, gửi duyệt & duyệt bài (UC06, UC08–UC12, UC15) | 52 | `backend/src/modules/post/post.test.ts` |
+| 7.1 | AI service, processor, provider, prompt, route, credit | 36 | `backend/src/modules/ai/*.test.ts`, `backend/src/modules/credit/*.test.ts` |
+| 7.2 | Schedule đăng bài Facebook | 32 | `backend/src/modules/schedule/*.test.ts` |
+| 7.3 | Nạp credit, PayOS (UC31, UC40, UC41) | 11 | `backend/src/modules/billing/billing.test.ts` |
 | 8 | Health check | 1 | `backend/src/modules/health/health.test.ts` |
+| 8.1 | Health service (Redis/DB) | 3 | `backend/src/modules/health/health.service.test.ts` |
 | 9 | Queue Manager (BullMQ) | 6 | `backend/src/workers/queue-manager.test.ts` |
 | 10 | Middleware `enforceHttps` | 2 | `backend/src/middlewares/enforceHttps.test.ts` |
 | 11 | Swagger spec | 1 | `backend/src/config/swagger.test.ts` |
-| **Tổng** | | **207** | |
+| **Tổng** | | **225** | |
 
 Ghi chú:
 
@@ -391,9 +393,9 @@ Các hành vi **đã có trong code** nhưng **không có test tự động** t�
 
 Các phần sau **không có endpoint/module tương ứng** trong `backend/src/routes/index.ts`, nên không có test:
 
-- **Credit / gói credit / PayOS / Order (UC31, UC40, UC41)** — model Prisma có nhưng không có route/service nạp credit, gói, order, PayOS. Module `credit` hiện chỉ dùng nội bộ cho trừ/hoàn credit AI.
 - **Admin dashboard & API audit log (UC32)** — module `audit` chỉ có service/repository, không expose route.
 - **Calendar nâng cao (UC14):** kéo-thả đổi giờ, sửa lịch sau khi tạo — chưa có API/UI.
 - **Analytics / `PostMetric` (UC39)** — không có API.
-- **API thông báo (notification)** — chỉ ghi DB, không có endpoint đọc.
 - **Giao việc / trạng thái công việc (UC42, UC43)** — không có module/route.
+
+**UC38 (API đọc notification) đã bỏ khỏi phạm vi**, không tính là phần chưa triển khai.

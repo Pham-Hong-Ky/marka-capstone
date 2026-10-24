@@ -993,7 +993,62 @@ Poll trạng thái job. Frontend gọi mỗi 2 giây tới khi `SUCCESS`/`FAILED
 
 ---
 
-## 9. Bảng tổng hợp endpoint
+## 9. Credit & Nạp PayOS
+
+### `GET /workspaces/:workspaceId/billing`
+
+Trả số dư credit và danh sách gói nạp đang bán. Mọi thành viên workspace.
+
+```json
+{
+  "status": "success",
+  "message": "Lấy thông tin gói và credit thành công",
+  "data": {
+    "remainingCredit": 100,
+    "packages": [
+      {
+        "id": "10000000-0000-4000-8000-000000000001",
+        "name": "Nạp 500",
+        "description": "Dùng cho trợ lý AI và sinh ảnh",
+        "creditAmount": 500,
+        "price": 25000,
+        "sortOrder": 1
+      }
+    ]
+  }
+}
+```
+
+### `GET /workspaces/:workspaceId/billing/transactions?page=1&limit=10`
+
+Lịch sử credit, phân trang trong `meta`. Mọi thành viên workspace.
+
+### `POST /workspaces/:workspaceId/billing/orders`
+
+Mọi thành viên workspace. Body:
+
+```json
+{ "packageId": "10000000-0000-4000-8000-000000000001" }
+```
+
+Giá và credit lấy từ DB, không nhận từ client. Trả `201` kèm `order` (`orderCode`, `amount`, `creditAmount`, `packageId`, `status`, `checkoutUrl`, `expiresAt`).
+Gói không tồn tại → `404`; thiếu cấu hình PayOS → `503`; PayOS lỗi → `502`.
+
+### `GET /workspaces/:workspaceId/billing/orders/:orderId`
+
+Mọi thành viên workspace. Nếu đơn `PENDING`, backend gọi PayOS để đối soát; `PAID` thì cộng credit một lần.
+
+### `POST /workspaces/:workspaceId/billing/orders/:orderId/cancel`
+
+Chỉ người tạo đơn. Chỉ huỷ được đơn `PENDING`; đơn `PAID` → `409`.
+
+### `POST /webhooks/payos`
+
+Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, chống cộng trùng, trả `200`.
+
+---
+
+## 10. Bảng tổng hợp endpoint
 
 
 | Method | Path | Auth | Workspace role |
@@ -1040,5 +1095,12 @@ Poll trạng thái job. Frontend gọi mỗi 2 giây tới khi `SUCCESS`/`FAILED
 | POST | `/workspaces/:workspaceId/posts/:postId/schedules` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/schedules` | Bearer | Thành viên |
 | DELETE | `/workspaces/:workspaceId/schedules/:scheduleId` | Bearer | Thành viên |
+| GET | `/workspaces/:workspaceId/billing` | Bearer | Thành viên |
+| GET | `/workspaces/:workspaceId/billing/transactions` | Bearer | Thành viên |
+| POST | `/workspaces/:workspaceId/billing/orders` | Bearer | Thành viên |
+| GET | `/workspaces/:workspaceId/billing/orders/:orderId` | Bearer | Thành viên |
+| POST | `/workspaces/:workspaceId/billing/orders/:orderId/cancel` | Bearer | Người tạo đơn |
+| POST | `/webhooks/payos` | — | — |
 
-**Không có trong code** (đừng gọi): calendar kéo-thả, credit/PayOS, admin, notification, analytics, upload media độc lập.
+**Không có trong code** (đừng gọi): calendar kéo-thả, admin, analytics, giao việc, upload media độc lập.
+**UC38 đã bỏ khỏi phạm vi:** không có endpoint notification.

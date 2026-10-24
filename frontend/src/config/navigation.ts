@@ -20,7 +20,7 @@ export const ROUTE_LABELS = {
   channels: 'Kênh kết nối',
   brandVoice: 'Brand Voice',
   members: 'Thành viên',
-  billing: 'Gói Credit & Nạp',
+  billing: 'Credit & Nạp',
   settings: 'Cài đặt',
   appearance: 'Giao diện',
   workspace: 'Workspace',

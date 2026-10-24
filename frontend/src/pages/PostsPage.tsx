@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PostToolbar from '@/components/features/post/PostToolbar';
 import PostList from '@/components/features/post/PostList';
@@ -9,22 +9,24 @@ import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
 import { useDeletePost, usePosts } from '@/hooks/usePost';
 import { getErrorMessage } from '@/utils/error';
-import type { PostDetail, PostStatus } from '@/services/post';
+import type { PostStatus, PostSummary } from '@/services/post';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
+import { useAuthStore } from '@/stores/auth.store';
 
 export const PostsPage = () => {
   const navigate = useNavigate();
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
   const role = activeWorkspace?.role ?? 'CONTENT_CREATOR';
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null);
 
   const [status, setStatus] = useState<PostStatus | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [rejectingPostId, setRejectingPostId] = useState<string | null>(null);
-  const [postToDelete, setPostToDelete] = useState<PostDetail | null>(null);
+  const [postToDelete, setPostToDelete] = useState<PostSummary | null>(null);
 
   const { data, isLoading, isError, error } = usePosts(workspaceId, {
     page,
@@ -33,6 +35,12 @@ export const PostsPage = () => {
     search: search || undefined,
   });
   const deletePost = useDeletePost();
+
+  useEffect(() => {
+    if (page > 1 && data && data.posts.length === 0) {
+      setPage(page - 1);
+    }
+  }, [data, page]);
 
   if (!workspaceId) {
     return (
@@ -94,7 +102,11 @@ export const PostsPage = () => {
         <PostList
           posts={data.posts}
           meta={data.meta}
+          role={role}
+          currentUserId={currentUserId}
           onOpen={(post) => setSelectedPostId(post.id)}
+          onEdit={(post) => navigate(`/posts/${post.id}/edit`)}
+          onDelete={(post) => setPostToDelete(post)}
           onPageChange={setPage}
         />
       ) : null}

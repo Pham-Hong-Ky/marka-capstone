@@ -59,7 +59,7 @@ backend/src/
   workers/                # queue BullMQ + worker
 ```
 
-Các module hiện có: `auth`, `user`, `workspace`, `brandvoice`, `ai`, `credit`, `channel`, `post`, `schedule`, `audit`, `health`.
+Các module hiện có: `auth`, `user`, `workspace`, `brandvoice`, `ai`, `credit`, `billing`, `channel`, `post`, `schedule`, `audit`, `health`.
 
 ### 2.1. Router & Middleware
 
@@ -219,6 +219,7 @@ Bản ghi đã xoá chỉ đọc được bằng `basePrisma` (export từ `conf
 - `workers/index.ts` tạo `contentWorker`, `scheduleWorker`, `emailWorker`.
 - `scheduleWorker` dùng processor thật: job `schedule-due` chạy mỗi 60 giây (đăng ký bằng `upsertJobScheduler`), job `schedule-one` xử lý đăng ngay.
 - `contentWorker` dùng `processContentJob`: job `ai:text` gọi Gemini, job `ai:image` gọi Cloudflare Flux → Cloudinary → tạo `MediaAsset`. Khi job thất bại hẳn, listener hoàn credit và set `AiGeneration.FAILED`.
+- Billing không dùng queue/worker; tạo order/webhook/polling xử lý đồng bộ trong request.
 - `emailWorker` vẫn là processor mẫu.
 - `ENABLE_WORKERS=true` (mặc định) → `server.ts` import `workers/start.ts` và chạy worker cùng process API. Production có thể đặt `false` và chạy `npm run worker` (`worker-server.ts`) riêng. Scheduler và AI job chỉ hoạt động khi worker chạy và backend không ngủ.
 - Ở môi trường test, BullMQ dùng prefix `marka-test` (production dùng prefix mặc định `bull`) để worker production không nhặt job của test.
@@ -302,7 +303,7 @@ Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIR
   - `/` (dashboard), `/posts`, `/posts/new`, `/posts/:postId/edit`
   - `/channels`, `/brand-voice`
   - `/settings/appearance`, `/settings/workspace`, `/settings/members`
-- Trang **placeholder** dùng `ComingSoonPage`: `/schedule`, `/ai`, `/publishing`, `/billing`.
+- Trang **placeholder** dùng `ComingSoonPage`: `/ai`, `/publishing`. `/billing` đã là trang Credit & Nạp.
 - HTTP: `services/httpClient.ts` (axios + interceptor refresh token), mỗi feature có `services/<feature>/*.api.ts`.
 - Server state: React Query; global state: Zustand (`auth`, `theme`, `ui`); form: react-hook-form + Zod.
 - Env đọc qua `config/env.ts`.
@@ -313,10 +314,10 @@ Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIR
 
 Các mục dưới đây **chưa được triển khai**; tài liệu chi tiết tương ứng đã được gộp vào `docs/specs/README.md` (mục Roadmap) và không còn sơ đồ lớp riêng.
 
-- AI sinh nội dung (OpenAI), Viral Score, sinh ảnh.
-- Credit, CreditPackage, Order, PayOS, webhook thanh toán.
-- Lịch đăng bài, publish worker thật, Calendar.
+- Viral Score, 1-Click Fix, sinh lại/viết tiếp, nhiều ảnh/lần.
+- Calendar nâng cao, đăng bài đa kênh (Instagram/TikTok/Zalo), video, làm mới token Facebook tự động.
 - Post Analytics, `PostMetric`, n8n.
-- Admin panel, quản lý user/workspace, dashboard hệ thống.
-- API Notification (đọc thông báo), WebSocket/SSE.
+- Admin panel, quản lý user/workspace, dashboard hệ thống, API đọc audit log.
+- Email nhắc hạn gói/hết credit/lịch đăng; UC38 (API đọc notification) đã bỏ khỏi phạm vi.
 - Giao việc cho thành viên (UC42/UC43).
+- 2FA, quên mật khẩu.

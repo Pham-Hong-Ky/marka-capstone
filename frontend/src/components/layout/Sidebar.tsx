@@ -89,10 +89,16 @@ export const Sidebar = ({
 
       <div className="space-y-3 border-t border-border p-3">
         {!collapsed && workspace ? (
-          <CreditUsageCard
-            remainingCredit={workspace.remainingCredit}
-            monthlyQuota={workspace.monthlyQuota}
-          />
+          <Link
+            to="/billing"
+            aria-label="Mở trang Gói & Credit"
+            className="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <CreditUsageCard
+              remainingCredit={workspace.remainingCredit}
+              className="transition hover:border-accent"
+            />
+          </Link>
         ) : null}
 
         <UserMenu

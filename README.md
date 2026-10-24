@@ -2,8 +2,8 @@
 
 Đồ án capstone (DATN). Monorepo gồm `backend` (Express + Prisma + BullMQ) và `frontend` (React + Vite).
 
-**Phạm vi đã triển khai:** xác thực (email/password + Google), workspace & thành viên, Brand Voice, trợ lý AI trong editor (Gemini sinh nội dung, Cloudflare sinh ảnh, trừ/hoàn credit, BullMQ + polling), kết nối Facebook Page qua OAuth, bài viết + media + luồng duyệt bài, đăng ngay/lên lịch bài lên nhiều Page bằng BullMQ, audit log, health check.
-**Roadmap (chưa code):** Viral Score/regenerate, nạp credit & PayOS, admin, calendar nâng cao, analytics, API notification — xem [`docs/PROJECT_OVERVIEW.md`](./docs/PROJECT_OVERVIEW.md).
+**Phạm vi đã triển khai:** xác thực (email/password + Google), workspace & thành viên, Brand Voice, trợ lý AI trong editor (Gemini sinh nội dung, Cloudflare sinh ảnh, trừ/hoàn credit, BullMQ + polling), kết nối Facebook Page qua OAuth, bài viết + media + luồng duyệt bài, đăng ngay/lên lịch bài lên nhiều Page bằng BullMQ, nạp credit qua PayOS, audit log, health check.
+**Roadmap (chưa code):** Viral Score/regenerate, admin, calendar nâng cao, analytics, giao việc — xem [`docs/PROJECT_OVERVIEW.md`](./docs/PROJECT_OVERVIEW.md).
 
 > Tài liệu đầy đủ nằm trong [`docs/`](./docs). **Không dùng Docker** — chạy trực tiếp trên PostgreSQL + Redis local hoặc cloud free tier.
 
@@ -63,8 +63,9 @@ npm run worker
 | `GEMINI_API_KEY` / `GEMINI_MODEL` | Gemini sinh nội dung; model mặc định `gemini-flash-lite-latest` |
 | `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_IMAGE_MODEL` | Cloudflare Workers AI sinh ảnh; model mặc định `@cf/black-forest-labs/flux-1-schnell` |
 | `FACEBOOK_REDIRECT_URI` | Callback OAuth, phải khớp **Valid OAuth Redirect URI** của Facebook App |
+| `PAYOS_CLIENT_ID` / `PAYOS_API_KEY` / `PAYOS_CHECKSUM_KEY` | Cấu hình PayOS; thiếu thì API tạo đơn trả `503` |
 
-Các key 3rd party (`OPENAI_API_KEY`, `GEMINI_*`, `CLOUDFLARE_*`, `CLOUDINARY_*`, `PAYOS_*`, `FACEBOOK_*`, `SMTP_*`) là **tuỳ chọn** — để trống vẫn chạy phần lõi, riêng tính năng AI cần key Gemini/Cloudflare.
+Các key 3rd party (`OPENAI_API_KEY`, `GEMINI_*`, `CLOUDFLARE_*`, `CLOUDINARY_*`, `PAYOS_*`, `FACEBOOK_*`, `SMTP_*`) là **tuỳ chọn** — để trống vẫn chạy phần lõi; riêng tính năng AI cần key Gemini/Cloudflare, billing cần PayOS.
 
 ---
 

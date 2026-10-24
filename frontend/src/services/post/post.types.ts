@@ -13,11 +13,18 @@ export type PostStatus =
 export type MediaType = 'IMAGE' | 'VIDEO';
 export type MediaSource = 'UPLOADED' | 'AI_GENERATED';
 
+export interface PostAuthor {
+  id: string;
+  name: string;
+  avatar: string | null;
+}
+
 export interface PostSummary {
   id: string;
   title: string;
   status: PostStatus;
   createdById: string | null;
+  createdBy: PostAuthor | null;
   createdAt: string;
   updatedAt: string;
 }

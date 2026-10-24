@@ -3,8 +3,8 @@
 > **Phạm vi:** Chỉ các UC có endpoint trong `backend/src/routes/index.ts`.
 > Nội dung bám theo code đang chạy: `backend/src/routes/index.ts`, `backend/src/modules/**`,
 > `backend/src/middlewares/**`, `backend/src/utils/**`, `backend/prisma/schema.prisma`.
-> Các tính năng chưa có endpoint (AI, credit/PayOS, admin, calendar nâng cao, analytics/n8n,
-> API notification, UC42/UC43) **không được vẽ sơ đồ**, chỉ liệt kê ở
+> Các tính năng chưa có endpoint (Viral Score/regenerate, admin, calendar nâng cao, analytics/n8n,
+> giao việc UC42/UC43) **không được vẽ sơ đồ**, chỉ liệt kê ở
 > [mục 9](#9-chưa-triển-khai-roadmap).
 
 ## Mục lục
@@ -2329,9 +2329,8 @@ Không dùng tài liệu này để suy ra API đã tồn tại.
 - **AI sinh nội dung/ảnh:** đã có module `ai`, route `/ai/text`, `/ai/images`,
   `/ai/generations/:id` và `contentWorker`. Còn Viral Score, regenerate, nhiều ảnh/lần,
   lịch sử AI UI và sweeper job kẹt.
-- **Credit, CreditPackage, Order, PayOS, webhook thanh toán:** module `credit` đã có
-  `reserve`/`refund` nội bộ cho AI; **chưa có** endpoint nạp credit, gói credit, Order,
-  PayOS hay webhook.
+- **Billing/PayOS:** đã có module `billing`, route `/billing`, `/billing/transactions`,
+  `/billing/orders`, webhook `/webhooks/payos`. Chỉ nạp credit một lần; không có queue/cron billing.
 - **Admin panel:** chưa có route quản trị user/workspace/dashboard. `requireRoles` đã viết
   nhưng chưa được gắn vào route nào; chưa có màn hình admin.
 - **Lịch đăng bài và publish:** đã có module `schedule` + `scheduleWorker` (`schedule-queue`).
@@ -2339,6 +2338,6 @@ Không dùng tài liệu này để suy ra API đã tồn tại.
   Calendar kéo-thả/sửa giờ sau khi tạo vẫn là Roadmap.
 - **Analytics, PostMetric, n8n:** chưa có module, endpoint hay job tích hợp.
   `PostMetric` có trong schema nhưng không được ghi/đọc.
-- **API Notification:** bảng `Notification` chỉ được ghi tự động (thành viên mới, bài gửi
-  duyệt/duyệt/từ chối). Chưa có endpoint đọc danh sách, chưa có WebSocket/SSE.
+- **UC38 (API đọc notification) đã bỏ khỏi phạm vi.** Bảng `Notification` vẫn được ghi tự động
+  cho một số luồng, nhưng không có endpoint đọc/WebSocket/SSE.
 - **UC42/UC43 (giao việc cho thành viên):** chưa có model, endpoint và luồng nghiệp vụ.

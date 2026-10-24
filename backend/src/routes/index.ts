@@ -60,6 +60,13 @@ import {
   generateImageSchema,
   generationIdSchema,
 } from '../modules/ai/ai.validation.js';
+import billingController from '../modules/billing/billing.controller.js';
+import {
+  billingSchema,
+  listTransactionsSchema,
+  createOrderSchema,
+  orderIdSchema,
+} from '../modules/billing/billing.validation.js';
 
 const router = Router();
 
@@ -193,6 +200,43 @@ router.delete(
   validate(channelIdSchema),
   requireWorkspaceRole('OWNER'),
   channelController.disconnectChannel
+);
+
+// Billing — gói credit & PayOS (UC31, UC40, UC41)
+router.get(
+  '/workspaces/:workspaceId/billing',
+  requireAuth,
+  validate(billingSchema),
+  requireWorkspaceRole(),
+  billingController.getBilling
+);
+router.get(
+  '/workspaces/:workspaceId/billing/transactions',
+  requireAuth,
+  validate(listTransactionsSchema),
+  requireWorkspaceRole(),
+  billingController.listTransactions
+);
+router.post(
+  '/workspaces/:workspaceId/billing/orders',
+  requireAuth,
+  validate(createOrderSchema),
+  requireWorkspaceRole(),
+  billingController.createOrder
+);
+router.get(
+  '/workspaces/:workspaceId/billing/orders/:orderId',
+  requireAuth,
+  validate(orderIdSchema),
+  requireWorkspaceRole(),
+  billingController.getOrder
+);
+router.post(
+  '/workspaces/:workspaceId/billing/orders/:orderId/cancel',
+  requireAuth,
+  validate(orderIdSchema),
+  requireWorkspaceRole(),
+  billingController.cancelOrder
 );
 
 // Posts (UC05, UC07, UC08, UC09, UC10, UC37)

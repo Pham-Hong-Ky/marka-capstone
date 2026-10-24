@@ -43,7 +43,7 @@ export const router = createBrowserRouter([
               { path: 'brand-voice', lazy: page(() => import('@/pages/BrandVoicePage')) },
               { path: 'ai', element: <ComingSoonPage title="Trợ lý AI" /> },
               { path: 'publishing', element: <ComingSoonPage title="Đăng bài đa kênh" /> },
-              { path: 'billing', element: <ComingSoonPage title="Gói Credit & Nạp" /> },
+              { path: 'billing', lazy: page(() => import('@/pages/BillingPage')) },
               {
                 path: 'settings',
                 element: <SettingsLayout />,
