@@ -61,6 +61,12 @@ export class ServiceUnavailableError extends AppError {
   }
 }
 
+export class BadGatewayError extends AppError {
+  constructor(message = 'Dịch vụ bên ngoài trả về lỗi') {
+    super(message, 502);
+  }
+}
+
 export default {
   AppError,
   NotFoundError,
@@ -71,4 +77,5 @@ export default {
   BadRequestError,
   PaymentRequiredError,
   ServiceUnavailableError,
+  BadGatewayError,
 };

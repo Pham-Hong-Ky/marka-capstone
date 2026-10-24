@@ -13,6 +13,7 @@ import enforceHttps from './middlewares/enforceHttps.js';
 import errorHandler from './middlewares/error.js';
 import apiLimiter from './middlewares/rateLimiter.js';
 import v1Routes from './routes/index.js';
+import payosWebhookRoutes from './routes/payosWebhook.routes.js';
 import { NotFoundError } from './utils/errors/index.js';
 import { morganStream } from './utils/logger.js';
 
@@ -42,6 +43,8 @@ if (env.NODE_ENV !== 'test') {
 
   app.use(morgan(morganFormat, { stream: morganStream }));
 }
+
+app.use('/api/v1/webhooks', payosWebhookRoutes);
 
 app.use('/api/', apiLimiter);
 

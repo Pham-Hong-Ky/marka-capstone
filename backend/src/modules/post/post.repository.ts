@@ -2,6 +2,8 @@ import type { Prisma, PostStatus } from '@prisma/client';
 import prisma from '../../config/db.js';
 import { SCHEDULE_PUBLIC_SELECT } from '../schedule/schedule.repository.js';
 
+const POST_AUTHOR_SELECT = { id: true, name: true, avatar: true } as const;
+
 export const createPost = async (data: {
   workspaceId: string;
   title: string;
@@ -15,6 +17,7 @@ export const getPostById = async (postId: string, workspaceId: string) => {
   return prisma.post.findFirst({
     where: { id: postId, workspaceId },
     include: {
+      createdBy: { select: POST_AUTHOR_SELECT },
       mediaAssets: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
       scheduledPosts: {
         orderBy: [{ scheduledAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }],
@@ -54,7 +57,15 @@ export const listPostsAndCount = async (params: ListPostsParams) => {
   return prisma.$transaction([
     prisma.post.findMany({
       where,
-      select: { id: true, title: true, status: true, createdById: true, createdAt: true, updatedAt: true },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        createdById: true,
+        createdBy: { select: POST_AUTHOR_SELECT },
+        createdAt: true,
+        updatedAt: true,
+      },
       orderBy: { updatedAt: 'desc' },
       skip: params.skip,
       take: params.take,

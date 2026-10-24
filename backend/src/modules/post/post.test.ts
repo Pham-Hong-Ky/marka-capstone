@@ -133,6 +133,16 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(typeof res.body.meta.total).toBe('number');
   });
 
+  it('UC09 — Danh sách trả tên người tạo bài viết', async () => {
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/posts?page=1&limit=50`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    const created = res.body.data.posts.find((post: { id: string }) => post.id === postId);
+    expect(created.createdBy).toMatchObject({ id: ownerId, name: owner.name });
+  });
+
   it('UC09 — Tìm theo tiêu đề (không phân biệt hoa/thường)', async () => {
     const res = await request(app)
       .get(`/api/v1/workspaces/${wsId}/posts?search=NHÁP`)
