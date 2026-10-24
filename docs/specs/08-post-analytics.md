@@ -50,8 +50,8 @@ Quan hệ: `PostMetric.scheduledPost → ScheduledPost` (Cascade); `ScheduledPos
 
 ### Các trường liên quan trên `ScheduledPost`
 
-- `externalPostId` — ID bài trên Facebook sau khi đăng (hiện chưa có luồng ghi).
-- `status` — `PublishStatus`: `SCHEDULED`/`PUBLISHED`/`FAILED`/`CANCELLED` (hiện chưa có luồng tạo).
+- `externalPostId` — ID bài trên Facebook sau khi đăng (worker đã ghi khi đăng thành công).
+- `status` — `PublishStatus`: `SCHEDULED`/`PROCESSING`/`PUBLISHED`/`FAILED`/`CANCELLED`.
 - `channelId` → `ChannelConnection` (biết kênh thật/giả lập).
 
 ---

@@ -5,7 +5,7 @@
 > **Phạm vi:** phần đã có trong code: gửi email qua Resend (mời workspace, bài gửi duyệt, kết quả duyệt) và ghi notification in-app.
 > Mã nguồn: `backend/src/utils/mailer.client.ts`, `backend/src/templates/`, `modules/workspace/workspace.service.ts`, `modules/post/post.notification.ts`.
 >
-> **Không có trong code:** API đọc notification (UC38), email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`.
+> **Không có trong code:** API đọc notification (UC38 đã bỏ khỏi phạm vi), email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`.
 
 ---
 
@@ -73,7 +73,7 @@ Không có email thông báo khi lời mời được chấp nhận, bị thu h�
   - Từ chối: tiêu đề `[Marka] Bài viết "<title>" bị từ chối`, kèm lý do (`rejectReason`).
 - Kết quả `mailerClient.sendEmail` cũng **bị bỏ qua** — khác với email mời, lỗi email không làm fail request.
 
-> Nội dung email duyệt hiện có câu "Bạn có thể tiếp tục lên lịch hoặc đăng bài", dù tính năng lên lịch/đăng bài **chưa tồn tại**. Đây là nội dung template, không phản ánh chức năng đã có.
+> Nội dung email duyệt có câu "Bạn có thể tiếp tục lên lịch hoặc đăng bài"; tính năng lên lịch/đăng bài đã có từ 2026-10-23.
 
 ### 5.3.3. Tóm tắt
 
@@ -104,11 +104,12 @@ Bảng `notifications` (`Notification`): `id`, `userId`, `workspaceId?`, `type`,
 - Không có notification cho: mời thành viên, xoá thành viên, đổi vai trò, cập nhật workspace, kết nối/ngắt kênh, sửa/xoá bài.
 - Không có email nào cho `MEMBER_JOINED`.
 
-### Chưa có API
+### UC38 đã bỏ khỏi phạm vi
 
-- Chưa có endpoint list notification hay đếm số chưa đọc (UC38). Toàn bộ bản ghi `isRead` luôn `false`.
-- Chưa có WebSocket/SSE; frontend chưa có cách đọc notification qua API.
-- Chưa có endpoint xoá notification hay lọc theo workspace/type.
+- Hệ thống **không có** endpoint list notification hay đếm số chưa đọc.
+- Bảng `Notification` vẫn được ghi cho các luồng duyệt bài/thành viên, nhưng không có API đọc.
+- Không có WebSocket/SSE; frontend không hiển thị chuông thông báo.
+- Không có endpoint xoá notification hay lọc theo workspace/type.
 
 ---
 
@@ -127,10 +128,8 @@ Không có endpoint `/notifications`.
 
 ## 5.6. Chưa triển khai (Roadmap)
 
-1. **API notification (UC38):** `GET /notifications` (phân trang, lọc `isRead`), đếm số chưa đọc.
-2. **Realtime:** WebSocket/SSE hoặc polling có kiểm soát; hiện chưa có.
-3. **Email nhắc hạn gói / hết credit:** dùng `Workspace.planExpiryWarningSentAt`, `creditWarningSentAt` (cờ đã có trong schema, chưa có cron).
-4. **Email nhắc lịch đăng:** dùng `ScheduledPost.reminderSentAt` (đã có lịch đăng nhưng chưa có job nhắc).
-5. **Quên/đặt lại mật khẩu.**
-6. **Đưa email vào `email-queue`:** processor hiện chỉ log, chưa xử lý job.
-7. **Thu hồi lời mời / email mời lại có kiểm soát** và template escape đầy đủ cho mọi trường người dùng nhập.
+1. **Email nhắc hạn gói / hết credit:** dùng `Workspace.planExpiryWarningSentAt`, `creditWarningSentAt` (cờ đã có trong schema, chưa có cron).
+2. **Email nhắc lịch đăng:** dùng `ScheduledPost.reminderSentAt` (đã có lịch đăng nhưng chưa có job nhắc).
+3. **Quên/đặt lại mật khẩu.**
+4. **Đưa email vào `email-queue`:** processor hiện chỉ log, chưa xử lý job.
+5. **Thu hồi lời mời / email mời lại có kiểm soát** và template escape đầy đủ cho mọi trường người dùng nhập.

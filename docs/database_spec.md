@@ -48,10 +48,10 @@ Mỗi Workspace đại diện cho một thương hiệu hoặc doanh nghiệp ri
 | `name` | VARCHAR(255) | NOT NULL | Tên của Workspace |
 | `plan` | ENUM | Default: 'FREE', NOT NULL | Gói cước hiện tại (`FREE`, `PRO`, `ENTERPRISE`) |
 | `remainingCredit` | INTEGER | Default: 100, NOT NULL | Số credit khả dụng dùng để gọi AI |
-| `monthlyQuota` | INTEGER | Default: 100, NOT NULL | Hạn mức credit mặc định được cấp mỗi tháng |
-| `planExpiresAt` | TIMESTAMP | Nullable | Thời điểm hết hạn của gói cước trả phí |
-| `billingCycleStart` | TIMESTAMP | Nullable | Mốc bắt đầu chu kỳ billing hiện tại (dùng cho cron reset credit hằng tháng — D6) |
-| `nextResetAt` | TIMESTAMP | Nullable | Mốc cron reset credit kế tiếp / neo hạ gói khi hết hạn (D6) |
+| `monthlyQuota` | INTEGER | Default: 100, NOT NULL | Legacy, không dùng |
+| `planExpiresAt` | TIMESTAMP | Nullable | Legacy, không dùng |
+| `billingCycleStart` | TIMESTAMP | Nullable | Legacy, không dùng |
+| `nextResetAt` | TIMESTAMP | Nullable | Legacy, không dùng |
 | `planExpiryWarningSentAt` | TIMESTAMP | Nullable | Cờ chống gửi trùng email cảnh báo sắp hết hạn gói (D7) |
 | `creditWarningSentAt` | TIMESTAMP | Nullable | Cờ chống gửi trùng email cảnh báo sắp hết credit (D7) |
 | `brandVoice` | JSON | Nullable | Cấu hình tông giọng thương hiệu dạng JSON (`{ industry, targetAudience, keywordsShouldUse, keywordsAvoid, fewShotExamples }`) |
@@ -59,7 +59,7 @@ Mỗi Workspace đại diện cho một thương hiệu hoặc doanh nghiệp ri
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm khởi tạo Workspace |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật thông tin Workspace |
 
-* **Hạn mức theo gói (kế hoạch)**: `monthlyQuota` mặc định 100. Các cột `billingCycleStart`, `nextResetAt`, `planExpiryWarningSentAt`, `creditWarningSentAt` đã có trong schema nhưng **chưa có cron/service reset credit hay tự động hạ gói** trong code.
+* **Hạn mức credit**: mô hình hiện tại chỉ nạp credit một lần; `remainingCredit` không reset/hết hạn. Các cột `monthlyQuota`, `billingCycleStart`, `nextResetAt`, `planExpiryWarningSentAt`, `creditWarningSentAt` là legacy/không dùng.
 
 ### 2.3. Bảng `workspace_members` (Thành viên của Workspace)
 Lưu trữ quan hệ phân quyền 2 cấp Workspace (RBAC).
@@ -234,7 +234,7 @@ Lưu trữ danh mục các gói credit bán cho Workspace.
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm khởi tạo gói |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật gói |
 
-### 2.12. Bảng `orders` (Hóa đơn nâng cấp & nạp credit)
+### 2.12. Bảng `orders` (Nạp credit qua PayOS)
 Quản lý tích hợp cổng thanh toán PayOS.
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
@@ -242,10 +242,13 @@ Quản lý tích hợp cổng thanh toán PayOS.
 | `id` | VARCHAR(36) | PK, Default: UUID | ID hóa đơn |
 | `orderCode` | VARCHAR(100) | Unique, NOT NULL | Mã đơn hàng đối chiếu duy nhất gửi sang cổng PayOS |
 | `workspaceId` | VARCHAR(36) | FK -> `workspaces.id`, Cascade | Workspace mua credit/gói cước |
-| `packageId` | VARCHAR(36) | FK -> `credit_packages.id`, SetNull, Nullable | Gói credit được mua (nếu có) |
+| `packageId` | VARCHAR(36) | FK -> `credit_packages.id`, SetNull, Nullable | Gói nạp credit được mua |
 | `amount` | INTEGER | NOT NULL | Số tiền thanh toán (VND) |
-| `creditAmount` | INTEGER | Nullable | Số credit được mua (nếu mua credit lẻ) |
-| `targetPlan` | ENUM | Nullable | Gói cước nâng cấp mục tiêu (nếu mua gói cước PRO/ENTERPRISE) |
+| `creditAmount` | INTEGER | Nullable | Số credit của gói được mua (snapshot lúc tạo đơn) |
+| `targetPlan` | ENUM | Nullable | Legacy, không dùng |
+| `paymentLinkId` | VARCHAR(255) | Unique, Nullable | ID link thanh toán PayOS |
+| `checkoutUrl` | VARCHAR(2048) | Nullable | URL mở lại trang thanh toán |
+| `expiresAt` | TIMESTAMP | Nullable | Hạn hiệu lực của link thanh toán |
 | `payosTransId` | VARCHAR(255) | Unique, Nullable | Mã giao dịch thành công đối chiếu từ PayOS (unique hỗ trợ idempotency webhook — D4) |
 | `paidAt` | TIMESTAMP | Nullable | Thời điểm hoàn thành thanh toán |
 | `status` | ENUM | Default: 'PENDING', NOT NULL | Trạng thái đơn hàng (`PENDING`, `PAID`, `CANCELLED`) |
@@ -319,7 +322,7 @@ Lưu chỉ số hiệu suất của một bài đã đăng trên kênh; quan h�
 Page Access Token của Facebook được mã hoá trước khi lưu vào `ChannelConnection.accessToken`.
 * Thuật toán: **AES-256-GCM** (`backend/src/utils/encryption.ts`), khoá lấy từ `AES_SECRET_KEY` trong `.env`.
 * Giá trị lưu DB có dạng `<iv>:<authTag>:<ciphertext>` (hex).
-* Code hiện chỉ giải mã để kiểm tra token còn đọc được khi kết nối Page; **chưa có luồng dùng token để đăng bài**. Client Secret (Facebook/PayOS) chỉ nằm trong biến môi trường, không lưu DB.
+* Code giải mã Page token khi worker đăng bài (`schedule.service.ts` gọi Graph API) và khi kết nối Page. Client Secret (Facebook/PayOS) chỉ nằm trong biến môi trường, không lưu DB.
 
 ### 3.3. Múi giờ (Timezone) — D19
 Toàn hệ thống dùng **UTC**: cột `DateTime` trong DB lưu UTC, API trao đổi theo **ISO-8601 UTC**, server/worker đặt `TZ=UTC`. Frontend tự chuyển đổi sang giờ địa phương khi hiển thị.

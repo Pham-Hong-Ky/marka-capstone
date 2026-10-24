@@ -2,7 +2,7 @@
 
 > **Database:** PostgreSQL &nbsp;|&nbsp; **ORM:** Prisma &nbsp;|&nbsp; **Tổng số bảng:** 15
 >
-> **Trạng thái:** tài liệu mô tả đúng `backend/prisma/schema.prisma`. Schema có 15 bảng; API hiện dùng 12 bảng: `users`, `workspaces`, `workspace_members`, `workspace_invites`, `posts`, `media_assets`, `channel_connections`, `notifications`, `audit_logs`, `scheduled_posts`, `ai_generations`, `credit_transactions`. Ba bảng `post_metrics`, `credit_packages`, `orders` đã có trong schema nhưng **chưa có endpoint/service** (xem Roadmap).
+> **Trạng thái:** tài liệu mô tả đúng `backend/prisma/schema.prisma`. Schema có 15 bảng; API hiện dùng 14 bảng: `users`, `workspaces`, `workspace_members`, `workspace_invites`, `posts`, `media_assets`, `channel_connections`, `notifications`, `audit_logs`, `scheduled_posts`, `ai_generations`, `credit_transactions`, `credit_packages`, `orders`. Bảng `post_metrics` đã có trong schema nhưng **chưa có endpoint/service** (xem Roadmap).
 
 ---
 
@@ -44,10 +44,10 @@
 | `name` | VARCHAR(255) | NOT NULL | Tên workspace |
 | `plan` | ENUM | DEFAULT FREE | Gói dịch vụ: `FREE`, `PRO`, `ENTERPRISE` |
 | `remainingCredit` | INT | DEFAULT 100 | Số credit còn lại |
-| `monthlyQuota` | INT | DEFAULT 100 | Hạn mức credit hàng tháng |
-| `planExpiresAt` | DATETIME | NULL | Thời điểm hết hạn gói |
-| `billingCycleStart` | DATETIME | NULL | Mốc bắt đầu chu kỳ billing hiện tại (cron reset credit — D6) |
-| `nextResetAt` | DATETIME | NULL | Mốc cron reset credit kế tiếp / neo hạ gói (D6) |
+| `monthlyQuota` | INT | DEFAULT 100 | Legacy, không dùng |
+| `planExpiresAt` | DATETIME | NULL | Legacy, không dùng |
+| `billingCycleStart` | DATETIME | NULL | Legacy, không dùng |
+| `nextResetAt` | DATETIME | NULL | Legacy, không dùng |
 | `planExpiryWarningSentAt` | DATETIME | NULL | Cờ chống gửi trùng email cảnh báo hết hạn gói (D7) |
 | `creditWarningSentAt` | DATETIME | NULL | Cờ chống gửi trùng email cảnh báo hết credit (D7) |
 | `brandVoice` | JSON | NULL | Cấu hình tông giọng thương hiệu (`{ industry, targetAudience, keywordsShouldUse, keywordsAvoid, fewShotExamples }`) |
@@ -55,7 +55,7 @@
 | `createdAt` | DATETIME | NOT NULL | Thời điểm tạo |
 | `updatedAt` | DATETIME | NOT NULL | Thời điểm cập nhật |
 
-> **Hạn mức theo gói (kế hoạch):** `monthlyQuota` mặc định 100. Các mốc `billingCycleStart`, `nextResetAt`, `planExpiryWarningSentAt`, `creditWarningSentAt` đã có cột trong schema nhưng **chưa có cron/service reset credit hay hạ gói** trong code.
+> **Hạn mức theo gói:** mô hình hiện tại chỉ nạp credit một lần; `remainingCredit` không reset/hết hạn. Các cột `monthlyQuota`, `billingCycleStart`, `nextResetAt`, `planExpiryWarningSentAt`, `creditWarningSentAt` là legacy/không dùng.
 
 ### Bảng `workspace_members`
 
@@ -200,7 +200,7 @@
 ## 5. Nhóm AI & Credit
 
 > **Trạng thái code:** `ai_generations` và `credit_transactions` đã được dùng cho trợ lý AI
-> (text + image). `credit_packages` và `orders` vẫn chưa có module/endpoint (thanh toán PayOS nằm trong Roadmap).
+> (text + image) và billing. `orders` + `credit_packages` được dùng cho nạp credit qua PayOS.
 
 ### Bảng `ai_generations`
 
@@ -258,10 +258,13 @@
 | `id` | VARCHAR(36) | PK | Định danh duy nhất |
 | `orderCode` | VARCHAR(100) | UNIQUE | Mã đơn hàng (PayOS) |
 | `workspaceId` | VARCHAR(36) | FK → workspaces | Workspace đặt mua |
-| `packageId` | VARCHAR(36) | FK → credit_packages, NULL | Gói credit được mua |
+| `packageId` | VARCHAR(36) | FK → credit_packages, NULL | Gói nạp credit được mua |
 | `amount` | INT | NOT NULL | Số tiền (VND) |
 | `creditAmount` | INT | NULL | Số credit mua |
-| `targetPlan` | ENUM | NULL | Gói nâng cấp: `FREE`, `PRO`, `ENTERPRISE` |
+| `targetPlan` | ENUM | NULL | Legacy, không dùng (mô hình chỉ nạp credit) |
+| `paymentLinkId` | VARCHAR(255) | UNIQUE, NULL | ID link PayOS |
+| `checkoutUrl` | VARCHAR(2048) | NULL | URL mở lại trang thanh toán |
+| `expiresAt` | DATETIME | NULL | Hạn link thanh toán |
 | `payosTransId` | VARCHAR(255) | UNIQUE, NULL | ID giao dịch PayOS (unique cho idempotency webhook — D4) |
 | `paidAt` | DATETIME | NULL | Thời điểm thanh toán thành công |
 | `status` | ENUM | DEFAULT PENDING | Trạng thái: `PENDING`, `PAID`, `CANCELLED` |

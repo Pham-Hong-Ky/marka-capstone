@@ -32,8 +32,8 @@ Marka giúp nhóm marketing:
 
 | Vai trò | Quyền |
 | :--- | :--- |
-| `OWNER` | Toàn quyền workspace: sửa/xoá workspace, mời/xoá/đổi vai trò thành viên, cấu hình Brand Voice, kết nối/ngắt kênh, duyệt/từ chối bài. |
-| `CONTENT_CREATOR` | Xem thành viên, bài viết, Brand Voice, kênh; tạo bài; sửa/xoá bài **do mình tạo** khi bài ở `DRAFT`/`REJECTED`; upload/xoá ảnh của bài mình; gửi duyệt. |
+| `OWNER` | Toàn quyền workspace: sửa/xoá workspace, mời/xoá/đổi vai trò thành viên, cấu hình Brand Voice, kết nối/ngắt kênh, duyệt/từ chối bài, nạp credit, huỷ đơn mình tạo. |
+| `CONTENT_CREATOR` | Xem thành viên, bài viết, Brand Voice, kênh; tạo bài; sửa/xoá bài **do mình tạo** khi bài ở `DRAFT`/`REJECTED`; upload/xoá ảnh của bài mình; gửi duyệt; nạp credit, huỷ đơn mình tạo. |
 
 Quy tắc:
 
@@ -91,7 +91,7 @@ Quy tắc:
 - Trừ **10 credit** cho nội dung, **20 credit** cho ảnh; hoàn credit nếu job thất bại hẳn.
 - Provider: Gemini (text), Cloudflare Workers AI Flux Schnell (ảnh).
 
-**Chưa có:** Viral Score, sinh lại theo góp ý, nhiều ảnh/lần, chọn tỉ lệ/style, lịch sử AI có UI, nạp/reset credit, sweeper job kẹt.
+**Chưa có:** Viral Score, sinh lại theo góp ý, nhiều ảnh/lần, chọn tỉ lệ/style, lịch sử AI có UI, sweeper job kẹt.
 
 ### 3.4. Kênh & Facebook OAuth ✅
 
@@ -138,15 +138,27 @@ Quy tắc:
 - Bảng `Notification` được ghi khi:
   - thành viên mới tham gia workspace (`MEMBER_JOINED`, gửi các Owner còn lại);
   - bài được gửi duyệt / được duyệt / bị từ chối.
-- **Chưa có API** đọc danh sách hay đếm số chưa đọc; frontend chưa hiển thị chuông thông báo.
+- **UC38 đã bỏ khỏi phạm vi:** không có API đọc danh sách/đếm số chưa đọc; frontend không hiển thị chuông thông báo.
 
 ### 3.8. Audit, health & hạ tầng ✅
 
-- Audit log cho các hành động auth, workspace, member, Brand Voice, kênh, duyệt bài.
+- Audit log cho các hành động auth, workspace, member, Brand Voice, kênh, duyệt bài, billing.
 - `GET /health` kiểm tra PostgreSQL + Redis.
-- BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`); `scheduleWorker` đăng bài thật, `content`/`email` vẫn là worker khung.
+- BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`); `scheduleWorker` đăng bài thật, `contentWorker` sinh AI thật, `email` vẫn là worker khung. Billing không dùng queue.
 - Soft delete bằng Prisma Client Extension cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset`.
 - Log Winston + requestId, morgan; helmet, CORS theo `CLIENT_URL`, rate limit, HTTPS ở production.
+
+### 3.9. Nạp credit & PayOS ✅
+
+- 4 gói nạp mặc định: 500 credit/25.000đ, 1.500/69.000đ, 5.000/199.000đ, 10.000/349.000đ.
+- Credit **không hết hạn, không reset**; mua gói = cộng thẳng vào `remainingCredit`.
+- Mọi thành viên workspace được nạp; chỉ người tạo đơn được huỷ đơn của mình.
+- Tạo order `PENDING` + link PayOS; lưu `paymentLinkId`, `checkoutUrl`, `expiresAt`.
+- Webhook PayOS verify chữ ký, chống cộng trùng bằng `updateMany` theo `status: PENDING`; polling đối soát khi webhook chưa tới.
+- Không có cron/queue billing; order quá hạn được PayOS xử lý, backend chỉ cập nhật khi polling.
+- Trang `/billing`: số dư, 4 gói nạp, modal thanh toán poll 3 giây, lịch sử credit phân trang.
+
+**Chưa có:** gói tháng/reset credit, hoá đơn VAT, hoàn tiền/chargeback, tự động trừ tiền định kỳ, email cảnh báo hết credit.
 
 ---
 
@@ -156,15 +168,12 @@ Các phần dưới đây **không có** trong `backend/src/modules` hay `fronte
 
 | Nhóm | Nội dung | Dấu vết hiện có |
 | :--- | :--- | :--- |
-| AI | Sinh text/ảnh, Viral Score, 1-Click Fix | deps `openai`, env `OPENAI_API_KEY`, bảng `ai_generations`; chưa có service/endpoint |
-| Credit & thanh toán | Ví credit, gói credit, Order, PayOS, webhook | deps `@payos/node`, env `PAYOS_*`, bảng `credit_*`, `orders`; chưa có service/endpoint |
 | Calendar nâng cao | Kéo-thả đổi giờ, sửa lịch sau khi tạo | Đăng ngay/lên lịch/huỷ lịch cơ bản đã có; calendar nâng cao là Roadmap |
 | Analytics | Đồng bộ metrics Facebook, biểu đồ | bảng `post_metrics`; chưa có service, không có n8n |
 | Admin | Quản lý user/workspace, dashboard hệ thống | `SYSTEM_ADMIN` trong schema/middleware; chưa có module admin |
-| Notification API | Đọc thông báo, realtime | bảng `notifications`; chỉ ghi, chưa có API |
 | Giao việc | UC42/UC43 | chưa có cột trong `schema.prisma` |
 
-Frontend hiện có các trang placeholder: `/ai`, `/publishing`, `/billing`.
+Frontend hiện có các trang placeholder: `/ai`, `/publishing`.
 
 ---
 
@@ -175,7 +184,7 @@ Frontend hiện có các trang placeholder: `/ai`, `/publishing`, `/billing`.
 | Frontend | React 19, Vite, TypeScript, Tailwind CSS v4, React Router, React Query, Zustand, react-hook-form + Zod |
 | Backend | Node.js, TypeScript ESM, Express 4, Zod |
 | Database | PostgreSQL + Prisma 5 |
-| Cache/Queue | Redis + BullMQ (`scheduleWorker` thật; `content`/`email` khung) |
+| Cache/Queue | Redis + BullMQ (`scheduleWorker`, `contentWorker` thật; `email` khung; billing không dùng queue) |
 | Email | Resend |
 | Ảnh | Cloudinary |
 | Facebook | Graph API v21.0, OAuth redirect |

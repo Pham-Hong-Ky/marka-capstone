@@ -7,7 +7,7 @@
 > chạy bất đồng bộ qua BullMQ và frontend poll trạng thái.
 >
 > **Chưa triển khai:** Viral Score, “1-Click Fix”, sinh lại theo góp ý, chọn số lượng/tỉ lệ ảnh,
-> lịch sử AI có UI, nạp/reset credit, sweeper cho job mất khỏi Redis.
+> lịch sử AI có UI, sweeper cho job mất khỏi Redis.
 >
 > Mã nguồn: `backend/src/modules/brandvoice/`, `backend/src/modules/ai/`,
 > `backend/src/modules/credit/`, `backend/src/workers/`, `frontend/src/components/features/post/PostAIAssistant.tsx`.
@@ -285,8 +285,7 @@ hoặc (bài mới, tự tạo nháp):
 1. **Viral Score / 1-Click Fix:** chấm điểm và sinh lại nội dung; `AiGenType.VIRAL_SCORE`, `REGENERATE`.
 2. **Sinh nhiều ảnh/lần, chọn tỉ lệ/style:** hiện 1 ảnh vuông mỗi lần.
 3. **Lịch sử AI có UI:** API mới chỉ trả trạng thái từng generation; chưa có danh sách/trang lịch sử.
-4. **Nạp/reset credit, PayOS:** chưa có module billing; credit chỉ bị trừ/hoàn.
-5. **Sweeper job kẹt:** nếu job mất khỏi Redis, bản ghi có thể kẹt `PENDING` và credit bị giữ;
+4. **Sweeper job kẹt:** nếu job mất khỏi Redis, bản ghi có thể kẹt `PENDING` và credit bị giữ;
    chưa có cron quét/recovery cho AI.
-6. **Regenerate/continue:** chưa có nút sinh lại hoặc viết tiếp từ nội dung hiện tại.
-7. **Rời trang khi đang chờ:** job vẫn chạy nhưng kết quả không tự áp dụng lại vào editor; credit đã trừ (hoàn nếu job fail). Chưa lưu generationId vào sessionStorage để resume.
+5. **Regenerate/continue:** chưa có nút sinh lại hoặc viết tiếp từ nội dung hiện tại.
+6. **Rời trang khi đang chờ:** job vẫn chạy nhưng kết quả không tự áp dụng lại vào editor; credit đã trừ (hoàn nếu job fail). Chưa lưu generationId vào sessionStorage để resume.

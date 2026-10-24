@@ -98,7 +98,7 @@ Biến bắt buộc điền khi tạo Blueprint: `DATABASE_URL`, `REDIS_URL`, `J
 
 Biến tuỳ chọn (thêm trong Dashboard khi dùng): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_IMAGE_MODEL`, `CLOUDINARY_*`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `RESEND_API_KEY`, `MAIL_FROM`, `OPENAI_API_KEY`, `PAYOS_*`, `SMTP_*`.
 
-> **Lưu ý:** `GEMINI_*` và `CLOUDFLARE_*` được module AI sử dụng; `CLOUDINARY_*` dùng cho upload ảnh/AI. `OPENAI_API_KEY`, `PAYOS_*`, `SMTP_*` hiện **chưa được module nào sử dụng**. `ENABLE_WORKERS=true` khởi động BullMQ, trong đó `scheduleWorker` xử lý đăng bài thật và `contentWorker` xử lý job `ai:text`/`ai:image`; `email` vẫn là worker khung.
+> **Lưu ý:** `GEMINI_*` và `CLOUDFLARE_*` được module AI sử dụng; `CLOUDINARY_*` dùng cho upload ảnh/AI; `PAYOS_*` dùng cho module billing (nạp credit). `OPENAI_API_KEY`, `SMTP_*` hiện **chưa được module nào sử dụng**. `ENABLE_WORKERS=true` khởi động BullMQ, trong đó `scheduleWorker` xử lý đăng bài thật, `contentWorker` xử lý job `ai:text`/`ai:image`; `email` vẫn là worker khung. Billing không dùng queue.
 >
 > Gói free của Render không có Background Worker riêng, nên worker chạy chung Web Service. Khi service ngủ, job trong queue và scheduler đăng bài sẽ chờ tới khi có request đánh thức — lịch đăng có thể trễ. Production nên dùng backend always-on hoặc worker service riêng.
 
