@@ -435,14 +435,17 @@ model Order {
   workspaceId  String         @db.VarChar(36)
   packageId    String?        @db.VarChar(36)
   amount       Int
-  creditAmount Int?
-  targetPlan   WorkspacePlan?
-  payosTransId String?        @unique @db.VarChar(255)
-  paidAt       DateTime?
-  status       OrderStatus    @default(PENDING)
-  createdById  String?        @db.VarChar(36)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  creditAmount  Int?
+  targetPlan    WorkspacePlan?
+  paymentLinkId String?        @unique @db.VarChar(255)
+  checkoutUrl   String?        @db.VarChar(2048)
+  expiresAt     DateTime?
+  payosTransId  String?        @unique @db.VarChar(255)
+  paidAt        DateTime?
+  status        OrderStatus    @default(PENDING)
+  createdById   String?        @db.VarChar(36)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   // Relationships
   workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -450,6 +453,7 @@ model Order {
   createdBy User?          @relation("UserOrders", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
+  @@index([status, createdAt])
   @@map("orders")
 }
 
