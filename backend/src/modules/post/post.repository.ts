@@ -97,7 +97,14 @@ export const transitionPostStatus = async (
 };
 
 export const softDeletePost = async (postId: string) => {
-  return prisma.post.update({ where: { id: postId }, data: { deletedAt: new Date() } });
+  return prisma.$transaction(async (tx) => {
+    await tx.scheduledPost.updateMany({
+      where: { postId, status: 'SCHEDULED' },
+      data: { status: 'CANCELLED', processingStartedAt: null },
+    });
+
+    return tx.post.update({ where: { id: postId }, data: { deletedAt: new Date() } });
+  });
 };
 
 export const createMedia = async (data: {

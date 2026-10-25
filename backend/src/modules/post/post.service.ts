@@ -110,10 +110,23 @@ export const updatePost = async (
 
 export const deletePost = async (workspaceId: string, userId: string, role: WorkspaceRole, postId: string) => {
   const post = await getPost(workspaceId, postId);
-  assertCanModify(post, userId, role);
-  assertEditable(post);
+
+  if (role !== 'OWNER') {
+    assertCanModify(post, userId, role);
+    assertEditable(post);
+  }
 
   await postRepository.softDeletePost(postId);
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId: userId,
+    action: 'POST_DELETED',
+    targetType: 'Post',
+    targetId: postId,
+    metadata: { title: post.title, status: post.status },
+  });
+
   return { success: true as const };
 };
 

@@ -629,4 +629,63 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
 
     await prisma.workspace.delete({ where: { id: tempWorkspaceId } });
   });
+
+  it('UC10 — Creator không xoá được bài đang PENDING (409)', async () => {
+    const created = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ title: 'Bài chờ duyệt để xoá', content: { type: 'doc', content: [] } });
+    const pendingId = created.body.data.id as string;
+    await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${pendingId}/submit`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+
+    const res = await request(app)
+      .delete(`/api/v1/workspaces/${wsId}/posts/${pendingId}`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+
+    expect(res.status).toBe(409);
+  });
+
+  it('UC10 — Owner xoá bài APPROVED và huỷ lịch đang chờ (200)', async () => {
+    const created = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ title: 'Bài đã duyệt có lịch', content: { type: 'doc', content: [] } });
+    const approvedPostId = created.body.data.id as string;
+    await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${approvedPostId}/submit`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+    await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${approvedPostId}/review`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ decision: 'APPROVED' });
+
+    const channel = await prisma.channelConnection.create({
+      data: {
+        workspaceId: wsId,
+        platform: 'FACEBOOK',
+        type: 'SIMULATED',
+        name: `Page xoá bài ${stamp}`,
+        externalAccountId: `page_delete_${stamp}`,
+      },
+    });
+    const schedule = await prisma.scheduledPost.create({
+      data: {
+        postId: approvedPostId,
+        channelId: channel.id,
+        scheduledAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+
+    const res = await request(app)
+      .delete(`/api/v1/workspaces/${wsId}/posts/${approvedPostId}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    const savedSchedule = await prisma.scheduledPost.findUnique({ where: { id: schedule.id } });
+    expect(savedSchedule?.status).toBe('CANCELLED');
+    const savedPost = await prisma.post.findFirst({ where: { id: approvedPostId } });
+    expect(savedPost).toBeNull();
+  });
 });
