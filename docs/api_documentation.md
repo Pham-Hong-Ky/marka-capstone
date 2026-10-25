@@ -815,7 +815,9 @@ Mọi endpoint post yêu cầu `requireAuth` + là thành viên workspace.
 | `limit` | number | 10 | 1–50 |
 | `search` | string | — | tìm theo `title` (không phân biệt hoa/thường) |
 | `status` | PostStatus | — | `DRAFT`, `PENDING`, `APPROVED`, `REJECTED`, `SCHEDULED`, `PUBLISHED`, `FAILED`, `ARCHIVED` |
+| `taskStatus` | TaskStatus | — | `TODO`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
 | `createdById` | uuid | — | lọc theo người tạo |
+| `assigneeId` | uuid \| `me` | — | lọc theo người nhận việc; `me` = người gọi |
 | `dateFrom` | date | — | lọc `createdAt >= dateFrom` |
 | `dateTo` | date | — | lọc `createdAt <= dateTo`, phải ≥ `dateFrom` |
 
@@ -829,7 +831,7 @@ Sắp xếp theo `updatedAt` giảm dần; bỏ qua bài đã xoá mềm.
   "message": "Lấy danh sách bài viết thành công",
   "data": {
     "posts": [
-      { "id": "uuid", "title": "...", "status": "DRAFT", "createdById": "uuid", "createdAt": "...", "updatedAt": "..." }
+      { "id": "uuid", "title": "...", "status": "DRAFT", "taskStatus": "TODO", "assigneeId": null, "assignee": null, "dueAt": null, "createdById": "uuid", "createdAt": "...", "updatedAt": "..." }
     ]
   },
   "meta": { "page": 1, "limit": 10, "total": 1, "totalPages": 1 }
@@ -852,8 +854,8 @@ Quyền: OWNER hoặc người tạo bài; nếu không → `403`.
 
 ### `DELETE /workspaces/:workspaceId/posts/:postId`
 
-**Điều kiện**: `DRAFT` hoặc `REJECTED`; OWNER hoặc người tạo.
-**Xử lý**: `deletedAt = now` (xoá mềm).
+**Điều kiện**: OWNER xoá được mọi trạng thái; người tạo chỉ xoá bài `DRAFT`/`REJECTED` của mình.
+**Xử lý**: huỷ các `ScheduledPost` đang `SCHEDULED` của bài, đặt `deletedAt = now` (xoá mềm), ghi audit `POST_DELETED`.
 
 **Response 200**: `{ "status": "success", "message": "Xóa bài viết thành công", "data": { "success": true } }`
 
@@ -922,6 +924,45 @@ hoặc
 ```
 
 Message khi từ chối: `"Từ chối bài viết thành công"`.
+
+### `PATCH /workspaces/:workspaceId/posts/:postId/assign`
+
+Yêu cầu `requireAuth` + `OWNER`.
+
+**Body**
+
+```json
+{ "assigneeId": "uuid", "dueAt": "2026-11-01T17:00:00.000Z" }
+```
+
+hoặc bỏ giao việc:
+
+```json
+{ "assigneeId": null }
+```
+
+- `assigneeId`: uuid hoặc `null`; người nhận phải là thành viên workspace, nếu không → `400`.
+- `dueAt`: ISO-8601 tuỳ chọn, `null` để bỏ hạn chót.
+
+**Xử lý**: ghi `assigneeId`, `assignedById`, `assignedAt`, `dueAt`; khi bỏ giao việc thì xoá các cột này và đưa `taskStatus` về `TODO`. Tạo notification `TASK_ASSIGNED` cho người nhận (nếu không phải người giao) và audit `POST_ASSIGNED`.
+
+**Response 200**: `Post` sau cập nhật, kèm `assignee { id, name, avatar }`.
+
+### `PATCH /workspaces/:workspaceId/posts/:postId/task-status`
+
+Yêu cầu `requireAuth` + là thành viên workspace. Chỉ **người nhận việc** hoặc **OWNER** được cập nhật.
+
+**Body**
+
+```json
+{ "status": "IN_PROGRESS" }
+```
+
+- `status`: `TODO` | `IN_PROGRESS` | `DONE` | `CANCELLED`.
+
+**Xử lý**: cập nhật `taskStatus`; tạo notification `TASK_STATUS_CHANGED` cho Owner và tác giả bài (trừ người thao tác); audit `TASK_STATUS_CHANGED`.
+
+**Lỗi**: `409` `"Bài viết chưa được giao việc"`; `403` nếu không phải người nhận việc/Owner; `422` nếu trạng thái không hợp lệ.
 
 ---
 
@@ -1144,6 +1185,8 @@ Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, ch�
 | DELETE | `/workspaces/:workspaceId/posts/:postId/media/:mediaId` | Bearer | Thành viên (bài của mình) |
 | POST | `/workspaces/:workspaceId/posts/:postId/submit` | Bearer | Thành viên (bài của mình) |
 | PATCH | `/workspaces/:workspaceId/posts/:postId/review` | Bearer | OWNER |
+| PATCH | `/workspaces/:workspaceId/posts/:postId/assign` | Bearer | OWNER |
+| PATCH | `/workspaces/:workspaceId/posts/:postId/task-status` | Bearer | Người nhận việc hoặc OWNER |
 | POST | `/workspaces/:workspaceId/posts/:postId/schedules` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/schedules` | Bearer | Thành viên |
 | DELETE | `/workspaces/:workspaceId/schedules/:scheduleId` | Bearer | Thành viên |
@@ -1154,5 +1197,5 @@ Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, ch�
 | POST | `/workspaces/:workspaceId/billing/orders/:orderId/cancel` | Bearer | Người tạo đơn |
 | POST | `/webhooks/payos` | — | — |
 
-**Không có trong code** (đừng gọi): calendar kéo-thả, admin, analytics, giao việc, upload media độc lập.
-**UC38 đã bỏ khỏi phạm vi:** không có endpoint notification.
+**Không có trong code** (đừng gọi): calendar kéo-thả, admin, analytics, upload media độc lập.
+**Thông báo:** API hộp thư trong ứng dụng đã có (`/users/me/notifications`); UC38 (đẩy thông báo realtime) vẫn ngoài phạm vi.

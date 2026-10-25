@@ -167,8 +167,8 @@ Cột **Trạng thái**:
 | **UC39** | View Workspace Performance Overview | Creator, Owner | Chưa triển khai (Roadmap) | — | [08](./08-post-analytics.md) |
 | **UC40** | List Credit Packages | Mọi thành viên | Đã triển khai | `GET /workspaces/:workspaceId/billing` | [06](./06-billing-payos.md) |
 | **UC41** | View Credit Balance & History | Thành viên workspace | Đã triển khai | `GET /workspaces/:workspaceId/billing`, `GET .../billing/transactions` | [06](./06-billing-payos.md) |
-| **UC42** | Assign Content Task | Owner | Chưa triển khai (Roadmap) | — | [02](./02-content-media.md) |
-| **UC43** | Update Task Status | Assignee, Owner | Chưa triển khai (Roadmap) | — | [02](./02-content-media.md) |
+| **UC42** | Assign Content Task | Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/posts/:postId/assign` | [02](./02-content-media.md) |
+| **UC43** | Update Task Status | Assignee, Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/posts/:postId/task-status` | [02](./02-content-media.md) |
 
 ### 3.1. UC con / biến thể
 
@@ -182,7 +182,7 @@ Cột **Trạng thái**:
 | UC32a | Admin Dashboard | Chưa triển khai (Roadmap) | — |
 | UC32b | View Audit Log | Chưa triển khai (Roadmap) | Audit log chỉ được ghi, không có API đọc |
 
-**Thống kê:** 36 UC đã triển khai · 2 UC một phần (UC11, UC29) · 4 UC chưa triển khai (UC32, UC39, UC42, UC43). UC38 đã bỏ khỏi phạm vi.
+**Thống kê:** 38 UC đã triển khai · 2 UC một phần (UC11, UC29) · 2 UC chưa triển khai (UC32, UC39). UC38 (thông báo realtime) vẫn ngoài phạm vi; API đọc hộp thư thông báo đã có.
 
 ---
 
@@ -210,7 +210,7 @@ Các mục sau **chưa có trong code** (chi tiết ở file tương ứng):
 3. **Thông báo (05):** email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`. UC38 đã bỏ khỏi phạm vi.
 4. **Quản trị (07):** admin panel, quản lý user/workspace, dashboard, API đọc audit log (UC32).
 5. **Post Analytics (08):** đồng bộ `PostMetric` từ Facebook Graph API, dashboard hiệu quả, n8n (UC39).
-6. **Giao việc (02):** UC42/UC43 — giao việc và trạng thái công việc trên bài viết.
+6. **Nâng cấp giao việc:** board Kanban, độ ưu tiên, nhắc hạn qua email (UC42/UC43 bản cơ bản đã có).
 
 ---
 

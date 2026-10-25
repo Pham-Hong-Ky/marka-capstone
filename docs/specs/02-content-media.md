@@ -5,7 +5,7 @@
 > **Phạm vi:** phần đã có trong code: CRUD bài viết, upload/xoá ảnh gắn với bài, luồng gửi duyệt – duyệt/từ chối, notification in-app và audit log phát sinh.
 > Mã nguồn: `backend/src/modules/post`, `middlewares/upload.ts`, `utils/cloudinary.client.ts`, `modules/workspace/workspace.repository.ts` (notification), `modules/audit`.
 >
-> **Không có trong code:** thư viện media độc lập cấp workspace, lịch đăng/publish, calendar, giao việc (UC42/UC43). Các mục này nằm ở Roadmap cuối file.
+> **Không có trong code:** thư viện media độc lập cấp workspace, calendar nâng cao. Các mục này nằm ở Roadmap cuối file.
 
 ---
 
@@ -298,22 +298,40 @@ Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đ
 | `400` | `Vui lòng chọn ảnh để tải lên` | Upload thiếu file |
 | `400` | `Ảnh vượt quá 10MB` | File quá lớn |
 | `400` | `Chỉ chấp nhận ảnh JPG, PNG hoặc WEBP` | Sai MIME |
+| `400` | `Người nhận việc không phải là thành viên của workspace` | Giao việc cho người ngoài workspace |
 | `403` | `Bạn không có quyền thay đổi bài viết này` | Creator sửa bài người khác |
+| `403` | `Chỉ người nhận việc hoặc chủ workspace được cập nhật trạng thái công việc` | Creator khác đổi trạng thái việc |
 | `404` | `Bài viết không tồn tại` | Sai id / khác workspace / đã xoá mềm |
 | `404` | `Ảnh không tồn tại trong bài viết` | Media không thuộc bài |
 | `409` | `Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối` | Sửa/xoá/upload media ở trạng thái khác |
 | `409` | `Không thể chuyển trạng thái bài viết này` | Submit/review sai trạng thái hoặc race |
+| `409` | `Bài viết chưa được giao việc` | Đổi `taskStatus` khi chưa có người nhận |
 | `422` | `Cần cung cấp ít nhất một trường để cập nhật` | PATCH body rỗng |
 | `422` | `Cần nhập lý do khi từ chối bài viết` | Reject thiếu `rejectReason` |
 
-**Lưu ý về workspace đã xoá mềm:** các route bài viết chỉ kiểm tra membership qua `requireWorkspaceRole`, **không** kiểm tra `Workspace.deletedAt`. Vì vậy thành viên cũ vẫn có thể tạo/sửa/xem bài và media của workspace đã xoá mềm nếu còn giữ `workspaceId`. Đây là giới hạn hiện tại của code (xem [01 §1.9](./01-auth-workspace.md#delete-workspacesworkspaceid-uc19)).
+**Lưu ý về workspace đã xoá mềm:** `requireWorkspaceRole` kiểm tra `Workspace.deletedAt` và trả `404 "Workspace không tồn tại hoặc đã bị xoá"`, nên mọi route bài viết đều bị chặn sau khi workspace bị xoá mềm.
 
 ---
 
-## 2.10. Chưa triển khai (Roadmap)
+## 2.10. Giao việc & trạng thái công việc (UC42, UC43)
+
+- **Giao việc** — `PATCH /workspaces/:workspaceId/posts/:postId/assign`, chỉ `OWNER`.
+  - Body: `assigneeId` (uuid hoặc `null`) và `dueAt` (ISO-8601 tuỳ chọn).
+  - Người nhận phải là thành viên workspace, nếu không → `400`.
+  - Ghi `assigneeId`, `assignedById`, `assignedAt`, `dueAt`; notification `TASK_ASSIGNED` cho người nhận (trừ khi tự giao) và audit `POST_ASSIGNED`.
+  - `assigneeId = null` để bỏ giao việc: xoá người nhận/hạn chót và đưa `taskStatus` về `TODO`.
+- **Cập nhật trạng thái** — `PATCH /workspaces/:workspaceId/posts/:postId/task-status`, người nhận việc hoặc `OWNER`.
+  - `status`: `TODO` | `IN_PROGRESS` | `DONE` | `CANCELLED`; độc lập với `Post.status`.
+  - Bài chưa giao việc → `409`; không phải người nhận/Owner → `403`.
+  - Notification `TASK_STATUS_CHANGED` cho Owner và tác giả bài (trừ người thao tác), audit `TASK_STATUS_CHANGED`.
+- **Lọc danh sách**: `GET .../posts?assigneeId=me` (việc của tôi) hoặc uuid, kết hợp `taskStatus`.
+
+---
+
+## 2.11. Chưa triển khai (Roadmap)
 
 - **Thư viện media cấp workspace**: `MediaAsset.postId` nullable, upload độc lập, tag, quota, lọc/tìm kiếm, video/thumbnail. Hiện chỉ có ảnh gắn bài.
 - **Calendar nâng cao**: kéo-thả đổi giờ, sửa lịch sau khi tạo — đăng ngay/lên lịch/huỷ lịch cơ bản đã có trong [04](./04-social-publishing.md).
-- **Giao việc (UC42, UC43)**: chưa có cột `assigneeId`/`dueAt`/`taskStatus`, chưa có endpoint assignment/task-status, chưa có notification `POST_ASSIGNED`.
+- Nâng cấp giao việc: board Kanban, độ ưu tiên, nhắc hạn qua email.
 - Lịch sử phiên bản bài viết, bình luận/góp ý theo bài, xuất CSV/Excel, lọc theo `campaignTag`, khôi phục bài đã xoá mềm.
 - Xoá cứng / xoá asset Cloudinary khi xoá media hoặc bài.

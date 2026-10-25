@@ -35,6 +35,13 @@ Enum PostStatus {
   ARCHIVED
 }
 
+Enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
 Enum MediaType {
   IMAGE
   VIDEO
@@ -173,8 +180,13 @@ Table posts {
   title varchar(255) [not null]
   content json [not null]
   status PostStatus [default: 'DRAFT', not null]
+  taskStatus TaskStatus [default: 'TODO', not null]
   campaignTag varchar(255)
   rejectReason varchar(255)
+  assigneeId varchar(36) [ref: > users.id]
+  assignedById varchar(36) [ref: > users.id]
+  assignedAt timestamp
+  dueAt timestamp
   createdById varchar(36) [ref: > users.id]
   submittedById varchar(36) [ref: > users.id]
   submittedAt timestamp
@@ -186,6 +198,7 @@ Table posts {
 
   indexes {
     (workspaceId, status, deletedAt)
+    (workspaceId, assigneeId, taskStatus)
     createdById
   }
 }

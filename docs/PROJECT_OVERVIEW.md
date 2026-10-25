@@ -113,8 +113,9 @@ Quy tắc:
 ### 3.5. Bài viết, media & duyệt bài ✅
 
 - Tạo bài nháp (`DRAFT`), nội dung JSON rich-text.
-- Danh sách bài viết có phân trang, tìm theo tiêu đề, lọc trạng thái/người tạo/khoảng ngày.
+- Danh sách bài viết có phân trang, tìm theo tiêu đề, lọc trạng thái/người tạo/khoảng ngày, lọc `taskStatus` và người nhận việc (`assigneeId=me`).
 - Xem chi tiết bài kèm media.
+- Giao việc (UC42/UC43): Owner giao/đổi người nhận + hạn chót; người nhận hoặc Owner cập nhật `taskStatus` (`TODO`/`IN_PROGRESS`/`DONE`/`CANCELLED`); notification + audit khi giao/đổi trạng thái.
 - Sửa/xoá bài: `OWNER` sửa/xoá mọi bài; người tạo sửa/xoá bài của mình khi `DRAFT`/`REJECTED`. Xoá bài tự huỷ các `ScheduledPost` đang `SCHEDULED` và ghi audit `POST_DELETED`.
 - Upload ảnh JPG/PNG/WEBP ≤ 10MB qua Cloudinary; xoá mềm ảnh.
 - Ảnh AI tạo bởi trợ lý cũng là `MediaAsset` (`source = AI_GENERATED`) và hiển thị chung mục ảnh đính kèm.
@@ -123,7 +124,7 @@ Quy tắc:
 - Ghi notification in-app cho Owner (khi gửi duyệt) và tác giả (khi duyệt/từ chối).
 - Ghi audit log cho submit/approve/reject.
 
-**Chưa có:** lưu nháp tự động, template, campaign tag (cột có trong schema nhưng API chưa nhận), lịch sử phiên bản, bình luận, giao việc, archive.
+**Chưa có:** lưu nháp tự động, template, campaign tag (cột có trong schema nhưng API chưa nhận), lịch sử phiên bản, bình luận, archive.
 
 ### 3.6. Email ✅
 
@@ -172,7 +173,6 @@ Các phần dưới đây **không có** trong `backend/src/modules` hay `fronte
 | Calendar nâng cao | Kéo-thả đổi giờ, sửa lịch sau khi tạo | Đăng ngay/lên lịch/huỷ lịch cơ bản đã có; calendar nâng cao là Roadmap |
 | Analytics | Đồng bộ metrics Facebook, biểu đồ | bảng `post_metrics`; chưa có service, không có n8n |
 | Admin | Quản lý user/workspace, dashboard hệ thống | `SYSTEM_ADMIN` trong schema/middleware; chưa có module admin |
-| Giao việc | UC42/UC43 | chưa có cột trong `schema.prisma` |
 
 Frontend hiện có các trang placeholder: `/ai`, `/publishing`.
 
