@@ -1,4 +1,5 @@
 import workspaceRepository from '../workspace/workspace.repository.js';
+import notificationRepository from '../notification/notification.repository.js';
 import { mailerClient } from '../../utils/mailer.client.js';
 import { buildPostSubmittedEmail, buildPostReviewedEmail } from '../../templates/postReviewEmail.js';
 
@@ -21,7 +22,7 @@ export const notifyPostSubmitted = async (params: {
 
   await Promise.all(
     ownerIds.map(async (ownerId) => {
-      await workspaceRepository.createNotification({
+      await notificationRepository.createNotification({
         userId: ownerId,
         workspaceId,
         type: 'POST_SUBMITTED',
@@ -55,7 +56,7 @@ export const notifyPostReviewed = async (params: {
   const workspace = await workspaceRepository.findWorkspaceById(workspaceId);
   const workspaceName = workspace?.name ?? '';
 
-  await workspaceRepository.createNotification({
+  await notificationRepository.createNotification({
     userId: authorId,
     workspaceId,
     type: approved ? 'POST_APPROVED' : 'POST_REJECTED',

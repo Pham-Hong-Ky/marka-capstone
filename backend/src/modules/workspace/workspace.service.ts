@@ -6,6 +6,7 @@ import auditService from '../audit/audit.service.js';
 import env from '../../config/env.js';
 import { mailerClient } from '../../utils/mailer.client.js';
 import { buildWorkspaceInviteEmail } from '../../templates/workspaceInviteEmail.js';
+import notificationRepository from '../notification/notification.repository.js';
 import {
   AppError,
   ConflictError,
@@ -41,7 +42,7 @@ const notifyOwners = async (workspaceId: string, actorId: string, payload: Recor
     ownerIds
       .filter((ownerId) => ownerId !== actorId)
       .map((ownerId) =>
-        workspaceRepository.createNotification({
+        notificationRepository.createNotification({
           userId: ownerId,
           workspaceId,
           type: 'MEMBER_JOINED',

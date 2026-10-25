@@ -219,22 +219,6 @@ export const findUserById = async (userId: string) => {
   });
 };
 
-export const createNotification = async (data: {
-  userId: string;
-  workspaceId?: string | null;
-  type: string;
-  payload: Record<string, unknown>;
-}) => {
-  return prisma.notification.create({
-    data: {
-      userId: data.userId,
-      workspaceId: data.workspaceId ?? null,
-      type: data.type,
-      payload: data.payload,
-    },
-  });
-};
-
 export default {
   findWorkspacesByUserId,
   findWorkspaceByNameAndOwner,
@@ -258,5 +242,4 @@ export default {
   acceptInviteAsMember,
   findUserByEmail,
   findUserById,
-  createNotification,
 };

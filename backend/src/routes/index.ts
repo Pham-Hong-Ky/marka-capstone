@@ -67,6 +67,13 @@ import {
   createOrderSchema,
   orderIdSchema,
 } from '../modules/billing/billing.validation.js';
+import notificationController from '../modules/notification/notification.controller.js';
+import {
+  listNotificationsSchema,
+  notificationIdSchema,
+  unreadCountSchema,
+  markAllReadSchema,
+} from '../modules/notification/notification.validation.js';
 
 const router = Router();
 
@@ -84,6 +91,32 @@ router.post('/auth/refresh-token', validate(refreshTokenSchema), authController.
 router.get('/users/me', requireAuth, userController.getMe);
 router.patch('/users/me', requireAuth, validate(updateProfileSchema), userController.updateProfile);
 router.patch('/users/me/password', requireAuth, validate(changePasswordSchema), userController.changePassword);
+
+// Notifications — hộp thư trong ứng dụng
+router.get(
+  '/users/me/notifications',
+  requireAuth,
+  validate(listNotificationsSchema),
+  notificationController.listNotifications
+);
+router.get(
+  '/users/me/notifications/unread-count',
+  requireAuth,
+  validate(unreadCountSchema),
+  notificationController.getUnreadCount
+);
+router.patch(
+  '/users/me/notifications/read-all',
+  requireAuth,
+  validate(markAllReadSchema),
+  notificationController.markAllNotificationsRead
+);
+router.patch(
+  '/users/me/notifications/:notificationId/read',
+  requireAuth,
+  validate(notificationIdSchema),
+  notificationController.markNotificationRead
+);
 
 // Workspace (UC16–UC23, UC35, UC36)
 router.post('/workspaces', requireAuth, validate(createWorkspaceSchema), workspaceController.createWorkspace);

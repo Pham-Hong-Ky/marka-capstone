@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight, Moon, Plus, Sun } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import UserMenu from './UserMenu';
+import NotificationBell from './NotificationBell';
 import { resolveBreadcrumbs } from '@/config/navigation';
 import { useThemeStore } from '@/stores/theme.store';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -50,6 +51,8 @@ export const Header = ({ workspace }: { workspace: UserWorkspace | undefined }) 
           );
         })}
       </nav>
+
+      <NotificationBell workspaceId={workspace?.id} />
 
       <Button
         type="button"
