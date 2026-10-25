@@ -608,4 +608,25 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('PENDING');
   });
+
+  it('RBAC — Workspace đã xoá mềm bị chặn ở route workspace (404)', async () => {
+    const created = await request(app)
+      .post('/api/v1/workspaces')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: `Workspace tạm ${stamp}` });
+    const tempWorkspaceId = created.body.data.id as string;
+
+    const removed = await request(app)
+      .delete(`/api/v1/workspaces/${tempWorkspaceId}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(removed.status).toBe(200);
+
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${tempWorkspaceId}/posts`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(404);
+
+    await prisma.workspace.delete({ where: { id: tempWorkspaceId } });
+  });
 });

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import type { SystemRole, WorkspaceRole } from '@prisma/client';
 import { verifyAccessToken } from '../utils/jwt.js';
-import { UnauthorizedError, ForbiddenError, BadRequestError } from '../utils/errors/index.js';
+import { UnauthorizedError, ForbiddenError, BadRequestError, NotFoundError } from '../utils/errors/index.js';
 import prisma from '../config/db.js';
 import logger from '../utils/logger.js';
 import workspaceRepository from '../modules/workspace/workspace.repository.js';
@@ -134,6 +134,12 @@ export const requireWorkspaceRole = (...allowedRoles: WorkspaceRole[]) => {
       const headerWorkspaceId = req.headers['x-workspace-id'] as string | undefined;
       if (headerWorkspaceId && req.params.workspaceId && headerWorkspaceId !== req.params.workspaceId) {
         throw new ForbiddenError('Workspace ID không khớp giữa header và URL');
+      }
+
+      // Workspace đã xoá mềm không được phép thao tác, kể cả với System Admin.
+      const workspace = await workspaceRepository.findWorkspaceById(workspaceId);
+      if (!workspace) {
+        throw new NotFoundError('Workspace không tồn tại hoặc đã bị xoá');
       }
 
       // System Admin có toàn quyền như Owner trên mọi workspace.
