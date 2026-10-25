@@ -101,8 +101,7 @@ Mọi truy vấn dữ liệu nghiệp vụ đều lọc theo `workspaceId`; khô
   Prisma client được mở rộng (`config/prismaExtensions.ts`) tự thêm `deletedAt: null` vào **truy vấn đọc trực tiếp** trên 4 model (`findFirst`, `findMany`, `findUnique`, `count`, `aggregate`, `groupBy`...).
   Điều kiện này **không tự áp dụng cho dữ liệu lồng** nạp qua `include`/`select` quan hệ; repository phải lọc thủ công nếu cần.
   Đọc bản ghi đã xoá phải dùng `basePrisma` (export từ `config/db.ts`); **chưa có endpoint khôi phục**.
-- **Workspace đã xoá mềm:** biến mất khỏi `GET /workspaces`; các API có kiểm tra workspace tồn tại (sửa/xoá workspace, danh sách thành viên, mời thành viên, Brand Voice) trả `404`.
-  Tuy nhiên `requireWorkspaceRole` **không** kiểm tra `Workspace.deletedAt`, nên các route chỉ dựa vào membership (bài viết, kênh, rời workspace) vẫn thao tác được trên dữ liệu cũ của workspace đã xoá — đây là giới hạn hiện tại của code, chưa có cơ chế chặn tập trung.
+- **Workspace đã xoá mềm:** biến mất khỏi `GET /workspaces`; mọi route đi qua `requireWorkspaceRole` trả `404 "Workspace không tồn tại hoặc đã bị xoá"` (kể cả `SYSTEM_ADMIN`).
 - **Phân trang:** `page` (mặc định 1), `limit` (mặc định 10, tối đa 50); thông tin phân trang nằm trong `meta` với `{ page, limit, total, totalPages }`. Hiện `GET .../posts` và `GET .../billing/transactions` dùng phân trang.
 
 ### 2.5. Rate limit, audit, tác vụ nền
@@ -114,6 +113,7 @@ Mọi truy vấn dữ liệu nghiệp vụ đều lọc theo `workspaceId`; khô
 - **Audit log:** service gọi `auditService.recordAuditLog(...)`. Ghi audit lỗi **không làm hỏng request** (chỉ `console.warn`). Chưa có API đọc audit log.
 - **Queue/worker:** BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`). `scheduleWorker` xử lý đăng bài thật; `contentWorker` xử lý job `ai:text`/`ai:image` (Gemini/Cloudflare, hoàn credit khi thất bại); `email` vẫn là processor khung. Billing **không dùng queue**. Email hiện gửi đồng bộ trong request. Khi `NODE_ENV=test`, BullMQ dùng prefix `marka-test` (production dùng `bull`).
 - **Health:** `GET /health` công khai, kiểm tra PostgreSQL (`SELECT 1`) và Redis (`PING`); trả `503` (status `error`, kèm `data`) nếu một trong hai lỗi.
+- **Thông báo in-app:** API hộp thư của chính người dùng (`GET /users/me/notifications`, `GET .../unread-count`, `PATCH .../:id/read`, `PATCH .../read-all`); lọc theo `workspaceId` yêu cầu là thành viên workspace.
 
 ---
 
@@ -194,7 +194,7 @@ Cột **Trạng thái**:
 | 2. Nội dung & Media | [02-content-media.md](./02-content-media.md) | CRUD bài viết, upload/xoá ảnh theo bài, state machine duyệt bài, notification + audit |
 | 3. Brand Voice & AI | [03-ai-brandvoice.md](./03-ai-brandvoice.md) | Brand Voice; trợ lý AI sinh text/ảnh, trừ/hoàn credit, queue + polling |
 | 4. Kênh & Đăng bài | [04-social-publishing.md](./04-social-publishing.md) | Facebook Page OAuth; đăng ngay/lên lịch nhiều Page, worker BullMQ, trang `/schedule`; calendar nâng cao là Roadmap |
-| 5. Email & Thông báo | [05-notifications-email.md](./05-notifications-email.md) | Email mời, email duyệt/từ chối (Resend); ghi notification in-app; UC38 đã bỏ khỏi phạm vi |
+| 5. Email & Thông báo | [05-notifications-email.md](./05-notifications-email.md) | Email mời, email duyệt/từ chối (Resend); ghi notification in-app + API hộp thư/chuông thông báo (UC38 vẫn ngoài phạm vi) |
 | 6. Credit & PayOS | [06-billing-payos.md](./06-billing-payos.md) | Module billing, gói nạp credit, PayOS, webhook, trang `/billing` |
 | 7. Quản trị & Báo cáo | [07-admin-analytics.md](./07-admin-analytics.md) | Roadmap — audit log được ghi, chưa có dashboard/API quản trị |
 | 8. Post Analytics | [08-post-analytics.md](./08-post-analytics.md) | Roadmap — schema `PostMetric` đã có, chưa có đồng bộ/endpoint |

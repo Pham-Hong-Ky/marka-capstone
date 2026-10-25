@@ -288,6 +288,54 @@ Yêu cầu `requireAuth`.
 
 **Lỗi**: `401` `"Mật khẩu cũ không chính xác"`; `400` nếu tài khoản Google không có `passwordHash`.
 
+### `GET /users/me/notifications`
+
+Yêu cầu `requireAuth`. Trả thông báo của chính người gọi, mới nhất trước.
+
+**Query**
+
+| Field | Kiểu | Mặc định | Ghi chú |
+| :--- | :--- | :--- | :--- |
+| `page` | number | 1 | |
+| `limit` | number | 10 | tối đa 50 |
+| `isRead` | `true` \| `false` | — | lọc theo trạng thái đọc |
+| `workspaceId` | uuid | — | phải là workspace người gọi tham gia, nếu không trả `403` |
+
+**Response 200**
+
+```json
+{
+  "status": "success",
+  "message": "Lấy danh sách thông báo thành công",
+  "data": {
+    "notifications": [
+      {
+        "id": "uuid",
+        "userId": "uuid",
+        "workspaceId": "uuid",
+        "type": "POST_SUBMITTED",
+        "payload": { "postId": "uuid", "postTitle": "Bài viết A" },
+        "isRead": false,
+        "createdAt": "2026-10-25T08:00:00.000Z"
+      }
+    ]
+  },
+  "meta": { "page": 1, "limit": 10, "total": 1, "totalPages": 1 }
+}
+```
+
+### `GET /users/me/notifications/unread-count`
+
+**Query**: `workspaceId?` (uuid). **Response 200**: `data.unreadCount` là số thông báo chưa đọc.
+
+### `PATCH /users/me/notifications/:notificationId/read`
+
+Đánh dấu một thông báo của chính người gọi là đã đọc (idempotent). `404` nếu thông báo không tồn tại hoặc thuộc người khác.
+
+### `PATCH /users/me/notifications/read-all`
+
+**Query**: `workspaceId?` (uuid). Đánh dấu tất cả thông báo chưa đọc của người gọi (trong workspace nếu có) là đã đọc. **Response 200**: `data.updated` là số bản ghi đã cập nhật.
+
 ---
 
 ## 4. Workspace
@@ -1062,6 +1110,10 @@ Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, ch�
 | GET | `/users/me` | Bearer | — |
 | PATCH | `/users/me` | Bearer | — |
 | PATCH | `/users/me/password` | Bearer | — |
+| GET | `/users/me/notifications` | Bearer | — |
+| GET | `/users/me/notifications/unread-count` | Bearer | — |
+| PATCH | `/users/me/notifications/:notificationId/read` | Bearer | — |
+| PATCH | `/users/me/notifications/read-all` | Bearer | — |
 | POST | `/workspaces` | Bearer | — |
 | GET | `/workspaces` | Bearer | — |
 | PATCH | `/workspaces/:workspaceId` | Bearer | OWNER |

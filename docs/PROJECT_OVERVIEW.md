@@ -115,7 +115,7 @@ Quy tắc:
 - Tạo bài nháp (`DRAFT`), nội dung JSON rich-text.
 - Danh sách bài viết có phân trang, tìm theo tiêu đề, lọc trạng thái/người tạo/khoảng ngày.
 - Xem chi tiết bài kèm media.
-- Sửa/xoá bài khi `DRAFT` hoặc `REJECTED`; `OWNER` hoặc người tạo bài.
+- Sửa/xoá bài: `OWNER` sửa/xoá mọi bài; người tạo sửa/xoá bài của mình khi `DRAFT`/`REJECTED`. Xoá bài tự huỷ các `ScheduledPost` đang `SCHEDULED` và ghi audit `POST_DELETED`.
 - Upload ảnh JPG/PNG/WEBP ≤ 10MB qua Cloudinary; xoá mềm ảnh.
 - Ảnh AI tạo bởi trợ lý cũng là `MediaAsset` (`source = AI_GENERATED`) và hiển thị chung mục ảnh đính kèm.
 - Gửi duyệt: `DRAFT`/`REJECTED` → `PENDING`.
@@ -133,12 +133,13 @@ Quy tắc:
 
 **Chưa có:** nhắc lịch đăng, cảnh báo hết credit/gói, email marketing.
 
-### 3.7. Thông báo in-app 🟡
+### 3.7. Thông báo in-app ✅
 
 - Bảng `Notification` được ghi khi:
   - thành viên mới tham gia workspace (`MEMBER_JOINED`, gửi các Owner còn lại);
   - bài được gửi duyệt / được duyệt / bị từ chối.
-- **UC38 đã bỏ khỏi phạm vi:** không có API đọc danh sách/đếm số chưa đọc; frontend không hiển thị chuông thông báo.
+- API hộp thư của chính người dùng: `GET /users/me/notifications` (phân trang, lọc `isRead`, `workspaceId`), `GET .../unread-count`, `PATCH .../:id/read`, `PATCH .../read-all`.
+- Chuông trên header hiển thị số chưa đọc, poll 30 giây, bấm thông báo mở đúng bài viết.
 
 ### 3.8. Audit, health & hạ tầng ✅
 
