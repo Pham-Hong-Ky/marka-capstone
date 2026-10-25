@@ -48,6 +48,13 @@ enum PostStatus {
   ARCHIVED
 }
 
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
 enum MediaType {
   IMAGE
   VIDEO
@@ -144,6 +151,8 @@ model User {
   createdPosts       Post[]              @relation("CreatedPosts")
   submittedPosts     Post[]              @relation("SubmittedPosts")
   reviewedPosts      Post[]              @relation("ReviewedPosts")
+  assignedPosts      Post[]              @relation("AssignedPosts")
+  assignedByPosts    Post[]              @relation("AssignedByPosts")
   createdMedia       MediaAsset[]        @relation("CreatedMedia")
   aiGenerations      AiGeneration[]      @relation("UserAiGenerations")
   creditTransactions CreditTransaction[] @relation("CreatedCreditTransactions")
@@ -237,8 +246,13 @@ model Post {
   title         String     @db.VarChar(255)
   content       Json
   status        PostStatus @default(DRAFT)
+  taskStatus    TaskStatus @default(TODO)
   campaignTag   String?    @db.VarChar(255)
   rejectReason  String?    @db.VarChar(255)
+  assigneeId    String?    @db.VarChar(36)
+  assignedById  String?    @db.VarChar(36)
+  assignedAt    DateTime?
+  dueAt         DateTime?
   submittedById String?    @db.VarChar(36)
   createdById   String?    @db.VarChar(36)
   submittedAt   DateTime?
@@ -253,11 +267,14 @@ model Post {
   createdBy      User?           @relation("CreatedPosts", fields: [createdById], references: [id], onDelete: SetNull)
   submittedBy    User?           @relation("SubmittedPosts", fields: [submittedById], references: [id], onDelete: SetNull)
   reviewedBy     User?           @relation("ReviewedPosts", fields: [reviewedById], references: [id], onDelete: SetNull)
+  assignee       User?           @relation("AssignedPosts", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assignedBy     User?           @relation("AssignedByPosts", fields: [assignedById], references: [id], onDelete: SetNull)
   mediaAssets    MediaAsset[]
   scheduledPosts ScheduledPost[]
   aiGenerations  AiGeneration[]
 
   @@index([workspaceId, status, deletedAt])
+  @@index([workspaceId, assigneeId, taskStatus])
   @@index([createdById])
   @@map("posts")
 }
