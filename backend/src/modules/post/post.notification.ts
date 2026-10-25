@@ -72,4 +72,56 @@ export const notifyPostReviewed = async (params: {
   await mailerClient.sendEmail({ to: author.email, subject, html });
 };
 
-export default { notifyPostSubmitted, notifyPostReviewed };
+export const notifyTaskAssigned = async (params: {
+  workspaceId: string;
+  postId: string;
+  postTitle: string;
+  assigneeId: string;
+  actorId: string;
+  dueAt: Date | null;
+}) => {
+  const { workspaceId, postId, postTitle, assigneeId, actorId, dueAt } = params;
+  if (assigneeId === actorId) {
+    return;
+  }
+
+  await notificationRepository.createNotification({
+    userId: assigneeId,
+    workspaceId,
+    type: 'TASK_ASSIGNED',
+    payload: { postId, postTitle, dueAt: dueAt?.toISOString() ?? null, assignedById: actorId },
+  });
+};
+
+export const notifyTaskStatusChanged = async (params: {
+  workspaceId: string;
+  postId: string;
+  postTitle: string;
+  actorId: string;
+  authorId: string | null;
+  taskStatus: string;
+}) => {
+  const { workspaceId, postId, postTitle, actorId, authorId, taskStatus } = params;
+
+  const ownerIds = await workspaceRepository.findOwnerIds(workspaceId);
+  const recipientIds = new Set([...ownerIds, ...(authorId ? [authorId] : [])]);
+  recipientIds.delete(actorId);
+
+  await Promise.all(
+    [...recipientIds].map((userId) =>
+      notificationRepository.createNotification({
+        userId,
+        workspaceId,
+        type: 'TASK_STATUS_CHANGED',
+        payload: { postId, postTitle, taskStatus, changedById: actorId },
+      })
+    )
+  );
+};
+
+export default {
+  notifyPostSubmitted,
+  notifyPostReviewed,
+  notifyTaskAssigned,
+  notifyTaskStatusChanged,
+};

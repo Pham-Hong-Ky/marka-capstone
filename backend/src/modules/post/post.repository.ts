@@ -1,4 +1,4 @@
-import type { Prisma, PostStatus } from '@prisma/client';
+import type { Prisma, PostStatus, TaskStatus } from '@prisma/client';
 import prisma from '../../config/db.js';
 import { SCHEDULE_PUBLIC_SELECT } from '../schedule/schedule.repository.js';
 
@@ -18,6 +18,7 @@ export const getPostById = async (postId: string, workspaceId: string) => {
     where: { id: postId, workspaceId },
     include: {
       createdBy: { select: POST_AUTHOR_SELECT },
+      assignee: { select: POST_AUTHOR_SELECT },
       mediaAssets: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
       scheduledPosts: {
         orderBy: [{ scheduledAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }],
@@ -33,7 +34,9 @@ export interface ListPostsParams {
   take: number;
   search?: string;
   status?: PostStatus;
+  taskStatus?: TaskStatus;
   createdById?: string;
+  assigneeId?: string;
   dateFrom?: Date;
   dateTo?: Date;
 }
@@ -43,7 +46,9 @@ export const listPostsAndCount = async (params: ListPostsParams) => {
     workspaceId: params.workspaceId,
     ...(params.search ? { title: { contains: params.search, mode: 'insensitive' } } : {}),
     ...(params.status ? { status: params.status } : {}),
+    ...(params.taskStatus ? { taskStatus: params.taskStatus } : {}),
     ...(params.createdById ? { createdById: params.createdById } : {}),
+    ...(params.assigneeId ? { assigneeId: params.assigneeId } : {}),
     ...(params.dateFrom || params.dateTo
       ? {
           createdAt: {
@@ -61,8 +66,12 @@ export const listPostsAndCount = async (params: ListPostsParams) => {
         id: true,
         title: true,
         status: true,
+        taskStatus: true,
+        assigneeId: true,
+        dueAt: true,
         createdById: true,
         createdBy: { select: POST_AUTHOR_SELECT },
+        assignee: { select: POST_AUTHOR_SELECT },
         createdAt: true,
         updatedAt: true,
       },
@@ -79,8 +88,7 @@ export const updatePost = async (postId: string, data: { title?: string; content
 };
 
 // Cập nhật có điều kiện theo trạng thái cũ để hai thao tác đồng thời không cùng vượt qua kiểm tra.
-export const transitionPostStatus = async (
-  postId: string,
+export const transitionPostStatus = async (  postId: string,
   workspaceId: string,
   from: PostStatus,
   data: {
@@ -94,6 +102,23 @@ export const transitionPostStatus = async (
 ) => {
   const { count } = await prisma.post.updateMany({ where: { id: postId, workspaceId, status: from }, data });
   return count === 0 ? null : prisma.post.findFirst({ where: { id: postId, workspaceId } });
+};
+
+export const assignPost = async (
+  postId: string,
+  data: {
+    assigneeId: string | null;
+    assignedById: string | null;
+    assignedAt: Date | null;
+    dueAt: Date | null;
+    taskStatus?: TaskStatus;
+  }
+) => {
+  return prisma.post.update({ where: { id: postId }, data });
+};
+
+export const updateTaskStatus = async (postId: string, taskStatus: TaskStatus) => {
+  return prisma.post.update({ where: { id: postId }, data: { taskStatus } });
 };
 
 export const softDeletePost = async (postId: string) => {
@@ -132,6 +157,8 @@ export default {
   listPostsAndCount,
   updatePost,
   transitionPostStatus,
+  assignPost,
+  updateTaskStatus,
   softDeletePost,
   createMedia,
   findMediaByIdAndPost,

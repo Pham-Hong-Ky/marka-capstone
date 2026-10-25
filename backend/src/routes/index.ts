@@ -47,6 +47,8 @@ import {
   postMediaSchema,
   deletePostMediaSchema,
   reviewPostSchema,
+  assignPostSchema,
+  updateTaskStatusSchema,
 } from '../modules/post/post.validation.js';
 import scheduleController from '../modules/schedule/schedule.controller.js';
 import {
@@ -338,6 +340,22 @@ router.patch(
   validate(reviewPostSchema),
   requireWorkspaceRole('OWNER'),
   postController.reviewPost
+);
+
+// Giao việc & trạng thái công việc (UC42, UC43)
+router.patch(
+  '/workspaces/:workspaceId/posts/:postId/assign',
+  requireAuth,
+  validate(assignPostSchema),
+  requireWorkspaceRole('OWNER'),
+  postController.assignPost
+);
+router.patch(
+  '/workspaces/:workspaceId/posts/:postId/task-status',
+  requireAuth,
+  validate(updateTaskStatusSchema),
+  requireWorkspaceRole(),
+  postController.updateTaskStatus
 );
 
 // AI assistant (UC07 — sinh nội dung & ảnh cho bài viết)

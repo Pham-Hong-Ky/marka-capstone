@@ -688,4 +688,155 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     const savedPost = await prisma.post.findFirst({ where: { id: approvedPostId } });
     expect(savedPost).toBeNull();
   });
+
+  // ---- UC42 (Giao việc) & UC43 (Cập nhật trạng thái công việc) ----
+
+  let taskPostId = '';
+
+  it('setup — tạo bài để giao việc', async () => {
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ title: 'Bài giao việc', content: { type: 'doc', content: [] } });
+
+    expect(res.status).toBe(201);
+    taskPostId = res.body.data.id;
+  });
+
+  it('UC42 — Creator không được giao việc (403)', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/assign`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ assigneeId: creatorAId });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('UC42 — Giao việc cho thành viên workspace (200)', async () => {
+    const dueAt = new Date(Date.now() + 3 * 86_400_000).toISOString();
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/assign`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ assigneeId: creatorAId, dueAt });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.assigneeId).toBe(creatorAId);
+    expect(res.body.data.assignee).toMatchObject({ id: creatorAId, name: creatorA.name });
+    expect(res.body.data.taskStatus).toBe('TODO');
+    expect(res.body.data.assignedById).toBe(ownerId);
+    expect(res.body.data.assignedAt).toBeTruthy();
+    expect(new Date(res.body.data.dueAt).toISOString()).toBe(dueAt);
+
+    const notifyCount = await prisma.notification.count({
+      where: { workspaceId: wsId, userId: creatorAId, type: 'TASK_ASSIGNED' },
+    });
+    expect(notifyCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it('UC42 — Giao việc cho người ngoài workspace trả 400', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/assign`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ assigneeId: '00000000-0000-0000-0000-000000000000' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('UC43 — Creator khác không cập nhật được trạng thái việc người khác (403)', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
+      .set('Authorization', `Bearer ${creatorBToken}`)
+      .send({ status: 'IN_PROGRESS' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('UC43 — Người nhận việc cập nhật trạng thái (200)', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ status: 'IN_PROGRESS' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.taskStatus).toBe('IN_PROGRESS');
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { targetId: taskPostId, action: 'TASK_STATUS_CHANGED' },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(audit).not.toBeNull();
+
+    const notifyCount = await prisma.notification.count({
+      where: { workspaceId: wsId, userId: ownerId, type: 'TASK_STATUS_CHANGED' },
+    });
+    expect(notifyCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it('UC43 — Owner cập nhật trạng thái việc của người khác (200)', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ status: 'DONE' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.taskStatus).toBe('DONE');
+  });
+
+  it('UC43 — Trạng thái không hợp lệ trả 422', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ status: 'KHONGCO' });
+
+    expect(res.status).toBe(422);
+  });
+
+  it('UC09 — Lọc theo trạng thái công việc (taskStatus)', async () => {
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/posts?taskStatus=DONE`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.posts.some((post: { id: string }) => post.id === taskPostId)).toBe(true);
+    expect(
+      res.body.data.posts.every((post: { taskStatus: string }) => post.taskStatus === 'DONE')
+    ).toBe(true);
+  });
+
+  it('UC09 — Lọc việc của tôi (assigneeId=me)', async () => {
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/posts?assigneeId=me`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.posts.some((post: { id: string }) => post.id === taskPostId)).toBe(true);
+    expect(
+      res.body.data.posts.every(
+        (post: { assigneeId: string | null }) => post.assigneeId === creatorAId
+      )
+    ).toBe(true);
+  });
+
+  it('UC42 — Bỏ giao việc (assigneeId=null) đưa trạng thái về TODO', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/assign`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ assigneeId: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.assigneeId).toBeNull();
+    expect(res.body.data.taskStatus).toBe('TODO');
+    expect(res.body.data.assignedById).toBeNull();
+    expect(res.body.data.assignedAt).toBeNull();
+    expect(res.body.data.dueAt).toBeNull();
+  });
+
+  it('UC43 — Cập nhật trạng thái bài chưa giao việc trả 409', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ status: 'IN_PROGRESS' });
+
+    expect(res.status).toBe(409);
+  });
 });

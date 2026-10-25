@@ -1,8 +1,9 @@
-import type { PostStatus, Prisma, WorkspaceRole } from '@prisma/client';
+import type { PostStatus, Prisma, TaskStatus, WorkspaceRole } from '@prisma/client';
 import postRepository from './post.repository.js';
 import postNotification from './post.notification.js';
-import type { ListPostsQuery } from './post.validation.js';
+import type { AssignPostBody, ListPostsQuery } from './post.validation.js';
 import auditService from '../audit/audit.service.js';
+import workspaceRepository from '../workspace/workspace.repository.js';
 import { cloudinaryClient } from '../../utils/cloudinary.client.js';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../utils/errors/index.js';
 
@@ -57,14 +58,18 @@ export const getPost = async (workspaceId: string, postId: string) => {
   return { ...rest, schedules: scheduledPosts };
 };
 
-export const listPosts = async (workspaceId: string, query: ListPostsQuery) => {
+export const listPosts = async (workspaceId: string, userId: string, query: ListPostsQuery) => {
+  const assigneeId = query.assigneeId === 'me' ? userId : query.assigneeId;
+
   const [posts, total] = await postRepository.listPostsAndCount({
     workspaceId,
     skip: (query.page - 1) * query.limit,
     take: query.limit,
     search: query.search,
     status: query.status,
+    taskStatus: query.taskStatus,
     createdById: query.createdById,
+    assigneeId,
     dateFrom: query.dateFrom,
     dateTo: query.dateTo,
   });
@@ -253,6 +258,101 @@ export const reviewPost = async (
   return updated;
 };
 
+const assertAssigneeIsMember = async (workspaceId: string, assigneeId: string) => {
+  const member = await workspaceRepository.findMember(workspaceId, assigneeId);
+  if (!member) {
+    throw new BadRequestError('Người nhận việc không phải là thành viên của workspace');
+  }
+};
+
+export const assignPost = async (
+  workspaceId: string,
+  actorId: string,
+  postId: string,
+  data: AssignPostBody
+) => {
+  const post = await getPost(workspaceId, postId);
+  const assigned = Boolean(data.assigneeId);
+
+  if (data.assigneeId) {
+    await assertAssigneeIsMember(workspaceId, data.assigneeId);
+  }
+
+  await postRepository.assignPost(postId, {
+    assigneeId: data.assigneeId,
+    assignedById: assigned ? actorId : null,
+    assignedAt: assigned ? new Date() : null,
+    dueAt: assigned ? data.dueAt ?? null : null,
+    taskStatus: assigned ? undefined : 'TODO',
+  });
+
+  if (data.assigneeId) {
+    await postNotification.notifyTaskAssigned({
+      workspaceId,
+      postId,
+      postTitle: post.title,
+      assigneeId: data.assigneeId,
+      actorId,
+      dueAt: data.dueAt ?? null,
+    });
+  }
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId,
+    action: 'POST_ASSIGNED',
+    targetType: 'Post',
+    targetId: postId,
+    metadata: {
+      title: post.title,
+      assigneeId: data.assigneeId,
+      dueAt: data.dueAt ?? null,
+    },
+  });
+
+  return getPost(workspaceId, postId);
+};
+
+export const updateTaskStatus = async (
+  workspaceId: string,
+  userId: string,
+  role: WorkspaceRole,
+  postId: string,
+  taskStatus: TaskStatus
+) => {
+  const post = await getPost(workspaceId, postId);
+
+  if (!post.assigneeId) {
+    throw new ConflictError('Bài viết chưa được giao việc');
+  }
+
+  if (role !== 'OWNER' && post.assigneeId !== userId) {
+    throw new ForbiddenError('Chỉ người nhận việc hoặc chủ workspace được cập nhật trạng thái công việc');
+  }
+
+  await postRepository.updateTaskStatus(postId, taskStatus);
+
+  await postNotification.notifyTaskStatusChanged({
+    workspaceId,
+    postId,
+    postTitle: post.title,
+    actorId: userId,
+    authorId: post.createdById,
+    taskStatus,
+  });
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId: userId,
+    action: 'TASK_STATUS_CHANGED',
+    targetType: 'Post',
+    targetId: postId,
+    metadata: { title: post.title, from: post.taskStatus, to: taskStatus },
+  });
+
+  return getPost(workspaceId, postId);
+};
+
 export default {
   createPost,
   getPost,
@@ -263,4 +363,6 @@ export default {
   deletePostMedia,
   submitPost,
   reviewPost,
+  assignPost,
+  updateTaskStatus,
 };

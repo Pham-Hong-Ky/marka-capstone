@@ -1,7 +1,12 @@
 import { Request, Response } from 'express';
 import type { WorkspaceRole } from '@prisma/client';
 import postService from './post.service.js';
-import type { ListPostsQuery, ReviewPostBody } from './post.validation.js';
+import type {
+  AssignPostBody,
+  ListPostsQuery,
+  ReviewPostBody,
+  UpdateTaskStatusBody,
+} from './post.validation.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
 
@@ -29,7 +34,11 @@ export const getPost = catchAsync(async (req: Request, res: Response) => {
 
 export const listPosts = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = req.workspaceId as string;
-  const { posts, meta } = await postService.listPosts(workspaceId, req.query as unknown as ListPostsQuery);
+  const { posts, meta } = await postService.listPosts(
+    workspaceId,
+    req.user!.id,
+    req.query as unknown as ListPostsQuery
+  );
 
   return ApiResponse.success(res, {
     statusCode: 200,
@@ -129,6 +138,42 @@ export const reviewPost = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+export const assignPost = catchAsync(async (req: Request, res: Response) => {
+  const workspaceId = req.workspaceId as string;
+  const { assigneeId } = req.body as AssignPostBody;
+  const post = await postService.assignPost(
+    workspaceId,
+    req.user!.id,
+    req.params.postId as string,
+    req.body
+  );
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: assigneeId ? 'Giao việc thành công' : 'Đã bỏ giao việc',
+    data: post,
+  });
+});
+
+export const updateTaskStatus = catchAsync(async (req: Request, res: Response) => {
+  const workspaceId = req.workspaceId as string;
+  const role = req.workspaceRole as WorkspaceRole;
+  const { status } = req.body as UpdateTaskStatusBody;
+  const post = await postService.updateTaskStatus(
+    workspaceId,
+    req.user!.id,
+    role,
+    req.params.postId as string,
+    status
+  );
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Cập nhật trạng thái công việc thành công',
+    data: post,
+  });
+});
+
 export default {
   createPost,
   getPost,
@@ -139,4 +184,6 @@ export default {
   deletePostMedia,
   submitPost,
   reviewPost,
+  assignPost,
+  updateTaskStatus,
 };
