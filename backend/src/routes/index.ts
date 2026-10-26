@@ -77,6 +77,17 @@ import {
   unreadCountSchema,
   markAllReadSchema,
 } from '../modules/notification/notification.validation.js';
+import adminController from '../modules/admin/admin.controller.js';
+import {
+  listUsersSchema,
+  suspendUserSchema,
+  listWorkspacesSchema,
+} from '../modules/admin/admin.validation.js';
+import auditController from '../modules/audit/audit.controller.js';
+import {
+  adminAuditLogsSchema,
+  workspaceAuditLogsSchema,
+} from '../modules/audit/audit.validation.js';
 
 const router = Router();
 
@@ -122,6 +133,44 @@ router.patch(
   requireAuth,
   validate(notificationIdSchema),
   notificationController.markNotificationRead
+);
+
+// Admin — quản trị hệ thống & audit log (UC32)
+router.get('/admin/stats', requireAuth, requireRoles('SYSTEM_ADMIN'), adminController.getStats);
+router.get(
+  '/admin/users',
+  requireAuth,
+  requireRoles('SYSTEM_ADMIN'),
+  validate(listUsersSchema),
+  adminController.listUsers
+);
+router.patch(
+  '/admin/users/:userId/suspend',
+  requireAuth,
+  requireRoles('SYSTEM_ADMIN'),
+  validate(suspendUserSchema),
+  adminController.suspendUser
+);
+router.get(
+  '/admin/workspaces',
+  requireAuth,
+  requireRoles('SYSTEM_ADMIN'),
+  validate(listWorkspacesSchema),
+  adminController.listWorkspaces
+);
+router.get(
+  '/admin/audit-logs',
+  requireAuth,
+  requireRoles('SYSTEM_ADMIN'),
+  validate(adminAuditLogsSchema),
+  auditController.listAdminAuditLogs
+);
+router.get(
+  '/workspaces/:workspaceId/audit-logs',
+  requireAuth,
+  validate(workspaceAuditLogsSchema),
+  requireWorkspaceRole('OWNER'),
+  auditController.listWorkspaceAuditLogs
 );
 
 // Workspace (UC16–UC23, UC35, UC36)
