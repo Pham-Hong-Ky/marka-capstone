@@ -7,9 +7,9 @@ const redisMock = vi.hoisted(() => ({
   del: vi.fn(),
 }));
 
-vi.mock('../../config/redis.js', () => ({ default: redisMock }));
+vi.mock('../../../src/config/redis.js', () => ({ default: redisMock }));
 
-import * as oauthStore from './channel.oauth-store.js';
+import * as oauthStore from '../../../src/modules/channel/channel.oauth-store.js';
 
 const state = { userId: 'user-1', workspaceId: 'workspace-1' };
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import app from '../../app.js';
+import app from '../../../src/app.js';
 
 describe('Kiểm thử Module Health (Readiness Probe)', () => {
   it('GET /api/v1/health - Trả về mã HTTP tương ứng và thông tin chẩn đoán kết nối', async () => {

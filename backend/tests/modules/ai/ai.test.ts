@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
-import app from '../../app.js';
-import prisma from '../../config/db.js';
-import { enqueue } from '../../workers/queue-manager.js';
+import app from '../../../src/app.js';
+import prisma from '../../../src/config/db.js';
+import { enqueue } from '../../../src/workers/queue-manager.js';
 
-vi.mock('./ai.config.js', () => ({
+vi.mock('../../../src/modules/ai/ai.config.js', () => ({
   isTextAiConfigured: () => true,
   isImageAiConfigured: () => true,
   getGeminiModel: () => 'gemini-test',
   getImageModel: () => 'image-test',
 }));
 
-vi.mock('../../workers/queue-manager.js', () => ({
+vi.mock('../../../src/workers/queue-manager.js', () => ({
   enqueue: vi.fn(),
 }));
 

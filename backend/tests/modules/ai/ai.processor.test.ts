@@ -1,29 +1,29 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UnrecoverableError } from 'bullmq';
-import prisma from '../../config/db.js';
-import { enqueue } from '../../workers/queue-manager.js';
-import { cloudinaryClient } from '../../utils/cloudinary.client.js';
-import { cloudflareImageClient, geminiClient } from './ai.providers.js';
-import aiService from './ai.service.js';
-import { buildAiFailureMessage, executeAiGeneration } from './ai.processor.js';
+import prisma from '../../../src/config/db.js';
+import { enqueue } from '../../../src/workers/queue-manager.js';
+import { cloudinaryClient } from '../../../src/utils/cloudinary.client.js';
+import { cloudflareImageClient, geminiClient } from '../../../src/modules/ai/ai.providers.js';
+import aiService from '../../../src/modules/ai/ai.service.js';
+import { buildAiFailureMessage, executeAiGeneration } from '../../../src/modules/ai/ai.processor.js';
 
-vi.mock('./ai.config.js', () => ({
+vi.mock('../../../src/modules/ai/ai.config.js', () => ({
   isTextAiConfigured: () => true,
   isImageAiConfigured: () => true,
   getGeminiModel: () => 'gemini-test',
   getImageModel: () => 'image-test',
 }));
 
-vi.mock('../../workers/queue-manager.js', () => ({
+vi.mock('../../../src/workers/queue-manager.js', () => ({
   enqueue: vi.fn(),
 }));
 
-vi.mock('./ai.providers.js', () => ({
+vi.mock('../../../src/modules/ai/ai.providers.js', () => ({
   geminiClient: { generateJson: vi.fn() },
   cloudflareImageClient: { generateImage: vi.fn() },
 }));
 
-vi.mock('../../utils/cloudinary.client.js', () => ({
+vi.mock('../../../src/utils/cloudinary.client.js', () => ({
   cloudinaryClient: { uploadImageBuffer: vi.fn() },
 }));
 

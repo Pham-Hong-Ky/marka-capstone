@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AiContentPolicyError, AiOutputError, AiProviderError } from './ai.errors.js';
-import { cloudflareImageClient, geminiClient } from './ai.providers.js';
+import { AiContentPolicyError, AiOutputError, AiProviderError } from '../../../src/modules/ai/ai.errors.js';
+import { cloudflareImageClient, geminiClient } from '../../../src/modules/ai/ai.providers.js';
 
 // Key giả để test không phụ thuộc .env của máy chạy (CI không có key thật).
-vi.mock('../../config/env.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../config/env.js')>();
+vi.mock('../../../src/config/env.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/config/env.js')>();
   const env = {
     ...actual.default,
     GEMINI_API_KEY: 'test-gemini-key',

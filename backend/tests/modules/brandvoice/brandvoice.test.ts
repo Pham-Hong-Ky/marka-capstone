@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import app from '../../app.js';
-import prisma from '../../config/db.js';
+import app from '../../../src/app.js';
+import prisma from '../../../src/config/db.js';
 
 const password = 'password123';
 

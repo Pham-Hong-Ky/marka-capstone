@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import enforceHttps from './enforceHttps.js';
+import enforceHttps from '../../src/middlewares/enforceHttps.js';
 
 describe('Middleware enforceHttps (Bắt buộc HTTPS ở production)', () => {
   const app = express();

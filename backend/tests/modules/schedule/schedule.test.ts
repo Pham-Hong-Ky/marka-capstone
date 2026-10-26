@@ -1,14 +1,14 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
-import app from '../../app.js';
-import prisma from '../../config/db.js';
-import { encrypt } from '../../utils/encryption.js';
+import app from '../../../src/app.js';
+import prisma from '../../../src/config/db.js';
+import { encrypt } from '../../../src/utils/encryption.js';
 import {
   FacebookTokenExpiredError,
   FacebookTransientError,
   facebookClient,
-} from '../channel/facebook.client.js';
-import scheduleService from './schedule.service.js';
+} from '../../../src/modules/channel/facebook.client.js';
+import scheduleService from '../../../src/modules/schedule/schedule.service.js';
 
 const password = 'password123';
 

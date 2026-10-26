@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import prisma from '../../config/db.js';
-import { withTransaction } from '../../utils/transaction.js';
-import { PaymentRequiredError } from '../../utils/errors/index.js';
-import creditService from './credit.service.js';
+import prisma from '../../../src/config/db.js';
+import { withTransaction } from '../../../src/utils/transaction.js';
+import { PaymentRequiredError } from '../../../src/utils/errors/index.js';
+import creditService from '../../../src/modules/credit/credit.service.js';
 
 const stamp = Date.now();
 

@@ -13,6 +13,6 @@
     "resolveJsonModule": true,
     "outDir": "./dist"
   },
-  "include": ["src/**/*", "scripts/**/*", "prisma/**/*"],
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*", "prisma/**/*"],
   "exclude": ["node_modules", "dist"]
 }

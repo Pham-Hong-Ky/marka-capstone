@@ -5,7 +5,7 @@ import {
   contentToPlainText,
   parseTextOutput,
   toTiptapDoc,
-} from './ai.prompt.js';
+} from '../../../src/modules/ai/ai.prompt.js';
 
 describe('AI prompt helpers', () => {
   it('parseTextOutput từ chối output thiếu title', () => {

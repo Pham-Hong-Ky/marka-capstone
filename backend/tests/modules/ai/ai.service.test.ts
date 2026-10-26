@@ -1,18 +1,18 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import prisma, { basePrisma } from '../../config/db.js';
-import { enqueue } from '../../workers/queue-manager.js';
-import { QUEUE_NAMES } from '../../workers/types.js';
-import { NotFoundError, PaymentRequiredError, ServiceUnavailableError } from '../../utils/errors/index.js';
-import aiService from './ai.service.js';
+import prisma, { basePrisma } from '../../../src/config/db.js';
+import { enqueue } from '../../../src/workers/queue-manager.js';
+import { QUEUE_NAMES } from '../../../src/workers/types.js';
+import { NotFoundError, PaymentRequiredError, ServiceUnavailableError } from '../../../src/utils/errors/index.js';
+import aiService from '../../../src/modules/ai/ai.service.js';
 
-vi.mock('./ai.config.js', () => ({
+vi.mock('../../../src/modules/ai/ai.config.js', () => ({
   isTextAiConfigured: () => true,
   isImageAiConfigured: () => true,
   getGeminiModel: () => 'gemini-test',
   getImageModel: () => 'image-test',
 }));
 
-vi.mock('../../workers/queue-manager.js', () => ({
+vi.mock('../../../src/workers/queue-manager.js', () => ({
   enqueue: vi.fn(),
 }));
 

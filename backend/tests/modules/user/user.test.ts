@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import app from '../../app.js';
-import prisma from '../../config/db.js';
-import { generateAccessToken } from '../../utils/jwt.js';
-import { hashPassword } from '../../utils/password.js';
+import app from '../../../src/app.js';
+import prisma from '../../../src/config/db.js';
+import { generateAccessToken } from '../../../src/utils/jwt.js';
+import { hashPassword } from '../../../src/utils/password.js';
 
 describe('Kiểm thử Module User (Profile & Password)', () => {
   const testUser = {

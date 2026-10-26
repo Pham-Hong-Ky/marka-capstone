@@ -7,10 +7,10 @@ const mocks = vi.hoisted(() => ({
   del: vi.fn(),
 }));
 
-vi.mock('../../config/db.js', () => ({ default: { $queryRaw: mocks.queryRaw } }));
-vi.mock('../../config/redis.js', () => ({ cacheConnection: mocks }));
+vi.mock('../../../src/config/db.js', () => ({ default: { $queryRaw: mocks.queryRaw } }));
+vi.mock('../../../src/config/redis.js', () => ({ cacheConnection: mocks }));
 
-import { getSystemHealth } from './health.service.js';
+import { getSystemHealth } from '../../../src/modules/health/health.service.js';
 
 describe('health.service', () => {
   beforeEach(() => {

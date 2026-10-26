@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Job } from 'bullmq';
-import { queueConnection } from '../config/redis.js';
-import { QUEUE_NAMES } from './types.js';
+import { queueConnection } from '../../src/config/redis.js';
+import { QUEUE_NAMES } from '../../src/workers/types.js';
 import {
   cancelJob,
   closeQueues,
@@ -12,7 +12,7 @@ import {
   pauseQueue,
   resumeQueue,
   retryJob,
-} from './queue-manager.js';
+} from '../../src/workers/queue-manager.js';
 
 const TEST_QUEUE = QUEUE_NAMES.email;
 

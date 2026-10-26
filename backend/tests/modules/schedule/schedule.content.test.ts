@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderContentToPlainText } from './schedule.content.js';
+import { renderContentToPlainText } from '../../../src/modules/schedule/schedule.content.js';
 
 const doc = (...content: unknown[]) => ({ type: 'doc', content });
 

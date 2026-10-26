@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
-import app from '../../app.js';
-import prisma from '../../config/db.js';
-import { mailerClient } from '../../utils/mailer.client.js';
+import app from '../../../src/app.js';
+import prisma from '../../../src/config/db.js';
+import { mailerClient } from '../../../src/utils/mailer.client.js';
 
-vi.mock('../../utils/mailer.client.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../utils/mailer.client.js')>();
+vi.mock('../../../src/utils/mailer.client.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/utils/mailer.client.js')>();
   return { ...actual, mailerClient: { sendEmail: vi.fn(actual.mailerClient.sendEmail) } };
 });
 
