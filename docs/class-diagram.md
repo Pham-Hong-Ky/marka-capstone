@@ -103,7 +103,7 @@ Cả 6 sơ đồ module và sơ đồ tổng quan đều có lớp entity đầy
 
 ## 5. Phần không có trong code
 
-Không có lớp cho Admin, analytics/n8n hay UC42/UC43 — các phần này chỉ nằm trong Roadmap tại [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md). AI, Order/PayOS và lịch đăng/publish đã có module/service tương ứng. UC38 (API đọc notification) đã bỏ khỏi phạm vi.
+Sơ đồ lớp hiện chưa bổ sung lớp cho Admin và UC42/UC43 (hai phần đã có module/service trong code); analytics/n8n chưa có. AI, Order/PayOS và lịch đăng/publish đã có module/service tương ứng. UC38 (thông báo realtime) vẫn ngoài phạm vi; API đọc hộp thư đã có.
 
 ## 6. Render lại sơ đồ
 

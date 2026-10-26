@@ -45,18 +45,19 @@ Xem bảng đầy đủ và trạng thái từng UC tại [`specs/README.md`](./
 | :--- | :--- | :--- |
 | UC01, UC02, UC03 | Register, Login, Google OAuth | ✅ |
 | UC04, UC05, UC33, UC34 | Logout, Đổi mật khẩu, Cập nhật hồ sơ, Refresh token | ✅ |
-| UC06, UC08–UC12, UC15 | Bài viết, media, gửi duyệt, duyệt/từ chối | ✅ (UC11 một phần: chỉ xoá `DRAFT`/`REJECTED`) |
+| UC06, UC08–UC12, UC15 | Bài viết, media, gửi duyệt, duyệt/từ chối | ✅ (Owner xoá mọi trạng thái; Creator chỉ `DRAFT`/`REJECTED`) |
 | UC07, UC13, UC14, UC16 | AI, lên lịch/đăng bài Facebook | ✅ (AI còn thiếu Viral Score/regenerate; đăng bài chỉ Facebook) |
 | UC17–UC24, UC35, UC36 | Workspace & thành viên | ✅ |
 | UC25–UC30 | Brand Voice, kênh (chỉ Facebook) | 🟡 (Instagram/TikTok/Zalo chưa có) |
 | UC31, UC40, UC41 | Nạp credit, PayOS, lịch sử credit | ✅ |
-| UC32a/b | Admin | ⛔ |
+| UC32a/b | Admin | ✅ backend: dashboard, user, workspace, audit log (frontend `/admin` chưa có) |
 | UC39 | Post Analytics (hiệu quả workspace) | ⛔ |
-| UC42–UC43 | Giao việc | ⛔ (không có cột trong schema) |
+| UC42–UC43 | Giao việc | ✅ (`assigneeId`, `dueAt`, `taskStatus`, `assignedById/At`; chưa có `priority`) |
 
 ## D. Việc còn lại
 
-- Admin, analytics/n8n, calendar nâng cao, đăng bài đa kênh.
+- Analytics/n8n, calendar nâng cao, đăng bài đa kênh.
+- Frontend `/admin`; đổi `systemRole`, xoá/khôi phục workspace, xuất audit log.
 - Email cảnh báo hết credit và nhắc lịch đăng (D7).
 - WebSocket/SSE, 2FA.
-- Giao việc UC42/UC43 (cần bổ sung cột vào schema trước).
+- Nâng cấp giao việc: Kanban, độ ưu tiên, nhắc hạn.

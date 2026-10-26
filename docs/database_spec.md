@@ -289,7 +289,7 @@ Bảng ghi sự kiện bảo mật toàn hệ thống dành cho System Admin qu�
 | `metadata` | JSON | Nullable | Dữ liệu chi tiết về thay đổi trước/sau hoặc tham số request |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm hành động diễn ra |
 
-* **Index**: Composite Index trên `(targetType, targetId, createdAt)`, `(workspaceId, createdAt)` và `(actorId, createdAt)` (D8).
+* **Index**: Composite Index trên `(targetType, targetId, createdAt)`, `(workspaceId, createdAt)`, `(actorId, createdAt)` và `(action, createdAt)` (D8).
 
 ### 2.15. Bảng `post_metrics` (Chỉ số tương tác bài đăng — Phân hệ 8)
 Lưu chỉ số hiệu suất của một bài đã đăng trên kênh; quan hệ **1-1** với `scheduled_posts`.

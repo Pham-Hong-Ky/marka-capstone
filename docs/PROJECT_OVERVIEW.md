@@ -25,7 +25,7 @@ Marka giúp nhóm marketing:
 
 | Vai trò | Trạng thái | Quyền trong code |
 | :--- | :--- | :--- |
-| `SYSTEM_ADMIN` | 🟡 có trong schema/middleware | Được `requireRoles` cho phép; trong `requireWorkspaceRole` được coi như `OWNER` của mọi workspace. **Chưa có API quản trị nào** (suspend user, xem audit toàn hệ thống...). |
+| `SYSTEM_ADMIN` | ✅ | Dashboard hệ thống, danh sách/khoá-mở khoá user, danh sách workspace, đọc audit log toàn hệ thống (`/admin/*`); trong `requireWorkspaceRole` được coi như `OWNER` của mọi workspace. |
 | `USER` | ✅ | Người dùng thường. |
 
 ### 2.2. Cấp workspace (`WorkspaceMember.role`)
@@ -144,7 +144,8 @@ Quy tắc:
 
 ### 3.8. Audit, health & hạ tầng ✅
 
-- Audit log cho các hành động auth, workspace, member, Brand Voice, kênh, duyệt bài, billing.
+- Audit log cho các hành động auth, workspace, member, Brand Voice, kênh, duyệt/giao việc bài, billing, quản trị user.
+- API đọc audit log: `GET /admin/audit-logs` (System Admin) và `GET /workspaces/:workspaceId/audit-logs` (Owner), có lọc actor/action/target/thời gian + phân trang.
 - `GET /health` kiểm tra PostgreSQL + Redis.
 - BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`); `scheduleWorker` đăng bài thật, `contentWorker` sinh AI thật, `email` vẫn là worker khung. Billing không dùng queue.
 - Soft delete bằng Prisma Client Extension cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset`.
@@ -164,6 +165,18 @@ Quy tắc:
 
 ---
 
+### 3.10. Quản trị hệ thống ✅
+
+- `GET /admin/stats`: user (tổng/hoạt động/bị khoá/admin), workspace, bài theo trạng thái, kênh, đơn PAID + doanh thu 30 ngày.
+- `GET /admin/users`: tìm theo email/tên, lọc `systemRole`/`isSuspended`, phân trang; không trả `passwordHash`.
+- `PATCH /admin/users/:userId/suspend`: khoá/mở khoá, tăng `tokenVersion` để đá phiên, chặn tự khoá, ghi audit.
+- `GET /admin/workspaces`: tìm/lọc `plan`, `includeDeleted`, kèm số thành viên/bài.
+- `GET /admin/audit-logs` cho System Admin và `GET /workspaces/:workspaceId/audit-logs` cho Owner.
+
+**Chưa có:** frontend `/admin`, đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo.
+
+---
+
 ## 4. Chưa triển khai (Roadmap)
 
 Các phần dưới đây **không có** trong `backend/src/modules` hay `frontend/src/pages` (ngoài trang placeholder):
@@ -172,7 +185,6 @@ Các phần dưới đây **không có** trong `backend/src/modules` hay `fronte
 | :--- | :--- | :--- |
 | Calendar nâng cao | Kéo-thả đổi giờ, sửa lịch sau khi tạo | Đăng ngay/lên lịch/huỷ lịch cơ bản đã có; calendar nâng cao là Roadmap |
 | Analytics | Đồng bộ metrics Facebook, biểu đồ | bảng `post_metrics`; chưa có service, không có n8n |
-| Admin | Quản lý user/workspace, dashboard hệ thống | `SYSTEM_ADMIN` trong schema/middleware; chưa có module admin |
 
 Frontend hiện có các trang placeholder: `/ai`, `/publishing`.
 

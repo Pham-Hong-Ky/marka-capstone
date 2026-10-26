@@ -377,5 +377,6 @@ Table audit_logs {
     (targetType, targetId, createdAt)
     (workspaceId, createdAt)
     (actorId, createdAt)
+    (action, createdAt)
   }
 }
