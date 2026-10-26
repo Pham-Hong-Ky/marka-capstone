@@ -1137,7 +1137,66 @@ Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, ch�
 
 ---
 
-## 10. Bảng tổng hợp endpoint
+## 10. Admin & Audit
+
+Mọi endpoint `/admin/*` yêu cầu `requireAuth` + `requireRoles('SYSTEM_ADMIN')`; USER thường nhận `403`.
+
+### `GET /admin/stats`
+
+**Response 200**
+
+```json
+{
+  "status": "success",
+  "message": "Lấy số liệu hệ thống thành công",
+  "data": {
+    "users": { "total": 120, "active": 118, "suspended": 2, "admins": 1, "createdLast30Days": 15 },
+    "workspaces": { "total": 40, "createdLast30Days": 6 },
+    "posts": { "total": 320, "byStatus": { "DRAFT": 80, "PENDING": 12, "APPROVED": 40, "REJECTED": 5, "SCHEDULED": 3, "PUBLISHED": 170, "FAILED": 2, "ARCHIVED": 8 } },
+    "channels": { "ACTIVE": 25, "EXPIRED": 4 },
+    "billing": { "paidOrdersLast30Days": 18, "revenueLast30Days": 1250000 }
+  }
+}
+```
+
+### `GET /admin/users`
+
+**Query**: `page`, `limit` (≤ 50), `search` (email/tên), `systemRole` (`SYSTEM_ADMIN`/`USER`), `isSuspended` (`true`/`false`).
+
+**Response 200**: `data.users[]` gồm `id`, `email`, `name`, `avatar`, `authProvider`, `systemRole`, `emailVerified`, `isSuspended`, `workspaceCount`, `createdAt`; **không trả `passwordHash`**.
+
+### `PATCH /admin/users/:userId/suspend`
+
+**Body**
+
+```json
+{ "suspended": true, "reason": "Vi phạm điều khoản" }
+```
+
+- `suspended`: bắt buộc; `reason`: tuỳ chọn, ≤ 255 ký tự.
+- Tăng `tokenVersion` để đá mọi phiên cũ, kể cả khi mở khoá.
+- Không cho tự khoá chính mình → `400`; user không tồn tại → `404`.
+- Audit `ADMIN_USER_SUSPENDED` / `ADMIN_USER_REACTIVATED` (kèm `reason`).
+
+### `GET /admin/workspaces`
+
+**Query**: `page`, `limit` (≤ 50), `search` (tên), `plan` (`FREE`/`PRO`/`ENTERPRISE`), `includeDeleted` (`true`/`false`, mặc định `false`).
+
+**Response 200**: `data.workspaces[]` gồm `id`, `name`, `plan`, `remainingCredit`, `deletedAt`, `createdAt`, `memberCount`, `postCount`.
+
+### `GET /admin/audit-logs`
+
+**Query**: `page`, `limit` (≤ 50), `workspaceId`, `actorId`, `action`, `targetType`, `targetId`, `dateFrom`, `dateTo`.
+
+**Response 200**: `data.auditLogs[]` gồm log + `actor { id, name, email }`, `workspace { id, name }`; sắp xếp mới nhất trước; phân trang trong `meta`.
+
+### `GET /workspaces/:workspaceId/audit-logs`
+
+Yêu cầu `requireAuth` + `OWNER` của workspace. Cùng bộ lọc với `/admin/audit-logs` (trừ `workspaceId`), chỉ trả log thuộc workspace trong URL. Creator → `403`; workspace không tồn tại/đã xoá → `404`.
+
+---
+
+## 11. Bảng tổng hợp endpoint
 
 
 | Method | Path | Auth | Workspace role |
@@ -1196,6 +1255,12 @@ Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, ch�
 | GET | `/workspaces/:workspaceId/billing/orders/:orderId` | Bearer | Thành viên |
 | POST | `/workspaces/:workspaceId/billing/orders/:orderId/cancel` | Bearer | Người tạo đơn |
 | POST | `/webhooks/payos` | — | — |
+| GET | `/admin/stats` | Bearer | SYSTEM_ADMIN |
+| GET | `/admin/users` | Bearer | SYSTEM_ADMIN |
+| PATCH | `/admin/users/:userId/suspend` | Bearer | SYSTEM_ADMIN |
+| GET | `/admin/workspaces` | Bearer | SYSTEM_ADMIN |
+| GET | `/admin/audit-logs` | Bearer | SYSTEM_ADMIN |
+| GET | `/workspaces/:workspaceId/audit-logs` | Bearer | OWNER |
 
-**Không có trong code** (đừng gọi): calendar kéo-thả, admin, analytics, upload media độc lập.
+**Không có trong code** (đừng gọi): calendar kéo-thả, analytics, upload media độc lập.
 **Thông báo:** API hộp thư trong ứng dụng đã có (`/users/me/notifications`); UC38 (đẩy thông báo realtime) vẫn ngoài phạm vi.
