@@ -7,6 +7,7 @@ export const CHANNEL_PUBLIC_SELECT = {
   platform: true,
   type: true,
   name: true,
+  label: true,
   avatar: true,
   externalAccountId: true,
   status: true,
@@ -91,7 +92,64 @@ export const findChannelWithToken = async (channelId: string, workspaceId: strin
       platform: true,
       status: true,
       accessToken: true,
+      externalAccountId: true,
     },
+  });
+
+export const findChannelDetail = async (channelId: string, workspaceId: string) =>
+  prisma.channelConnection.findFirst({
+    where: { id: channelId, workspaceId },
+    select: CHANNEL_PUBLIC_SELECT,
+  });
+
+export const findChannelStats = async (channelId: string) => {
+  const [publishedPosts, metrics, lastPublished] = await Promise.all([
+    prisma.scheduledPost.count({ where: { channelId, status: 'PUBLISHED' } }),
+    prisma.postMetric.aggregate({
+      where: { scheduledPost: { channelId, status: 'PUBLISHED' } },
+      _sum: {
+        reactions: true,
+        comments: true,
+        shares: true,
+        impressions: true,
+        reach: true,
+      },
+      _max: { fetchedAt: true },
+    }),
+    prisma.scheduledPost.findFirst({
+      where: { channelId, status: 'PUBLISHED' },
+      orderBy: { publishedAt: 'desc' },
+      select: { publishedAt: true },
+    }),
+  ]);
+
+  return {
+    publishedPosts,
+    reactions: metrics._sum.reactions ?? 0,
+    comments: metrics._sum.comments ?? 0,
+    shares: metrics._sum.shares ?? 0,
+    impressions: metrics._sum.impressions ?? 0,
+    reach: metrics._sum.reach ?? 0,
+    lastPublishedAt: lastPublished?.publishedAt ?? null,
+    lastSyncedAt: metrics._max.fetchedAt ?? null,
+  };
+};
+
+export const updateChannelLabel = async (channelId: string, label: string | null) =>
+  prisma.channelConnection.update({
+    where: { id: channelId },
+    data: { label },
+    select: CHANNEL_PUBLIC_SELECT,
+  });
+
+export const updateChannelProfile = async (
+  channelId: string,
+  data: { name: string; avatar: string | null }
+) =>
+  prisma.channelConnection.update({
+    where: { id: channelId },
+    data,
+    select: CHANNEL_PUBLIC_SELECT,
   });
 
 export const updateChannelStatus = async (
@@ -129,6 +187,10 @@ export default {
   upsertFacebookChannels,
   findChannelInWorkspace,
   findChannelWithToken,
+  findChannelDetail,
+  findChannelStats,
+  updateChannelLabel,
+  updateChannelProfile,
   updateChannelStatus,
   deleteChannelAndCancelSchedules,
 };

@@ -68,6 +68,45 @@ export const disconnectChannel = catchAsync(async (req: Request, res: Response) 
   });
 });
 
+export const getChannelDetail = catchAsync(async (req: Request, res: Response) => {
+  const data = await channelService.getChannelDetail(
+    req.params.channelId as string,
+    req.workspaceId!
+  );
+
+  return ApiResponse.success(res, {
+    message: 'Lấy thông tin kênh thành công',
+    data,
+  });
+});
+
+export const updateChannelLabel = catchAsync(async (req: Request, res: Response) => {
+  const data = await channelService.updateChannelLabel(
+    req.params.channelId as string,
+    req.workspaceId!,
+    req.user!.id,
+    req.body.label
+  );
+
+  return ApiResponse.success(res, {
+    message: 'Cập nhật tên hiển thị của kênh thành công',
+    data,
+  });
+});
+
+export const refreshChannel = catchAsync(async (req: Request, res: Response) => {
+  const data = await channelService.refreshChannel(
+    req.params.channelId as string,
+    req.workspaceId!,
+    req.user!.id
+  );
+
+  return ApiResponse.success(res, {
+    message: 'Làm mới thông tin Page thành công',
+    data,
+  });
+});
+
 export default {
   listChannels,
   getFacebookAuthUrl,
@@ -75,4 +114,7 @@ export default {
   getPendingFacebookPages,
   connectFacebookPages,
   disconnectChannel,
+  getChannelDetail,
+  updateChannelLabel,
+  refreshChannel,
 };

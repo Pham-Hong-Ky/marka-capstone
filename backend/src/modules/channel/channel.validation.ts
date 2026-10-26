@@ -23,6 +23,27 @@ export const channelIdParamSchema = z.object({
 
 export const channelIdSchema = { params: channelIdParamSchema };
 
+export const channelProfileParamSchema = z.object({
+  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  channelId: z.string().uuid('Channel ID không hợp lệ'),
+});
+
+export const updateChannelLabelBodySchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(1, 'Tên hiển thị không được để trống')
+    .max(100, 'Tên hiển thị tối đa 100 ký tự')
+    .nullable(),
+});
+
+export const channelProfileSchema = { params: channelProfileParamSchema };
+
+export const updateChannelLabelSchema = {
+  params: channelProfileParamSchema,
+  body: updateChannelLabelBodySchema,
+};
+
 export const oauthSessionParamSchema = z.object({
   sessionId: z.string().regex(/^[a-f0-9]{48}$/, 'Phiên kết nối không hợp lệ'),
 });

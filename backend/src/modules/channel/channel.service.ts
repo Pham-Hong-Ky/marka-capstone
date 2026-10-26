@@ -236,6 +236,94 @@ export const verifyChannelToken = async (
   return { channelId, status: newStatus, isValid };
 };
 
+export const getChannelDetail = async (
+  channelId: string,
+  workspaceId: string
+): Promise<{ channel: ChannelSummary; stats: Awaited<ReturnType<typeof channelRepository.findChannelStats>> }> => {
+  const channel = await channelRepository.findChannelDetail(channelId, workspaceId);
+
+  if (!channel) {
+    throw new NotFoundError('Kênh không tồn tại');
+  }
+
+  return { channel, stats: await channelRepository.findChannelStats(channelId) };
+};
+
+export const updateChannelLabel = async (
+  channelId: string,
+  workspaceId: string,
+  userId: string,
+  label: string | null
+): Promise<{ channel: ChannelSummary }> => {
+  const channel = await channelRepository.findChannelInWorkspace(channelId, workspaceId);
+
+  if (!channel) {
+    throw new NotFoundError('Kênh không tồn tại');
+  }
+
+  const updated = await channelRepository.updateChannelLabel(channelId, label);
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId: userId,
+    action: 'CHANNEL_UPDATED',
+    targetType: 'ChannelConnection',
+    targetId: channelId,
+    metadata: { label },
+  });
+
+  return { channel: updated };
+};
+
+export const refreshChannel = async (
+  channelId: string,
+  workspaceId: string,
+  userId: string
+): Promise<{ channel: ChannelSummary }> => {
+  const channel = await channelRepository.findChannelWithToken(channelId, workspaceId);
+
+  if (!channel) {
+    throw new NotFoundError('Kênh không tồn tại');
+  }
+
+  const token = channel.accessToken ? decrypt(channel.accessToken) : null;
+  if (!token) {
+    await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
+    throw new BadRequestError('Không đọc được token của Page. Vui lòng kết nối lại.');
+  }
+
+  let profile;
+  try {
+    profile = await facebookClient.fetchPageProfile(token);
+  } catch (error) {
+    if (facebookClient.isTokenExpiredError(error)) {
+      await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
+      throw new BadRequestError('Page đã hết hạn hoặc bị thu hồi quyền. Vui lòng kết nối lại.');
+    }
+    throw error;
+  }
+
+  if (profile.id !== channel.externalAccountId) {
+    throw new BadRequestError('Token không thuộc Page đã kết nối. Vui lòng kết nối lại.');
+  }
+
+  const updated = await channelRepository.updateChannelProfile(channelId, {
+    name: profile.name,
+    avatar: profile.avatar,
+  });
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId: userId,
+    action: 'CHANNEL_REFRESHED',
+    targetType: 'ChannelConnection',
+    targetId: channelId,
+    metadata: { pageId: profile.id, name: profile.name },
+  });
+
+  return { channel: updated };
+};
+
 export default {
   listChannels,
   createFacebookAuthUrl,
@@ -244,4 +332,7 @@ export default {
   connectFacebookPages,
   disconnectChannel,
   verifyChannelToken,
+  getChannelDetail,
+  updateChannelLabel,
+  refreshChannel,
 };

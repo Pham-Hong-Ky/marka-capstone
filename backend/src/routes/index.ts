@@ -37,6 +37,8 @@ import {
   oauthSessionSchema,
   connectFacebookSchema,
   channelIdSchema,
+  channelProfileSchema,
+  updateChannelLabelSchema,
 } from '../modules/channel/channel.validation.js';
 import channelController from '../modules/channel/channel.controller.js';
 import postController from '../modules/post/post.controller.js';
@@ -288,6 +290,29 @@ router.delete(
   validate(channelIdSchema),
   requireWorkspaceRole('OWNER'),
   channelController.disconnectChannel
+);
+
+// Hồ sơ kênh — xem chi tiết, đổi tên nội bộ, làm mới từ Facebook
+router.get(
+  '/workspaces/:workspaceId/channels/:channelId',
+  requireAuth,
+  validate(channelProfileSchema),
+  requireWorkspaceRole(),
+  channelController.getChannelDetail
+);
+router.patch(
+  '/workspaces/:workspaceId/channels/:channelId',
+  requireAuth,
+  validate(updateChannelLabelSchema),
+  requireWorkspaceRole(),
+  channelController.updateChannelLabel
+);
+router.post(
+  '/workspaces/:workspaceId/channels/:channelId/refresh',
+  requireAuth,
+  validate(channelProfileSchema),
+  requireWorkspaceRole(),
+  channelController.refreshChannel
 );
 
 // Billing — gói credit & PayOS (UC31, UC40, UC41)

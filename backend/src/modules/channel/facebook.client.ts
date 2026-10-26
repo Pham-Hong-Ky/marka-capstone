@@ -32,6 +32,16 @@ export interface FacebookPage {
   accessToken: string;
 }
 
+export interface FacebookPostMetrics {
+  reactions: number;
+  comments: number;
+  shares: number;
+  impressions: number | null;
+  reach: number | null;
+  reactionsDetail: Record<string, number> | null;
+  partialError: string | null;
+}
+
 export interface FacebookApiError {
   message?: string;
   type?: string;
@@ -61,10 +71,28 @@ interface FacebookAccountsResponse {
   };
 }
 
+interface FacebookPostFieldsResponse {
+  reactions?: { summary?: { total_count?: number } };
+  comments?: { summary?: { total_count?: number } };
+  shares?: { count?: number };
+}
+
+interface FacebookInsightsResponse {
+  data?: Array<{
+    name?: string;
+    values?: Array<{ value?: number | Record<string, number> }>;
+  }>;
+}
+
 export class FacebookClient {
   private readonly graphBase = 'https://graph.facebook.com/v21.0';
   private readonly authBase = 'https://www.facebook.com/v21.0/dialog/oauth';
-  private readonly scopes = ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts'];
+  private readonly scopes = [
+    'pages_show_list',
+    'pages_read_engagement',
+    'pages_manage_posts',
+    'read_insights',
+  ];
 
   isFacebookConfigured(): boolean {
     return Boolean(env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET && env.FACEBOOK_REDIRECT_URI);
@@ -278,6 +306,75 @@ export class FacebookClient {
     } while (afterCursor && allPages.length < MAX_PAGES_FETCH);
 
     return allPages;
+  }
+
+  async fetchPostMetrics(postId: string, accessToken: string): Promise<FacebookPostMetrics> {
+    const fields = await this.graphGet<FacebookPostFieldsResponse>(`/${postId}`, {
+      fields: 'reactions.limit(0).summary(true),comments.limit(0).summary(true),shares',
+      access_token: accessToken,
+    });
+
+    const metrics: FacebookPostMetrics = {
+      reactions: fields.reactions?.summary?.total_count ?? 0,
+      comments: fields.comments?.summary?.total_count ?? 0,
+      shares: fields.shares?.count ?? 0,
+      impressions: null,
+      reach: null,
+      reactionsDetail: null,
+      partialError: null,
+    };
+
+    try {
+      const insights = await this.graphGet<FacebookInsightsResponse>(`/${postId}/insights`, {
+        metric: 'post_impressions,post_impressions_unique,post_reactions_by_type_total',
+        period: 'lifetime',
+        access_token: accessToken,
+      });
+
+      for (const insight of insights.data ?? []) {
+        const value = insight.values?.[0]?.value;
+
+        if (insight.name === 'post_impressions' && typeof value === 'number') {
+          metrics.impressions = value;
+        }
+        if (insight.name === 'post_impressions_unique' && typeof value === 'number') {
+          metrics.reach = value;
+        }
+        if (
+          insight.name === 'post_reactions_by_type_total' &&
+          value &&
+          typeof value === 'object'
+        ) {
+          metrics.reactionsDetail = value;
+        }
+      }
+    } catch (error) {
+      if (this.isTokenExpiredError(error)) throw error;
+
+      metrics.partialError = error instanceof Error ? error.message : String(error);
+      logger.warn(`Không lấy được insights của bài ${postId}: ${metrics.partialError}`);
+    }
+
+    return metrics;
+  }
+
+  async fetchPageProfile(
+    accessToken: string
+  ): Promise<{ id: string; name: string; avatar: string | null }> {
+    const response = await this.graphGet<{
+      id: string;
+      name: string;
+      picture?: { data?: { url?: string } };
+    }>('/me', {
+      fields: 'id,name,picture{url}',
+      access_token: accessToken,
+    });
+
+    return {
+      id: response.id,
+      name: response.name,
+      avatar: response.picture?.data?.url ?? null,
+    };
   }
 
   async verifyPageToken(pageToken: string): Promise<boolean> {
