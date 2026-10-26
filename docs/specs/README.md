@@ -110,7 +110,7 @@ Mọi truy vấn dữ liệu nghiệp vụ đều lọc theo `workspaceId`; khô
 - `authLimiter`: 15 request/15 phút/IP cho `POST /auth/register` và `POST /auth/google`.
 - `loginLimiter`: 5 lần **thất bại**/15 phút theo khoá `IP:email` cho `POST /auth/login` (đăng nhập đúng không bị tính).
 - Hai limiter xác thực bị **bỏ qua khi `NODE_ENV=test`**. Vượt giới hạn → `429` với `{ "status": "fail", "message": "..." }`.
-- **Audit log:** service gọi `auditService.recordAuditLog(...)`. Ghi audit lỗi **không làm hỏng request** (chỉ `console.warn`). Chưa có API đọc audit log.
+- **Audit log:** service gọi `auditService.recordAuditLog(...)`. Ghi audit lỗi **không làm hỏng request** (chỉ `console.warn`). Đọc audit log qua `/admin/audit-logs` (System Admin) và `/workspaces/:workspaceId/audit-logs` (Owner).
 - **Queue/worker:** BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`). `scheduleWorker` xử lý đăng bài thật; `contentWorker` xử lý job `ai:text`/`ai:image` (Gemini/Cloudflare, hoàn credit khi thất bại); `email` vẫn là processor khung. Billing **không dùng queue**. Email hiện gửi đồng bộ trong request. Khi `NODE_ENV=test`, BullMQ dùng prefix `marka-test` (production dùng `bull`).
 - **Health:** `GET /health` công khai, kiểm tra PostgreSQL (`SELECT 1`) và Redis (`PING`); trả `503` (status `error`, kèm `data`) nếu một trong hai lỗi.
 - **Thông báo in-app:** API hộp thư của chính người dùng (`GET /users/me/notifications`, `GET .../unread-count`, `PATCH .../:id/read`, `PATCH .../read-all`); lọc theo `workspaceId` yêu cầu là thành viên workspace.
@@ -158,7 +158,7 @@ Cột **Trạng thái**:
 | **UC29** | Connect Social Channels | Owner | Một phần | `GET /channels/facebook/oauth/url`, `GET /channels/facebook/oauth/callback`, `GET /channels/facebook/oauth/session/:sessionId`, `POST /channels/facebook/oauth/session/:sessionId/connect` — **chỉ Facebook** | [04](./04-social-publishing.md) |
 | **UC30** | Disconnect Social Channel | Owner | Đã triển khai | `DELETE /channels/:channelId` | [04](./04-social-publishing.md) |
 | **UC31** | Top Up Credits | Mọi thành viên | Đã triển khai | `POST /workspaces/:workspaceId/billing/orders` | [06](./06-billing-payos.md) |
-| **UC32** | View Dashboard & Audit Log | System Admin, Owner | Chưa triển khai (Roadmap) | — (audit log được **ghi** nhưng chưa có API đọc) | [07](./07-admin-analytics.md) |
+| **UC32** | View Dashboard & Audit Log | System Admin, Owner | Đã triển khai | `/admin/stats`, `/admin/users`, `/admin/users/:userId/suspend`, `/admin/workspaces`, `/admin/audit-logs`, `/workspaces/:workspaceId/audit-logs` | [07](./07-admin-analytics.md) |
 | **UC33** | Update Profile | User | Đã triển khai | `GET /users/me`, `PATCH /users/me` | [01](./01-auth-workspace.md) |
 | **UC34** | Refresh Token | User | Đã triển khai | `POST /auth/refresh-token` | [01](./01-auth-workspace.md) |
 | **UC35** | List Workspaces | User | Đã triển khai | `GET /workspaces` | [01](./01-auth-workspace.md) |
@@ -179,10 +179,10 @@ Cột **Trạng thái**:
 | UC31a | Create Order | Đã triển khai | Tạo `Order(PENDING)` + link PayOS |
 | UC31b | PayOS Webhook | Đã triển khai | `POST /webhooks/payos`, verify chữ ký, idempotent |
 | UC31c | Poll Order Status | Đã triển khai | `GET /billing/orders/:orderId` đối soát PayOS |
-| UC32a | Admin Dashboard | Chưa triển khai (Roadmap) | — |
-| UC32b | View Audit Log | Chưa triển khai (Roadmap) | Audit log chỉ được ghi, không có API đọc |
+| UC32a | Admin Dashboard | Đã triển khai | `GET /admin/stats` — user/workspace/bài/kênh/doanh thu 30 ngày |
+| UC32b | View Audit Log | Đã triển khai | `/admin/audit-logs` (toàn hệ thống), `/workspaces/:workspaceId/audit-logs` (Owner) |
 
-**Thống kê:** 38 UC đã triển khai · 2 UC một phần (UC11, UC29) · 2 UC chưa triển khai (UC32, UC39). UC38 (thông báo realtime) vẫn ngoài phạm vi; API đọc hộp thư thông báo đã có.
+**Thống kê:** 39 UC đã triển khai · 2 UC một phần (UC11, UC29) · 1 UC chưa triển khai (UC39). UC38 (thông báo realtime) vẫn ngoài phạm vi; API đọc hộp thư thông báo đã có.
 
 ---
 
@@ -196,7 +196,7 @@ Cột **Trạng thái**:
 | 4. Kênh & Đăng bài | [04-social-publishing.md](./04-social-publishing.md) | Facebook Page OAuth; đăng ngay/lên lịch nhiều Page, worker BullMQ, trang `/schedule`; calendar nâng cao là Roadmap |
 | 5. Email & Thông báo | [05-notifications-email.md](./05-notifications-email.md) | Email mời, email duyệt/từ chối (Resend); ghi notification in-app + API hộp thư/chuông thông báo (UC38 vẫn ngoài phạm vi) |
 | 6. Credit & PayOS | [06-billing-payos.md](./06-billing-payos.md) | Module billing, gói nạp credit, PayOS, webhook, trang `/billing` |
-| 7. Quản trị & Báo cáo | [07-admin-analytics.md](./07-admin-analytics.md) | Roadmap — audit log được ghi, chưa có dashboard/API quản trị |
+| 7. Quản trị & Báo cáo | [07-admin-analytics.md](./07-admin-analytics.md) | Module admin: dashboard hệ thống, danh sách/khoá user, danh sách workspace, API đọc audit log (admin + Owner) |
 | 8. Post Analytics | [08-post-analytics.md](./08-post-analytics.md) | Roadmap — schema `PostMetric` đã có, chưa có đồng bộ/endpoint |
 
 ---
@@ -208,9 +208,9 @@ Các mục sau **chưa có trong code** (chi tiết ở file tương ứng):
 1. **AI (03):** Viral Score, sinh lại/viết tiếp, nhiều ảnh/lần, chọn tỉ lệ/style, lịch sử AI UI, sweeper job kẹt.
 2. **Đăng bài (04):** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả/sửa giờ, video, làm mới token Facebook tự động.
 3. **Thông báo (05):** email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`. UC38 đã bỏ khỏi phạm vi.
-4. **Quản trị (07):** admin panel, quản lý user/workspace, dashboard, API đọc audit log (UC32).
-5. **Post Analytics (08):** đồng bộ `PostMetric` từ Facebook Graph API, dashboard hiệu quả, n8n (UC39).
-6. **Nâng cấp giao việc:** board Kanban, độ ưu tiên, nhắc hạn qua email (UC42/UC43 bản cơ bản đã có).
+4. **Post Analytics (08):** đồng bộ `PostMetric` từ Facebook Graph API, dashboard hiệu quả, n8n (UC39).
+5. **Nâng cấp giao việc:** board Kanban, độ ưu tiên, nhắc hạn qua email (UC42/UC43 bản cơ bản đã có).
+6. **Quản trị nâng cao (07):** đổi `systemRole`, xoá/khôi phục workspace, xuất audit log, chính sách lưu trữ log.
 
 ---
 

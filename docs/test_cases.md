@@ -393,9 +393,9 @@ Các hành vi **đã có trong code** nhưng **không có test tự động** t�
 
 Các phần sau **không có endpoint/module tương ứng** trong `backend/src/routes/index.ts`, nên không có test:
 
-- **Admin dashboard & API audit log (UC32)** — module `audit` chỉ có service/repository, không expose route.
 - **Calendar nâng cao (UC14):** kéo-thả đổi giờ, sửa lịch sau khi tạo — chưa có API/UI.
 - **Analytics / `PostMetric` (UC39)** — không có API.
-- **Giao việc / trạng thái công việc (UC42, UC43)** — không có module/route.
 
-**UC38 (API đọc notification) đã bỏ khỏi phạm vi**, không tính là phần chưa triển khai.
+**Đã bổ sung test:** admin/audit (UC32) trong `admin.test.ts`; giao việc/trạng thái (UC42/UC43) trong `post.test.ts`; hộp thư thông báo trong `notification.test.ts`.
+
+**UC38 (thông báo realtime) vẫn ngoài phạm vi**, nhưng API đọc hộp thư thông báo đã có.
