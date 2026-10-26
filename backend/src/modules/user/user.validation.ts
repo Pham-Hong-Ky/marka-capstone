@@ -34,10 +34,23 @@ export const changePasswordBodySchema = z.object({
     .openapi({ example: 'newPassword456' }),
 });
 
+export const deleteAccountBodySchema = z.object({
+  password: z.string().optional().openapi({ example: 'password123' }),
+  confirm: z
+    .string()
+    .refine((value) => value === 'XOA', {
+      message: 'Nhập XOA để xác nhận xoá tài khoản',
+    }),
+});
+
 export const updateProfileSchema = { body: updateProfileBodySchema };
 export const changePasswordSchema = { body: changePasswordBodySchema };
+export const deleteAccountSchema = { body: deleteAccountBodySchema };
+
+export type DeleteAccountBody = z.infer<typeof deleteAccountBodySchema>;
 
 export default {
   updateProfileSchema,
   changePasswordSchema,
+  deleteAccountSchema,
 };

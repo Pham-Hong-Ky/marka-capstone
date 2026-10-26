@@ -3,8 +3,8 @@ import authController from '../modules/auth/auth.controller.js';
 import userController from '../modules/user/user.controller.js';
 import healthController from '../modules/health/health.controller.js';
 import { validate } from '../middlewares/validate.js';
-import { requireAuth, requireWorkspaceRole, optionalAuth } from '../middlewares/auth.js';
-import { uploadPostMedia } from '../middlewares/upload.js';
+import { requireAuth, requireWorkspaceRole, requireRoles, optionalAuth } from '../middlewares/auth.js';
+import { uploadPostMedia, uploadAvatar } from '../middlewares/upload.js';
 import { authLimiter, loginLimiter, aiLimiter } from '../middlewares/rateLimiter.js';
 import {
   registerSchema,
@@ -16,6 +16,7 @@ import {
 import {
   updateProfileSchema,
   changePasswordSchema,
+  deleteAccountSchema,
 } from '../modules/user/user.validation.js';
 import {
   createWorkspaceSchema,
@@ -92,6 +93,9 @@ router.post('/auth/refresh-token', validate(refreshTokenSchema), authController.
 // User (UC04, UC32)
 router.get('/users/me', requireAuth, userController.getMe);
 router.patch('/users/me', requireAuth, validate(updateProfileSchema), userController.updateProfile);
+router.post('/users/me/avatar', requireAuth, uploadAvatar, userController.uploadAvatar);
+router.post('/users/me/logout-all', requireAuth, userController.logoutAll);
+router.delete('/users/me', requireAuth, validate(deleteAccountSchema), userController.deleteAccount);
 router.patch('/users/me/password', requireAuth, validate(changePasswordSchema), userController.changePassword);
 
 // Notifications — hộp thư trong ứng dụng

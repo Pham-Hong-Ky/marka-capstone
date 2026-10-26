@@ -41,4 +41,10 @@ export const uploadPostMedia = createImageUpload({
   tooLargeMessage: 'Ảnh vượt quá 10MB',
 });
 
+export const uploadAvatar = createImageUpload({
+  field: 'file',
+  maxBytes: 2 * 1024 * 1024,
+  tooLargeMessage: 'Ảnh đại diện vượt quá 2MB',
+});
+
 export default uploadPostMedia;

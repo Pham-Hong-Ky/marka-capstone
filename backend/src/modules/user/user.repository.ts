@@ -1,5 +1,5 @@
 import type { AuthProvider } from '@prisma/client';
-import prisma from '../../config/db.js';
+import prisma, { basePrisma } from '../../config/db.js';
 
 export interface CreateUserData {
   email: string;
@@ -49,6 +49,11 @@ export const findUserByEmail = async (email: string) => {
     include: WITH_WORKSPACES,
   });
 };
+
+// Đăng ký cần biết email đã thuộc tài khoản đã xoá mềm hay chưa, để trả lỗi
+// rõ ràng thay vì vi phạm ràng buộc unique của DB.
+export const findUserByEmailIncludingDeleted = async (email: string) =>
+  basePrisma.user.findUnique({ where: { email }, select: { id: true, deletedAt: true } });
 
 // Mỗi tài khoản mới luôn có một workspace mặc định do chính họ làm Owner.
 export const createUserWithDefaultWorkspace = async (data: CreateUserData) => {
@@ -102,11 +107,41 @@ export const incrementTokenVersion = async (userId: string) => {
   });
 };
 
+export const findSoleOwnedWorkspaces = async (userId: string): Promise<string[]> => {
+  const memberships = await prisma.workspaceMember.findMany({
+    where: { userId, role: 'OWNER', workspace: { deletedAt: null } },
+    select: {
+      workspace: {
+        select: {
+          name: true,
+          _count: { select: { members: { where: { role: 'OWNER' } } } },
+        },
+      },
+    },
+  });
+
+  return memberships
+    .filter((membership) => membership.workspace._count.members === 1)
+    .map((membership) => membership.workspace.name);
+};
+
+export const softDeleteUser = async (userId: string) =>
+  prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: { deletedAt: new Date(), tokenVersion: { increment: 1 } },
+    });
+    await tx.workspaceMember.deleteMany({ where: { userId } });
+  });
+
 export default {
   findUserById,
   findUserByEmail,
+  findUserByEmailIncludingDeleted,
   createUserWithDefaultWorkspace,
   linkGoogleAccount,
   updateUser,
   incrementTokenVersion,
+  findSoleOwnedWorkspaces,
+  softDeleteUser,
 };

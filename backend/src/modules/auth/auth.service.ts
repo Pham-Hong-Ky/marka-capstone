@@ -32,9 +32,13 @@ const assertNotSuspended = (user: { isSuspended: boolean }) => {
 };
 
 export const registerUser = async ({ email, password, name }: RegisterInput) => {
-  const existingUser = await userRepository.findUserByEmail(email);
+  const existingUser = await userRepository.findUserByEmailIncludingDeleted(email);
   if (existingUser) {
-    throw new ConflictError('Email này đã được đăng ký trong hệ thống');
+    throw new ConflictError(
+      existingUser.deletedAt
+        ? 'Email này thuộc tài khoản đã xoá. Vui lòng dùng email khác.'
+        : 'Email này đã được đăng ký trong hệ thống'
+    );
   }
 
   const user = await userRepository.createUserWithDefaultWorkspace({
@@ -78,6 +82,13 @@ const findOrCreateGoogleUser = async (profile: GoogleProfile) => {
   const existingUser = await userRepository.findUserByEmail(profile.email);
 
   if (!existingUser) {
+    const deletedUser = await userRepository.findUserByEmailIncludingDeleted(profile.email);
+    if (deletedUser) {
+      throw new ConflictError(
+        'Email này thuộc tài khoản đã xoá. Vui lòng dùng email Google khác.'
+      );
+    }
+
     return userRepository.createUserWithDefaultWorkspace({
       email: profile.email,
       name: profile.name || 'Google User',
