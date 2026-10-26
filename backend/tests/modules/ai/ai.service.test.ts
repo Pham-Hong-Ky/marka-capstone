@@ -2,15 +2,26 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import prisma, { basePrisma } from '../../../src/config/db.js';
 import { enqueue } from '../../../src/workers/queue-manager.js';
 import { QUEUE_NAMES } from '../../../src/workers/types.js';
-import { NotFoundError, PaymentRequiredError, ServiceUnavailableError } from '../../../src/utils/errors/index.js';
+import {
+  ConflictError,
+  NotFoundError,
+  PaymentRequiredError,
+  ServiceUnavailableError,
+} from '../../../src/utils/errors/index.js';
+import * as aiConfig from '../../../src/modules/ai/ai.config.js';
 import aiService from '../../../src/modules/ai/ai.service.js';
 
-vi.mock('../../../src/modules/ai/ai.config.js', () => ({
-  isTextAiConfigured: () => true,
-  isImageAiConfigured: () => true,
-  getGeminiModel: () => 'gemini-test',
-  getImageModel: () => 'image-test',
-}));
+vi.mock('../../../src/modules/ai/ai.config.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../../src/modules/ai/ai.config.js')>();
+  return {
+    ...actual,
+    isTextAiConfigured: vi.fn(() => true),
+    isImageAiConfigured: vi.fn(() => true),
+    getGeminiModel: () => 'gemini-test',
+    getImageModel: () => 'image-test',
+  };
+});
 
 vi.mock('../../../src/workers/queue-manager.js', () => ({
   enqueue: vi.fn(),
@@ -135,6 +146,27 @@ describe('AI service', () => {
     expect(workspace.remainingCredit).toBe(5);
   });
 
+  it('tạo ảnh cần Gemini để viết prompt, thiếu cấu hình thì trả 503 và không trừ credit', async () => {
+    const textConfigured = vi.mocked(aiConfig.isTextAiConfigured).mockReturnValue(false);
+
+    try {
+      await expect(
+        aiService.startImageGeneration({
+          workspaceId,
+          userId,
+          role: 'OWNER',
+          body: { title: 'Bài thiếu cấu hình Gemini', content },
+        })
+      ).rejects.toBeInstanceOf(ServiceUnavailableError);
+    } finally {
+      textConfigured.mockReturnValue(true);
+    }
+
+    expect(await prisma.aiGeneration.count({ where: { workspaceId } })).toBe(0);
+    const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } });
+    expect(workspace.remainingCredit).toBe(100);
+  });
+
   it('ảnh cho bài mới tạo Post nháp + generation trong cùng transaction', async () => {
     const result = await aiService.startImageGeneration({
       workspaceId,
@@ -193,6 +225,48 @@ describe('AI service', () => {
 
     const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: otherWorkspaceId } });
     expect(workspace.remainingCredit).toBe(100);
+  });
+
+  it('ảnh cho post đã rời DRAFT/REJECTED bị chặn trước khi giữ credit', async () => {
+    await prisma.post.update({ where: { id: postId }, data: { status: 'PENDING' } });
+
+    try {
+      await expect(
+        aiService.startImageGeneration({
+          workspaceId,
+          userId,
+          role: 'OWNER',
+          body: { postId, prompt: 'Ảnh' },
+        })
+      ).rejects.toBeInstanceOf(ConflictError);
+
+      expect(await prisma.aiGeneration.count({ where: { workspaceId } })).toBe(0);
+      const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } });
+      expect(workspace.remainingCredit).toBe(100);
+    } finally {
+      await prisma.post.update({ where: { id: postId }, data: { status: 'DRAFT' } });
+    }
+  });
+
+  it('text cho post đã rời DRAFT/REJECTED bị chặn trước khi giữ credit', async () => {
+    await prisma.post.update({ where: { id: postId }, data: { status: 'APPROVED' } });
+
+    try {
+      await expect(
+        aiService.startTextGeneration({
+          workspaceId,
+          userId,
+          role: 'OWNER',
+          body: { topic: 'Chủ đề kiểm tra trạng thái bài', postId },
+        })
+      ).rejects.toBeInstanceOf(ConflictError);
+
+      expect(await prisma.aiGeneration.count({ where: { workspaceId } })).toBe(0);
+      const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } });
+      expect(workspace.remainingCredit).toBe(100);
+    } finally {
+      await prisma.post.update({ where: { id: postId }, data: { status: 'DRAFT' } });
+    }
   });
 
   it('enqueue lỗi thì hoàn credit và đánh dấu generation FAILED', async () => {

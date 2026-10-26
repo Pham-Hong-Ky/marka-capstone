@@ -1,8 +1,8 @@
+import type { AiGeneration } from '@prisma/client';
 import { UnrecoverableError, type Job } from 'bullmq';
 import logger from '../../utils/logger.js';
 import { cloudinaryClient } from '../../utils/cloudinary.client.js';
-import aiRepository from './ai.repository.js';
-import aiService from './ai.service.js';
+import { getGeminiModel } from './ai.config.js';
 import {
   AiContentPolicyError,
   AiOutputError,
@@ -10,44 +10,48 @@ import {
   AiProviderConfigError,
   AiProviderError,
 } from './ai.errors.js';
+import {
+  buildImageArtPrompt,
+  buildImagePrompt,
+  parseImageArtOutput,
+  parseImageSourcePayload,
+  type ImageSourcePayload,
+} from './ai.image-prompt.js';
+import {
+  aiTextResponseSchema,
+  parseTextOutput,
+  parseTextPromptPayload,
+  toTiptapDoc,
+} from './ai.prompt.js';
 import { cloudflareImageClient, geminiClient } from './ai.providers.js';
-import { aiTextResponseSchema, parseTextOutput, toTiptapDoc } from './ai.prompt.js';
+import { assertPostAcceptsImages } from './ai.generation.js';
+import aiRepository from './ai.repository.js';
+import aiService from './ai.service.js';
 
 interface AiJobData {
   generationId: string;
 }
 
-interface TextPromptPayload {
-  systemInstruction: string;
-  userPrompt: string;
-}
-
-interface ImagePromptPayload {
-  imagePrompt: string;
-}
-
-const parseTextPrompt = (prompt: string): TextPromptPayload => {
-  try {
-    const parsed = JSON.parse(prompt) as Partial<TextPromptPayload>;
-    if (typeof parsed.systemInstruction !== 'string' || typeof parsed.userPrompt !== 'string') {
-      throw new Error('Thiếu systemInstruction hoặc userPrompt');
-    }
-    return { systemInstruction: parsed.systemInstruction, userPrompt: parsed.userPrompt };
-  } catch {
-    throw new AiProviderConfigError('Dữ liệu prompt của generation không hợp lệ');
+const resolveImagePrompt = async (source: ImageSourcePayload) => {
+  if (typeof source.imagePrompt === 'string' && source.imagePrompt.trim() !== '') {
+    return source.imagePrompt.trim();
   }
-};
 
-const parseImagePrompt = (prompt: string): string => {
-  try {
-    const parsed = JSON.parse(prompt) as Partial<ImagePromptPayload>;
-    if (typeof parsed.imagePrompt !== 'string' || parsed.imagePrompt.trim() === '') {
-      throw new Error('Thiếu imagePrompt');
-    }
-    return parsed.imagePrompt;
-  } catch {
-    throw new AiProviderConfigError('Dữ liệu prompt của generation không hợp lệ');
-  }
+  const { systemInstruction, userPrompt, responseSchema } = buildImageArtPrompt({
+    title: source.title ?? undefined,
+    contentText: source.contentText ?? undefined,
+    instructions: source.instructions ?? undefined,
+    brandVoice: source.brandVoice,
+  });
+
+  const raw = await geminiClient.generateJson({
+    model: getGeminiModel(),
+    systemInstruction,
+    userPrompt,
+    responseSchema,
+  });
+
+  return buildImagePrompt(parseImageArtOutput(raw));
 };
 
 const normalizeAiError = (error: unknown, attempt: number): unknown => {
@@ -72,8 +76,8 @@ const normalizeAiError = (error: unknown, attempt: number): unknown => {
   return error;
 };
 
-const runTextGeneration = async (generation: NonNullable<Awaited<ReturnType<typeof aiService.markProcessing>>>) => {
-  const { systemInstruction, userPrompt } = parseTextPrompt(generation.prompt);
+const runTextGeneration = async (generation: AiGeneration) => {
+  const { systemInstruction, userPrompt } = parseTextPromptPayload(generation.prompt);
 
   const raw = await geminiClient.generateJson({
     model: generation.model,
@@ -83,32 +87,22 @@ const runTextGeneration = async (generation: NonNullable<Awaited<ReturnType<type
   });
 
   const output = parseTextOutput(raw);
-  const content = toTiptapDoc(output);
 
   await aiService.completeTextGeneration(generation.id, {
     title: output.title,
-    content,
+    content: toTiptapDoc(output),
   });
 };
 
-const runImageGeneration = async (
-  generation: NonNullable<Awaited<ReturnType<typeof aiService.markProcessing>>>
-) => {
+const runImageGeneration = async (generation: AiGeneration) => {
   if (!generation.postId) {
     throw new AiPostNotEditableError('Generation ảnh không gắn với bài viết nào');
   }
 
   const post = await aiRepository.getPostForGeneration(generation.postId, generation.workspaceId);
+  assertPostAcceptsImages(post);
 
-  if (!post) {
-    throw new AiPostNotEditableError('Bài viết không tồn tại hoặc đã bị xoá');
-  }
-
-  if (post.status !== 'DRAFT' && post.status !== 'REJECTED') {
-    throw new AiPostNotEditableError('Bài viết đã được gửi duyệt nên không thể thêm ảnh');
-  }
-
-  const imagePrompt = parseImagePrompt(generation.prompt);
+  const imagePrompt = await resolveImagePrompt(parseImageSourcePayload(generation.prompt));
   const buffer = await cloudflareImageClient.generateImage({
     model: generation.model,
     prompt: imagePrompt,
@@ -171,35 +165,37 @@ export const processContentJob = async (job: Job): Promise<{ success: boolean }>
   }
 };
 
-export const buildAiFailureMessage = (type: string, error: unknown): string => {
-  const suffix = ' Credit đã được hoàn.';
+const REFUND_SUFFIX = ' Credit đã được hoàn.';
 
+const withRefundSuffix = (message: string): string =>
+  `${message.replace(/[.!?]+$/, '')}.${REFUND_SUFFIX}`;
+
+export const buildAiFailureMessage = (type: string, error: unknown): string => {
   if (error instanceof AiContentPolicyError) {
-    return `Nội dung bị chặn bởi chính sách AI.${suffix}`;
+    return withRefundSuffix('Nội dung bị chặn bởi chính sách AI');
   }
 
   if (error instanceof AiProviderConfigError) {
-    return `Dịch vụ AI chưa được cấu hình đầy đủ.${suffix}`;
+    return withRefundSuffix('Dịch vụ AI chưa được cấu hình đầy đủ');
   }
 
   if (error instanceof AiPostNotEditableError) {
-    return `${error.message}.${suffix}`;
+    return withRefundSuffix(error.message);
   }
 
   if (error instanceof AiOutputError) {
-    return `AI trả về nội dung không hợp lệ.${suffix}`;
+    return withRefundSuffix('AI trả về nội dung không hợp lệ');
   }
 
-  if (error instanceof UnrecoverableError || (error instanceof Error && error.name === 'UnrecoverableError')) {
+  if (
+    error instanceof UnrecoverableError ||
+    (error instanceof Error && error.name === 'UnrecoverableError')
+  ) {
     const message = error.message.trim();
-    if (message) {
-      return `${message.replace(/[.!?]+$/, '')}.${suffix}`;
-    }
+    if (message) return withRefundSuffix(message);
   }
 
-  return type === 'IMAGE'
-    ? `Tạo ảnh AI thất bại.${suffix}`
-    : `Tạo nội dung AI thất bại.${suffix}`;
+  return withRefundSuffix(type === 'IMAGE' ? 'Tạo ảnh AI thất bại' : 'Tạo nội dung AI thất bại');
 };
 
 export default {

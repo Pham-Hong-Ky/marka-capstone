@@ -55,6 +55,15 @@ describe('Gemini client', () => {
     const body = JSON.parse(String(init.body));
     expect(body.generationConfig.responseMimeType).toBe('application/json');
     expect(body.generationConfig.responseSchema).toEqual({ type: 'object' });
+    expect(body.generationConfig.temperature).toBe(0.7);
+    expect(body.safetySettings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'HARM_CATEGORY_HARASSMENT',
+          threshold: 'BLOCK_ONLY_HIGH',
+        }),
+      ])
+    );
     expect(body.systemInstruction.parts[0].text).toBe('system');
   });
 
@@ -125,7 +134,8 @@ describe('Cloudflare image client', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/ai/run/@cf/black-forest-labs/flux-1-schnell');
     const body = JSON.parse(String(init.body));
-    expect(body).toMatchObject({ prompt: 'một chiếc áo', steps: 4 });
+    expect(body).toMatchObject({ prompt: 'một chiếc áo', steps: 8 });
+    expect(body).not.toHaveProperty('seed');
   });
 
   it('ném AiProviderError khi Cloudflare trả success=false', async () => {

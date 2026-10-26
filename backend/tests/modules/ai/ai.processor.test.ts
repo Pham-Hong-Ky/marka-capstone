@@ -7,12 +7,17 @@ import { cloudflareImageClient, geminiClient } from '../../../src/modules/ai/ai.
 import aiService from '../../../src/modules/ai/ai.service.js';
 import { buildAiFailureMessage, executeAiGeneration } from '../../../src/modules/ai/ai.processor.js';
 
-vi.mock('../../../src/modules/ai/ai.config.js', () => ({
-  isTextAiConfigured: () => true,
-  isImageAiConfigured: () => true,
-  getGeminiModel: () => 'gemini-test',
-  getImageModel: () => 'image-test',
-}));
+vi.mock('../../../src/modules/ai/ai.config.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../../src/modules/ai/ai.config.js')>();
+  return {
+    ...actual,
+    isTextAiConfigured: () => true,
+    isImageAiConfigured: () => true,
+    getGeminiModel: () => 'gemini-test',
+    getImageModel: () => 'image-test',
+  };
+});
 
 vi.mock('../../../src/workers/queue-manager.js', () => ({
   enqueue: vi.fn(),
@@ -134,10 +139,22 @@ describe('AI processor', () => {
     });
 
     const bytes = Buffer.from('fake-jpeg');
+    geminiMock.mockResolvedValue({
+      prompt: 'minimalist autumn fashion flat lay, soft natural light, warm tones',
+    });
     imageMock.mockResolvedValue(bytes);
     cloudinaryMock.mockResolvedValue('https://res.cloudinary.com/demo/image/upload/ai.jpg');
 
     await executeAiGeneration(started.generationId, 0);
+
+    expect(geminiMock).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gemini-test', responseSchema: expect.any(Object) })
+    );
+    expect(imageMock).toHaveBeenCalledWith({
+      model: 'image-test',
+      prompt: expect.stringContaining('minimalist autumn fashion flat lay'),
+    });
+    expect(imageMock.mock.calls[0]?.[0].prompt).toContain('No text');
 
     const media = await prisma.mediaAsset.findFirstOrThrow({
       where: { workspaceId, postId: started.postId as string },
@@ -232,6 +249,7 @@ describe('AI processor', () => {
     });
 
     imageMock.mockResolvedValue(Buffer.from('fake-jpeg'));
+    geminiMock.mockResolvedValue({ prompt: 'a clean studio product shot, soft lighting' });
     cloudinaryMock.mockResolvedValue('https://res.cloudinary.com/demo/image/upload/ai-1.jpg');
 
     await executeAiGeneration(started.generationId, 0);
@@ -239,6 +257,47 @@ describe('AI processor', () => {
 
     expect(await prisma.mediaAsset.count({ where: { workspaceId } })).toBe(1);
     expect(imageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('prompt ảnh do AI trả về sai schema thì retry, không gọi tạo ảnh', async () => {
+    const started = await aiService.startImageGeneration({
+      workspaceId,
+      userId,
+      role: 'OWNER',
+      body: { title: 'Bài prompt lỗi', content },
+    });
+
+    geminiMock.mockResolvedValue({ unexpected: true });
+
+    await expect(executeAiGeneration(started.generationId, 0)).rejects.toSatisfy(
+      (error) => !isUnrecoverable(error)
+    );
+    await expect(executeAiGeneration(started.generationId, 1)).rejects.toSatisfy(isUnrecoverable);
+    expect(imageMock).not.toHaveBeenCalled();
+  });
+
+  it('generation ảnh cũ chỉ có imagePrompt vẫn tạo ảnh không cần gọi lại AI', async () => {
+    const started = await aiService.startImageGeneration({
+      workspaceId,
+      userId,
+      role: 'OWNER',
+      body: { title: 'Bài generation cũ', content },
+    });
+
+    await prisma.aiGeneration.update({
+      where: { id: started.generationId },
+      data: { prompt: JSON.stringify({ imagePrompt: 'legacy english prompt' }) },
+    });
+    imageMock.mockResolvedValue(Buffer.from('fake-jpeg'));
+    cloudinaryMock.mockResolvedValue('https://res.cloudinary.com/demo/image/upload/ai-legacy.jpg');
+
+    await executeAiGeneration(started.generationId, 0);
+
+    expect(geminiMock).not.toHaveBeenCalled();
+    expect(imageMock).toHaveBeenCalledWith({
+      model: 'image-test',
+      prompt: 'legacy english prompt',
+    });
   });
 
   it('failGeneration idempotent: chỉ hoàn credit một lần', async () => {

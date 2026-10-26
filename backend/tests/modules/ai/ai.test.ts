@@ -4,12 +4,17 @@ import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
 import { enqueue } from '../../../src/workers/queue-manager.js';
 
-vi.mock('../../../src/modules/ai/ai.config.js', () => ({
-  isTextAiConfigured: () => true,
-  isImageAiConfigured: () => true,
-  getGeminiModel: () => 'gemini-test',
-  getImageModel: () => 'image-test',
-}));
+vi.mock('../../../src/modules/ai/ai.config.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../../src/modules/ai/ai.config.js')>();
+  return {
+    ...actual,
+    isTextAiConfigured: () => true,
+    isImageAiConfigured: () => true,
+    getGeminiModel: () => 'gemini-test',
+    getImageModel: () => 'image-test',
+  };
+});
 
 vi.mock('../../../src/workers/queue-manager.js', () => ({
   enqueue: vi.fn(),
