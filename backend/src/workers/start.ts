@@ -1,7 +1,8 @@
 import logger from '../utils/logger.js';
 import { queueConnection } from '../config/redis.js';
 import { registerScheduleScheduler } from '../modules/schedule/schedule.processor.js';
-import { contentWorker, scheduleWorker, emailWorker, closeWorkers } from './index.js';
+import { registerAnalyticsScheduler } from '../modules/analytics/analytics.processor.js';
+import { analyticsWorker, contentWorker, scheduleWorker, emailWorker, closeWorkers } from './index.js';
 import { closeQueues } from './queue-manager.js';
 import { QUEUE_NAMES } from './types.js';
 
@@ -19,6 +20,12 @@ export const startWorkers = async (): Promise<void> => {
     const message = error instanceof Error ? error.message : String(error);
     logger.error(`[Workers] Không đăng ký được scheduler đăng bài: ${message}`);
   }
+  try {
+    await registerAnalyticsScheduler();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(`[Workers] Không đăng ký được scheduler đồng bộ số liệu: ${message}`);
+  }
   logger.info(`[Workers] Đã khởi động: ${Object.values(QUEUE_NAMES).join(', ')}`);
 };
 
@@ -31,6 +38,6 @@ export const stopWorkers = async (): Promise<void> => {
   logger.info('[Workers] Đã dừng toàn bộ worker an toàn.');
 };
 
-export const workers = { contentWorker, scheduleWorker, emailWorker };
+export const workers = { contentWorker, scheduleWorker, analyticsWorker, emailWorker };
 
 export default { startWorkers, stopWorkers, workers };

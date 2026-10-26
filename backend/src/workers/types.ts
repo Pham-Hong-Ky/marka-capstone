@@ -8,6 +8,7 @@ export const QUEUE_PREFIX = isTest ? 'marka-test' : 'bull';
 export const QUEUE_NAMES = {
   contentGeneration: 'content-generation-queue',
   schedule: 'schedule-queue',
+  analytics: 'analytics-queue',
   email: 'email-queue',
 } as const;
 

@@ -65,6 +65,12 @@ import {
   generateImageSchema,
   generationIdSchema,
 } from '../modules/ai/ai.validation.js';
+import analyticsController from '../modules/analytics/analytics.controller.js';
+import {
+  analyticsOverviewSchema,
+  analyticsSuggestionsSchema,
+  analyticsSyncSchema,
+} from '../modules/analytics/analytics.validation.js';
 import billingController from '../modules/billing/billing.controller.js';
 import {
   billingSchema,
@@ -482,6 +488,29 @@ router.delete(
   validate(scheduleIdSchema),
   requireWorkspaceRole(),
   scheduleController.cancelSchedule
+);
+
+// Analytics — thống kê hiệu quả bài đăng & gợi ý (Phân hệ 8)
+router.get(
+  '/workspaces/:workspaceId/analytics/overview',
+  requireAuth,
+  validate(analyticsOverviewSchema),
+  requireWorkspaceRole(),
+  analyticsController.getOverview
+);
+router.get(
+  '/workspaces/:workspaceId/analytics/suggestions',
+  requireAuth,
+  validate(analyticsSuggestionsSchema),
+  requireWorkspaceRole(),
+  analyticsController.getSuggestions
+);
+router.post(
+  '/workspaces/:workspaceId/analytics/sync',
+  requireAuth,
+  validate(analyticsSyncSchema),
+  requireWorkspaceRole(),
+  analyticsController.triggerSync
 );
 
 export default router;
