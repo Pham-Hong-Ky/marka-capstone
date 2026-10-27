@@ -11,8 +11,19 @@ const PRISMA_ERRORS: Record<string, { statusCode: number; message: string }> = {
   P2025: { statusCode: 404, message: 'Không tìm thấy dữ liệu' },
 };
 
+type HttpStatusError = Error & { status?: number; statusCode?: number };
+
+const getHttpStatus = (error: unknown): number | undefined => {
+  if (!(error instanceof Error)) return undefined;
+  const { status, statusCode } = error as HttpStatusError;
+  return status ?? statusCode;
+};
+
 export const errorHandler = (err: unknown, req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof AppError) {
+    if (err.statusCode >= 500) {
+      logger.error(err.message, { requestId: req.id, path: req.originalUrl, stack: err.stack });
+    }
     return ApiResponse.error(res, { statusCode: err.statusCode, message: err.message, errors: err.errors });
   }
 
@@ -27,6 +38,16 @@ export const errorHandler = (err: unknown, req: Request, res: Response, _next: N
   const prismaError = err instanceof Prisma.PrismaClientKnownRequestError ? PRISMA_ERRORS[err.code] : undefined;
   if (prismaError) {
     return ApiResponse.error(res, prismaError);
+  }
+
+  // Lỗi của body-parser (JSON hỏng, payload quá lớn) có status 4xx nhưng không
+  // phải AppError; trả đúng mã để client sửa request thay vì nhận 500.
+  const httpStatus = getHttpStatus(err);
+  if (httpStatus && httpStatus >= 400 && httpStatus < 500) {
+    return ApiResponse.error(res, {
+      statusCode: httpStatus,
+      message: httpStatus === 413 ? 'Dữ liệu gửi lên quá lớn' : 'Dữ liệu gửi lên không hợp lệ',
+    });
   }
 
   const message = err instanceof Error ? err.message : 'Lỗi không xác định';
