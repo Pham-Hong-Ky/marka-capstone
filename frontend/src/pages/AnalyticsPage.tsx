@@ -70,6 +70,15 @@ export const AnalyticsPage = () => {
   const isCustomInvalid =
     filters.range === 'custom' && (!filters.from || !filters.to || filters.to < filters.from);
 
+  const syncKey = [
+    workspaceId,
+    filters.range,
+    filters.from ?? '',
+    filters.to ?? '',
+    filters.channelId ?? '',
+    filters.tag ?? '',
+  ].join('|');
+
   const [pollInterval, setPollInterval] = useState<number | false>(false);
   const overview = useAnalyticsOverview(workspaceId, filters, {
     enabled: !isCustomInvalid,
@@ -78,6 +87,7 @@ export const AnalyticsPage = () => {
   const { start, isWaiting, error: syncError } = useAnalyticsSync({
     workspaceId,
     coverage: overview.data?.coverage,
+    syncKey,
   });
   const suggestions = useAnalyticsSuggestions(workspaceId, filters.channelId);
 
