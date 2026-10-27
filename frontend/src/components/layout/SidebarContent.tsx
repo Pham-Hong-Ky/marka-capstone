@@ -5,16 +5,17 @@ import { buttonClasses } from '@/components/ui/button.styles';
 import WorkspaceSwitcher from '@/components/features/workspace/WorkspaceSwitcher';
 import CreditUsageCard from './CreditUsageCard';
 import UserMenu from './UserMenu';
-import { NAV_ITEMS } from '@/config/navigation';
+import { ADMIN_NAV_ITEM, NAV_ITEMS } from '@/config/navigation';
 import type { AuthUser, UserWorkspace } from '@/services/auth';
 import { cn } from '@/utils/cn';
 
 const MEMBERS_PATH = '/settings/members';
 const SETTINGS_PATH = '/settings';
+const ADMIN_PATH = '/admin';
 
 // "Thành viên" là mục con của "Cài đặt" nên phải loại trừ nhau để không cùng active.
 const isItemActive = (pathname: string, to: string): boolean => {
-  if (to === '/') return pathname === '/';
+  if (to === '/' || to === ADMIN_PATH) return pathname === to;
   if (to === SETTINGS_PATH) {
     return pathname.startsWith(SETTINGS_PATH) && !pathname.startsWith(MEMBERS_PATH);
   }
@@ -38,6 +39,7 @@ export const SidebarContent = ({
 }) => {
   const { pathname } = useLocation();
   const isCollapsed = variant === 'desktop' && collapsed;
+  const navItems = user?.systemRole === 'SYSTEM_ADMIN' ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
 
   const toggleLabel = isCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng';
 
@@ -76,7 +78,7 @@ export const SidebarContent = ({
           </Link>
         ) : null}
 
-        {NAV_ITEMS.map(({ label, to, icon: Icon }) => {
+        {navItems.map(({ label, to, icon: Icon }) => {
           const active = isItemActive(pathname, to);
 
           return (

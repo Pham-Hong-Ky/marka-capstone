@@ -1,8 +1,10 @@
 import type { ComponentType } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import AdminRoute from '@/components/auth/AdminRoute';
 import GuestRoute from '@/components/auth/GuestRoute';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
+import AdminLayout from '@/pages/admin/AdminLayout';
 import ComingSoonPage from '@/pages/ComingSoonPage';
 import RouteErrorPage from '@/pages/RouteErrorPage';
 import SettingsLayout from '@/pages/settings/SettingsLayout';
@@ -49,6 +51,27 @@ export const router = createBrowserRouter([
               { path: 'ai', element: <ComingSoonPage title="Trợ lý AI" /> },
               { path: 'publishing', element: <ComingSoonPage title="Đăng bài đa kênh" /> },
               { path: 'billing', lazy: page(() => import('@/pages/BillingPage')) },
+              {
+                path: 'admin',
+                element: <AdminRoute />,
+                children: [
+                  {
+                    element: <AdminLayout />,
+                    children: [
+                      { index: true, lazy: page(() => import('@/pages/admin/AdminOverviewPage')) },
+                      { path: 'users', lazy: page(() => import('@/pages/admin/AdminUsersPage')) },
+                      {
+                        path: 'workspaces',
+                        lazy: page(() => import('@/pages/admin/AdminWorkspacesPage')),
+                      },
+                      {
+                        path: 'audit-logs',
+                        lazy: page(() => import('@/pages/admin/AdminAuditLogsPage')),
+                      },
+                    ],
+                  },
+                ],
+              },
               {
                 path: 'settings',
                 element: <SettingsLayout />,
