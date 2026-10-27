@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../../config/db.js';
-import { recomputePostStatus } from '../schedule/schedule.repository.js';
+import { recomputePostStatus } from '../post/post.status.js';
 
 export const CHANNEL_PUBLIC_SELECT = {
   id: true,
@@ -50,6 +50,7 @@ const buildFacebookUpsertArgs = (
     avatar: data.avatar,
     accessToken: data.accessToken,
     status: 'ACTIVE',
+    deletedAt: null,
   },
   create: {
     workspaceId,
@@ -161,24 +162,45 @@ export const updateChannelStatus = async (
     data: { status },
   });
 
-export const deleteChannelAndCancelSchedules = async (channelId: string): Promise<void> => {
-  await prisma.$transaction(async (tx) => {
-    const affectedPosts = await tx.scheduledPost.findMany({
-      where: { channelId },
-      select: { postId: true },
-      distinct: ['postId'],
-    });
+export const disconnectChannelAndCancelSchedules = async (
+  channelId: string
+): Promise<'disconnected' | 'publishing'> => {
+  const publishing = Symbol('publishing');
 
-    await tx.scheduledPost.updateMany({
-      where: { channelId, status: 'SCHEDULED' },
-      data: { status: 'CANCELLED' },
-    });
-    await tx.channelConnection.delete({ where: { id: channelId } });
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // Huỷ lịch chờ trước, rồi mới kiểm tra PROCESSING. Nếu worker claim chen
+      // giữa hai bước, count sẽ thấy PROCESSING và rollback toàn bộ.
+      await tx.scheduledPost.updateMany({
+        where: { channelId, status: 'SCHEDULED' },
+        data: { status: 'CANCELLED', processingStartedAt: null },
+      });
 
-    for (const { postId } of affectedPosts) {
-      await recomputePostStatus(tx, postId);
-    }
-  });
+      const processing = await tx.scheduledPost.count({
+        where: { channelId, status: 'PROCESSING' },
+      });
+      if (processing > 0) throw publishing;
+
+      const affectedPosts = await tx.scheduledPost.findMany({
+        where: { channelId },
+        select: { postId: true },
+        distinct: ['postId'],
+      });
+
+      await tx.channelConnection.update({
+        where: { id: channelId },
+        data: { deletedAt: new Date(), accessToken: null, status: 'EXPIRED' },
+      });
+
+      for (const { postId } of affectedPosts) {
+        await recomputePostStatus(tx, postId);
+      }
+      return 'disconnected' as const;
+    });
+  } catch (error) {
+    if (error === publishing) return 'publishing';
+    throw error;
+  }
 };
 
 export default {
@@ -192,5 +214,5 @@ export default {
   updateChannelLabel,
   updateChannelProfile,
   updateChannelStatus,
-  deleteChannelAndCancelSchedules,
+  disconnectChannelAndCancelSchedules,
 };

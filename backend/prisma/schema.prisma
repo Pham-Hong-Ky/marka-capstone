@@ -318,6 +318,7 @@ model ChannelConnection {
   externalAccountId String         @db.VarChar(255)
   accessToken       String?        @db.Text
   status            ChannelStatus  @default(ACTIVE)
+  deletedAt         DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 

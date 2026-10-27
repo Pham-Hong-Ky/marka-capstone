@@ -1,8 +1,9 @@
+import { getErrorMessage } from '../../utils/errorMessage.js';
 import { randomBytes } from 'node:crypto';
 import env from '../../config/env.js';
 import logger from '../../utils/logger.js';
-import { BadRequestError, NotFoundError } from '../../utils/errors/index.js';
-import { decrypt, encrypt } from '../../utils/encryption.js';
+import { BadRequestError, ConflictError, NotFoundError } from '../../utils/errors/index.js';
+import { decryptOrNull, encrypt } from '../../utils/encryption.js';
 import auditService from '../audit/audit.service.js';
 import channelRepository, { type ChannelSummary } from './channel.repository.js';
 import { facebookClient } from './facebook.client.js';
@@ -50,7 +51,7 @@ export const handleFacebookCallback = async (
   if (query.error) {
     if (query.state) {
       await oauthStore.consumeOauthState(query.state).catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = getErrorMessage(error);
         logger.warn(`Không xoá được OAuth state sau khi người dùng từ chối: ${message}`);
         return null;
       });
@@ -92,7 +93,7 @@ export const handleFacebookCallback = async (
 
     return buildClientRedirect({ fb: 'select', session: sessionId });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.warn(`Kết nối Facebook thất bại: ${message}`);
     return errorRedirect('token_exchange_failed');
   }
@@ -124,13 +125,7 @@ export const getFacebookPendingPages = async (
   };
 };
 
-export const connectFacebookPages = async (
-  sessionId: string,
-  userId: string,
-  workspaceId: string,
-  pageIds: string[]
-): Promise<{ channels: ChannelSummary[] }> => {
-  const session = await getSessionForUser(sessionId, userId, workspaceId);
+const resolveSelectedPages = (session: OauthSession, pageIds: string[]): OauthSessionPage[] => {
   const pagesById = new Map(session.pages.map((page) => [page.id, page]));
   const uniquePageIds = [...new Set(pageIds)];
   const selectedPages = uniquePageIds
@@ -140,9 +135,12 @@ export const connectFacebookPages = async (
   if (selectedPages.length !== uniquePageIds.length) {
     throw new BadRequestError('Page không hợp lệ trong phiên kết nối');
   }
+  return selectedPages;
+};
 
-  const pagesToSave = selectedPages.map((page) => {
-    if (!decrypt(page.accessTokenEncrypted)) {
+const buildFacebookChannelInputs = (pages: OauthSessionPage[]) =>
+  pages.map((page) => {
+    if (!decryptOrNull(page.accessTokenEncrypted)) {
       throw new BadRequestError('Không đọc được token của Page. Vui lòng kết nối lại.');
     }
 
@@ -157,14 +155,14 @@ export const connectFacebookPages = async (
     };
   });
 
-  const channels = await channelRepository.upsertFacebookChannels(
-    workspaceId,
-    pagesToSave.map((item) => item.data)
-  );
-
+const auditConnectedChannels = async (
+  workspaceId: string,
+  userId: string,
+  channels: ChannelSummary[],
+  pages: OauthSessionPage[]
+) => {
   for (const [index, channel] of channels.entries()) {
-    const page = pagesToSave[index].page;
-
+    const page = pages[index];
     await auditService.recordAuditLog({
       workspaceId,
       actorId: userId,
@@ -174,10 +172,36 @@ export const connectFacebookPages = async (
       metadata: { pageId: page.id, name: page.name },
     });
   }
+};
 
+export const connectFacebookPages = async (
+  sessionId: string,
+  userId: string,
+  workspaceId: string,
+  pageIds: string[]
+): Promise<{ channels: ChannelSummary[] }> => {
+  const session = await getSessionForUser(sessionId, userId, workspaceId);
+  const selectedPages = resolveSelectedPages(session, pageIds);
+  const inputs = buildFacebookChannelInputs(selectedPages);
+
+  const channels = await channelRepository.upsertFacebookChannels(
+    workspaceId,
+    inputs.map((item) => item.data)
+  );
+
+  await auditConnectedChannels(
+    workspaceId,
+    userId,
+    channels,
+    inputs.map((item) => item.page)
+  );
   await oauthStore.deleteOauthSession(sessionId);
 
   return { channels };
+};
+
+export const markChannelExpired = async (channelId: string): Promise<void> => {
+  await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
 };
 
 export const disconnectChannel = async (
@@ -191,7 +215,10 @@ export const disconnectChannel = async (
     throw new NotFoundError('Kênh không tồn tại');
   }
 
-  await channelRepository.deleteChannelAndCancelSchedules(channelId);
+  const result = await channelRepository.disconnectChannelAndCancelSchedules(channelId);
+  if (result === 'publishing') {
+    throw new ConflictError('Kênh đang đăng bài, vui lòng thử lại sau');
+  }
 
   await auditService.recordAuditLog({
     workspaceId,
@@ -203,37 +230,6 @@ export const disconnectChannel = async (
   });
 
   return { success: true };
-};
-
-export const verifyChannelToken = async (
-  channelId: string,
-  workspaceId: string
-): Promise<{ channelId: string; status: 'ACTIVE' | 'EXPIRED'; isValid: boolean }> => {
-  const channel = await channelRepository.findChannelWithToken(channelId, workspaceId);
-
-  if (!channel) {
-    throw new NotFoundError('Kênh không tồn tại');
-  }
-
-  if (!channel.accessToken) {
-    await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
-    return { channelId, status: 'EXPIRED', isValid: false };
-  }
-
-  const rawToken = decrypt(channel.accessToken);
-  if (!rawToken) {
-    await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
-    return { channelId, status: 'EXPIRED', isValid: false };
-  }
-
-  const isValid = await facebookClient.verifyPageToken(rawToken);
-  const newStatus = isValid ? 'ACTIVE' : 'EXPIRED';
-
-  if (channel.status !== newStatus) {
-    await channelRepository.updateChannelStatus(channelId, newStatus);
-  }
-
-  return { channelId, status: newStatus, isValid };
 };
 
 export const getChannelDetail = async (
@@ -286,7 +282,7 @@ export const refreshChannel = async (
     throw new NotFoundError('Kênh không tồn tại');
   }
 
-  const token = channel.accessToken ? decrypt(channel.accessToken) : null;
+  const token = decryptOrNull(channel.accessToken);
   if (!token) {
     await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
     throw new BadRequestError('Không đọc được token của Page. Vui lòng kết nối lại.');
@@ -330,8 +326,8 @@ export default {
   handleFacebookCallback,
   getFacebookPendingPages,
   connectFacebookPages,
+  markChannelExpired,
   disconnectChannel,
-  verifyChannelToken,
   getChannelDetail,
   updateChannelLabel,
   refreshChannel,

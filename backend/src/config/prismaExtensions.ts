@@ -1,7 +1,14 @@
 import { Prisma } from '@prisma/client';
 
 // Các model áp dụng xóa mềm (D18) — mọi truy vấn đọc mặc định bỏ qua bản ghi đã xóa.
-const SOFT_DELETE_MODELS = new Set(['Workspace', 'Post', 'CreditPackage', 'MediaAsset', 'User']);
+const SOFT_DELETE_MODELS = new Set([
+  'Workspace',
+  'Post',
+  'CreditPackage',
+  'MediaAsset',
+  'User',
+  'ChannelConnection',
+]);
 
 const READ_OPERATIONS = new Set([
   'findFirst',

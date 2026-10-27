@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../../src/app.js';
-import prisma from '../../../src/config/db.js';
+import prisma, { basePrisma } from '../../../src/config/db.js';
 import { decrypt } from '../../../src/utils/encryption.js';
 
 const password = 'password123';
@@ -421,7 +421,7 @@ describe('Channel (UC27, UC28, UC29)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('UC29 — Ngắt kết nối huỷ lịch đăng và xoá kênh', async () => {
+  it('UC29 — Ngắt kết nối huỷ lịch chờ nhưng giữ lịch sử', async () => {
     const channel = await prisma.channelConnection.findFirstOrThrow({
       where: { workspaceId: wsId, externalAccountId: 'page-1' },
     });
@@ -436,6 +436,21 @@ describe('Channel (UC27, UC28, UC29)', () => {
         status: 'SCHEDULED',
       },
     });
+    const publishedPost = await prisma.post.create({
+      data: { workspaceId: wsId, title: 'Bài đã đăng', content: {}, status: 'PUBLISHED' },
+    });
+    const published = await prisma.scheduledPost.create({
+      data: {
+        postId: publishedPost.id,
+        channelId: channel.id,
+        status: 'PUBLISHED',
+        externalPostId: 'fb-post-1',
+        publishedAt: new Date(),
+      },
+    });
+    await prisma.postMetric.create({
+      data: { scheduledPostId: published.id, reactions: 7, comments: 2 },
+    });
 
     const res = await request(app)
       .delete(`/api/v1/channels/${channel.id}`)
@@ -446,13 +461,67 @@ describe('Channel (UC27, UC28, UC29)', () => {
     expect(res.body.data.success).toBe(true);
     expect(await prisma.channelConnection.findUnique({ where: { id: channel.id } })).toBeNull();
 
-    // ScheduledPost có FK onDelete: Cascade nên bị xoá cùng kênh;
-    // mục tiêu nghiệp vụ là không còn lịch đăng nào chạy trên kênh đã ngắt.
+    const row = await basePrisma.channelConnection.findUnique({ where: { id: channel.id } });
+    expect(row?.deletedAt).not.toBeNull();
+    expect(row?.accessToken).toBeNull();
+
     const schedule = await prisma.scheduledPost.findUnique({ where: { id: scheduled.id } });
-    expect(schedule).toBeNull();
+    expect(schedule?.status).toBe('CANCELLED');
+    expect(await prisma.scheduledPost.findUnique({ where: { id: published.id } })).not.toBeNull();
+    expect(
+      await prisma.postMetric.findUnique({ where: { scheduledPostId: published.id } })
+    ).not.toBeNull();
 
     const savedPost = await prisma.post.findUnique({ where: { id: post.id } });
     expect(savedPost?.status).toBe('APPROVED');
+  });
+
+  it('UC29 — Kết nối lại Page sau khi ngắt khôi phục kênh cũ', async () => {
+    const sessionId = await createOauthSession();
+    const res = await request(app)
+      .post(`/api/v1/channels/facebook/oauth/session/${sessionId}/connect`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .set('x-workspace-id', wsId)
+      .send({ pageIds: ['page-1'] });
+
+    expect(res.status).toBe(201);
+    const row = await basePrisma.channelConnection.findFirst({
+      where: { workspaceId: wsId, externalAccountId: 'page-1' },
+    });
+    expect(row?.deletedAt).toBeNull();
+    expect(decrypt(row?.accessToken)).toBe('page-token-1');
+  });
+
+  it('UC29 — Không ngắt kết nối khi kênh đang đăng', async () => {
+    const channel = await prisma.channelConnection.create({
+      data: {
+        workspaceId: wsId,
+        platform: 'FACEBOOK',
+        type: 'REAL',
+        name: 'Page đang đăng',
+        externalAccountId: `page-processing-${stamp}`,
+        status: 'ACTIVE',
+      },
+    });
+    const post = await prisma.post.create({
+      data: { workspaceId: wsId, title: 'Bài đang đăng', content: {}, status: 'SCHEDULED' },
+    });
+    await prisma.scheduledPost.create({
+      data: {
+        postId: post.id,
+        channelId: channel.id,
+        status: 'PROCESSING',
+        processingStartedAt: new Date(),
+      },
+    });
+
+    const res = await request(app)
+      .delete(`/api/v1/channels/${channel.id}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .set('x-workspace-id', wsId);
+
+    expect(res.status).toBe(409);
+    expect(await prisma.channelConnection.findUnique({ where: { id: channel.id } })).not.toBeNull();
   });
 
   it('UC29 — Thiếu workspace header bị từ chối', async () => {

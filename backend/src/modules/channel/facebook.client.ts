@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../../utils/errorMessage.js';
 import { createHmac } from 'node:crypto';
 import env from '../../config/env.js';
 import logger from '../../utils/logger.js';
@@ -191,7 +192,7 @@ export class FacebookClient {
     } catch (error) {
       if (error instanceof BadRequestError) throw error;
 
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       logger.warn(`Không gọi được Facebook Graph API: ${message}`);
       throw new FacebookTransientError();
     }
@@ -351,7 +352,7 @@ export class FacebookClient {
     } catch (error) {
       if (this.isTokenExpiredError(error)) throw error;
 
-      metrics.partialError = error instanceof Error ? error.message : String(error);
+      metrics.partialError = getErrorMessage(error);
       logger.warn(`Không lấy được insights của bài ${postId}: ${metrics.partialError}`);
     }
 
@@ -377,20 +378,6 @@ export class FacebookClient {
     };
   }
 
-  async verifyPageToken(pageToken: string): Promise<boolean> {
-    try {
-      await this.graphGet<{ id: string }>('/me', {
-        fields: 'id',
-        access_token: pageToken,
-      });
-      return true;
-    } catch (error) {
-      if (this.isTokenExpiredError(error)) {
-        return false;
-      }
-      throw error;
-    }
-  }
 }
 
 export const facebookClient = new FacebookClient();
