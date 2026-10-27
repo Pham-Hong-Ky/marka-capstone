@@ -1,9 +1,11 @@
 import { RefreshCw, Unplug } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
-import { CHANNEL_STATUS_LABELS, type ChannelConnection } from '@/services/channel';
-import { cn } from '@/utils/cn';
+import type { ChannelConnection } from '@/services/channel';
 import { formatDate } from '@/utils/format';
+import ChannelPlatformBadge from './ChannelPlatformBadge';
+import ChannelStatusBadge from './ChannelStatusBadge';
 
 export const ChannelCard = ({
   channel,
@@ -24,23 +26,21 @@ export const ChannelCard = ({
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-semibold text-foreground">{channel.name}</h3>
-          <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent-text">
-            Facebook
-          </span>
-          <span
-            className={cn(
-              'rounded-full px-2 py-0.5 text-xs font-medium',
-              channel.status === 'ACTIVE'
-                ? 'bg-success/10 text-success'
-                : 'bg-warning/10 text-warning'
-            )}
-          >
-            {CHANNEL_STATUS_LABELS[channel.status]}
-          </span>
+          <h3 className="truncate text-sm font-semibold text-foreground">
+            {channel.label ?? channel.name}
+          </h3>
+          <ChannelPlatformBadge platform={channel.platform} />
+          <ChannelStatusBadge status={channel.status} />
         </div>
 
         <p className="mt-1 text-xs text-muted">Kết nối ngày {formatDate(channel.createdAt)}</p>
+
+        <Link
+          to={`/channels/${channel.id}`}
+          className="mt-2 inline-flex min-h-11 items-center text-sm text-accent-text hover:underline"
+        >
+          Xem chi tiết
+        </Link>
       </div>
     </div>
 
