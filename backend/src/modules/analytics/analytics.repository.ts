@@ -31,6 +31,7 @@ export const findMetricRows = async ({
           impressions: true,
           reach: true,
           fetchedAt: true,
+          syncError: true,
         },
       },
     },
@@ -127,8 +128,10 @@ export const findSchedulesToSync = async ({
       channel: {
         platform: 'FACEBOOK',
         status: 'ACTIVE',
+        deletedAt: null,
         ...(workspaceId ? { workspaceId } : {}),
       },
+      post: { deletedAt: null },
       OR: [
         { metric: { is: null } },
         { metric: { OR: [{ fetchedAt: null }, { fetchedAt: { lt: staleBefore } }] } },

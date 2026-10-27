@@ -125,4 +125,88 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
     const channel = await prisma.channelConnection.findUnique({ where: { id: channelId } });
     expect(channel?.status).toBe('EXPIRED');
   });
+
+  it('sync lỗi không được tính là đã đồng bộ', async () => {
+    const ws = await prisma.workspace.create({
+      data: { name: `WS lỗi sync ${Date.now()}`, plan: 'FREE' },
+    });
+
+    try {
+      const channel = await prisma.channelConnection.create({
+        data: {
+          workspaceId: ws.id,
+          platform: 'FACEBOOK',
+          type: 'REAL',
+          name: 'Page lỗi sync',
+          externalAccountId: `sync-error-page-${Date.now()}`,
+          status: 'ACTIVE',
+        },
+      });
+      const post = await prisma.post.create({
+        data: { workspaceId: ws.id, title: 'Bài lỗi sync', content, status: 'PUBLISHED' },
+      });
+      const schedule = await prisma.scheduledPost.create({
+        data: {
+          postId: post.id,
+          channelId: channel.id,
+          status: 'PUBLISHED',
+          publishedAt: new Date(),
+          externalPostId: 'fb-error',
+        },
+      });
+      await prisma.postMetric.create({
+        data: { scheduledPostId: schedule.id, syncError: 'lỗi mạng', fetchedAt: new Date() },
+      });
+
+      const overview = await analyticsService.getOverview(ws.id, { range: '30d' });
+
+      expect(overview.coverage.syncedPosts).toBe(0);
+      expect(overview.coverage.lastSyncedAt).toBeNull();
+    } finally {
+      await prisma.workspace.delete({ where: { id: ws.id } });
+    }
+  });
+
+  it('không đồng bộ bài của kênh đã ngắt kết nối', async () => {
+    const ws = await prisma.workspace.create({
+      data: { name: `WS ngắt kênh ${Date.now()}`, plan: 'FREE' },
+    });
+
+    try {
+      const channel = await prisma.channelConnection.create({
+        data: {
+          workspaceId: ws.id,
+          platform: 'FACEBOOK',
+          type: 'REAL',
+          name: 'Page đã ngắt',
+          externalAccountId: `disconnected-page-${Date.now()}`,
+          status: 'ACTIVE',
+        },
+      });
+      const post = await prisma.post.create({
+        data: { workspaceId: ws.id, title: 'Bài kênh đã ngắt', content, status: 'PUBLISHED' },
+      });
+      await prisma.scheduledPost.create({
+        data: {
+          postId: post.id,
+          channelId: channel.id,
+          status: 'PUBLISHED',
+          publishedAt: new Date(),
+          externalPostId: 'fb-disconnected',
+        },
+      });
+      await prisma.channelConnection.update({
+        where: { id: channel.id },
+        data: { deletedAt: new Date() },
+      });
+
+      const spy = vi.spyOn(facebookClient, 'fetchPostMetrics');
+      const result = await analyticsService.syncMetrics({ workspaceId: ws.id });
+
+      expect(result.total).toBe(0);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      await prisma.workspace.delete({ where: { id: ws.id } });
+    }
+  });
 });

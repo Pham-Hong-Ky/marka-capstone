@@ -1,5 +1,6 @@
+import { getErrorMessage } from '../../utils/errorMessage.js';
 import logger from '../../utils/logger.js';
-import { decrypt } from '../../utils/encryption.js';
+import { decryptOrNull } from '../../utils/encryption.js';
 import { facebookClient } from '../channel/facebook.client.js';
 import renderContentToPlainText from '../schedule/schedule.content.js';
 import analyticsRepository from './analytics.repository.js';
@@ -27,6 +28,20 @@ const SYNC_BATCH_SIZE = 50;
 const SUGGESTION_WINDOW_DAYS = 90;
 const EXTERNAL_LINK_PATTERN = /https?:\/\//i;
 
+const mapMetricFields = (metric: {
+  reactions: number;
+  comments: number;
+  shares: number;
+  impressions: number | null;
+  reach: number | null;
+} | null) => ({
+  reactions: metric?.reactions ?? 0,
+  comments: metric?.comments ?? 0,
+  shares: metric?.shares ?? 0,
+  impressions: metric?.impressions ?? null,
+  reach: metric?.reach ?? null,
+});
+
 const toMetricRows = (
   rows: Awaited<ReturnType<typeof analyticsRepository.findMetricRows>>
 ): MetricRow[] =>
@@ -34,11 +49,7 @@ const toMetricRows = (
     .filter((row): row is typeof row & { publishedAt: Date } => row.publishedAt !== null)
     .map((row) => ({
       publishedAt: row.publishedAt,
-      reactions: row.metric?.reactions ?? 0,
-      comments: row.metric?.comments ?? 0,
-      shares: row.metric?.shares ?? 0,
-      impressions: row.metric?.impressions ?? null,
-      reach: row.metric?.reach ?? null,
+      ...mapMetricFields(row.metric),
     }));
 
 const buildDeltas = (current: Summary, previous: Summary) => ({
@@ -74,7 +85,7 @@ export const getOverview = async (workspaceId: string, query: AnalyticsOverviewQ
   const summary = computeSummary(metricRows);
   const previousSummary = computeSummary(toMetricRows(previousRows));
 
-  const synced = rows.filter((row) => row.metric !== null);
+  const synced = rows.filter((row) => row.metric !== null && row.metric.syncError === null);
   const lastSyncedAt = synced.reduce<Date | null>((latest, row) => {
     const fetchedAt = row.metric?.fetchedAt;
     if (!fetchedAt) return latest;
@@ -114,11 +125,7 @@ export const getSuggestions = async (
     .filter((row): row is typeof row & { publishedAt: Date } => row.publishedAt !== null)
     .map((row) => ({
       publishedAt: row.publishedAt,
-      reactions: row.metric?.reactions ?? 0,
-      comments: row.metric?.comments ?? 0,
-      shares: row.metric?.shares ?? 0,
-      impressions: row.metric?.impressions ?? null,
-      reach: row.metric?.reach ?? null,
+      ...mapMetricFields(row.metric),
       hasLink: EXTERNAL_LINK_PATTERN.test(renderContentToPlainText(row.post.content)),
     }));
 
@@ -143,14 +150,8 @@ export const getSuggestions = async (
   };
 };
 
-const readToken = (encryptedToken: string | null): string | null => {
-  if (!encryptedToken) return null;
-  try {
-    return decrypt(encryptedToken) ?? null;
-  } catch {
-    return null;
-  }
-};
+const readToken = (encryptedToken: string | null): string | null =>
+  decryptOrNull(encryptedToken);
 
 export const syncMetrics = async (options: { workspaceId?: string } = {}) => {
   const now = new Date();
@@ -181,7 +182,7 @@ export const syncMetrics = async (options: { workspaceId?: string } = {}) => {
       await analyticsRepository.saveMetric(schedule.id, metrics);
       synced += 1;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       if (facebookClient.isTokenExpiredError(error)) {
         await analyticsRepository.markChannelExpired(schedule.channel.id);
       }
