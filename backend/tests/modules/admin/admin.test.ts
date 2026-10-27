@@ -13,6 +13,7 @@ describe('Admin module — quản trị hệ thống & audit log (UC32)', () => 
 
   let adminToken = '';
   let adminId = '';
+  let adminWorkspaceId = '';
   let ownerToken = '';
   let ownerId = '';
   let ownerWorkspaceId = '';
@@ -31,6 +32,7 @@ describe('Admin module — quản trị hệ thống & audit log (UC32)', () => 
     const adminRes = await request(app).post('/api/v1/auth/register').send({ ...admin, password });
     adminToken = adminRes.body.data.accessToken;
     adminId = adminRes.body.data.user.id;
+    adminWorkspaceId = adminRes.body.data.user.workspaces[0].id;
 
     const ownerRes = await request(app).post('/api/v1/auth/register').send({ ...owner, password });
     ownerToken = ownerRes.body.data.accessToken;
@@ -86,6 +88,13 @@ describe('Admin module — quản trị hệ thống & audit log (UC32)', () => 
           action: 'TEST_AUDIT_ADMIN',
           targetType: 'Workspace',
           targetId: ownerWorkspaceId,
+        },
+        {
+          workspaceId: adminWorkspaceId,
+          actorId: adminId,
+          action: 'TEST_AUDIT_OTHER_WORKSPACE',
+          targetType: 'Workspace',
+          targetId: adminWorkspaceId,
         },
       ],
     });
@@ -272,6 +281,25 @@ describe('Admin module — quản trị hệ thống & audit log (UC32)', () => 
       targetId: postId,
     });
     expect(res.body.data.auditLogs[0].actor).toMatchObject({ id: ownerId });
+  });
+
+  it('GET /admin/audit-logs - lọc theo workspaceId', async () => {
+    const res = await request(app)
+      .get(`/api/v1/admin/audit-logs?workspaceId=${adminWorkspaceId}`)
+      .set(auth(adminToken));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.auditLogs.length).toBeGreaterThan(0);
+    expect(
+      res.body.data.auditLogs.every(
+        (log: { workspace: { id: string } | null }) => log.workspace?.id === adminWorkspaceId
+      )
+    ).toBe(true);
+    expect(
+      res.body.data.auditLogs.some(
+        (log: { action: string }) => log.action === 'TEST_AUDIT_OTHER_WORKSPACE'
+      )
+    ).toBe(true);
   });
 
   it('GET /workspaces/:id/audit-logs — Owner xem log workspace mình', async () => {
