@@ -49,6 +49,7 @@ export const router = createBrowserRouter([
                 element: <SettingsLayout />,
                 children: [
                   { index: true, element: <Navigate to="appearance" replace /> },
+                  { path: 'account', lazy: page(() => import('@/pages/settings/AccountTab')) },
                   { path: 'appearance', lazy: page(() => import('@/pages/settings/AppearanceTab')) },
                   { path: 'workspace', lazy: page(() => import('@/pages/settings/WorkspaceTab')) },
                   { path: 'members', lazy: page(() => import('@/pages/settings/MembersTab')) },
