@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronsUpDown, LogOut } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import { WORKSPACE_ROLE_LABELS } from '@/services/workspace';
 import type { WorkspaceRole } from '@/services/auth';
 import { useLogout } from '@/hooks/useAuth';
+import { useDismissable } from '@/hooks/useDismissable';
 import { cn } from '@/utils/cn';
 
 export const UserMenu = ({
@@ -25,25 +26,7 @@ export const UserMenu = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const logout = useLogout();
 
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
+  useDismissable(containerRef, () => setOpen(false), { enabled: open });
 
   const menuPosition = collapsed
     ? 'bottom-0 left-full ml-2 w-56'

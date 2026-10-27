@@ -6,6 +6,7 @@ import CreateWorkspaceModal from './CreateWorkspaceModal';
 import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/utils/cn';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
+import { useDismissable } from '@/hooks/useDismissable';
 
 const MENU_ITEM_SELECTOR = '[role="menuitemradio"], [role="menuitem"]';
 
@@ -20,26 +21,12 @@ export const WorkspaceSwitcher = ({ collapsed = false }: { collapsed?: boolean }
   const workspaces = user?.workspaces ?? [];
   const activeWorkspace = useActiveWorkspace();
 
+  useDismissable(containerRef, () => setOpen(false), { enabled: open });
+
   useEffect(() => {
     if (!open) return;
 
-    const onPointerDown = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
     menuRef.current?.querySelector<HTMLElement>(MENU_ITEM_SELECTOR)?.focus();
-
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
   }, [open]);
 
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

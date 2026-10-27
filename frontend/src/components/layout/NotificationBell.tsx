@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -10,6 +10,7 @@ import {
   useUnreadNotificationCount,
 } from '@/hooks/useNotifications';
 import type { AppNotification } from '@/services/notification';
+import { useDismissable } from '@/hooks/useDismissable';
 import { cn } from '@/utils/cn';
 import { formatDateTime } from '@/utils/format';
 import { getErrorMessage } from '@/utils/error';
@@ -45,25 +46,7 @@ export const NotificationBell = ({ workspaceId }: { workspaceId?: string }) => {
   const unread = unreadCount.data ?? 0;
   const items = notifications.data?.notifications ?? [];
 
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
+  useDismissable(containerRef, () => setOpen(false), { enabled: open });
 
   const handleOpenNotification = (notification: AppNotification) => {
     if (!notification.isRead) {
