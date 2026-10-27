@@ -1,4 +1,5 @@
 import workspaceRepository from '../workspace/workspace.repository.js';
+import userRepository from '../user/user.repository.js';
 import notificationRepository from '../notification/notification.repository.js';
 import { mailerClient } from '../../utils/mailer.client.js';
 import { buildPostSubmittedEmail, buildPostReviewedEmail } from '../../templates/postReviewEmail.js';
@@ -19,6 +20,8 @@ export const notifyPostSubmitted = async (params: {
 
   const workspace = await workspaceRepository.findWorkspaceById(workspaceId);
   const workspaceName = workspace?.name ?? '';
+  const owners = await userRepository.findUserSummariesByIds(ownerIds);
+  const ownersById = new Map(owners.map((owner) => [owner.id, owner]));
 
   await Promise.all(
     ownerIds.map(async (ownerId) => {
@@ -29,7 +32,7 @@ export const notifyPostSubmitted = async (params: {
         payload: { postId, postTitle, submittedById: actorId },
       });
 
-      const owner = await workspaceRepository.findUserById(ownerId);
+      const owner = ownersById.get(ownerId);
       if (!owner) {
         return;
       }
@@ -63,7 +66,7 @@ export const notifyPostReviewed = async (params: {
     payload: { postId, postTitle, approved, reason: rejectReason },
   });
 
-  const author = await workspaceRepository.findUserById(authorId);
+  const author = await userRepository.findUserSummaryById(authorId);
   if (!author) {
     return;
   }

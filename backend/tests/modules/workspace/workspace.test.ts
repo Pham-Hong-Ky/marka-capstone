@@ -286,6 +286,16 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     expect(ids).not.toContain(createdWorkspaceId);
   });
 
+  it('UC18 — getMe không trả workspace đã xóa mềm', async () => {
+    const res = await request(app)
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.data.workspaces.map((w: { id: string }) => w.id);
+    expect(ids).not.toContain(createdWorkspaceId);
+  });
+
   it('UC18 — Workspace đã xóa trả 404 khi truy cập thành viên', async () => {
     const res = await request(app)
       .get(`/api/v1/workspaces/${createdWorkspaceId}/members`)

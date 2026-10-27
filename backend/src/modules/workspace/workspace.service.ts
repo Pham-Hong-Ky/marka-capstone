@@ -1,12 +1,13 @@
 import { randomUUID } from 'crypto';
 import type { Prisma, WorkspaceRole } from '@prisma/client';
 import workspaceRepository from './workspace.repository.js';
+import userRepository from '../user/user.repository.js';
 import { toWorkspaceSummary, type WorkspaceSummary } from './workspace.mapper.js';
 import auditService from '../audit/audit.service.js';
 import env from '../../config/env.js';
 import { mailerClient } from '../../utils/mailer.client.js';
 import { buildWorkspaceInviteEmail } from '../../templates/workspaceInviteEmail.js';
-import notificationRepository from '../notification/notification.repository.js';
+import notificationService from '../notification/notification.service.js';
 import {
   AppError,
   ConflictError,
@@ -42,7 +43,7 @@ const notifyOwners = async (workspaceId: string, actorId: string, payload: Recor
     ownerIds
       .filter((ownerId) => ownerId !== actorId)
       .map((ownerId) =>
-        notificationRepository.createNotification({
+        notificationService.createNotification({
           userId: ownerId,
           workspaceId,
           type: 'MEMBER_JOINED',
@@ -80,6 +81,9 @@ export const listMyWorkspaces = async (userId: string): Promise<WorkspaceSummary
 
   return memberships.map(toWorkspaceSummary);
 };
+
+export const isWorkspaceMember = async (workspaceId: string, userId: string): Promise<boolean> =>
+  Boolean(await workspaceRepository.findMember(workspaceId, userId));
 
 export const updateWorkspace = async (
   workspaceId: string,
@@ -154,6 +158,31 @@ export const listMembers = async (workspaceId: string) => {
   };
 };
 
+const sendWorkspaceInviteEmail = async (params: {
+  email: string;
+  workspaceName: string;
+  inviterName: string;
+  role: WorkspaceRole;
+}) => {
+  const token = randomUUID();
+  const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
+  const inviteUrl = `${env.APP_BASE_URL}/invites/${token}`;
+  const { subject, html } = buildWorkspaceInviteEmail({
+    workspaceName: params.workspaceName,
+    inviterName: params.inviterName,
+    roleLabel: ROLE_LABELS[params.role],
+    inviteUrl,
+  });
+
+  // Chỉ lưu lời mời sau khi gửi mail thành công, tránh tạo lời mời "treo" khi gửi lỗi.
+  const emailSent = await mailerClient.sendEmail({ to: params.email, subject, html });
+  if (!emailSent) {
+    throw new AppError('Gửi email mời thất bại. Vui lòng thử lại.', 502);
+  }
+
+  return { token, expiresAt, inviteUrl };
+};
+
 export const inviteMember = async (
   workspaceId: string,
   inviter: { id: string; name: string },
@@ -161,7 +190,7 @@ export const inviteMember = async (
 ) => {
   const workspace = await assertWorkspaceExists(workspaceId);
 
-  const invitedUser = await workspaceRepository.findUserByEmail(data.email);
+  const invitedUser = await userRepository.findUserSummaryByEmail(data.email);
   if (invitedUser) {
     const existingMember = await workspaceRepository.findMember(workspaceId, invitedUser.id);
     if (existingMember) {
@@ -170,23 +199,12 @@ export const inviteMember = async (
   }
 
   const activeInvite = await workspaceRepository.findActiveInviteByEmail(workspaceId, data.email);
-
-  const token = randomUUID();
-  const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
-
-  const inviteUrl = `${env.APP_BASE_URL}/invites/${token}`;
-  const { subject, html } = buildWorkspaceInviteEmail({
+  const { token, expiresAt, inviteUrl } = await sendWorkspaceInviteEmail({
+    email: data.email,
     workspaceName: workspace.name,
     inviterName: inviter.name,
-    roleLabel: ROLE_LABELS[data.role],
-    inviteUrl,
+    role: data.role,
   });
-
-  // Chỉ lưu lời mời sau khi gửi mail thành công, tránh tạo lời mời "treo" khi gửi lỗi.
-  const emailSent = await mailerClient.sendEmail({ to: data.email, subject, html });
-  if (!emailSent) {
-    throw new AppError('Gửi email mời thất bại. Vui lòng thử lại.', 502);
-  }
 
   // Đã có lời mời đang chờ → cấp lại token/hạn mới (token cũ hết hiệu lực) thay vì chặn.
   const invite = activeInvite
@@ -220,20 +238,25 @@ export const inviteMember = async (
   };
 };
 
-export const acceptInvite = async (token: string, currentUser?: { id: string; email: string }) => {
-  const invite = await workspaceRepository.findInviteByToken(token);
+type InviteWithWorkspace = NonNullable<
+  Awaited<ReturnType<typeof workspaceRepository.findInviteByToken>>
+>;
 
+const assertInviteUsable = (invite: InviteWithWorkspace | null): InviteWithWorkspace => {
   if (!invite || invite.workspace.deletedAt) {
     throw new NotFoundError('Lời mời không tồn tại');
   }
-
   if (invite.isUsed) {
     throw new ConflictError('Lời mời đã được sử dụng');
   }
-
   if (invite.expiresAt.getTime() < Date.now()) {
     throw new ConflictError('Lời mời đã hết hạn');
   }
+  return invite;
+};
+
+export const acceptInvite = async (token: string, currentUser?: { id: string; email: string }) => {
+  const invite = assertInviteUsable(await workspaceRepository.findInviteByToken(token));
 
   if (!currentUser) {
     return {
@@ -363,6 +386,7 @@ export const changeMemberRole = async (
 export default {
   createWorkspace,
   listMyWorkspaces,
+  isWorkspaceMember,
   updateWorkspace,
   deleteWorkspace,
   listMembers,

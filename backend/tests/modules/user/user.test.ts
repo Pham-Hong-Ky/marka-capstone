@@ -13,6 +13,7 @@ describe('Kiểm thử Module User (Profile & Password)', () => {
   };
 
   let token = '';
+  let initialTokenVersion = 0;
 
   beforeAll(async () => {
     const passwordHash = await hashPassword(testUser.password);
@@ -23,6 +24,7 @@ describe('Kiểm thử Module User (Profile & Password)', () => {
         name: testUser.name,
       },
     });
+    initialTokenVersion = created.tokenVersion;
     token = generateAccessToken({
       id: created.id,
       email: created.email,
@@ -81,5 +83,15 @@ describe('Kiểm thử Module User (Profile & Password)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.message).toContain('Đổi mật khẩu thành công');
+  });
+
+  it('Token cũ bị thu hồi sau khi đổi mật khẩu', async () => {
+    const res = await request(app)
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(401);
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: testUser.email } });
+    expect(user.tokenVersion).toBe(initialTokenVersion + 1);
   });
 });

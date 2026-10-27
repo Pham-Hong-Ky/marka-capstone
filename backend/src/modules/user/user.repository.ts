@@ -1,4 +1,4 @@
-import type { AuthProvider } from '@prisma/client';
+import type { AuthProvider, Prisma } from '@prisma/client';
 import prisma, { basePrisma } from '../../config/db.js';
 
 export interface CreateUserData {
@@ -11,7 +11,12 @@ export interface CreateUserData {
   emailVerified?: boolean;
 }
 
-const WITH_WORKSPACES = { workspaceMembers: { include: { workspace: true } } } as const;
+const WITH_WORKSPACES = {
+  workspaceMembers: {
+    where: { workspace: { deletedAt: null } },
+    include: { workspace: true },
+  },
+} as const;
 
 export interface UpdateUserData {
   name?: string;
@@ -21,8 +26,9 @@ export interface UpdateUserData {
   isSuspended?: boolean;
 }
 
-export const findUserById = async (userId: string) => {
-  return prisma.user.findUnique({
+export const findUserById = async (userId: string, tx?: Prisma.TransactionClient) => {
+  const client = (tx ?? prisma) as Prisma.TransactionClient;
+  return client.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -35,11 +41,33 @@ export const findUserById = async (userId: string) => {
       isSuspended: true,
       emailVerified: true,
       workspaceMembers: {
+        where: { workspace: { deletedAt: null } },
         include: {
           workspace: true,
         },
       },
     },
+  });
+};
+
+export const findUserSummaryById = async (userId: string) => {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true },
+  });
+};
+
+export const findUserSummaryByEmail = async (email: string) => {
+  return prisma.user.findUnique({
+    where: { email },
+    select: { id: true, name: true, email: true },
+  });
+};
+
+export const findUserSummariesByIds = async (userIds: string[]) => {
+  return prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, name: true, email: true },
   });
 };
 
@@ -55,21 +83,9 @@ export const findUserByEmail = async (email: string) => {
 export const findUserByEmailIncludingDeleted = async (email: string) =>
   basePrisma.user.findUnique({ where: { email }, select: { id: true, deletedAt: true } });
 
-// Mỗi tài khoản mới luôn có một workspace mặc định do chính họ làm Owner.
-export const createUserWithDefaultWorkspace = async (data: CreateUserData) => {
-  return prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({ data: { ...data, systemRole: 'USER' } });
-
-    await tx.workspace.create({
-      data: {
-        name: `Workspace của ${user.name}`,
-        plan: 'FREE',
-        members: { create: { userId: user.id, role: 'OWNER', allowDirectPublish: true } },
-      },
-    });
-
-    return tx.user.findUniqueOrThrow({ where: { id: user.id }, include: WITH_WORKSPACES });
-  });
+export const createUser = async (data: CreateUserData, tx?: Prisma.TransactionClient) => {
+  const client = (tx ?? prisma) as Prisma.TransactionClient;
+  return client.user.create({ data: { ...data, systemRole: 'USER' } });
 };
 
 export const linkGoogleAccount = async (userId: string, data: { googleId: string; avatar: string | null }) => {
@@ -107,6 +123,14 @@ export const incrementTokenVersion = async (userId: string) => {
   });
 };
 
+export const updatePasswordAndBumpTokenVersion = async (userId: string, passwordHash: string) => {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash, tokenVersion: { increment: 1 } },
+    select: { id: true, updatedAt: true },
+  });
+};
+
 export const findSoleOwnedWorkspaces = async (userId: string): Promise<string[]> => {
   const memberships = await prisma.workspaceMember.findMany({
     where: { userId, role: 'OWNER', workspace: { deletedAt: null } },
@@ -136,12 +160,16 @@ export const softDeleteUser = async (userId: string) =>
 
 export default {
   findUserById,
+  findUserSummaryById,
+  findUserSummaryByEmail,
+  findUserSummariesByIds,
   findUserByEmail,
   findUserByEmailIncludingDeleted,
-  createUserWithDefaultWorkspace,
+  createUser,
   linkGoogleAccount,
   updateUser,
   incrementTokenVersion,
+  updatePasswordAndBumpTokenVersion,
   findSoleOwnedWorkspaces,
   softDeleteUser,
 };

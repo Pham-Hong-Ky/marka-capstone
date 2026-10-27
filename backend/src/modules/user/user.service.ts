@@ -49,8 +49,7 @@ export const changePassword = async (userId: string, oldPassword: string, newPas
 
   const passwordHash = await hashPassword(newPassword);
 
-  await userRepository.updateUser(userId, { passwordHash });
-  await userRepository.incrementTokenVersion(userId);
+  await userRepository.updatePasswordAndBumpTokenVersion(userId, passwordHash);
 
   await auditService.recordAuditLog({
     actorId: userId,

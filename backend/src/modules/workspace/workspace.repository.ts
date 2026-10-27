@@ -1,4 +1,4 @@
-import type { WorkspaceRole } from '@prisma/client';
+import type { Prisma, WorkspaceRole } from '@prisma/client';
 import prisma from '../../config/db.js';
 
 export interface CreateWorkspaceData {
@@ -39,14 +39,15 @@ export const findWorkspaceById = async (workspaceId: string) => {
 
 export const createWorkspaceWithOwner = async (
   { name }: CreateWorkspaceData,
-  ownerId: string
+  ownerId: string,
+  tx?: Prisma.TransactionClient
 ) => {
-  return prisma.$transaction(async (tx) => {
-    const workspace = await tx.workspace.create({
+  const create = async (client: Prisma.TransactionClient) => {
+    const workspace = await client.workspace.create({
       data: { name },
     });
 
-    await tx.workspaceMember.create({
+    await client.workspaceMember.create({
       data: {
         workspaceId: workspace.id,
         userId: ownerId,
@@ -56,7 +57,10 @@ export const createWorkspaceWithOwner = async (
     });
 
     return workspace;
-  });
+  };
+
+  if (tx) return create(tx);
+  return prisma.$transaction((client) => create(client as unknown as Prisma.TransactionClient));
 };
 
 export const updateWorkspace = async (
@@ -84,7 +88,7 @@ export const softDeleteWorkspace = async (workspaceId: string) => {
 
 export const findMembersByWorkspace = async (workspaceId: string) => {
   return prisma.workspaceMember.findMany({
-    where: { workspaceId },
+    where: { workspaceId, user: { deletedAt: null } },
     include: {
       user: { select: { id: true, name: true, email: true, avatar: true } },
     },
@@ -104,20 +108,10 @@ export const countOwners = async (workspaceId: string) => {
 
 export const findOwnerIds = async (workspaceId: string) => {
   const owners = await prisma.workspaceMember.findMany({
-    where: { workspaceId, role: 'OWNER' },
+    where: { workspaceId, role: 'OWNER', user: { deletedAt: null } },
     select: { userId: true },
   });
   return owners.map((owner) => owner.userId);
-};
-
-export const createMember = async (
-  workspaceId: string,
-  userId: string,
-  role: WorkspaceRole
-) => {
-  return prisma.workspaceMember.create({
-    data: { workspaceId, userId, role, allowDirectPublish: role === 'OWNER' },
-  });
 };
 
 export const deleteMember = async (workspaceId: string, userId: string) => {
@@ -203,22 +197,6 @@ export const acceptInviteAsMember = async (
   });
 };
 
-// ---- Cross-entity lookups ----
-
-export const findUserByEmail = async (email: string) => {
-  return prisma.user.findUnique({
-    where: { email },
-    select: { id: true, name: true, email: true },
-  });
-};
-
-export const findUserById = async (userId: string) => {
-  return prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, name: true, email: true },
-  });
-};
-
 export default {
   findWorkspacesByUserId,
   findWorkspaceByNameAndOwner,
@@ -230,7 +208,6 @@ export default {
   findMember,
   countOwners,
   findOwnerIds,
-  createMember,
   deleteMember,
   updateMemberRole,
   findInviteByToken,
@@ -240,6 +217,4 @@ export default {
   refreshInvite,
   markInviteUsed,
   acceptInviteAsMember,
-  findUserByEmail,
-  findUserById,
 };

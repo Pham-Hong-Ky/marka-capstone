@@ -1,11 +1,13 @@
 import type { User } from '@prisma/client';
-import userRepository from '../user/user.repository.js';
+import userRepository, { type CreateUserData } from '../user/user.repository.js';
 import { toAuthUser } from '../user/user.mapper.js';
 import auditService from '../audit/audit.service.js';
 import { googleOAuthClient, type GoogleProfile } from './google-oauth.client.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../utils/jwt.js';
 import { hashPassword, verifyPassword } from '../../utils/password.js';
+import { withTransaction } from '../../utils/transaction.js';
 import { ConflictError, UnauthorizedError, ForbiddenError } from '../../utils/errors/index.js';
+import workspaceRepository from '../workspace/workspace.repository.js';
 
 export interface RegisterInput {
   email: string;
@@ -31,6 +33,18 @@ const assertNotSuspended = (user: { isSuspended: boolean }) => {
   }
 };
 
+const createUserWithDefaultWorkspace = async (data: CreateUserData) =>
+  withTransaction(async (tx) => {
+    const user = await userRepository.createUser(data, tx);
+    await workspaceRepository.createWorkspaceWithOwner(
+      { name: `Workspace của ${user.name}` },
+      user.id,
+      tx
+    );
+
+    return (await userRepository.findUserById(user.id, tx))!;
+  });
+
 export const registerUser = async ({ email, password, name }: RegisterInput) => {
   const existingUser = await userRepository.findUserByEmailIncludingDeleted(email);
   if (existingUser) {
@@ -41,7 +55,7 @@ export const registerUser = async ({ email, password, name }: RegisterInput) => 
     );
   }
 
-  const user = await userRepository.createUserWithDefaultWorkspace({
+  const user = await createUserWithDefaultWorkspace({
     email,
     name,
     passwordHash: await hashPassword(password),
@@ -89,7 +103,7 @@ const findOrCreateGoogleUser = async (profile: GoogleProfile) => {
       );
     }
 
-    return userRepository.createUserWithDefaultWorkspace({
+    return createUserWithDefaultWorkspace({
       email: profile.email,
       name: profile.name || 'Google User',
       avatar: profile.avatar,
@@ -101,16 +115,16 @@ const findOrCreateGoogleUser = async (profile: GoogleProfile) => {
 
   assertNotSuspended(existingUser);
 
+  if (existingUser.googleId) {
+    return existingUser;
+  }
+
   // Không auto-link tài khoản local chưa xác minh email: kẻ tấn công có thể
   // đăng ký trước email của nạn nhân rồi chiếm tài khoản khi nạn nhân login Google.
   if (!existingUser.emailVerified) {
     throw new ConflictError(
       'Email này đã được đăng ký bằng mật khẩu. Vui lòng đăng nhập bằng mật khẩu.'
     );
-  }
-
-  if (existingUser.googleId) {
-    return existingUser;
   }
 
   return userRepository.linkGoogleAccount(existingUser.id, {
