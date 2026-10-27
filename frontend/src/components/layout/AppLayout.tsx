@@ -19,6 +19,17 @@ export const AppLayout = () => {
     closeMobileNav();
   }, [pathname, closeMobileNav]);
 
+  useEffect(() => {
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    const onBreakpointChange = (event: MediaQueryListEvent) => {
+      if (event.matches) closeMobileNav();
+    };
+
+    desktopQuery.addEventListener('change', onBreakpointChange);
+
+    return () => desktopQuery.removeEventListener('change', onBreakpointChange);
+  }, [closeMobileNav]);
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar user={user} workspace={activeWorkspace} />
