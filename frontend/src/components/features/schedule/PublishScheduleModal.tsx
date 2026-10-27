@@ -195,9 +195,13 @@ export const PublishScheduleModal = ({
                   checked={selectedIds.includes(channel.id)}
                   onChange={() => toggleChannel(channel.id)}
                 />
-                <Avatar name={channel.name} src={channel.avatar} className="h-9 w-9" />
+                <Avatar
+                  name={channel.label ?? channel.name}
+                  src={channel.avatar}
+                  className="h-9 w-9"
+                />
                 <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                  {channel.name}
+                  {channel.label ?? channel.name}
                 </span>
               </label>
             ))}

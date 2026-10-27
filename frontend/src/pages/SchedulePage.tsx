@@ -13,8 +13,10 @@ import ScheduleStatusBadge from '@/components/features/schedule/ScheduleStatusBa
 import ScheduleCalendar from '@/components/features/schedule/ScheduleCalendar';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 import { useCancelSchedule, useSchedules } from '@/hooks/useSchedule';
+import { useChannels } from '@/hooks/useChannels';
 import {
   SCHEDULE_STATUS_TABS,
+  type ScheduleChannel,
   type ScheduleItem,
   type ScheduleStatus,
 } from '@/services/schedule';
@@ -42,6 +44,15 @@ export const SchedulePage = () => {
     limit: CALENDAR_LIMIT,
   });
   const cancelSchedule = useCancelSchedule(workspaceId);
+  const { data: channelsData } = useChannels(workspaceId);
+
+  const channelDisplayNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const channel of channelsData?.channels ?? []) {
+      names.set(channel.id, channel.label ?? channel.name);
+    }
+    return names;
+  }, [channelsData?.channels]);
 
   const schedulesByDay = useMemo(() => {
     const groups = new Map<string, ScheduleItem[]>();
@@ -61,6 +72,9 @@ export const SchedulePage = () => {
 
   const schedules = schedulesByDay.get(toDayKey(selectedDate)) ?? [];
   const isTruncated = Boolean(data && data.meta.total > data.schedules.length);
+
+  const getDisplayName = (channel: ScheduleChannel) =>
+    channelDisplayNames.get(channel.id) ?? channel.name;
 
   const changeMonth = (next: Date) => {
     const nextMonth = startOfMonth(next);
@@ -183,7 +197,7 @@ export const SchedulePage = () => {
           >
             <div className="flex flex-wrap items-start gap-4">
               <Avatar
-                name={schedule.channel.name}
+                name={getDisplayName(schedule.channel)}
                 src={schedule.channel.avatar}
                 className="h-10 w-10"
               />
@@ -197,7 +211,7 @@ export const SchedulePage = () => {
                 </div>
 
                 <p className="text-sm text-muted">
-                  {schedule.channel.name} · {format(getScheduleDate(schedule), 'HH:mm')}
+                  {getDisplayName(schedule.channel)} · {format(getScheduleDate(schedule), 'HH:mm')}
                   {schedule.scheduledAt ? '' : ' · Đăng ngay'}
                 </p>
 
@@ -241,7 +255,9 @@ export const SchedulePage = () => {
         open={Boolean(scheduleToCancel)}
         onClose={() => setScheduleToCancel(null)}
         title="Huỷ lịch đăng?"
-        description={`Huỷ lịch đăng "${scheduleToCancel?.post.title ?? ''}" lên ${scheduleToCancel?.channel.name ?? 'Page'}? Bài viết sẽ quay về trạng thái đã duyệt.`}
+        description={`Huỷ lịch đăng "${scheduleToCancel?.post.title ?? ''}" lên ${
+          scheduleToCancel ? getDisplayName(scheduleToCancel.channel) : 'Page'
+        }? Bài viết sẽ quay về trạng thái đã duyệt.`}
         confirmLabel="Huỷ lịch"
         tone="danger"
         isLoading={cancelSchedule.isPending}
