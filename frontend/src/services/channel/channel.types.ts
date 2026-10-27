@@ -7,6 +7,7 @@ export interface ChannelConnection {
   platform: ChannelPlatform;
   type: ChannelType;
   name: string;
+  label: string | null;
   avatar: string | null;
   externalAccountId: string;
   status: ChannelStatus;
@@ -16,6 +17,22 @@ export interface ChannelConnection {
 
 export interface ChannelsResponse {
   channels: ChannelConnection[];
+}
+
+export interface ChannelStats {
+  publishedPosts: number;
+  reactions: number;
+  comments: number;
+  shares: number;
+  impressions: number;
+  reach: number;
+  lastPublishedAt: string | null;
+  lastSyncedAt: string | null;
+}
+
+export interface ChannelDetailResponse {
+  channel: ChannelConnection;
+  stats: ChannelStats;
 }
 
 export interface FacebookPendingPage {
