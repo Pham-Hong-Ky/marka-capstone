@@ -18,6 +18,7 @@ export const ROUTE_LABELS = {
   postEdit: 'Sửa bài viết',
   schedule: 'Lịch xuất bản',
   channels: 'Kênh kết nối',
+  channelDetail: 'Chi tiết kênh',
   brandVoice: 'Brand Voice',
   members: 'Thành viên',
   billing: 'Credit & Nạp',
@@ -52,6 +53,7 @@ export interface Breadcrumb {
 }
 
 const POSTS_CRUMB: Breadcrumb = { label: ROUTE_LABELS.posts, to: '/posts' };
+const CHANNELS_CRUMB: Breadcrumb = { label: ROUTE_LABELS.channels, to: '/channels' };
 const SETTINGS_CRUMB: Breadcrumb = { label: ROUTE_LABELS.settings, to: '/settings' };
 
 const BREADCRUMB_ROUTES: Array<{ path: string; crumbs: Breadcrumb[] }> = [
@@ -60,7 +62,8 @@ const BREADCRUMB_ROUTES: Array<{ path: string; crumbs: Breadcrumb[] }> = [
   { path: '/posts/new', crumbs: [POSTS_CRUMB, { label: ROUTE_LABELS.postCreate }] },
   { path: '/posts/:postId/edit', crumbs: [POSTS_CRUMB, { label: ROUTE_LABELS.postEdit }] },
   { path: '/schedule', crumbs: [{ label: ROUTE_LABELS.schedule }] },
-  { path: '/channels', crumbs: [{ label: ROUTE_LABELS.channels }] },
+  { path: '/channels', crumbs: [CHANNELS_CRUMB] },
+  { path: '/channels/:channelId', crumbs: [CHANNELS_CRUMB, { label: ROUTE_LABELS.channelDetail }] },
   { path: '/brand-voice', crumbs: [{ label: ROUTE_LABELS.brandVoice }] },
   { path: '/ai', crumbs: [{ label: ROUTE_LABELS.assistant }] },
   { path: '/publishing', crumbs: [{ label: ROUTE_LABELS.publishing }] },

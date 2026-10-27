@@ -40,6 +40,10 @@ export const router = createBrowserRouter([
               { path: 'posts/:postId/edit', lazy: page(() => import('@/pages/PostEditorPage')) },
               { path: 'schedule', lazy: page(() => import('@/pages/SchedulePage')) },
               { path: 'channels', lazy: page(() => import('@/pages/ChannelsPage')) },
+              {
+                path: 'channels/:channelId',
+                lazy: page(() => import('@/pages/ChannelDetailPage')),
+              },
               { path: 'brand-voice', lazy: page(() => import('@/pages/BrandVoicePage')) },
               { path: 'ai', element: <ComingSoonPage title="Trợ lý AI" /> },
               { path: 'publishing', element: <ComingSoonPage title="Đăng bài đa kênh" /> },
