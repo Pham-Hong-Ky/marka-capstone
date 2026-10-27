@@ -1,6 +1,6 @@
 import type { Prisma, PostStatus, TaskStatus } from '@prisma/client';
 import prisma from '../../config/db.js';
-import { SCHEDULE_PUBLIC_SELECT } from '../schedule/schedule.repository.js';
+import { SCHEDULE_PUBLIC_SELECT } from '../../shared/schedule.select.js';
 
 const POST_AUTHOR_SELECT = { id: true, name: true, avatar: true } as const;
 
@@ -121,15 +121,32 @@ export const updateTaskStatus = async (postId: string, taskStatus: TaskStatus) =
   return prisma.post.update({ where: { id: postId }, data: { taskStatus } });
 };
 
-export const softDeletePost = async (postId: string) => {
-  return prisma.$transaction(async (tx) => {
-    await tx.scheduledPost.updateMany({
-      where: { postId, status: 'SCHEDULED' },
-      data: { status: 'CANCELLED', processingStartedAt: null },
-    });
+export type SoftDeletePostResult = 'deleted' | 'publishing';
 
-    return tx.post.update({ where: { id: postId }, data: { deletedAt: new Date() } });
-  });
+export const softDeletePost = async (postId: string): Promise<SoftDeletePostResult> => {
+  const publishing = Symbol('publishing');
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // Huỷ lịch chờ trước, rồi mới kiểm tra PROCESSING. Nếu worker claim chen
+      // giữa hai bước, count sẽ thấy PROCESSING và rollback toàn bộ.
+      await tx.scheduledPost.updateMany({
+        where: { postId, status: 'SCHEDULED' },
+        data: { status: 'CANCELLED', processingStartedAt: null },
+      });
+
+      const processing = await tx.scheduledPost.count({
+        where: { postId, status: 'PROCESSING' },
+      });
+      if (processing > 0) throw publishing;
+
+      await tx.post.update({ where: { id: postId }, data: { deletedAt: new Date() } });
+      return 'deleted' as const;
+    });
+  } catch (error) {
+    if (error === publishing) return 'publishing';
+    throw error;
+  }
 };
 
 export const createMedia = async (data: {

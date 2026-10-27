@@ -1,30 +1,31 @@
+import { buildPaginationMeta } from '../../utils/pagination.js';
+import { getErrorMessage } from '../../utils/errorMessage.js';
+import logger from '../../utils/logger.js';
 import type { PostStatus, Prisma, TaskStatus, WorkspaceRole } from '@prisma/client';
 import postRepository from './post.repository.js';
 import postNotification from './post.notification.js';
+import { canTransition } from './post.status.js';
 import type { AssignPostBody, ListPostsQuery } from './post.validation.js';
 import auditService from '../audit/audit.service.js';
-import workspaceRepository from '../workspace/workspace.repository.js';
+import workspaceService from '../workspace/workspace.service.js';
 import { cloudinaryClient } from '../../utils/cloudinary.client.js';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../utils/errors/index.js';
 
-const ALLOWED_TRANSITIONS: Record<PostStatus, PostStatus[]> = {
-  DRAFT: ['PENDING'],
-  PENDING: ['APPROVED', 'REJECTED'],
-  REJECTED: ['PENDING'],
-  APPROVED: ['SCHEDULED'],
-  SCHEDULED: [],
-  PUBLISHED: ['SCHEDULED'],
-  FAILED: ['SCHEDULED'],
-  ARCHIVED: [],
-};
-
 const TRANSITION_CONFLICT_MESSAGE = 'Không thể chuyển trạng thái bài viết này';
+
+const notifySafely = async (action: () => Promise<void>) => {
+  try {
+    await action();
+  } catch (error) {
+    logger.warn(`Không gửi được thông báo: ${getErrorMessage(error)}`);
+  }
+};
 
 const transitionPost = async (
   post: { id: string; workspaceId: string; status: PostStatus },
   data: Parameters<typeof postRepository.transitionPostStatus>[3]
 ) => {
-  if (!ALLOWED_TRANSITIONS[post.status].includes(data.status)) {
+  if (!canTransition(post.status, data.status)) {
     throw new ConflictError(TRANSITION_CONFLICT_MESSAGE);
   }
 
@@ -76,7 +77,7 @@ export const listPosts = async (workspaceId: string, userId: string, query: List
 
   return {
     posts,
-    meta: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) },
+    meta: buildPaginationMeta(query.page, query.limit, total),
   };
 };
 
@@ -121,7 +122,10 @@ export const deletePost = async (workspaceId: string, userId: string, role: Work
     assertEditable(post);
   }
 
-  await postRepository.softDeletePost(postId);
+  const result = await postRepository.softDeletePost(postId);
+  if (result === 'publishing') {
+    throw new ConflictError('Bài viết đang được đăng, vui lòng thử lại sau');
+  }
 
   await auditService.recordAuditLog({
     workspaceId,
@@ -199,13 +203,15 @@ export const submitPost = async (
     rejectReason: null,
   });
 
-  await postNotification.notifyPostSubmitted({
-    workspaceId,
-    postId,
-    postTitle: post.title,
-    actorId: userId,
-    actorName: userName,
-  });
+  await notifySafely(() =>
+    postNotification.notifyPostSubmitted({
+      workspaceId,
+      postId,
+      postTitle: post.title,
+      actorId: userId,
+      actorName: userName,
+    })
+  );
 
   await auditService.recordAuditLog({
     workspaceId,
@@ -236,14 +242,16 @@ export const reviewPost = async (
     rejectReason,
   });
 
-  await postNotification.notifyPostReviewed({
-    workspaceId,
-    postId,
-    postTitle: post.title,
-    authorId: post.createdById,
-    approved,
-    rejectReason,
-  });
+  await notifySafely(() =>
+    postNotification.notifyPostReviewed({
+      workspaceId,
+      postId,
+      postTitle: post.title,
+      authorId: post.createdById,
+      approved,
+      rejectReason,
+    })
+  );
 
   await auditService.recordAuditLog({
     workspaceId,
@@ -259,8 +267,7 @@ export const reviewPost = async (
 };
 
 const assertAssigneeIsMember = async (workspaceId: string, assigneeId: string) => {
-  const member = await workspaceRepository.findMember(workspaceId, assigneeId);
-  if (!member) {
+  if (!(await workspaceService.isWorkspaceMember(workspaceId, assigneeId))) {
     throw new BadRequestError('Người nhận việc không phải là thành viên của workspace');
   }
 };
@@ -287,14 +294,16 @@ export const assignPost = async (
   });
 
   if (data.assigneeId) {
-    await postNotification.notifyTaskAssigned({
-      workspaceId,
-      postId,
-      postTitle: post.title,
-      assigneeId: data.assigneeId,
-      actorId,
-      dueAt: data.dueAt ?? null,
-    });
+    await notifySafely(() =>
+      postNotification.notifyTaskAssigned({
+        workspaceId,
+        postId,
+        postTitle: post.title,
+        assigneeId: data.assigneeId!,
+        actorId,
+        dueAt: data.dueAt ?? null,
+      })
+    );
   }
 
   await auditService.recordAuditLog({
@@ -332,14 +341,16 @@ export const updateTaskStatus = async (
 
   await postRepository.updateTaskStatus(postId, taskStatus);
 
-  await postNotification.notifyTaskStatusChanged({
-    workspaceId,
-    postId,
-    postTitle: post.title,
-    actorId: userId,
-    authorId: post.createdById,
-    taskStatus,
-  });
+  await notifySafely(() =>
+    postNotification.notifyTaskStatusChanged({
+      workspaceId,
+      postId,
+      postTitle: post.title,
+      actorId: userId,
+      authorId: post.createdById,
+      taskStatus,
+    })
+  );
 
   await auditService.recordAuditLog({
     workspaceId,

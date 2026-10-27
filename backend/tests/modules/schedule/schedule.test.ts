@@ -9,6 +9,7 @@ import {
   facebookClient,
 } from '../../../src/modules/channel/facebook.client.js';
 import scheduleService from '../../../src/modules/schedule/schedule.service.js';
+import postService from '../../../src/modules/post/post.service.js';
 
 const password = 'password123';
 
@@ -473,6 +474,42 @@ describe('Schedule — đăng bài Facebook', () => {
       .set('Authorization', `Bearer ${creatorToken}`);
 
     expect(res.status).toBe(409);
+  });
+
+  it('Không xoá được bài đang có lịch PROCESSING', async () => {
+    const postId = await createPost();
+    await prisma.scheduledPost.create({
+      data: {
+        postId,
+        channelId: channelAId,
+        scheduledAt: null,
+        status: 'PROCESSING',
+        processingStartedAt: new Date(),
+      },
+    });
+
+    await expect(postService.deletePost(wsId, ownerId, 'OWNER', postId)).rejects.toThrow(
+      'đang được đăng'
+    );
+
+    expect(await prisma.post.findUnique({ where: { id: postId } })).not.toBeNull();
+  });
+
+  it('Không đăng bài đã bị xoá mềm dù lịch còn SCHEDULED', async () => {
+    const postId = await createPost();
+    const schedule = await prisma.scheduledPost.create({
+      data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
+    });
+    await prisma.post.update({ where: { id: postId }, data: { deletedAt: new Date() } });
+
+    const feedSpy = vi.spyOn(facebookClient, 'createPageFeedPost');
+
+    const result = await scheduleService.publishSchedule(schedule.id);
+
+    expect(result.outcome).toBe('failed');
+    expect(feedSpy).not.toHaveBeenCalled();
+    const saved = await prisma.scheduledPost.findUnique({ where: { id: schedule.id } });
+    expect(saved?.status).toBe('FAILED');
   });
 
   it('Token hết hạn đánh dấu Page EXPIRED và lịch FAILED', async () => {

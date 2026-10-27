@@ -1,35 +1,9 @@
-import type { PostStatus, Prisma, PublishStatus } from '@prisma/client';
+import type { Prisma, PublishStatus } from '@prisma/client';
 import prisma from '../../config/db.js';
+import { SCHEDULE_PUBLIC_SELECT } from '../../shared/schedule.select.js';
+import { PUBLISHABLE_POST_STATUSES, recomputePostStatus } from '../post/post.status.js';
 
-type ScheduleTransaction = Pick<typeof prisma, 'post' | 'scheduledPost'>;
-
-export const SCHEDULE_PUBLIC_SELECT = {
-  id: true,
-  postId: true,
-  channelId: true,
-  scheduledAt: true,
-  status: true,
-  externalPostId: true,
-  errorMessage: true,
-  retryCount: true,
-  retryAt: true,
-  publishedAt: true,
-  createdAt: true,
-  updatedAt: true,
-  post: {
-    select: { id: true, title: true, status: true },
-  },
-  channel: {
-    select: {
-      id: true,
-      name: true,
-      avatar: true,
-      externalAccountId: true,
-      platform: true,
-      status: true,
-    },
-  },
-} satisfies Prisma.ScheduledPostSelect;
+export { SCHEDULE_PUBLIC_SELECT };
 
 export type ScheduleSummary = Prisma.ScheduledPostGetPayload<{
   select: typeof SCHEDULE_PUBLIC_SELECT;
@@ -61,8 +35,7 @@ export const findChannelsForSchedule = async (workspaceId: string, channelIds: s
   });
 
 // FAILED/PUBLISHED vẫn đăng được để thử lại Page lỗi hoặc đăng thêm Page mới.
-export const PUBLISHABLE_POST_STATUSES: PostStatus[] = ['APPROVED', 'FAILED', 'PUBLISHED'];
-const OCCUPIED_SCHEDULE_STATUSES: PublishStatus[] = ['SCHEDULED', 'PROCESSING', 'PUBLISHED'];
+export const OCCUPIED_SCHEDULE_STATUSES: PublishStatus[] = ['SCHEDULED', 'PROCESSING', 'PUBLISHED'];
 
 interface CreateSchedulesParams {
   postId: string;
@@ -71,12 +44,17 @@ interface CreateSchedulesParams {
   scheduledAt: Date | null;
 }
 
+export type CreateSchedulesResult =
+  | { outcome: 'created'; schedules: ScheduleSummary[] }
+  | { outcome: 'channel_taken' }
+  | { outcome: 'not_publishable' };
+
 export const createSchedulesForPost = async ({
   postId,
   workspaceId,
   channelIds,
   scheduledAt,
-}: CreateSchedulesParams): Promise<ScheduleSummary[] | 'channel_taken' | null> => {
+}: CreateSchedulesParams): Promise<CreateSchedulesResult> => {
   const channelTaken = Symbol('channel_taken');
 
   try {
@@ -91,7 +69,7 @@ export const createSchedulesForPost = async ({
         data: { status: 'SCHEDULED' },
       });
 
-      if (count === 0) return null;
+      if (count === 0) return { outcome: 'not_publishable' as const };
 
       const taken = await tx.scheduledPost.count({
         where: { postId, channelId: { in: channelIds }, status: { in: OCCUPIED_SCHEDULE_STATUSES } },
@@ -127,10 +105,10 @@ export const createSchedulesForPost = async ({
         schedules.push(schedule);
       }
 
-      return schedules;
+      return { outcome: 'created' as const, schedules };
     });
   } catch (error) {
-    if (error === channelTaken) return 'channel_taken';
+    if (error === channelTaken) return { outcome: 'channel_taken' };
     throw error;
   }
 };
@@ -269,6 +247,15 @@ export const findScheduleForPublish = async (scheduleId: string) =>
     },
   });
 
+export const findPublishablePost = async (postId: string) =>
+  prisma.post.findFirst({ where: { id: postId }, select: { id: true } });
+
+export const findPublishableChannel = async (channelId: string) =>
+  prisma.channelConnection.findFirst({
+    where: { id: channelId, status: 'ACTIVE' },
+    select: { id: true },
+  });
+
 export const markSchedulePublished = async (scheduleId: string, externalPostId: string) =>
   prisma.$transaction(async (tx) => {
     const { count } = await tx.scheduledPost.updateMany({
@@ -357,41 +344,6 @@ export const recoverStaleSchedules = async (staleBefore: Date): Promise<number> 
   return stale.length;
 };
 
-const computePostStatus = (statuses: PublishStatus[]): PostStatus | null => {
-  if (statuses.length === 0) return null;
-  if (statuses.some((status) => status === 'SCHEDULED' || status === 'PROCESSING')) {
-    return 'SCHEDULED';
-  }
-  if (statuses.some((status) => status === 'PUBLISHED')) return 'PUBLISHED';
-  if (statuses.some((status) => status === 'FAILED')) return 'FAILED';
-  return 'APPROVED';
-};
-
-export const recomputePostStatus = async (tx: ScheduleTransaction, postId: string) => {
-  const schedules = await tx.scheduledPost.findMany({
-    where: { postId },
-    select: { status: true },
-  });
-
-  let nextStatus = computePostStatus(schedules.map((schedule) => schedule.status));
-
-  // Kênh bị ngắt có thể xoá hết lịch (cascade). Khi đó bài đang chờ đăng
-  // phải quay về APPROVED thay vì kẹt ở SCHEDULED/FAILED.
-  if (!nextStatus && schedules.length === 0) {
-    const post = await tx.post.findUnique({ where: { id: postId }, select: { status: true } });
-    if (post?.status === 'SCHEDULED' || post?.status === 'FAILED') {
-      nextStatus = 'APPROVED';
-    }
-  }
-
-  if (!nextStatus) return;
-
-  await tx.post.updateMany({
-    where: { id: postId, status: { not: nextStatus } },
-    data: { status: nextStatus },
-  });
-};
-
 export default {
   SCHEDULE_PUBLIC_SELECT,
   findPostForSchedule,
@@ -403,9 +355,10 @@ export default {
   findDueScheduleIds,
   claimSchedule,
   findScheduleForPublish,
+  findPublishablePost,
+  findPublishableChannel,
   markSchedulePublished,
   markScheduleFailed,
   rescheduleSchedule,
   recoverStaleSchedules,
-  recomputePostStatus,
 };
