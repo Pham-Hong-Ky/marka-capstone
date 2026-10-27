@@ -32,7 +32,11 @@ export const StatCard = ({
     <p className="text-sm text-muted">{label}</p>
     <div className="mt-1 flex flex-wrap items-baseline gap-2">
       <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>
-      {typeof delta === 'number' ? <Delta value={delta} /> : null}
+      {typeof delta === 'number' ? (
+        <Delta value={delta} />
+      ) : delta === null ? (
+        <span className="text-xs font-medium text-muted">—</span>
+      ) : null}
     </div>
     {hint ? <div className="mt-1 text-xs text-subtle">{hint}</div> : null}
   </div>
