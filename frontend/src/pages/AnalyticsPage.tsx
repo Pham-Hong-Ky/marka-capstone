@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import AnalyticsFilterBar from '@/components/features/analytics/AnalyticsFilterBar';
+import CoverageAlert from '@/components/features/analytics/CoverageAlert';
+import TrendChart from '@/components/features/analytics/TrendChart';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
@@ -105,33 +107,42 @@ export const AnalyticsPage = () => {
     const { summary } = data;
 
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard
-          label="Tương tác"
-          value={formatNumber(summary.likes)}
-          delta={summary.deltas.likes}
-        />
-        <StatCard
-          label="Bình luận"
-          value={formatNumber(summary.comments)}
-          delta={summary.deltas.comments}
-        />
-        <StatCard
-          label="Chia sẻ"
-          value={formatNumber(summary.shares)}
-          delta={summary.deltas.shares}
-        />
-        <StatCard
-          label="Tỷ lệ tương tác"
-          value={summary.engagementRate !== null ? `${summary.engagementRate}%` : '—'}
-          delta={summary.deltas.engagementRate}
-        />
-        {summary.impressions !== null ? (
+      <div className="space-y-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard
-            label="Hiển thị"
-            value={formatNumber(summary.impressions)}
-            delta={summary.deltas.impressions}
+            label="Tương tác"
+            value={formatNumber(summary.likes)}
+            delta={summary.deltas.likes}
           />
+          <StatCard
+            label="Bình luận"
+            value={formatNumber(summary.comments)}
+            delta={summary.deltas.comments}
+          />
+          <StatCard
+            label="Chia sẻ"
+            value={formatNumber(summary.shares)}
+            delta={summary.deltas.shares}
+          />
+          <StatCard
+            label="Tỷ lệ tương tác"
+            value={summary.engagementRate !== null ? `${summary.engagementRate}%` : '—'}
+            delta={summary.deltas.engagementRate}
+          />
+          {summary.impressions !== null ? (
+            <StatCard
+              label="Hiển thị"
+              value={formatNumber(summary.impressions)}
+              delta={summary.deltas.impressions}
+            />
+          ) : null}
+        </div>
+
+        {data.coverage.publishedPosts > 0 ? (
+          <div className="space-y-4">
+            <CoverageAlert coverage={data.coverage} />
+            <TrendChart series={data.series} />
+          </div>
         ) : null}
       </div>
     );
