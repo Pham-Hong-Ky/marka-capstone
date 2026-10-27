@@ -1,13 +1,13 @@
+import { workspaceIdField, workspaceIdParamSchema } from '../../utils/validation/common.js';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { workspaceIdParamSchema } from '../workspace/workspace.validation.js';
 
 extendZodWithOpenApi(z);
 
 export const listChannelsSchema = { params: workspaceIdParamSchema };
 
 export const facebookOauthUrlQuerySchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  workspaceId: workspaceIdField,
 });
 
 export const facebookCallbackQuerySchema = z.object({
@@ -24,7 +24,7 @@ export const channelIdParamSchema = z.object({
 export const channelIdSchema = { params: channelIdParamSchema };
 
 export const channelProfileParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  workspaceId: workspaceIdField,
   channelId: z.string().uuid('Channel ID không hợp lệ'),
 });
 

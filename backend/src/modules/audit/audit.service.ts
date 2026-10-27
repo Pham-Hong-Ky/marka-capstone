@@ -1,3 +1,6 @@
+import { buildPaginationMeta } from '../../utils/pagination.js';
+import { getErrorMessage } from '../../utils/errorMessage.js';
+import logger from '../../utils/logger.js';
 import auditRepository, { type AuditLogData } from './audit.repository.js';
 import type { AdminAuditLogsQuery, WorkspaceAuditLogsQuery } from './audit.validation.js';
 
@@ -5,8 +8,8 @@ export const recordAuditLog = async (data: AuditLogData) => {
   try {
     return await auditRepository.createAuditLog(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn('⚠️ Ghi Audit Log thất bại:', message);
+    const message = getErrorMessage(error);
+    logger.warn(`Ghi Audit Log thất bại: ${message}`);
     return null;
   }
 };
@@ -29,12 +32,7 @@ export const listAuditLogs = async (
 
   return {
     auditLogs,
-    meta: {
-      page: query.page,
-      limit: query.limit,
-      total,
-      totalPages: Math.ceil(total / query.limit),
-    },
+    meta: buildPaginationMeta(query.page, query.limit, total),
   };
 };
 

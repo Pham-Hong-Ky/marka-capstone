@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../../utils/errorMessage.js';
 import type {
   AiGenStatus,
   AiGenType,
@@ -156,7 +157,7 @@ export const parseGenerationResponse = (generation: {
   try {
     return JSON.parse(generation.response) as unknown;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.error(`Response AI không phải JSON hợp lệ (${generation.id}): ${message}`);
     return null;
   }

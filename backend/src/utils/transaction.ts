@@ -1,3 +1,4 @@
+import { getErrorMessage } from './errorMessage.js';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/db.js';
 import logger from './logger.js';
@@ -17,7 +18,7 @@ export const withTransaction = async <T>(
     const isExpectedBusinessError = error instanceof AppError && error.statusCode < 500;
 
     if (!isExpectedBusinessError) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       const stack = error instanceof Error ? error.stack : undefined;
       logger.error(`❌ Transaction thất bại: ${message}`, { stack });
     }

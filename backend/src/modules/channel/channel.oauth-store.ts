@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../../utils/errorMessage.js';
 import redis from '../../config/redis.js';
 import logger from '../../utils/logger.js';
 import { ServiceUnavailableError } from '../../utils/errors/index.js';
@@ -33,7 +34,7 @@ const runRedis = async <T>(action: string, command: () => Promise<T>): Promise<T
   try {
     return await command();
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.warn(`Redis lỗi khi ${action} phiên OAuth Facebook: ${message}`);
     throw new ServiceUnavailableError(
       'Tạm thời không truy cập được bộ nhớ phiên kết nối Facebook. Vui lòng thử lại sau ít phút.'
@@ -52,7 +53,7 @@ export const consumeOauthState = async (state: string): Promise<OauthState | nul
   try {
     return JSON.parse(raw) as OauthState;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.warn(`Dữ liệu OAuth state trong Redis không hợp lệ: ${message}`);
     return null;
   }
@@ -71,7 +72,7 @@ export const getOauthSession = async (sessionId: string): Promise<OauthSession |
   try {
     return JSON.parse(raw) as OauthSession;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.warn(`Dữ liệu OAuth session trong Redis không hợp lệ: ${message}`);
     return null;
   }

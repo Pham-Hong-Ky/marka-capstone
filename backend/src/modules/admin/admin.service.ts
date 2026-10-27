@@ -1,3 +1,4 @@
+import { buildPaginationMeta } from '../../utils/pagination.js';
 import adminRepository from './admin.repository.js';
 import auditService from '../audit/audit.service.js';
 import type { ListUsersQuery, ListWorkspacesQuery, SuspendUserBody } from './admin.validation.js';
@@ -32,12 +33,7 @@ export const listUsers = async (query: ListUsersQuery) => {
 
   return {
     users: users.map(mapUser),
-    meta: {
-      page: query.page,
-      limit: query.limit,
-      total,
-      totalPages: Math.ceil(total / query.limit),
-    },
+    meta: buildPaginationMeta(query.page, query.limit, total),
   };
 };
 
@@ -80,12 +76,7 @@ export const listWorkspaces = async (query: ListWorkspacesQuery) => {
 
   return {
     workspaces: workspaces.map(mapWorkspace),
-    meta: {
-      page: query.page,
-      limit: query.limit,
-      total,
-      totalPages: Math.ceil(total / query.limit),
-    },
+    meta: buildPaginationMeta(query.page, query.limit, total),
   };
 };
 

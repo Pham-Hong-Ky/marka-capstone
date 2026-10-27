@@ -1,3 +1,4 @@
+import { workspaceIdField } from '../../utils/validation/common.js';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 
@@ -25,14 +26,14 @@ const withDateRange = <T extends z.ZodTypeAny>(schema: T) =>
 
 export const adminAuditLogsQuerySchema = withDateRange(
   auditLogsQueryBase.extend({
-    workspaceId: z.string().uuid('Workspace ID không hợp lệ').optional(),
+    workspaceId: workspaceIdField.optional(),
   })
 );
 
 export const workspaceAuditLogsQuerySchema = withDateRange(auditLogsQueryBase);
 
 export const auditWorkspaceParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  workspaceId: workspaceIdField,
 });
 
 export const adminAuditLogsSchema = { query: adminAuditLogsQuerySchema };

@@ -1,3 +1,4 @@
+import { getWorkspaceId } from '../../utils/request.js';
 import { Request, Response } from 'express';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
@@ -7,7 +8,7 @@ import analyticsService from './analytics.service.js';
 import type { AnalyticsOverviewQuery, AnalyticsSuggestionsQuery } from './analytics.validation.js';
 
 export const getOverview = catchAsync(async (req: Request, res: Response) => {
-  const workspaceId = req.workspaceId as string;
+  const workspaceId = getWorkspaceId(req);
   const data = await analyticsService.getOverview(
     workspaceId,
     req.query as unknown as AnalyticsOverviewQuery
@@ -20,7 +21,7 @@ export const getOverview = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getSuggestions = catchAsync(async (req: Request, res: Response) => {
-  const workspaceId = req.workspaceId as string;
+  const workspaceId = getWorkspaceId(req);
   const data = await analyticsService.getSuggestions(
     workspaceId,
     req.query as unknown as AnalyticsSuggestionsQuery
@@ -33,7 +34,7 @@ export const getSuggestions = catchAsync(async (req: Request, res: Response) => 
 });
 
 export const triggerSync = catchAsync(async (req: Request, res: Response) => {
-  const workspaceId = req.workspaceId as string;
+  const workspaceId = getWorkspaceId(req);
   await enqueue(QUEUE_NAMES.analytics, 'analytics-sync', { workspaceId });
 
   return ApiResponse.success(res, {

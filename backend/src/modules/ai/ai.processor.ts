@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../../utils/errorMessage.js';
 import type { AiGeneration } from '@prisma/client';
 import { UnrecoverableError, type Job } from 'bullmq';
 import logger from '../../utils/logger.js';
@@ -159,7 +160,7 @@ export const processContentJob = async (job: Job): Promise<{ success: boolean }>
     await job.updateProgress(100);
     return { success: true };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.error(`[AI] job ${job.id} (${generationId}) lỗi: ${message}`);
     throw error;
   }

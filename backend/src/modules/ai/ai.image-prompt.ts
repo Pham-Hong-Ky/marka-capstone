@@ -4,7 +4,8 @@ import {
   AI_IMAGE_CONTENT_LIMIT,
   AI_IMAGE_MAX_PROMPT_LENGTH,
 } from './ai.config.js';
-import { AiOutputError, AiProviderConfigError } from './ai.errors.js';
+import { AiOutputError } from './ai.errors.js';
+import { parseStoredPayload } from './ai.payload.js';
 import { normalizeBrandVoice } from './ai.prompt.js';
 
 export interface ImageSourcePayload {
@@ -130,13 +131,8 @@ const imageSourceSchema = z
   })
   .passthrough();
 
-export const parseImageSourcePayload = (prompt: string): ImageSourcePayload => {
-  try {
-    return imageSourceSchema.parse(JSON.parse(prompt) as unknown);
-  } catch {
-    throw new AiProviderConfigError('Dữ liệu prompt của generation không hợp lệ');
-  }
-};
+export const parseImageSourcePayload = (prompt: string): ImageSourcePayload =>
+  parseStoredPayload(prompt, imageSourceSchema);
 
 export default {
   buildImageArtPrompt,

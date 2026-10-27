@@ -1,3 +1,4 @@
+import { buildPaginationMeta } from '../../utils/pagination.js';
 import notificationRepository from './notification.repository.js';
 import workspaceRepository from '../workspace/workspace.repository.js';
 import type { ListNotificationsQuery } from './notification.validation.js';
@@ -9,6 +10,13 @@ const assertWorkspaceMembership = async (userId: string, workspaceId: string) =>
     throw new ForbiddenError('Bạn không phải là thành viên của Workspace này');
   }
 };
+
+export const createNotification = async (data: {
+  userId: string;
+  workspaceId?: string | null;
+  type: string;
+  payload: Record<string, unknown>;
+}) => notificationRepository.createNotification(data);
 
 export const listNotifications = async (userId: string, query: ListNotificationsQuery) => {
   if (query.workspaceId) {
@@ -25,12 +33,7 @@ export const listNotifications = async (userId: string, query: ListNotifications
 
   return {
     notifications,
-    meta: {
-      page: query.page,
-      limit: query.limit,
-      total,
-      totalPages: Math.ceil(total / query.limit),
-    },
+    meta: buildPaginationMeta(query.page, query.limit, total),
   };
 };
 
@@ -59,6 +62,7 @@ export const markAllNotificationsRead = async (userId: string, workspaceId?: str
 };
 
 export default {
+  createNotification,
   listNotifications,
   getUnreadCount,
   markNotificationRead,

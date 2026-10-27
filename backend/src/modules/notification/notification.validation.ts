@@ -1,3 +1,4 @@
+import { workspaceIdField } from '../../utils/validation/common.js';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 
@@ -10,7 +11,7 @@ export const listNotificationsQuerySchema = z.object({
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
     .optional(),
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ').optional(),
+  workspaceId: workspaceIdField.optional(),
 });
 
 export const notificationIdParamSchema = z.object({
@@ -18,7 +19,7 @@ export const notificationIdParamSchema = z.object({
 });
 
 export const workspaceFilterQuerySchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ').optional(),
+  workspaceId: workspaceIdField.optional(),
 });
 
 export const listNotificationsSchema = { query: listNotificationsQuerySchema };

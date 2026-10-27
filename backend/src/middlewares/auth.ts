@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../utils/errorMessage.js';
 import { Request, Response, NextFunction } from 'express';
 import type { SystemRole, WorkspaceRole } from '@prisma/client';
 import { verifyAccessToken } from '../utils/jwt.js';
@@ -92,7 +93,7 @@ export const optionalAuth = async (req: Request, _res: Response, next: NextFunct
     req.user = await loadUserFromToken(authHeader.split(' ')[1]);
     next();
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.warn(`Token không hợp lệ ở optionalAuth: ${message}`);
     next(error);
   }

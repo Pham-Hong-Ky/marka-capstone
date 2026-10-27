@@ -1,11 +1,11 @@
+import { workspaceIdField, workspaceIdParamSchema } from '../../utils/validation/common.js';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { workspaceIdParamSchema } from '../workspace/workspace.validation.js';
 
 extendZodWithOpenApi(z);
 
 export const orderIdParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  workspaceId: workspaceIdField,
   orderId: z.string().uuid('Order ID không hợp lệ'),
 });
 

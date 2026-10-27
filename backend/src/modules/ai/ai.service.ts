@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../../utils/errorMessage.js';
 import type { AiGenType, WorkspaceRole } from '@prisma/client';
 import logger from '../../utils/logger.js';
 import { withTransaction } from '../../utils/transaction.js';
@@ -47,14 +48,14 @@ const enqueueOrRefund = async (
   try {
     await enqueue(QUEUE_NAMES.contentGeneration, jobName, { generationId });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.error(`Không enqueue được job AI ${generationId}: ${message}`);
 
     try {
       await failGeneration(generationId, 'Không thể đưa yêu cầu vào hàng đợi xử lý');
     } catch (refundError) {
       const refundMessage =
-        refundError instanceof Error ? refundError.message : String(refundError);
+        getErrorMessage(refundError);
       logger.error(`Không hoàn được credit cho generation ${generationId}: ${refundMessage}`);
     }
 
@@ -64,7 +65,7 @@ const enqueueOrRefund = async (
 
 const removeDraftQuietly = async (postId: string) => {
   await postRepository.softDeletePost(postId).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.error(`Không xoá được bài nháp ${postId}: ${message}`);
   });
 };

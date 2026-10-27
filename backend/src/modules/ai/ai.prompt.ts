@@ -3,7 +3,8 @@ import {
   AI_BRAND_VOICE_EXAMPLE_LIMIT,
   AI_BRAND_VOICE_EXAMPLE_MAX_LENGTH,
 } from './ai.config.js';
-import { AiOutputError, AiProviderConfigError } from './ai.errors.js';
+import { AiOutputError } from './ai.errors.js';
+import { parseStoredPayload } from './ai.payload.js';
 
 export interface BrandVoice {
   industry?: string;
@@ -227,13 +228,8 @@ const textPromptPayloadSchema = z.object({
   userPrompt: z.string().min(1),
 });
 
-export const parseTextPromptPayload = (prompt: string): TextPromptPayload => {
-  try {
-    return textPromptPayloadSchema.parse(JSON.parse(prompt) as unknown);
-  } catch {
-    throw new AiProviderConfigError('Dữ liệu prompt của generation không hợp lệ');
-  }
-};
+export const parseTextPromptPayload = (prompt: string): TextPromptPayload =>
+  parseStoredPayload(prompt, textPromptPayloadSchema);
 
 const textNode = (text: string): TiptapNode => ({ type: 'text', text });
 

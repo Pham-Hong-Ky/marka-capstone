@@ -1,12 +1,12 @@
 import { extendZodWithOpenApi, OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import env from './env.js';
+import { workspaceIdParamSchema } from '../utils/validation/common.js';
 import { registerBodySchema, loginBodySchema, refreshTokenBodySchema } from '../modules/auth/auth.validation.js';
 import { updateProfileBodySchema, changePasswordBodySchema } from '../modules/user/user.validation.js';
 import {
   createWorkspaceBodySchema,
   updateWorkspaceBodySchema,
-  workspaceIdParamSchema,
   memberIdParamSchema,
   inviteMemberBodySchema,
   changeMemberRoleBodySchema,

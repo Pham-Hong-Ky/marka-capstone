@@ -1,15 +1,12 @@
+import { workspaceIdField, workspaceIdParamSchema } from '../../utils/validation/common.js';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { PostStatus, TaskStatus } from '@prisma/client';
 import { z } from 'zod';
 
 extendZodWithOpenApi(z);
 
-export const workspaceIdParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
-});
-
 export const postIdParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  workspaceId: workspaceIdField,
   postId: z.string().uuid('Post ID không hợp lệ'),
 });
 
@@ -64,7 +61,7 @@ export const updatePostSchema = { body: updatePostBodySchema, params: postIdPara
 export const postMediaSchema = { params: postIdParamSchema };
 
 export const postMediaParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  workspaceId: workspaceIdField,
   postId: z.string().uuid('Post ID không hợp lệ'),
   mediaId: z.string().uuid('Media ID không hợp lệ'),
 });

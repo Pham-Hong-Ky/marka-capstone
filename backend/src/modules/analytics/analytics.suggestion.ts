@@ -83,13 +83,15 @@ const vnParts = (date: Date) => {
 const overlaps = (slot: BestTimeSlot, startHour: number, endHour: number): boolean =>
   slot.startHour < endHour && startHour < slot.endHour;
 
-export const buildBestTimes = (
-  rows: SuggestionRow[]
-): { slots: BestTimeSlot[]; usedFallback: boolean; sampleSize: number } => {
-  const buckets = new Map<
-    string,
-    { weekday: number; startHour: number; count: number; rateSum: number }
-  >();
+interface TimeBucket {
+  weekday: number;
+  startHour: number;
+  count: number;
+  rateSum: number;
+}
+
+const buildTimeBuckets = (rows: SuggestionRow[]) => {
+  const buckets = new Map<string, TimeBucket>();
   let sampleSize = 0;
 
   for (const row of rows) {
@@ -106,7 +108,11 @@ export const buildBestTimes = (
     buckets.set(key, bucket);
   }
 
-  const dataSlots: BestTimeSlot[] = [...buckets.values()]
+  return { buckets, sampleSize };
+};
+
+const toDataSlots = (buckets: Map<string, TimeBucket>): BestTimeSlot[] =>
+  [...buckets.values()]
     .filter((bucket) => bucket.count >= MIN_POSTS_PER_SLOT)
     .map((bucket) => ({
       weekday: bucket.weekday,
@@ -124,6 +130,7 @@ export const buildBestTimes = (
     )
     .slice(0, DEFAULT_SLOTS);
 
+const fillBenchmarkSlots = (dataSlots: BestTimeSlot[]): BestTimeSlot[] => {
   const slots = [...dataSlots];
 
   for (const benchmark of BENCHMARK_SLOTS) {
@@ -139,6 +146,16 @@ export const buildBestTimes = (
       source: 'benchmark',
     });
   }
+
+  return slots;
+};
+
+export const buildBestTimes = (
+  rows: SuggestionRow[]
+): { slots: BestTimeSlot[]; usedFallback: boolean; sampleSize: number } => {
+  const { buckets, sampleSize } = buildTimeBuckets(rows);
+  const dataSlots = toDataSlots(buckets);
+  const slots = fillBenchmarkSlots(dataSlots);
 
   return { slots, usedFallback: slots.length > dataSlots.length, sampleSize };
 };
@@ -180,70 +197,76 @@ export const shouldPenalizeExternalLinks = (rows: SuggestionRow[]): boolean => {
   return linkRate < plainRate * 0.8;
 };
 
+const buildTipsForDraft = (
+  draft: DraftPost,
+  dataSlots: BestTimeSlot[],
+  penalizeExternalLinks: boolean
+): ContentTip[] => {
+  const tips: ContentTip[] = [];
+  const text = draft.text.trim();
+  const length = text.length;
+  const add = (rule: TipRule, severity: TipSeverity, message: string) =>
+    tips.push({ postId: draft.id, postTitle: draft.title, rule, severity, message });
+
+  if (!draft.hasMedia) {
+    add('no_media', 'high', 'Chưa có ảnh hoặc video — bài có ảnh thường được chú ý hơn trong bảng tin.');
+  }
+
+  if (length < MIN_CAPTION_LENGTH) {
+    add(
+      'too_short',
+      'medium',
+      `Caption chỉ có ${length} ký tự, nên viết từ ${MIN_CAPTION_LENGTH} ký tự để đủ ngữ cảnh.`
+    );
+  } else if (length > MAX_CAPTION_LENGTH) {
+    add(
+      'too_long',
+      'medium',
+      `Caption dài ${length} ký tự; Facebook chỉ hiện phần đầu nên nên rút dưới ${MAX_CAPTION_LENGTH} ký tự.`
+    );
+  }
+
+  const hashtagCount = countHashtags(text);
+  if (hashtagCount > MAX_HASHTAGS) {
+    add(
+      'too_many_hashtags',
+      'low',
+      `Đang dùng ${hashtagCount} hashtag — nên giữ tối đa ${MAX_HASHTAGS}.`
+    );
+  }
+
+  if (!CTA_PATTERN.test(text)) {
+    add('no_cta', 'low', 'Chưa có lời kêu gọi hành động (câu hỏi, "bình luận", "nhắn tin"...).');
+  }
+
+  if (draft.scheduledAt && dataSlots.length > 0 && !isInsideSlot(draft.scheduledAt, dataSlots)) {
+    add(
+      'outside_best_time',
+      'medium',
+      'Thời điểm lên lịch nằm ngoài khung giờ có tương tác tốt nhất của Page.'
+    );
+  }
+
+  if (penalizeExternalLinks && LINK_PATTERN.test(text)) {
+    add(
+      'external_link',
+      'medium',
+      'Có link ngoài — các bài có link đang có tỷ lệ tương tác thấp hơn trên Page của bạn.'
+    );
+  }
+
+  return tips;
+};
+
 export const buildContentTips = (
   drafts: DraftPost[],
   slots: BestTimeSlot[],
   options: { penalizeExternalLinks?: boolean } = {}
 ): ContentTip[] => {
   const dataSlots = slots.filter((slot) => slot.source === 'data');
-  const tips: ContentTip[] = [];
-
-  for (const draft of drafts) {
-    const text = draft.text.trim();
-    const length = text.length;
-    const add = (rule: TipRule, severity: TipSeverity, message: string) =>
-      tips.push({ postId: draft.id, postTitle: draft.title, rule, severity, message });
-
-    if (!draft.hasMedia) {
-      add('no_media', 'high', 'Chưa có ảnh hoặc video — bài có ảnh thường được chú ý hơn trong bảng tin.');
-    }
-
-    if (length < MIN_CAPTION_LENGTH) {
-      add(
-        'too_short',
-        'medium',
-        `Caption chỉ có ${length} ký tự, nên viết từ ${MIN_CAPTION_LENGTH} ký tự để đủ ngữ cảnh.`
-      );
-    } else if (length > MAX_CAPTION_LENGTH) {
-      add(
-        'too_long',
-        'medium',
-        `Caption dài ${length} ký tự; Facebook chỉ hiện phần đầu nên nên rút dưới ${MAX_CAPTION_LENGTH} ký tự.`
-      );
-    }
-
-    if (countHashtags(text) > MAX_HASHTAGS) {
-      add(
-        'too_many_hashtags',
-        'low',
-        `Đang dùng ${countHashtags(text)} hashtag — nên giữ tối đa ${MAX_HASHTAGS}.`
-      );
-    }
-
-    if (!CTA_PATTERN.test(text)) {
-      add('no_cta', 'low', 'Chưa có lời kêu gọi hành động (câu hỏi, "bình luận", "nhắn tin"...).');
-    }
-
-    if (
-      draft.scheduledAt &&
-      dataSlots.length > 0 &&
-      !isInsideSlot(draft.scheduledAt, dataSlots)
-    ) {
-      add(
-        'outside_best_time',
-        'medium',
-        'Thời điểm lên lịch nằm ngoài khung giờ có tương tác tốt nhất của Page.'
-      );
-    }
-
-    if (options.penalizeExternalLinks && LINK_PATTERN.test(text)) {
-      add(
-        'external_link',
-        'medium',
-        'Có link ngoài — các bài có link đang có tỷ lệ tương tác thấp hơn trên Page của bạn.'
-      );
-    }
-  }
+  const tips = drafts.flatMap((draft) =>
+    buildTipsForDraft(draft, dataSlots, options.penalizeExternalLinks ?? false)
+  );
 
   return tips
     .sort(

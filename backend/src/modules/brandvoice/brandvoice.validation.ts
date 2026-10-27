@@ -1,6 +1,6 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { workspaceIdParamSchema } from '../workspace/workspace.validation.js';
+import { workspaceIdParamSchema } from '../../utils/validation/common.js';
 
 extendZodWithOpenApi(z);
 
