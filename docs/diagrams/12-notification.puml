@@ -1,0 +1,72 @@
+@startuml 12-notification
+hide circle
+hide stereotype
+!pragma layout smetana
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "Notification" as Notification {
+  + id : string
+  + userId : string
+  + workspaceId : string?
+  + type : string
+  + payload : Json
+  + isRead : boolean
+  + createdAt : Date
+}
+
+class "WorkspaceMember" as WorkspaceMember {
+  + id : string
+  + workspaceId : string
+  + userId : string
+  + role : WorkspaceRole
+  + allowDirectPublish : boolean
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "notificationController" as notificationController {
+  + listNotifications(req, res) : Promise<Response>
+  + getUnreadCount(req, res) : Promise<Response>
+  + markNotificationRead(req, res) : Promise<Response>
+  + markAllNotificationsRead(req, res) : Promise<Response>
+}
+
+class "notificationService" as notificationService {
+  - assertWorkspaceMembership(userId, workspaceId)
+  + listNotifications(userId, query)
+  + getUnreadCount(userId, workspaceId?)
+  + markNotificationRead(userId, notificationId)
+  + markAllNotificationsRead(userId, workspaceId?)
+}
+
+class "notificationRepository" as notificationRepository {
+  + createNotification(data)
+  + listNotificationsAndCount(params)
+  + countUnread(userId, workspaceId?)
+  + markNotificationRead(notificationId, userId)
+  + markAllNotificationsRead(userId, workspaceId?)
+}
+
+class "workspaceRepository" as workspaceRepository {
+  + findMember(workspaceId, userId)
+}
+
+notificationController ..> notificationService
+notificationService ..> notificationRepository
+notificationService ..> workspaceRepository
+
+notificationRepository ..> Notification
+workspaceRepository ..> WorkspaceMember
+
+@enduml

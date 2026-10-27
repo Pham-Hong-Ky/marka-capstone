@@ -55,7 +55,6 @@ class "WorkspaceInvite" as WorkspaceInvite {
 }
 
 class "workspaceController" as workspaceController {
-  - workspaceService : workspaceService
   + createWorkspace(req, res)
   + listWorkspaces(req, res)
   + updateWorkspace(req, res)
@@ -69,10 +68,6 @@ class "workspaceController" as workspaceController {
 }
 
 class "workspaceService" as workspaceService {
-  - workspaceRepository : workspaceRepository
-  - mailerClient : MailerClient
-  - INVITE_TTL_DAYS : number
-  - ROLE_LABELS : Record<WorkspaceRole, string>
   - assertWorkspaceExists(workspaceId)
   - assertNotLastOwner(workspaceId, message)
   - notifyOwners(workspaceId, actorId, payload)
@@ -89,7 +84,6 @@ class "workspaceService" as workspaceService {
 }
 
 class "workspaceRepository" as workspaceRepository {
-  - prisma : PrismaClient
   + findWorkspacesByUserId(userId)
   + findWorkspaceByNameAndOwner(userId, name)
   + findWorkspaceById(workspaceId)
@@ -116,7 +110,6 @@ class "workspaceRepository" as workspaceRepository {
 }
 
 class "MailerClient" as mailerClient {
-  - resend : Resend
   + sendEmail({ to, subject, html }) : Promise<boolean>
 }
 

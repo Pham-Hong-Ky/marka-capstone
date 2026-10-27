@@ -21,6 +21,7 @@ class "ChannelConnection" as ChannelConnection {
   + platform : SocialPlatform
   + type : ChannelType
   + name : string
+  + label : string?
   + avatar : string?
   + externalAccountId : string
   + accessToken : string?
@@ -30,7 +31,6 @@ class "ChannelConnection" as ChannelConnection {
 }
 
 class "channelController" as channelController {
-  - channelService : channelService
   + listChannels(req, res)
   + getFacebookAuthUrl(req, res)
   + facebookCallback(req, res)
@@ -40,9 +40,6 @@ class "channelController" as channelController {
 }
 
 class "channelService" as channelService {
-  - channelRepository : channelRepository
-  - facebookClient : FacebookClient
-  - oauthStore : oauthStore
   - buildClientRedirect(params) : string
   - errorRedirect(reason) : string
   - getSessionForUser(sessionId, userId, workspaceId)
@@ -56,8 +53,6 @@ class "channelService" as channelService {
 }
 
 class "channelRepository" as channelRepository {
-  - prisma : PrismaClient
-  + CHANNEL_PUBLIC_SELECT
   + findChannelsByWorkspace(workspaceId)
   + upsertFacebookChannels(workspaceId, pages)
   + findChannelInWorkspace(channelId, workspaceId)
@@ -67,9 +62,6 @@ class "channelRepository" as channelRepository {
 }
 
 class "FacebookClient" as facebookClient {
-  - graphBase : string
-  - authBase : string
-  - scopes : string[]
   + isFacebookConfigured() : boolean
   + buildAuthorizationUrl(state) : string
   + isTokenExpiredError(error) : boolean
@@ -81,9 +73,6 @@ class "FacebookClient" as facebookClient {
 }
 
 class "oauthStore" as oauthStore {
-  - STATE_PREFIX : string
-  - SESSION_PREFIX : string
-  - TTL_SECONDS : number
   + saveOauthState(state, { userId, workspaceId }) : Promise<void>
   + consumeOauthState(state) : Promise<OauthState | null>
   + saveOauthSession(sessionId, session) : Promise<void>

@@ -33,20 +33,17 @@ class "Workspace" as Workspace {
 }
 
 class "brandVoiceController" as brandVoiceController {
-  - brandVoiceService : brandVoiceService
   + getBrandVoice(req, res)
   + updateBrandVoice(req, res)
 }
 
 class "brandVoiceService" as brandVoiceService {
-  - brandVoiceRepository : brandVoiceRepository
   - dedupeKeywords(keywords) : string[]
   + getBrandVoice(workspaceId)
   + updateBrandVoice(workspaceId, userId, data)
 }
 
 class "brandVoiceRepository" as brandVoiceRepository {
-  - prisma : PrismaClient
   + findWorkspaceById(workspaceId)
   + getBrandVoiceByWorkspaceId(workspaceId)
   + updateWorkspaceBrandVoice(workspaceId, brandVoice)

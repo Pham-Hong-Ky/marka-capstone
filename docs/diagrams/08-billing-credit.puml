@@ -1,0 +1,152 @@
+@startuml 08-billing-credit
+hide circle
+hide stereotype
+!pragma layout smetana
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "Order" as Order {
+  + id : string
+  + orderCode : string
+  + workspaceId : string
+  + packageId : string?
+  + amount : number
+  + creditAmount : number?
+  + targetPlan : WorkspacePlan?
+  + paymentLinkId : string?
+  + checkoutUrl : string?
+  + expiresAt : Date?
+  + payosTransId : string?
+  + paidAt : Date?
+  + status : OrderStatus
+  + createdById : string?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "CreditPackage" as CreditPackage {
+  + id : string
+  + name : string
+  + description : string?
+  + creditAmount : number
+  + price : number
+  + sortOrder : number
+  + isActive : boolean
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "CreditTransaction" as CreditTransaction {
+  + id : string
+  + workspaceId : string
+  + type : CreditFlowType
+  + action : CreditActionType
+  + amount : number
+  + balanceBefore : number
+  + balanceAfter : number
+  + reason : string?
+  + createdById : string?
+  + createdAt : Date
+}
+
+class "Workspace" as Workspace {
+  + id : string
+  + name : string
+  + plan : WorkspacePlan
+  + remainingCredit : number
+  + monthlyQuota : number
+  + planExpiresAt : Date?
+  + billingCycleStart : Date?
+  + nextResetAt : Date?
+  + planExpiryWarningSentAt : Date?
+  + creditWarningSentAt : Date?
+  + brandVoice : Json?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "billingController" as billingController {
+  + getBilling(req, res) : Promise<Response>
+  + listTransactions(req, res) : Promise<Response>
+  + createOrder(req, res) : Promise<Response>
+  + getOrder(req, res) : Promise<Response>
+  + cancelOrder(req, res) : Promise<Response>
+  + handlePayosWebhook(req, res) : Promise<Response>
+}
+
+class "billingService" as billingService {
+  - toOrderResponse(order)
+  - generateOrderCode() : string
+  - isUniqueConstraintError(error) : boolean
+  - buildBillingUrls(orderCode, orderId)
+  + getBilling(workspaceId)
+  + listTransactions(workspaceId, query)
+  + createOrder(workspaceId, userId, packageId)
+  + finalizePaidOrder(order, payosTransId, amount)
+  + getOrder(workspaceId, orderId)
+  + cancelOrder(workspaceId, orderId, userId)
+  + handlePayosWebhook(body)
+}
+
+class "billingRepository" as billingRepository {
+  + findWorkspaceCredit(workspaceId)
+  + findWorkspaceCreditForUpdate(tx, workspaceId)
+  + listActiveCreditPackages()
+  + findCreditPackageById(packageId)
+  + findCreditPackageByIdInTransaction(tx, packageId)
+  + listCreditTransactions(workspaceId, skip, take)
+  + countCreditTransactions(workspaceId)
+  + createOrder(data)
+  + findOrderInWorkspace(orderId, workspaceId)
+  + findOrderByCode(orderCode)
+  + findOrderById(tx, orderId)
+  + updateOrder(orderId, data)
+  + cancelPendingOrder(orderId)
+  + claimPaidOrder(tx, orderId, payosTransId, paidAt)
+  + incrementWorkspaceCredit(tx, workspaceId, creditAmount)
+  + createCreditTransaction(tx, data)
+}
+
+class "PayOSClient" as payosClient {
+  + isConfigured() : boolean
+  + createPaymentLink(input) : Promise<CreatePaymentLinkResponse>
+  + getPaymentLink(orderCode) : Promise<PaymentLink>
+  + cancelPaymentLink(orderCode, reason) : Promise<PaymentLink>
+  + verifyWebhook(body) : Promise<WebhookData>
+}
+
+class "creditService" as creditService {
+  + reserve(tx, params)
+  + refund(tx, params)
+}
+
+class "creditRepository" as creditRepository {
+  + reserveCredit(tx, params)
+  + refundCredit(tx, params)
+}
+
+billingController ..> billingService
+billingService ..> billingRepository
+billingService ..> payosClient
+creditService ..> creditRepository
+
+billingRepository ..> Order
+billingRepository ..> CreditPackage
+billingRepository ..> CreditTransaction
+billingRepository ..> Workspace
+creditRepository ..> CreditTransaction
+creditRepository ..> Workspace
+
+@enduml
