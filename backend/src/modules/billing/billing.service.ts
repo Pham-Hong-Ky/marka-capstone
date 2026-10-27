@@ -1,4 +1,6 @@
-import type { Order } from '@prisma/client';
+import { buildPaginationMeta } from '../../utils/pagination.js';
+import { getErrorMessage } from '../../utils/errorMessage.js';
+import type { Order, Prisma } from '@prisma/client';
 import env from '../../config/env.js';
 import logger from '../../utils/logger.js';
 import { withTransaction } from '../../utils/transaction.js';
@@ -11,6 +13,7 @@ import {
   ServiceUnavailableError,
 } from '../../utils/errors/index.js';
 import auditService from '../audit/audit.service.js';
+import creditService from '../credit/credit.service.js';
 import billingRepository from './billing.repository.js';
 import { payosClient } from './billing.payos.js';
 import type { ListTransactionsQuery } from './billing.validation.js';
@@ -78,16 +81,15 @@ export const listTransactions = async (workspaceId: string, query: ListTransacti
       createdAt: transaction.createdAt,
       createdBy: transaction.createdBy,
     })),
-    meta: {
-      page: query.page,
-      limit: query.limit,
-      total,
-      totalPages: Math.ceil(total / query.limit),
-    },
+    meta: buildPaginationMeta(query.page, query.limit, total),
   };
 };
 
-export const createOrder = async (workspaceId: string, userId: string, packageId: string) => {
+type CreditPackage = NonNullable<
+  Awaited<ReturnType<typeof billingRepository.findCreditPackageById>>
+>;
+
+const loadOrderPrerequisites = async (workspaceId: string, packageId: string) => {
   const [workspace, creditPackage] = await Promise.all([
     billingRepository.findWorkspaceCredit(workspaceId),
     billingRepository.findCreditPackageById(packageId),
@@ -96,20 +98,24 @@ export const createOrder = async (workspaceId: string, userId: string, packageId
   if (!workspace) {
     throw new NotFoundError('Workspace không tồn tại');
   }
-
   if (!creditPackage) {
     throw new NotFoundError('Gói nạp không tồn tại hoặc đã ngừng bán');
   }
-
   if (!payosClient.isConfigured()) {
     throw new ServiceUnavailableError('Cổng thanh toán chưa được cấu hình');
   }
 
-  let order: Order | null = null;
+  return creditPackage;
+};
 
+const createPendingOrder = async (
+  workspaceId: string,
+  userId: string,
+  creditPackage: CreditPackage
+): Promise<Order> => {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      order = await billingRepository.createOrder({
+      return await billingRepository.createOrder({
         workspaceId,
         orderCode: generateOrderCode(),
         packageId: creditPackage.id,
@@ -118,22 +124,18 @@ export const createOrder = async (workspaceId: string, userId: string, packageId
         status: 'PENDING',
         createdById: userId,
       });
-      break;
     } catch (error) {
-      if (isUniqueConstraintError(error) && attempt < 2) {
-        continue;
-      }
+      if (isUniqueConstraintError(error) && attempt < 2) continue;
       throw error;
     }
   }
 
-  if (!order) {
-    throw new ConflictError('Không thể tạo mã đơn hàng, vui lòng thử lại');
-  }
+  throw new ConflictError('Không thể tạo mã đơn hàng, vui lòng thử lại');
+};
 
-  let payment;
+const createPayosPaymentLink = async (order: Order) => {
   try {
-    payment = await payosClient.createPaymentLink({
+    return await payosClient.createPaymentLink({
       orderCode: Number(order.orderCode),
       amount: order.amount,
       description: `MARKA ${order.orderCode}`,
@@ -142,10 +144,16 @@ export const createOrder = async (workspaceId: string, userId: string, packageId
     });
   } catch (error) {
     await billingRepository.updateOrder(order.id, { status: 'CANCELLED' });
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.error(`Tạo link thanh toán PayOS thất bại cho order ${order.orderCode}: ${message}`);
     throw new BadGatewayError('Không thể tạo link thanh toán. Vui lòng thử lại.');
   }
+};
+
+export const createOrder = async (workspaceId: string, userId: string, packageId: string) => {
+  const creditPackage = await loadOrderPrerequisites(workspaceId, packageId);
+  const order = await createPendingOrder(workspaceId, userId, creditPackage);
+  const payment = await createPayosPaymentLink(order);
 
   const updated = await billingRepository.updateOrder(order.id, {
     paymentLinkId: payment.paymentLinkId,
@@ -172,6 +180,33 @@ export const createOrder = async (workspaceId: string, userId: string, packageId
   return { order: toOrderResponse(updated) };
 };
 
+const applyTopUp = async (tx: Prisma.TransactionClient, order: Order) => {
+  const workspace = await billingRepository.findWorkspaceCreditForUpdate(tx, order.workspaceId);
+  if (!workspace) {
+    // Workspace bị xoá đúng lúc đang xử lý: giữ order PAID để đối soát hoàn tiền,
+    // không ném lỗi khiến PayOS retry vô hạn.
+    logger.warn(
+      `Order ${order.orderCode} đã thanh toán nhưng workspace biến mất; cần hoàn tiền thủ công.`
+    );
+    return { processed: false as const, reason: 'workspace_deleted' as const };
+  }
+
+  const creditAmount = order.creditAmount ?? 0;
+  const creditPackage = order.packageId
+    ? await billingRepository.findCreditPackageByIdInTransaction(tx, order.packageId)
+    : null;
+
+  await creditService.increase(tx, {
+    workspaceId: workspace.id,
+    userId: order.createdById,
+    amount: creditAmount,
+    action: 'TOP_UP',
+    reason: creditPackage ? `Nạp ${creditPackage.name}` : `Nạp ${creditAmount} credit`,
+  });
+
+  return { processed: true as const, workspaceId: workspace.id, creditAmount };
+};
+
 export const finalizePaidOrder = async (order: Order, payosTransId: string, amount: number) => {
   if (amount !== order.amount) {
     await billingRepository.cancelPendingOrder(order.id);
@@ -192,44 +227,7 @@ export const finalizePaidOrder = async (order: Order, payosTransId: string, amou
       throw new NotFoundError('Đơn hàng không tồn tại');
     }
 
-    const workspace = await billingRepository.findWorkspaceCreditForUpdate(
-      tx,
-      currentOrder.workspaceId
-    );
-    if (!workspace) {
-      throw new NotFoundError('Workspace không tồn tại');
-    }
-
-    const creditAmount = currentOrder.creditAmount ?? 0;
-    const creditPackage = currentOrder.packageId
-      ? await billingRepository.findCreditPackageByIdInTransaction(tx, currentOrder.packageId)
-      : null;
-
-    const updated = await billingRepository.incrementWorkspaceCredit(
-      tx,
-      workspace.id,
-      creditAmount
-    );
-
-    const balanceAfter = updated.remainingCredit;
-    const balanceBefore = balanceAfter - creditAmount;
-
-    await billingRepository.createCreditTransaction(tx, {
-      workspaceId: workspace.id,
-      type: 'INFLOW',
-      action: 'TOP_UP',
-      amount: creditAmount,
-      balanceBefore,
-      balanceAfter,
-      reason: creditPackage ? `Nạp ${creditPackage.name}` : `Nạp ${creditAmount} credit`,
-      createdById: currentOrder.createdById,
-    });
-
-    return {
-      processed: true as const,
-      workspaceId: workspace.id,
-      creditAmount,
-    };
+    return applyTopUp(tx, currentOrder);
   });
 
   if (result.processed) {
@@ -268,7 +266,7 @@ export const getOrder = async (workspaceId: string, orderId: string) => {
         await billingRepository.cancelPendingOrder(order.id);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       logger.warn(`Đối soát PayOS thất bại cho order ${order.orderCode}: ${message}`);
     }
   }
@@ -303,7 +301,7 @@ export const cancelOrder = async (workspaceId: string, orderId: string, userId: 
     try {
       await payosClient.cancelPaymentLink(Number(order.orderCode), 'Người dùng huỷ đơn');
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       logger.error(`Huỷ link PayOS thất bại cho order ${order.orderCode}: ${message}`);
       throw new BadGatewayError('Không thể huỷ link thanh toán. Vui lòng thử lại.');
     }
@@ -335,7 +333,7 @@ export const handlePayosWebhook = async (body: unknown) => {
   try {
     data = await payosClient.verifyWebhook(body as Parameters<typeof payosClient.verifyWebhook>[0]);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.warn(`Webhook PayOS sai chữ ký: ${message}`);
     throw new BadRequestError('Chữ ký webhook không hợp lệ');
   }

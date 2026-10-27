@@ -1,4 +1,4 @@
-﻿import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
@@ -312,6 +312,36 @@ describe('Billing - nạp credit qua PayOS (UC31, UC40, UC41)', () => {
     const workspace = await prisma.workspace.findUnique({ where: { id: wsId } });
     expect(workspace?.remainingCredit).toBe(100);
     expect(await prisma.creditTransaction.count({ where: { workspaceId: wsId } })).toBe(0);
+  });
+
+  it('Webhook cho workspace đã xoá giữ order PAID để hoàn tiền, không retry', async () => {
+    const orderRes = await createOrder(creatorToken);
+    const order = orderRes.body.data.order;
+
+    await prisma.workspace.update({ where: { id: wsId }, data: { deletedAt: new Date() } });
+    vi.spyOn(payosClient, 'verifyWebhook').mockResolvedValue({
+      orderCode: Number(order.orderCode),
+      amount: packagePrice,
+      description: 'MARKA',
+      accountNumber: '123',
+      reference: 'ref-deleted-workspace',
+      transactionDateTime: new Date().toISOString(),
+      currency: 'VND',
+      paymentLinkId: 'link-deleted',
+      code: '00',
+      desc: 'success',
+    });
+
+    try {
+      const res = await request(app).post('/api/v1/webhooks/payos').send({ signature: 'ok' });
+
+      expect(res.status).toBe(200);
+      const saved = await prisma.order.findUnique({ where: { id: order.id } });
+      expect(saved?.status).toBe('PAID');
+      expect(saved?.payosTransId).toBe('ref-deleted-workspace');
+    } finally {
+      await prisma.workspace.update({ where: { id: wsId }, data: { deletedAt: null } });
+    }
   });
 
   it('Polling PayOS PAID finalize một lần', async () => {
