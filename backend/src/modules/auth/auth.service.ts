@@ -101,6 +101,14 @@ const findOrCreateGoogleUser = async (profile: GoogleProfile) => {
 
   assertNotSuspended(existingUser);
 
+  // Không auto-link tài khoản local chưa xác minh email: kẻ tấn công có thể
+  // đăng ký trước email của nạn nhân rồi chiếm tài khoản khi nạn nhân login Google.
+  if (!existingUser.emailVerified) {
+    throw new ConflictError(
+      'Email này đã được đăng ký bằng mật khẩu. Vui lòng đăng nhập bằng mật khẩu.'
+    );
+  }
+
   if (existingUser.googleId) {
     return existingUser;
   }

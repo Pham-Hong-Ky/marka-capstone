@@ -10,7 +10,6 @@ import {
   registerSchema,
   loginSchema,
   googleLoginSchema,
-  logoutSchema,
   refreshTokenSchema,
 } from '../modules/auth/auth.validation.js';
 import {
@@ -106,7 +105,7 @@ router.get('/health', healthController.checkHealth);
 router.post('/auth/register', authLimiter, validate(registerSchema), authController.register);
 router.post('/auth/login', loginLimiter, validate(loginSchema), authController.login);
 router.post('/auth/google', authLimiter, validate(googleLoginSchema), authController.googleLogin);
-router.post('/auth/logout', requireAuth, validate(logoutSchema), authController.logout);
+router.post('/auth/logout', requireAuth, authController.logout);
 router.post('/auth/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
 
 // User (UC04, UC32)

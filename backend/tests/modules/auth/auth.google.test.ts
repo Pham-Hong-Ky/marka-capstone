@@ -39,7 +39,22 @@ describe('Google login', () => {
     expect(user?.googleId).toBeNull();
   });
 
-  it('Chuẩn hóa email Google về chữ thường khi tìm tài khoản', async () => {
+  it('Từ chối liên kết tài khoản local chưa xác minh email (409)', async () => {
+    googlePayload.current = {
+      email: localEmail,
+      email_verified: true,
+      sub: `g-${stamp}`,
+    };
+
+    const res = await request(app).post('/api/v1/auth/google').send({ idToken: 'fake-token' });
+
+    expect(res.status).toBe(409);
+    const user = await prisma.user.findUnique({ where: { email: localEmail } });
+    expect(user?.googleId).toBeNull();
+  });
+
+  it('Liên kết tài khoản local đã xác minh và chuẩn hóa email', async () => {
+    await prisma.user.update({ where: { email: localEmail }, data: { emailVerified: true } });
     googlePayload.current = {
       email: localEmail.toUpperCase(),
       email_verified: true,
@@ -50,6 +65,8 @@ describe('Google login', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.user.email).toBe(localEmail);
+    const user = await prisma.user.findUnique({ where: { email: localEmail } });
+    expect(user?.googleId).toBe(`g-${stamp}`);
   });
 
   it('Tạo tài khoản mới kèm workspace mặc định', async () => {
