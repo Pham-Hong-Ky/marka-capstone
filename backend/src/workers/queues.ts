@@ -1,5 +1,5 @@
 import { Queue, type DefaultJobOptions } from 'bullmq';
-import { queueConnection } from '../config/redis.js';
+import { producerConnection } from '../config/redis.js';
 import { QUEUE_NAMES, QUEUE_PREFIX, type QueueName } from './types.js';
 
 export const defaultJobOptions: DefaultJobOptions = {
@@ -11,25 +11,19 @@ export const defaultJobOptions: DefaultJobOptions = {
 };
 
 export const contentGenerationQueue = new Queue(QUEUE_NAMES.contentGeneration, {
-  connection: queueConnection,
+  connection: producerConnection,
   prefix: QUEUE_PREFIX,
   defaultJobOptions,
 });
 
 export const scheduleQueue = new Queue(QUEUE_NAMES.schedule, {
-  connection: queueConnection,
-  prefix: QUEUE_PREFIX,
-  defaultJobOptions,
-});
-
-export const emailQueue = new Queue(QUEUE_NAMES.email, {
-  connection: queueConnection,
+  connection: producerConnection,
   prefix: QUEUE_PREFIX,
   defaultJobOptions,
 });
 
 export const analyticsQueue = new Queue(QUEUE_NAMES.analytics, {
-  connection: queueConnection,
+  connection: producerConnection,
   prefix: QUEUE_PREFIX,
   defaultJobOptions,
 });
@@ -38,7 +32,6 @@ export const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.contentGeneration]: contentGenerationQueue,
   [QUEUE_NAMES.schedule]: scheduleQueue,
   [QUEUE_NAMES.analytics]: analyticsQueue,
-  [QUEUE_NAMES.email]: emailQueue,
 };
 
-export default { contentGenerationQueue, scheduleQueue, analyticsQueue, emailQueue, queues };
+export default { contentGenerationQueue, scheduleQueue, analyticsQueue, queues };

@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../utils/errorMessage.js';
 import { UnrecoverableError, Worker, type Job } from 'bullmq';
 import { queueConnection } from '../config/redis.js';
 import logger from '../utils/logger.js';
@@ -50,7 +51,7 @@ const attachLifecycle = (
 
     if (job && onFinalFailure) {
       void onFinalFailure(job, error).catch((handlerError: unknown) => {
-        const message = handlerError instanceof Error ? handlerError.message : String(handlerError);
+        const message = getErrorMessage(handlerError);
         logger.error(`[${label}] không xử lý được final failure của job ${job.id}: ${message}`);
       });
     }
@@ -101,7 +102,6 @@ export const scheduleWorker = createWorker(
   'ScheduleWorker',
   processScheduleJob
 );
-export const emailWorker = createWorker(QUEUE_NAMES.email, 'EmailWorker');
 export const analyticsWorker = createWorker(
   QUEUE_NAMES.analytics,
   'AnalyticsWorker',
@@ -113,8 +113,7 @@ export const closeWorkers = async (): Promise<void> => {
     contentWorker.close(),
     scheduleWorker.close(),
     analyticsWorker.close(),
-    emailWorker.close(),
   ]);
 };
 
-export default { contentWorker, scheduleWorker, analyticsWorker, emailWorker, closeWorkers };
+export default { contentWorker, scheduleWorker, analyticsWorker, closeWorkers };

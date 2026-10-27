@@ -1,7 +1,8 @@
+import { getErrorMessage } from './utils/errorMessage.js';
 import app from './app.js';
 import env from './config/env.js';
 import prisma from './config/db.js';
-import redis from './config/redis.js';
+import { closeRedisConnections } from './config/redis.js';
 import logger from './utils/logger.js';
 
 const PORT = env.PORT || 5000;
@@ -26,14 +27,24 @@ if (env.ENABLE_WORKERS && env.NODE_ENV !== 'test') {
 
 const shutdown = async (signal: string) => {
   logger.info(`Nhận tín hiệu ${signal}. Đang đóng server...`);
+  const forceExit = setTimeout(() => {
+    logger.error('Đóng server quá 10s, buộc thoát.');
+    process.exit(1);
+  }, 10_000);
+  forceExit.unref();
+
   server.close(async () => {
-    if (stopWorkers) await stopWorkers();
-    await prisma.$disconnect();
-    if (redis.status === 'ready' || redis.status === 'connect') {
-      await redis.quit();
+    try {
+      if (stopWorkers) await stopWorkers();
+      await prisma.$disconnect();
+      await closeRedisConnections();
+      logger.info('Server đã đóng an toàn.');
+      process.exit(0);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.error(`Lỗi khi đóng server: ${message}`);
+      process.exit(1);
     }
-    logger.info('Server đã đóng an toàn.');
-    process.exit(0);
   });
 };
 
