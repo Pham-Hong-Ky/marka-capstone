@@ -1,6 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
 import AnalyticsFilterBar from '@/components/features/analytics/AnalyticsFilterBar';
+import BestTimesCard from '@/components/features/analytics/BestTimesCard';
+import ContentTipsCard from '@/components/features/analytics/ContentTipsCard';
 import CoverageAlert from '@/components/features/analytics/CoverageAlert';
 import TrendChart from '@/components/features/analytics/TrendChart';
 import Alert from '@/components/ui/Alert';
@@ -10,7 +13,8 @@ import PageHeader from '@/components/ui/PageHeader';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
 import StatCard from '@/components/ui/StatCard';
 import { buttonClasses } from '@/components/ui/button.styles';
-import { useAnalyticsOverview } from '@/hooks/useAnalytics';
+import { useAnalyticsOverview, useAnalyticsSuggestions } from '@/hooks/useAnalytics';
+import { useAnalyticsSync } from '@/hooks/useAnalyticsSync';
 import { useChannels } from '@/hooks/useChannels';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 import type { AnalyticsFilters, AnalyticsOverview, AnalyticsRange } from '@/services/analytics';
@@ -66,11 +70,38 @@ export const AnalyticsPage = () => {
   const isCustomInvalid =
     filters.range === 'custom' && (!filters.from || !filters.to || filters.to < filters.from);
 
-  const overview = useAnalyticsOverview(workspaceId, filters, { enabled: !isCustomInvalid });
+  const [pollInterval, setPollInterval] = useState<number | false>(false);
+  const overview = useAnalyticsOverview(workspaceId, filters, {
+    enabled: !isCustomInvalid,
+    refetchInterval: pollInterval,
+  });
+  const { start, isWaiting, error: syncError } = useAnalyticsSync({
+    workspaceId,
+    coverage: overview.data?.coverage,
+  });
+  const suggestions = useAnalyticsSuggestions(workspaceId, filters.channelId);
+
+  useEffect(() => {
+    setPollInterval(isWaiting ? 5000 : false);
+  }, [isWaiting]);
 
   if (!workspaceId) {
     return <EmptyState title="Bạn chưa có workspace nào." />;
   }
+
+  const syncButton = (
+    <Button
+      type="button"
+      variant="outline"
+      className="min-h-11"
+      isLoading={isWaiting}
+      disabled={!workspaceId || overview.data?.coverage.publishedPosts === 0}
+      onClick={start}
+    >
+      <RefreshCw className="h-4 w-4" />
+      Đồng bộ số liệu
+    </Button>
+  );
 
   const updateFilters = (next: AnalyticsFilters) => {
     if (next.range === 'custom' && (!next.from || !next.to || next.to < next.from)) {
@@ -100,6 +131,7 @@ export const AnalyticsPage = () => {
         <EmptyState
           title="Chưa có số liệu"
           description="Bài đã đăng nhưng chưa đồng bộ số liệu từ kênh."
+          action={syncButton}
         />
       );
     }
@@ -148,11 +180,15 @@ export const AnalyticsPage = () => {
     );
   };
 
+  const showSuggestions =
+    !isCustomInvalid && !overview.isError && (overview.data?.coverage.publishedPosts ?? 0) > 0;
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
         title="Hiệu quả"
         description="Theo dõi tương tác bài đăng trên các kênh đã kết nối."
+        actions={syncButton}
       />
 
       <AnalyticsFilterBar
@@ -188,6 +224,44 @@ export const AnalyticsPage = () => {
       ) : null}
 
       {!isCustomInvalid && !overview.isError && overview.data ? renderContent(overview.data) : null}
+
+      {showSuggestions ? (
+        <div className="space-y-4">
+          {syncError ? (
+            <Alert variant="danger" title="Không đồng bộ được số liệu">
+              {getErrorMessage(syncError)}
+            </Alert>
+          ) : null}
+
+          {suggestions.isFetching && !suggestions.data ? <SkeletonBlock /> : null}
+
+          {suggestions.isError ? (
+            <Alert
+              variant="danger"
+              title="Không tải được gợi ý"
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => suggestions.refetch()}
+                >
+                  Thử lại
+                </Button>
+              }
+            >
+              {getErrorMessage(suggestions.error)}
+            </Alert>
+          ) : null}
+
+          {suggestions.data ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <BestTimesCard suggestions={suggestions.data} />
+              <ContentTipsCard suggestions={suggestions.data} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };
