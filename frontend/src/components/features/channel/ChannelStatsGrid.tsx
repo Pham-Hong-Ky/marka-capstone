@@ -9,10 +9,12 @@ export const ChannelStatsGrid = ({
   stats: ChannelStats;
   showMetrics: boolean;
 }) => {
-  const metrics = [
+  const engagementMetrics = [
     { label: 'Tương tác', value: stats.reactions },
     { label: 'Bình luận', value: stats.comments },
     { label: 'Chia sẻ', value: stats.shares },
+  ];
+  const reachMetrics = [
     { label: 'Hiển thị', value: stats.impressions },
     { label: 'Lượt tiếp cận', value: stats.reach },
   ].filter((metric) => metric.value > 0);
@@ -23,7 +25,7 @@ export const ChannelStatsGrid = ({
         <StatCard label="Bài đã đăng" value={formatNumber(stats.publishedPosts)} className="p-4" />
 
         {showMetrics
-          ? metrics.map((metric) => (
+          ? [...engagementMetrics, ...reachMetrics].map((metric) => (
               <StatCard
                 key={metric.label}
                 label={metric.label}
