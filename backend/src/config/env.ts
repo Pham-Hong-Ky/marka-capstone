@@ -44,10 +44,6 @@ const envSchema = z.object({
     .or(z.literal(''))
     .default('http://localhost:5000/api/v1/channels/facebook/oauth/callback'),
   RESEND_API_KEY: z.string().default(''),
-  SMTP_HOST: z.string().default(''),
-  SMTP_PORT: z.coerce.number().default(587),
-  SMTP_USER: z.string().default(''),
-  SMTP_PASS: z.string().default(''),
   MAIL_FROM: z.string().default('no-reply@marka.vn'),
   APP_BASE_URL: z.string().default('http://localhost:5173'),
 });
