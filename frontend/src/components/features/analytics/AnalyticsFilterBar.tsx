@@ -15,6 +15,7 @@ const RANGE_OPTIONS: Array<{ value: AnalyticsRange; label: string }> = [
 ];
 
 const INVALID_RANGE_MESSAGE = 'Khoảng thời gian không hợp lệ.';
+const RANGE_ERROR_ID = 'analytics-range-error';
 
 export const AnalyticsFilterBar = ({
   filters,
@@ -36,6 +37,7 @@ export const AnalyticsFilterBar = ({
     setDraftRange(filters.range);
     setFrom(filters.from ?? '');
     setTo(filters.to ?? '');
+    setError(null);
   }, [filters.range, filters.from, filters.to]);
 
   const hasSecondaryFilters =
@@ -147,6 +149,8 @@ export const AnalyticsFilterBar = ({
               label="Từ ngày"
               className="min-h-11"
               value={from}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? RANGE_ERROR_ID : undefined}
               onChange={(event) => {
                 setFrom(event.target.value);
                 setError(null);
@@ -159,6 +163,8 @@ export const AnalyticsFilterBar = ({
               label="Đến ngày"
               className="min-h-11"
               value={to}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? RANGE_ERROR_ID : undefined}
               onChange={(event) => {
                 setTo(event.target.value);
                 setError(null);
@@ -176,7 +182,11 @@ export const AnalyticsFilterBar = ({
             </div>
           </div>
 
-          {error ? <Alert variant="danger">{error}</Alert> : null}
+          {error ? (
+            <div id={RANGE_ERROR_ID}>
+              <Alert variant="danger">{error}</Alert>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

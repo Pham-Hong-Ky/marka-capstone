@@ -37,6 +37,7 @@ export const ChannelCard = ({
 
         <Link
           to={`/channels/${channel.id}`}
+          aria-label={`Xem chi tiết ${channel.label ?? channel.name}`}
           className="mt-2 inline-flex min-h-11 items-center text-sm text-accent-text hover:underline"
         >
           Xem chi tiết

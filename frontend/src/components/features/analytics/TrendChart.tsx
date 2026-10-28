@@ -22,13 +22,27 @@ const METRIC_OPTIONS: SegmentedOption<TrendMetric>[] = [
   { value: 'posts', label: 'Số bài' },
 ];
 
-const METRIC_LABELS: Record<TrendMetric, string> = {
-  reach: 'Lượt tiếp cận',
-  impressions: 'Hiển thị',
-  posts: 'Số bài',
-};
+const METRIC_LABELS = Object.fromEntries(
+  METRIC_OPTIONS.map((option) => [option.value, option.label])
+) as Record<TrendMetric, string>;
 
 const formatDay = (value: string): string => format(parseISO(value), 'dd/MM');
+
+const formatAxisTick = (value: number): string => {
+  if (value >= 1_000_000) {
+    const millions = value / 1_000_000;
+
+    return `${Number(millions.toFixed(1))}M`;
+  }
+
+  if (value >= 1000) {
+    const thousands = value / 1000;
+
+    return `${thousands < 10 ? Number(thousands.toFixed(1)) : Math.round(thousands)}k`;
+  }
+
+  return String(value);
+};
 
 export const TrendChart = ({
   series,
@@ -79,6 +93,7 @@ export const TrendChart = ({
             <YAxis
               width={40}
               allowDecimals={false}
+              tickFormatter={formatAxisTick}
               tickLine={false}
               axisLine={false}
               tick={{ fill: 'var(--muted)', fontSize: 12 }}

@@ -50,11 +50,19 @@ export const ChannelDetailPage = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (!workspaceId) {
-    return <EmptyState title="Bạn chưa có workspace nào." />;
+    return (
+      <div className="mx-auto max-w-4xl">
+        <EmptyState title="Bạn chưa có workspace nào." />
+      </div>
+    );
   }
 
   if (!channelId) {
-    return <ChannelNotFoundState />;
+    return (
+      <div className="mx-auto max-w-4xl">
+        <ChannelNotFoundState />
+      </div>
+    );
   }
 
   if (isPending) {
@@ -66,33 +74,45 @@ export const ChannelDetailPage = () => {
   }
 
   if (isError) {
-    if (getErrorStatus(error) === 404) {
-      return <ChannelNotFoundState />;
+    const status = getErrorStatus(error);
+
+    if (status === 404 || status === 400) {
+      return (
+        <div className="mx-auto max-w-4xl">
+          <ChannelNotFoundState />
+        </div>
+      );
     }
 
     return (
-      <Alert
-        variant="danger"
-        title="Không tải được thông tin kênh"
-        action={
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11"
-            isLoading={isFetching}
-            onClick={() => void refetch()}
-          >
-            Thử lại
-          </Button>
-        }
-      >
-        {getErrorMessage(error)}
-      </Alert>
+      <div className="mx-auto max-w-4xl">
+        <Alert
+          variant="danger"
+          title="Không tải được thông tin kênh"
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              isLoading={isFetching}
+              onClick={() => void refetch()}
+            >
+              Thử lại
+            </Button>
+          }
+        >
+          {getErrorMessage(error)}
+        </Alert>
+      </div>
     );
   }
 
   if (!data) {
-    return <ChannelNotFoundState />;
+    return (
+      <div className="mx-auto max-w-4xl">
+        <ChannelNotFoundState />
+      </div>
+    );
   }
 
   const { channel, stats } = data;
@@ -103,6 +123,7 @@ export const ChannelDetailPage = () => {
     <div className="mx-auto max-w-4xl space-y-6">
       <PageHeader
         title={displayName}
+        description={channel.label ? channel.name : undefined}
         actions={
           <>
             {meta.capabilities.refreshProfile ? (
@@ -137,6 +158,9 @@ export const ChannelDetailPage = () => {
         <Avatar name={channel.name} src={channel.avatar} className="h-14 w-14" />
 
         <div className="min-w-0 flex-1 space-y-2">
+          {channel.label ? (
+            <p className="truncate text-sm text-muted">{channel.name}</p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <ChannelPlatformBadge platform={channel.platform} />
             <ChannelStatusBadge status={channel.status} />

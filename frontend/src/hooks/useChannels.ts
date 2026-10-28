@@ -99,9 +99,10 @@ export const useDisconnectChannel = (workspaceId: string | null) => {
 
   return useMutation({
     mutationFn: (channelId: string) => channelService.disconnect(channelId),
-    onSuccess: () => {
+    onSuccess: (_data, channelId) => {
       if (workspaceId) {
         qc.invalidateQueries({ queryKey: channelKeys.list(workspaceId) });
+        qc.invalidateQueries({ queryKey: channelKeys.detail(workspaceId, channelId) });
       }
       toast.success('Đã ngắt kết nối kênh');
     },

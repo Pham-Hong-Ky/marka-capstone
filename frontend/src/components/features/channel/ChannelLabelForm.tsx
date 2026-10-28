@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import Alert from '@/components/ui/Alert';
@@ -28,11 +29,16 @@ export const ChannelLabelForm = ({
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    reset,
+    formState: { errors, isDirty },
   } = useForm<LabelFormValues>({
     resolver: zodResolver(labelFormSchema),
     defaultValues: { label: label ?? '' },
   });
+
+  useEffect(() => {
+    reset({ label: label ?? '' });
+  }, [label, reset]);
 
   const onSubmit = handleSubmit((values) => {
     const nextLabel = values.label.trim();
@@ -63,7 +69,12 @@ export const ChannelLabelForm = ({
       ) : null}
 
       <div className="mt-4 flex justify-end">
-        <Button type="submit" className="min-h-11" isLoading={updateLabel.isPending}>
+        <Button
+          type="submit"
+          className="min-h-11"
+          isLoading={updateLabel.isPending}
+          disabled={!isDirty}
+        >
           Lưu nhãn
         </Button>
       </div>

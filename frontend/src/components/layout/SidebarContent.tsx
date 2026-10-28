@@ -11,11 +11,10 @@ import { cn } from '@/utils/cn';
 
 const MEMBERS_PATH = '/settings/members';
 const SETTINGS_PATH = '/settings';
-const ADMIN_PATH = '/admin';
 
 // "Thành viên" là mục con của "Cài đặt" nên phải loại trừ nhau để không cùng active.
 const isItemActive = (pathname: string, to: string): boolean => {
-  if (to === '/' || to === ADMIN_PATH) return pathname === to;
+  if (to === '/') return pathname === to;
   if (to === SETTINGS_PATH) {
     return pathname.startsWith(SETTINGS_PATH) && !pathname.startsWith(MEMBERS_PATH);
   }

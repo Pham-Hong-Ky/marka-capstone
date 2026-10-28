@@ -35,20 +35,29 @@ export const AdminUsersPage = () => {
 
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   const debouncedSearch = useDebouncedValue(search, 300);
+  const searchTerm = debouncedSearch.trim();
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, systemRole, statusFilter]);
+  }, [searchTerm, systemRole, statusFilter]);
 
   const isSuspended = statusFilter === '' ? undefined : statusFilter === 'suspended';
 
   const { data, isLoading, isError, isFetching, error, refetch } = useAdminUsers({
     page,
     limit: PAGE_SIZE,
-    search: debouncedSearch || undefined,
+    search: searchTerm || undefined,
     systemRole: systemRole || undefined,
     isSuspended,
   });
+
+  const totalPages = data?.meta.totalPages;
+
+  useEffect(() => {
+    if (totalPages !== undefined && page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
 
   const users = data?.users ?? [];
 

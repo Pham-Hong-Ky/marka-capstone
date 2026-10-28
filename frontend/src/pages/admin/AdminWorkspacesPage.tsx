@@ -39,11 +39,21 @@ export const AdminWorkspacesPage = () => {
     includeDeleted,
   });
 
+  const totalPages = data?.meta.totalPages;
+
+  useEffect(() => {
+    if (totalPages !== undefined && page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
+
   const workspaces = data?.workspaces ?? [];
 
   const renderName = (workspace: AdminWorkspace) => (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="min-w-0 truncate font-medium text-foreground">{workspace.name}</span>
+      <span className="min-w-0 truncate font-medium text-foreground" title={workspace.name}>
+        {workspace.name}
+      </span>
       {workspace.deletedAt ? <Badge variant="danger">Đã xoá</Badge> : null}
     </div>
   );
@@ -148,7 +158,7 @@ export const AdminWorkspacesPage = () => {
           value={plan}
           onChange={(event) => setPlan(event.target.value as PlanFilter)}
         >
-          <option value="">Tất cả gói</option>
+          <option value="">Tất cả</option>
           <option value="FREE">FREE</option>
           <option value="PRO">PRO</option>
           <option value="ENTERPRISE">ENTERPRISE</option>

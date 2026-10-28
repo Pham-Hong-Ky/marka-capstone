@@ -35,7 +35,10 @@ export const StatCard = ({
       {typeof delta === 'number' ? (
         <Delta value={delta} />
       ) : delta === null ? (
-        <span className="text-xs font-medium text-muted">—</span>
+        <span className="text-xs font-medium text-muted">
+          <span aria-hidden="true">—</span>
+          <span className="sr-only">không có dữ liệu</span>
+        </span>
       ) : null}
     </div>
     {hint ? <div className="mt-1 text-xs text-subtle">{hint}</div> : null}

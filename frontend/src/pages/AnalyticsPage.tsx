@@ -125,7 +125,7 @@ export const AnalyticsPage = () => {
     if (data.coverage.publishedPosts === 0) {
       return (
         <EmptyState
-          title="Chưa có bài nào được đăng"
+          title="Không có bài nào trong khoảng thời gian/bộ lọc này"
           description="Số liệu sẽ xuất hiện khi bài viết được đăng lên kênh đã kết nối."
           action={
             <Link to="/schedule" className={buttonClasses('outline', 'min-h-11')}>

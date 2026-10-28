@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -18,6 +18,8 @@ type DeleteAccountFormInput = z.input<typeof deleteAccountFormSchema>;
 export const DeleteAccountCard = () => {
   const [open, setOpen] = useState(false);
   const deleteAccount = useDeleteAccount();
+  const { isPending: isDeleting, reset: resetMutation } = deleteAccount;
+  const isPendingRef = useRef(false);
 
   const {
     register,
@@ -29,23 +31,35 @@ export const DeleteAccountCard = () => {
     defaultValues: { password: '', confirm: '' },
   });
 
-  const close = () => {
+  useEffect(() => {
+    isPendingRef.current = isDeleting;
+  }, [isDeleting]);
+
+  const resetAndClose = useCallback(() => {
     reset();
-    deleteAccount.reset();
+    resetMutation();
     setOpen(false);
-  };
+  }, [reset, resetMutation]);
+
+  const close = useCallback(() => {
+    if (isPendingRef.current) return;
+
+    resetAndClose();
+  }, [resetAndClose]);
 
   const openModal = () => {
-    deleteAccount.reset();
+    resetMutation();
     setOpen(true);
   };
 
-  const onSubmit = handleSubmit(({ password }) =>
+  const onSubmit = handleSubmit(({ password }) => {
+    isPendingRef.current = true;
+
     deleteAccount.mutate(
       { confirm: DELETE_CONFIRM_WORD, password: password || undefined },
-      { onSuccess: close }
-    )
-  );
+      { onSuccess: resetAndClose }
+    );
+  });
 
   return (
     <section className="rounded-2xl border border-danger/30 bg-surface p-6">

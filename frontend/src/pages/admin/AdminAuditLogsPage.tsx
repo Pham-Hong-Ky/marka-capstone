@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AuditLogDetailModal from '@/components/features/admin/AuditLogDetailModal';
 import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
@@ -19,11 +19,23 @@ import { formatDateTime } from '@/utils/format';
 
 const PAGE_SIZE = 20;
 
-const startOfVnDayIso = (date: string) =>
-  new Date(`${date}T00:00:00+07:00`).toISOString();
+const parseVnDate = (value: string): Date | undefined => {
+  const date = new Date(value);
 
-const endOfVnDayIso = (date: string) =>
-  new Date(`${date}T23:59:59.999+07:00`).toISOString();
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
+const startOfVnDayIso = (date: string) => {
+  const parsed = parseVnDate(`${date}T00:00:00+07:00`);
+
+  return parsed?.toISOString();
+};
+
+const endOfVnDayIso = (date: string) => {
+  const parsed = parseVnDate(`${date}T23:59:59.999+07:00`);
+
+  return parsed?.toISOString();
+};
 
 const actionLabel = (action: string) => AUDIT_ACTION_LABELS[action] ?? action;
 
@@ -64,6 +76,8 @@ export const AdminAuditLogsPage = () => {
   };
 
   const hasFilters = Boolean(action || targetType || dateFrom || dateTo);
+
+  const closeDetail = useCallback(() => setSelectedLog(null), []);
 
   const renderActor = (log: AdminAuditLog) =>
     log.actor ? (
@@ -157,6 +171,12 @@ export const AdminAuditLogsPage = () => {
         <div className="min-w-0">
           <dt className="text-muted">Workspace</dt>
           <dd className="truncate text-foreground">{log.workspace?.name ?? '—'}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-muted">ID đối tượng</dt>
+          <dd className="font-mono text-xs text-muted" title={log.targetId ?? undefined}>
+            {log.targetId ? log.targetId.slice(0, 8) : '—'}
+          </dd>
         </div>
       </dl>
 
@@ -281,7 +301,7 @@ export const AdminAuditLogsPage = () => {
         </div>
       )}
 
-      <AuditLogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />
+      <AuditLogDetailModal log={selectedLog} onClose={closeDetail} />
     </div>
   );
 };

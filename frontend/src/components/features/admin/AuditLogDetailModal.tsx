@@ -33,7 +33,7 @@ export const AuditLogDetailModal = ({
       open
       onClose={onClose}
       title="Chi tiết audit log"
-      className="max-w-2xl"
+      className="max-h-[90vh] max-w-2xl overflow-y-auto"
       footer={
         <Button type="button" variant="outline" className="min-h-11" onClick={onClose}>
           Đóng
@@ -64,7 +64,11 @@ export const AuditLogDetailModal = ({
       <div className="space-y-2">
         <p className="text-sm font-medium text-foreground">Metadata</p>
         {metadata ? (
-          <pre className="max-h-64 overflow-auto rounded-lg bg-surface-2 p-3 text-xs">
+          <pre
+            tabIndex={0}
+            aria-label="Metadata"
+            className="max-h-64 overflow-auto rounded-lg bg-surface-2 p-3 text-xs"
+          >
             {metadata}
           </pre>
         ) : (
