@@ -4,12 +4,18 @@ import { queueConnection } from '../config/redis.js';
 import logger from '../utils/logger.js';
 import { processScheduleJob } from '../modules/schedule/schedule.processor.js';
 import { processAnalyticsJob } from '../modules/analytics/analytics.processor.js';
+import { processChannelJob } from '../modules/channel/channel.processor.js';
 import { buildAiFailureMessage, processContentJob } from '../modules/ai/ai.processor.js';
 import aiService from '../modules/ai/ai.service.js';
 import { QUEUE_NAMES, QUEUE_PREFIX, type QueueName } from './types.js';
 import { hasRemainingAttempts } from './queue-manager.js';
 
-type WorkerLabel = 'ContentWorker' | 'ScheduleWorker' | 'AnalyticsWorker' | 'EmailWorker';
+type WorkerLabel =
+  | 'ContentWorker'
+  | 'ScheduleWorker'
+  | 'AnalyticsWorker'
+  | 'ChannelWorker'
+  | 'EmailWorker';
 
 // Processor mẫu. Khi có module nghiệp vụ, thay thân hàm bằng logic thật:
 // dùng `job.updateProgress()` để báo "đang xử lý" và `throw` để đánh dấu lỗi (BullMQ tự retry).
@@ -107,13 +113,19 @@ export const analyticsWorker = createWorker(
   'AnalyticsWorker',
   processAnalyticsJob
 );
+export const channelWorker = createWorker(
+  QUEUE_NAMES.channelMaintenance,
+  'ChannelWorker',
+  processChannelJob
+);
 
 export const closeWorkers = async (): Promise<void> => {
   await Promise.allSettled([
     contentWorker.close(),
     scheduleWorker.close(),
     analyticsWorker.close(),
+    channelWorker.close(),
   ]);
 };
 
-export default { contentWorker, scheduleWorker, analyticsWorker, closeWorkers };
+export default { contentWorker, scheduleWorker, analyticsWorker, channelWorker, closeWorkers };

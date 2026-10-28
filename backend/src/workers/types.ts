@@ -7,6 +7,7 @@ export const QUEUE_NAMES = {
   contentGeneration: 'content-generation-queue',
   schedule: 'schedule-queue',
   analytics: 'analytics-queue',
+  channelMaintenance: 'channel-maintenance-queue',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

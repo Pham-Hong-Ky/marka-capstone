@@ -155,6 +155,26 @@ export const updateChannelProfile = async (
     select: CHANNEL_PUBLIC_SELECT,
   });
 
+export const findChannelsWithRefreshableTokens = async (
+  platforms: SocialPlatform[]
+): Promise<Array<{ id: string; platform: SocialPlatform; accessToken: string | null }>> =>
+  prisma.channelConnection.findMany({
+    where: {
+      platform: { in: platforms },
+      type: 'REAL',
+      status: 'ACTIVE',
+      deletedAt: null,
+    },
+    select: { id: true, platform: true, accessToken: true },
+  });
+
+export const updateChannelToken = async (
+  channelId: string,
+  accessToken: string
+): Promise<void> => {
+  await prisma.channelConnection.update({ where: { id: channelId }, data: { accessToken } });
+};
+
 export const updateChannelStatus = async (
   channelId: string,
   status: 'ACTIVE' | 'EXPIRED'
@@ -213,6 +233,8 @@ export default {
   findChannelWithToken,
   findChannelDetail,
   findChannelStats,
+  findChannelsWithRefreshableTokens,
+  updateChannelToken,
   updateChannelLabel,
   updateChannelProfile,
   updateChannelStatus,
