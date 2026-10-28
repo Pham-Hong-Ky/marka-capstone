@@ -32,8 +32,8 @@ export const queryKeys = {
     list: (workspaceId: string) => ['channels', workspaceId] as const,
     detail: (workspaceId: string, channelId: string) =>
       ['channel', workspaceId, channelId] as const,
-    pendingPages: (sessionId: string) =>
-      ['channels', 'facebook', 'pending', sessionId] as const,
+    pendingAccounts: (platform: string, sessionId: string) =>
+      ['channels', platform, 'pending', sessionId] as const,
   },
   billing: {
     overview: (workspaceId: string) => ['billing', workspaceId] as const,

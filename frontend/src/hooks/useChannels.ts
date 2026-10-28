@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { channelService } from '@/services/channel';
+import { channelService, getChannelPlatformMeta, type ChannelPlatform } from '@/services/channel';
 import { queryKeys } from '@/lib/queryKeys';
 import { getErrorMessage } from '@/utils/error';
 
@@ -18,34 +18,42 @@ export const useChannelDetail = (workspaceId: string | null, channelId: string |
     enabled: Boolean(workspaceId && channelId),
   });
 
-export const useFacebookPendingPages = (sessionId: string | null) =>
+export const usePendingAccounts = (
+  platform: ChannelPlatform | null,
+  sessionId: string | null
+) =>
   useQuery({
-    queryKey: queryKeys.channel.pendingPages(sessionId ?? ''),
-    queryFn: () => channelService.getPendingPages(sessionId as string),
-    enabled: Boolean(sessionId),
+    queryKey: queryKeys.channel.pendingAccounts(platform ?? '', sessionId ?? ''),
+    queryFn: () =>
+      channelService.getPendingAccounts(platform as ChannelPlatform, sessionId as string),
+    enabled: Boolean(platform && sessionId),
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
-export const useStartFacebookOauth = () =>
+export const useStartChannelOauth = () =>
   useMutation({
-    mutationFn: (workspaceId: string) => channelService.getFacebookOauthUrl(workspaceId),
+    mutationFn: ({ platform, workspaceId }: { platform: ChannelPlatform; workspaceId: string }) =>
+      channelService.getOauthUrl(platform, workspaceId),
     onSuccess: ({ url }) => window.location.assign(url),
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
-export const useConnectFacebookPages = (workspaceId: string | null) => {
+export const useConnectAccounts = (
+  workspaceId: string | null,
+  platform: ChannelPlatform | null
+) => {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ sessionId, pageIds }: { sessionId: string; pageIds: string[] }) =>
-      channelService.connectPages(sessionId, pageIds),
+    mutationFn: ({ sessionId, accountIds }: { sessionId: string; accountIds: string[] }) =>
+      channelService.connectAccounts(platform as ChannelPlatform, sessionId, accountIds),
     onSuccess: () => {
       if (workspaceId) {
         qc.invalidateQueries({ queryKey: queryKeys.channel.list(workspaceId) });
       }
-      toast.success('Kết nối Facebook thành công');
+      toast.success(`Kết nối ${getChannelPlatformMeta(platform ?? '').label} thành công`);
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });

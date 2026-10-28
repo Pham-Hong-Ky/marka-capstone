@@ -35,16 +35,16 @@ export interface ChannelDetailResponse {
   stats: ChannelStats;
 }
 
-export interface FacebookPendingPage {
-  id: string;
+export interface PendingAccount {
+  externalAccountId: string;
   name: string;
   avatar: string | null;
 }
 
-export interface FacebookPendingPagesResponse {
-  pages: FacebookPendingPage[];
+export interface PendingAccountsResponse {
+  accounts: PendingAccount[];
 }
 
-export interface FacebookOauthUrlResponse {
+export interface OauthUrlResponse {
   url: string;
 }

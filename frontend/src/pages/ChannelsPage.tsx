@@ -4,8 +4,8 @@ import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
 import ChannelCard from '@/components/features/channel/ChannelCard';
 import ChannelConnectMenu from '@/components/features/channel/ChannelConnectMenu';
-import FacebookConnectFlow from '@/components/features/channel/connect/FacebookConnectFlow';
-import { useChannels, useDisconnectChannel, useStartFacebookOauth } from '@/hooks/useChannels';
+import ChannelConnectFlow from '@/components/features/channel/connect/ChannelConnectFlow';
+import { useChannels, useDisconnectChannel, useStartChannelOauth } from '@/hooks/useChannels';
 import type { ChannelConnection } from '@/services/channel';
 import { getErrorMessage } from '@/utils/error';
 import { SkeletonList } from '@/components/ui/Skeleton';
@@ -19,7 +19,7 @@ export const ChannelsPage = () => {
   const [channelToDisconnect, setChannelToDisconnect] = useState<ChannelConnection | null>(null);
 
   const { data, isLoading, isError, error } = useChannels(workspaceId);
-  const startOauth = useStartFacebookOauth();
+  const startOauth = useStartChannelOauth();
   const disconnect = useDisconnectChannel(workspaceId);
 
   if (!workspaceId) {
@@ -28,7 +28,8 @@ export const ChannelsPage = () => {
 
   const channels = data?.channels ?? [];
 
-  const handleStartOauth = () => startOauth.mutate(workspaceId);
+  const handleStartOauth = (channel: ChannelConnection) =>
+    startOauth.mutate({ platform: channel.platform, workspaceId });
 
   const confirmDisconnect = () => {
     if (!channelToDisconnect) return;
@@ -78,7 +79,7 @@ export const ChannelsPage = () => {
         </div>
       ) : null}
 
-      <FacebookConnectFlow workspaceId={workspaceId} />
+      <ChannelConnectFlow workspaceId={workspaceId} />
 
       <ConfirmDialog
         open={Boolean(channelToDisconnect)}

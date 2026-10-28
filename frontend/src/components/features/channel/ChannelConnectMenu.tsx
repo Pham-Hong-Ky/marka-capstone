@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useDismissable } from '@/hooks/useDismissable';
 import { useMenuKeyboard } from '@/hooks/useMenuKeyboard';
-import { useStartFacebookOauth } from '@/hooks/useChannels';
+import { useStartChannelOauth } from '@/hooks/useChannels';
 import {
   CONNECTABLE_PLATFORMS,
   getChannelPlatformMeta,
@@ -21,7 +21,7 @@ export const ChannelConnectMenu = ({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const startOauth = useStartFacebookOauth();
+  const startOauth = useStartChannelOauth();
 
   useDismissable(containerRef, () => setOpen(false), { enabled: open });
   const onMenuKeyDown = useMenuKeyboard(menuRef, () => setOpen(false));
@@ -41,8 +41,8 @@ export const ChannelConnectMenu = ({
   const startConnect = (platform: ChannelPlatform) => {
     setOpen(false);
 
-    if (getChannelPlatformMeta(platform).connect === 'facebook-oauth') {
-      startOauth.mutate(workspaceId);
+    if (getChannelPlatformMeta(platform).connect === 'oauth') {
+      startOauth.mutate({ platform, workspaceId });
     }
   };
 

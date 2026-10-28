@@ -1,7 +1,7 @@
 import { Link2, Share2, type LucideIcon } from 'lucide-react';
 import type { ChannelPlatform } from './channel.types';
 
-export type ChannelConnectKind = 'facebook-oauth' | 'unavailable';
+export type ChannelConnectKind = 'oauth' | 'unavailable';
 
 export interface ChannelPlatformCapabilities {
   label: boolean;
@@ -23,7 +23,7 @@ const PLATFORMS: Partial<Record<ChannelPlatform, ChannelPlatformMeta>> = {
     label: 'Facebook Page',
     shortLabel: 'Facebook',
     icon: Share2,
-    connect: 'facebook-oauth',
+    connect: 'oauth',
     capabilities: { label: true, refreshProfile: true, metrics: true, scheduling: true },
   },
 };

@@ -2,35 +2,39 @@ import { useEffect, useState } from 'react';
 import Button from '@/components/ui/Button';
 import SelectableAccountList from '@/components/shared/SelectableAccountList';
 import Modal from '@/components/ui/Modal';
-import {
-  useConnectFacebookPages,
-  useFacebookPendingPages,
-} from '@/hooks/useChannels';
+import { useConnectAccounts, usePendingAccounts } from '@/hooks/useChannels';
+import { getChannelPlatformMeta, type ChannelPlatform } from '@/services/channel';
 import { getErrorMessage } from '@/utils/error';
 import { SkeletonList } from '@/components/ui/Skeleton';
 
-export const FacebookPagePickerModal = ({
+export const ChannelAccountPickerModal = ({
   open,
+  platform,
   workspaceId,
   sessionId,
   onClose,
 }: {
   open: boolean;
+  platform: ChannelPlatform;
   workspaceId: string | null;
   sessionId: string | null;
   onClose: () => void;
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const { data, isLoading, isError, error } = useFacebookPendingPages(sessionId);
-  const connect = useConnectFacebookPages(workspaceId);
+  const { data, isLoading, isError, error } = usePendingAccounts(platform, sessionId);
+  const connect = useConnectAccounts(workspaceId, platform);
+  const meta = getChannelPlatformMeta(platform);
+  const accountLabel = platform === 'FACEBOOK' ? 'Page' : 'tài khoản';
 
   useEffect(() => {
     setSelectedIds([]);
   }, [sessionId, open]);
 
-  const togglePage = (pageId: string) => {
+  const toggleAccount = (accountId: string) => {
     setSelectedIds((current) =>
-      current.includes(pageId) ? current.filter((id) => id !== pageId) : [...current, pageId]
+      current.includes(accountId)
+        ? current.filter((id) => id !== accountId)
+        : [...current, accountId]
     );
   };
 
@@ -38,20 +42,24 @@ export const FacebookPagePickerModal = ({
     if (!sessionId || selectedIds.length === 0) return;
 
     connect.mutate(
-      { sessionId, pageIds: selectedIds },
+      { sessionId, accountIds: selectedIds },
       {
         onSuccess: () => onClose(),
       }
     );
   };
 
-  const pages = data?.pages ?? [];
+  const accounts = (data?.accounts ?? []).map((account) => ({
+    id: account.externalAccountId,
+    name: account.name,
+    avatar: account.avatar,
+  }));
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Chọn Page để kết nối"
+      title={`Chọn ${accountLabel} để kết nối`}
       className="max-w-lg"
       footer={
         <>
@@ -64,7 +72,9 @@ export const FacebookPagePickerModal = ({
             isLoading={connect.isPending}
             disabled={selectedIds.length === 0 || isLoading}
           >
-            {selectedIds.length > 0 ? `Kết nối ${selectedIds.length} Page` : 'Kết nối Page'}
+            {selectedIds.length > 0
+              ? `Kết nối ${selectedIds.length} ${accountLabel}`
+              : `Kết nối ${accountLabel}`}
           </Button>
         </>
       }
@@ -75,22 +85,22 @@ export const FacebookPagePickerModal = ({
         <p className="text-sm text-danger">{getErrorMessage(error)}</p>
       ) : null}
 
-      {!isLoading && !isError && pages.length === 0 ? (
+      {!isLoading && !isError && accounts.length === 0 ? (
         <p className="text-sm text-muted">
-          Tài khoản Facebook của bạn chưa có Page nào để kết nối.
+          Tài khoản {meta.label} của bạn chưa có {accountLabel} nào để kết nối.
         </p>
       ) : null}
 
-      {pages.length > 0 ? (
+      {accounts.length > 0 ? (
         <SelectableAccountList
           className="max-h-80 space-y-2 overflow-y-auto"
-          accounts={pages}
+          accounts={accounts}
           selectedIds={selectedIds}
-          onToggle={togglePage}
+          onToggle={toggleAccount}
         />
       ) : null}
     </Modal>
   );
 };
 
-export default FacebookPagePickerModal;
+export default ChannelAccountPickerModal;
