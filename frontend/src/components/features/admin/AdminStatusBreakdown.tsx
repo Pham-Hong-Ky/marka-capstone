@@ -1,19 +1,8 @@
-import Badge, { type BadgeVariant } from '@/components/ui/Badge';
+import PostStatusBadge from '@/components/features/post/PostStatusBadge';
 import { POST_STATUS_LABELS, type PostStatus } from '@/services/post';
 import { formatNumber } from '@/utils/format';
 
-const STATUS_BADGE_VARIANTS: Record<PostStatus, BadgeVariant> = {
-  DRAFT: 'neutral',
-  PENDING: 'warning',
-  APPROVED: 'success',
-  REJECTED: 'danger',
-  SCHEDULED: 'accent',
-  PUBLISHED: 'success',
-  FAILED: 'danger',
-  ARCHIVED: 'neutral',
-};
-
-const STATUS_ENTRIES = Object.entries(POST_STATUS_LABELS) as Array<[PostStatus, string]>;
+const STATUS_ENTRIES = Object.keys(POST_STATUS_LABELS) as PostStatus[];
 
 export const AdminStatusBreakdown = ({ byStatus }: { byStatus?: Record<string, number> }) => {
   const counts = byStatus ?? {};
@@ -25,9 +14,9 @@ export const AdminStatusBreakdown = ({ byStatus }: { byStatus?: Record<string, n
 
       {hasPosts ? (
         <ul className="mt-4 space-y-3">
-          {STATUS_ENTRIES.map(([status, label]) => (
+          {STATUS_ENTRIES.map((status) => (
             <li key={status} className="flex items-center justify-between gap-3">
-              <Badge variant={STATUS_BADGE_VARIANTS[status]}>{label}</Badge>
+              <PostStatusBadge status={status} />
               <span className="text-sm font-medium tabular-nums text-foreground">
                 {formatNumber(counts[status] ?? 0)}
               </span>

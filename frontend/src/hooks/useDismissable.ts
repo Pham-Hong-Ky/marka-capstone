@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
 type DismissableOptions = {
   enabled?: boolean;
@@ -11,17 +11,19 @@ export const useDismissable = (
   options: DismissableOptions = {}
 ): void => {
   const { enabled = true, closeOnEscape = true } = options;
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
   useEffect(() => {
     if (!enabled) return;
 
     const onPointerDown = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
-        onDismiss();
+        onDismissRef.current();
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onDismiss();
+      if (event.key === 'Escape') onDismissRef.current();
     };
 
     document.addEventListener('mousedown', onPointerDown);
@@ -31,5 +33,5 @@ export const useDismissable = (
       document.removeEventListener('mousedown', onPointerDown);
       if (closeOnEscape) document.removeEventListener('keydown', onKeyDown);
     };
-  }, [ref, onDismiss, enabled, closeOnEscape]);
+  }, [ref, enabled, closeOnEscape]);
 };

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarClock, Send } from 'lucide-react';
-import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
+import SelectableAccountList from '@/components/shared/SelectableAccountList';
 import EmptyState from '@/components/ui/EmptyState';
 import Modal from '@/components/ui/Modal';
 import TextField from '@/components/ui/TextField';
@@ -183,29 +183,16 @@ export const PublishScheduleModal = ({
         ) : null}
 
         {channels.length > 0 ? (
-          <div className="max-h-72 space-y-2 overflow-y-auto">
-            {channels.map((channel) => (
-              <label
-                key={channel.id}
-                className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border p-3 transition hover:bg-surface-2"
-              >
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 accent-accent"
-                  checked={selectedIds.includes(channel.id)}
-                  onChange={() => toggleChannel(channel.id)}
-                />
-                <Avatar
-                  name={channel.label ?? channel.name}
-                  src={channel.avatar}
-                  className="h-9 w-9"
-                />
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                  {channel.label ?? channel.name}
-                </span>
-              </label>
-            ))}
-          </div>
+          <SelectableAccountList
+            className="max-h-72 space-y-2 overflow-y-auto"
+            accounts={channels.map((channel) => ({
+              id: channel.id,
+              name: channel.label ?? channel.name,
+              avatar: channel.avatar,
+            }))}
+            selectedIds={selectedIds}
+            onToggle={toggleChannel}
+          />
         ) : null}
 
         {formError ? <p className="text-sm text-danger">{formError}</p> : null}

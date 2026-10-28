@@ -1,7 +1,6 @@
 import {
   AudioLines,
   CalendarDays,
-  ChartColumn,
   FileText,
   LayoutDashboard,
   Settings,
@@ -15,7 +14,6 @@ import { matchPath } from 'react-router-dom';
 
 export const ROUTE_LABELS = {
   dashboard: 'Tổng quan',
-  analytics: 'Hiệu quả',
   posts: 'Bài viết',
   postCreate: 'Tạo bài viết',
   postEdit: 'Sửa bài viết',
@@ -47,7 +45,6 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: ROUTE_LABELS.dashboard, to: '/', icon: LayoutDashboard },
-  { label: ROUTE_LABELS.analytics, to: '/analytics', icon: ChartColumn },
   { label: ROUTE_LABELS.posts, to: '/posts', icon: FileText },
   { label: ROUTE_LABELS.schedule, to: '/schedule', icon: CalendarDays },
   { label: ROUTE_LABELS.channels, to: '/channels', icon: Share2 },
@@ -75,7 +72,6 @@ const ADMIN_CRUMB: Breadcrumb = { label: ROUTE_LABELS.admin, to: '/admin' };
 
 const BREADCRUMB_ROUTES: Array<{ path: string; crumbs: Breadcrumb[] }> = [
   { path: '/', crumbs: [{ label: ROUTE_LABELS.dashboard }] },
-  { path: '/analytics', crumbs: [{ label: ROUTE_LABELS.analytics }] },
   { path: '/posts', crumbs: [{ label: ROUTE_LABELS.posts }] },
   { path: '/posts/new', crumbs: [POSTS_CRUMB, { label: ROUTE_LABELS.postCreate }] },
   { path: '/posts/:postId/edit', crumbs: [POSTS_CRUMB, { label: ROUTE_LABELS.postEdit }] },

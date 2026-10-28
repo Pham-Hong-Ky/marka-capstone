@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useDismissable } from '@/hooks/useDismissable';
+import { useMenuKeyboard } from '@/hooks/useMenuKeyboard';
 import { useStartFacebookOauth } from '@/hooks/useChannels';
 import {
   CONNECTABLE_PLATFORMS,
@@ -19,9 +20,16 @@ export const ChannelConnectMenu = ({
 }) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const startOauth = useStartFacebookOauth();
 
   useDismissable(containerRef, () => setOpen(false), { enabled: open });
+  const onMenuKeyDown = useMenuKeyboard(menuRef, () => setOpen(false));
+
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [open]);
 
   if (!canManage) return null;
 
@@ -54,8 +62,10 @@ export const ChannelConnectMenu = ({
 
       {open ? (
         <div
+          ref={menuRef}
           role="menu"
           aria-label="Kết nối kênh"
+          onKeyDown={onMenuKeyDown}
           className="absolute right-0 top-full z-30 mt-1 w-56 overflow-hidden rounded-xl border border-border bg-surface p-1 shadow-xl"
         >
           {platforms.map(({ platform, meta }) => {

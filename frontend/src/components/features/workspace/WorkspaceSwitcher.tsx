@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, ChevronDown, Plus, Settings } from 'lucide-react';
 import DefaultWorkspaceIcon from '@/components/shared/DefaultWorkspaceIcon';
@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/utils/cn';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 import { useDismissable } from '@/hooks/useDismissable';
+import { useMenuKeyboard } from '@/hooks/useMenuKeyboard';
 
 const MENU_ITEM_SELECTOR = '[role="menuitemradio"], [role="menuitem"]';
 
@@ -29,38 +30,7 @@ export const WorkspaceSwitcher = ({ collapsed = false }: { collapsed?: boolean }
     menuRef.current?.querySelector<HTMLElement>(MENU_ITEM_SELECTOR)?.focus();
   }, [open]);
 
-  const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!menuRef.current) return;
-
-    const items = Array.from(menuRef.current.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR));
-    if (items.length === 0) return;
-
-    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
-    const moveTo = (index: number) => {
-      event.preventDefault();
-      items[(index + items.length) % items.length].focus();
-    };
-
-    switch (event.key) {
-      case 'ArrowDown':
-        moveTo(currentIndex + 1);
-        break;
-      case 'ArrowUp':
-        moveTo(currentIndex - 1);
-        break;
-      case 'Home':
-        moveTo(0);
-        break;
-      case 'End':
-        moveTo(items.length - 1);
-        break;
-      case 'Tab':
-        setOpen(false);
-        break;
-      default:
-        break;
-    }
-  };
+  const onMenuKeyDown = useMenuKeyboard(menuRef, () => setOpen(false));
 
   const selectWorkspace = (id: string) => {
     setActiveWorkspace(id);

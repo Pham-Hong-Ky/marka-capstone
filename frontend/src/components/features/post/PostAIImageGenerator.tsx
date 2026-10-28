@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -6,9 +6,10 @@ import { Sparkles } from 'lucide-react';
 import type { JSONContent } from '@tiptap/react';
 import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
-import { useAiGeneration, useStartAiImage } from '@/hooks/useAi';
-import { syncSessionUser } from '@/hooks/useWorkspace';
+import { useStartAiImage } from '@/hooks/useAi';
+import { useAiGenerationWatcher } from '@/hooks/useAiGenerationWatcher';
 import { isContentEmpty } from '@/services/post';
+import { queryKeys } from '@/lib/queryKeys';
 import type { AiImageResult } from '@/services/ai';
 import { getErrorMessage } from '@/utils/error';
 import { clearDraft, draftKey } from '@/utils/postDraft';
@@ -43,42 +44,26 @@ export const PostAIImageGenerator = ({
   const [imageGenerationId, setImageGenerationId] = useState<string | null>(
     initialImageGenerationId
   );
-  const [error, setError] = useState<string | null>(null);
 
-  const imageGeneration = useAiGeneration(workspaceId, imageGenerationId);
-  const isImageBusy = Boolean(imageGenerationId) || startImage.isPending;
+  const { error, setError, isBusy } = useAiGenerationWatcher({
+    workspaceId,
+    generationId: imageGenerationId,
+    setGenerationId: setImageGenerationId,
+    isResult: isImageResult,
+    resultLabel: 'ảnh',
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.post.detailWorkspace(workspaceId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.post.workspace(workspaceId),
+      });
+      toast.success('Đã tạo ảnh bằng AI');
+    },
+  });
+
+  const isImageBusy = isBusy || startImage.isPending;
   const hasPendingImages = !postId && pendingImageCount > 0;
-
-  useEffect(() => {
-    const generation = imageGeneration.data;
-    if (!generation) return;
-
-    if (generation.status === 'SUCCESS') {
-      if (isImageResult(generation.result)) {
-        void queryClient.invalidateQueries({ queryKey: ['post', workspaceId] });
-        void queryClient.invalidateQueries({ queryKey: ['posts', workspaceId] });
-        toast.success('Đã tạo ảnh bằng AI');
-        setError(null);
-      } else {
-        setError('AI không trả về ảnh hợp lệ. Credit đã được hoàn.');
-        void syncSessionUser();
-      }
-      setImageGenerationId(null);
-      return;
-    }
-
-    if (generation.status === 'FAILED') {
-      setError(generation.errorMessage ?? 'Tạo ảnh thất bại. Credit đã được hoàn.');
-      setImageGenerationId(null);
-      void syncSessionUser();
-    }
-  }, [imageGeneration.data, queryClient, workspaceId]);
-
-  useEffect(() => {
-    if (!imageGeneration.isError || !imageGenerationId) return;
-    setError(getErrorMessage(imageGeneration.error));
-    setImageGenerationId(null);
-  }, [imageGeneration.isError, imageGeneration.error, imageGenerationId]);
 
   const handleImage = async () => {
     if (hasPendingImages) {

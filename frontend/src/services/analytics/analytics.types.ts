@@ -13,6 +13,7 @@ export interface AnalyticsSummary {
   comments: number;
   shares: number;
   impressions: number | null;
+  reach: number | null;
   engagementRate: number | null;
 }
 
@@ -29,6 +30,7 @@ export interface AnalyticsSeriesPoint {
   posts: number;
   reach: number;
   impressions: number;
+  engagement: number;
 }
 
 export interface AnalyticsCoverage {

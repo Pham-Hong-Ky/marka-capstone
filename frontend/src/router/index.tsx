@@ -37,7 +37,7 @@ export const router = createBrowserRouter([
             element: <AppLayout />,
             children: [
               { index: true, lazy: page(() => import('@/pages/DashboardPage')) },
-              { path: 'analytics', lazy: page(() => import('@/pages/AnalyticsPage')) },
+              { path: 'analytics', element: <Navigate to="/" replace /> },
               { path: 'posts', lazy: page(() => import('@/pages/PostsPage')) },
               { path: 'posts/new', lazy: page(() => import('@/pages/PostEditorPage')) },
               { path: 'posts/:postId/edit', lazy: page(() => import('@/pages/PostEditorPage')) },

@@ -135,40 +135,6 @@ export const AdminUsersPage = () => {
     },
   ];
 
-  const renderMobileCard = (user: AdminUser) => (
-    <div className="space-y-3">
-      <div className="flex items-start gap-3">
-        <Avatar name={user.name} src={user.avatar} className="h-10 w-10" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-foreground">{user.name}</p>
-          <p className="truncate text-sm text-muted">{user.email}</p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Badge variant={user.systemRole === 'SYSTEM_ADMIN' ? 'accent' : 'neutral'}>
-          {ROLE_LABELS[user.systemRole]}
-        </Badge>
-        <Badge variant={user.isSuspended ? 'danger' : 'success'}>
-          {user.isSuspended ? 'Bị khoá' : 'Hoạt động'}
-        </Badge>
-      </div>
-
-      <dl className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <dt className="text-muted">Workspace</dt>
-          <dd className="tabular-nums text-foreground">{formatNumber(user.workspaceCount)}</dd>
-        </div>
-        <div>
-          <dt className="text-muted">Ngày tạo</dt>
-          <dd className="text-foreground">{formatDate(user.createdAt)}</dd>
-        </div>
-      </dl>
-
-      <div className="flex justify-end">{renderAction(user)}</div>
-    </div>
-  );
-
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -239,7 +205,6 @@ export const AdminUsersPage = () => {
             ) : undefined
           }
           empty={<EmptyState title="Không tìm thấy người dùng." />}
-          renderMobileCard={renderMobileCard}
         />
 
         {!isLoading && !isError && data ? (

@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { Trash2, UserPlus } from 'lucide-react';
-import Avatar from '@/components/ui/Avatar';
+import { UserPlus } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
-import SelectField from '@/components/ui/SelectField';
+import MembersTable from './MembersTable';
 import InviteMemberModal from './InviteMemberModal';
-import { WORKSPACE_ROLE_LABELS } from '@/services/workspace';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   useChangeMemberRole,
@@ -18,7 +16,6 @@ import {
 import { getErrorMessage } from '@/utils/error';
 import type { WorkspaceRole } from '@/services/auth';
 import { SkeletonList } from '@/components/ui/Skeleton';
-import { formatDate } from '@/utils/format';
 
 export const MembersTab = () => {
   const user = useAuthStore((state) => state.user);
@@ -63,6 +60,10 @@ export const MembersTab = () => {
     leaveWorkspace.mutate(workspaceId, { onSettled: () => setLeaveOpen(false) });
   };
 
+  const changeMemberRole = (userId: string, role: WorkspaceRole) => {
+    changeRole.mutate({ id: workspaceId, userId, role });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -81,107 +82,15 @@ export const MembersTab = () => {
         ) : null}
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-border bg-surface">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-surface-2 text-xs uppercase text-muted">
-            <tr>
-              <th className="px-4 py-3 font-medium">Thành viên</th>
-              <th className="px-4 py-3 font-medium">Vai trò</th>
-              <th className="px-4 py-3 font-medium">Trạng thái</th>
-              <th className="px-4 py-3 font-medium">Tham gia</th>
-              {isOwner ? <th className="px-4 py-3 text-right font-medium">Hành động</th> : null}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {members.map((member) => (
-              <tr key={member.memberId}>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar
-                      name={member.name || member.email}
-                      src={member.avatar}
-                      className="h-9 w-9"
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-foreground">
-                        {member.name || member.email}
-                      </p>
-                      <p className="truncate text-xs text-muted">{member.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-muted">
-                  {isOwner && member.userId !== user?.id ? (
-                    <SelectField
-                      aria-label="Vai trò thành viên"
-                      value={member.role}
-                      disabled={changeRole.isPending}
-                      onChange={(event) =>
-                        changeRole.mutate({
-                          id: workspaceId,
-                          userId: member.userId,
-                          role: event.target.value as WorkspaceRole,
-                        })
-                      }
-                      className="w-auto px-2 py-1.5 disabled:opacity-60"
-                    >
-                      <option value="OWNER">{WORKSPACE_ROLE_LABELS.OWNER}</option>
-                      <option value="CONTENT_CREATOR">
-                        {WORKSPACE_ROLE_LABELS.CONTENT_CREATOR}
-                      </option>
-                    </SelectField>
-                  ) : (
-                    WORKSPACE_ROLE_LABELS[member.role]
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs text-success">
-                    Hoạt động
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-muted">{formatDate(member.joinedAt)}</td>
-                {isOwner ? (
-                  <td className="px-4 py-3 text-right">
-                    {member.userId !== user?.id ? (
-                      <button
-                        type="button"
-                        aria-label={`Xóa ${member.name || member.email}`}
-                        onClick={() =>
-                          setMemberToRemove({ userId: member.userId, name: member.name || member.email })
-                        }
-                        className="inline-grid h-11 w-11 place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-danger"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                  </td>
-                ) : null}
-              </tr>
-            ))}
-
-            {pendingInvites.map((invite) => (
-              <tr key={invite.inviteId}>
-                <td className="px-4 py-3">
-                  <p className="truncate font-medium text-foreground">{invite.email}</p>
-                  <p className="text-xs text-muted">Chưa có tài khoản</p>
-                </td>
-                <td className="px-4 py-3 text-muted">{WORKSPACE_ROLE_LABELS[invite.role]}</td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning">
-                    Chờ chấp nhận
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-muted">{formatDate(invite.invitedAt)}</td>
-                {isOwner ? <td className="px-4 py-3" /> : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {members.length === 0 && pendingInvites.length === 0 ? (
-          <p className="p-6 text-center text-sm text-muted">Chưa có thành viên nào.</p>
-        ) : null}
-      </section>
+      <MembersTable
+        members={members}
+        pendingInvites={pendingInvites}
+        isOwner={isOwner}
+        currentUserId={user?.id ?? null}
+        isRoleChanging={changeRole.isPending}
+        onRoleChange={changeMemberRole}
+        onRemove={setMemberToRemove}
+      />
 
       <div>
         <Button

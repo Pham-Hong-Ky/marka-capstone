@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { useMenuKeyboard } from '@/hooks/useMenuKeyboard';
 import type { PostSummary } from '@/services/post';
 import { cn } from '@/utils/cn';
 
@@ -81,38 +82,7 @@ export const PostRowActions = ({
     action();
   };
 
-  const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!menuRef.current) return;
-
-    const items = Array.from(menuRef.current.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR));
-    if (items.length === 0) return;
-
-    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
-    const moveTo = (index: number) => {
-      event.preventDefault();
-      items[(index + items.length) % items.length].focus();
-    };
-
-    switch (event.key) {
-      case 'ArrowDown':
-        moveTo(currentIndex + 1);
-        break;
-      case 'ArrowUp':
-        moveTo(currentIndex - 1);
-        break;
-      case 'Home':
-        moveTo(0);
-        break;
-      case 'End':
-        moveTo(items.length - 1);
-        break;
-      case 'Tab':
-        setOpen(false);
-        break;
-      default:
-        break;
-    }
-  };
+  const onMenuKeyDown = useMenuKeyboard(menuRef, () => setOpen(false));
 
   return (
     <>

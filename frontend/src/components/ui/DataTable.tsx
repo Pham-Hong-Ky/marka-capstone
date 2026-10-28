@@ -20,7 +20,7 @@ export interface DataTableProps<T> {
   isLoading?: boolean;
   error?: ReactNode;
   empty?: ReactNode;
-  renderMobileCard: (row: T) => ReactNode;
+  renderMobileCard?: (row: T) => ReactNode;
   className?: string;
 }
 
@@ -51,6 +51,17 @@ export const DataTable = <T,>({
   if (rows.length === 0) {
     return <>{empty ?? <EmptyState title="Chưa có dữ liệu." className={className} />}</>;
   }
+
+  const renderDefaultMobileCard = (row: T) => (
+    <dl className="space-y-2 text-sm">
+      {columns.map((column) => (
+        <div key={column.key} className="grid grid-cols-[minmax(6rem,auto)_1fr] gap-2">
+          <dt className="text-muted">{column.header}</dt>
+          <dd className={cn('min-w-0', column.className)}>{column.cell(row)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 
   return (
     <div className={className}>
@@ -91,7 +102,7 @@ export const DataTable = <T,>({
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
           <div key={getRowKey(row)} className="rounded-2xl border border-border bg-surface p-4">
-            {renderMobileCard(row)}
+            {renderMobileCard ? renderMobileCard(row) : renderDefaultMobileCard(row)}
           </div>
         ))}
       </div>

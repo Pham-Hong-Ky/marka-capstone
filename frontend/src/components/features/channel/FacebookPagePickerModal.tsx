@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
+import SelectableAccountList from '@/components/shared/SelectableAccountList';
 import Modal from '@/components/ui/Modal';
 import {
   useConnectFacebookPages,
@@ -14,13 +14,11 @@ export const FacebookPagePickerModal = ({
   workspaceId,
   sessionId,
   onClose,
-  onConnected,
 }: {
   open: boolean;
   workspaceId: string | null;
   sessionId: string | null;
   onClose: () => void;
-  onConnected: () => void;
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const { data, isLoading, isError, error } = useFacebookPendingPages(sessionId);
@@ -42,10 +40,7 @@ export const FacebookPagePickerModal = ({
     connect.mutate(
       { sessionId, pageIds: selectedIds },
       {
-        onSuccess: () => {
-          onConnected();
-          onClose();
-        },
+        onSuccess: () => onClose(),
       }
     );
   };
@@ -87,23 +82,12 @@ export const FacebookPagePickerModal = ({
       ) : null}
 
       {pages.length > 0 ? (
-        <div className="max-h-80 space-y-2 overflow-y-auto">
-          {pages.map((page) => (
-            <label
-              key={page.id}
-              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border p-3 transition hover:bg-surface-2"
-            >
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-accent"
-                checked={selectedIds.includes(page.id)}
-                onChange={() => togglePage(page.id)}
-              />
-              <Avatar name={page.name} src={page.avatar} className="h-9 w-9" />
-              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{page.name}</span>
-            </label>
-          ))}
-        </div>
+        <SelectableAccountList
+          className="max-h-80 space-y-2 overflow-y-auto"
+          accounts={pages}
+          selectedIds={selectedIds}
+          onToggle={togglePage}
+        />
       ) : null}
     </Modal>
   );

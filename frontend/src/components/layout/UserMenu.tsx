@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronsUpDown, LogOut } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import { WORKSPACE_ROLE_LABELS } from '@/services/workspace';
 import type { WorkspaceRole } from '@/services/auth';
 import { useLogout } from '@/hooks/useAuth';
 import { useDismissable } from '@/hooks/useDismissable';
+import { useMenuKeyboard } from '@/hooks/useMenuKeyboard';
 import { cn } from '@/utils/cn';
 
 export const UserMenu = ({
@@ -24,9 +25,16 @@ export const UserMenu = ({
 }) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const logout = useLogout();
 
   useDismissable(containerRef, () => setOpen(false), { enabled: open });
+  const onMenuKeyDown = useMenuKeyboard(menuRef, () => setOpen(false));
+
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [open]);
 
   const menuPosition = collapsed
     ? 'bottom-0 left-full ml-2 w-56'
@@ -65,8 +73,10 @@ export const UserMenu = ({
 
       {open ? (
         <div
+          ref={menuRef}
           role="menu"
           aria-label="Tài khoản"
+          onKeyDown={onMenuKeyDown}
           className={cn(
             'absolute z-30 overflow-hidden rounded-xl border border-border bg-surface p-1 shadow-xl',
             menuPosition

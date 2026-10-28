@@ -30,9 +30,6 @@ export const ChannelsPage = () => {
 
   const handleStartOauth = () => startOauth.mutate(workspaceId);
 
-  // useConnectFacebookPages đã invalidate danh sách kênh; flow tự đóng modal sau khi kết nối.
-  const handleFacebookConnected = () => {};
-
   const confirmDisconnect = () => {
     if (!channelToDisconnect) return;
 
@@ -81,7 +78,7 @@ export const ChannelsPage = () => {
         </div>
       ) : null}
 
-      <FacebookConnectFlow workspaceId={workspaceId} onConnected={handleFacebookConnected} />
+      <FacebookConnectFlow workspaceId={workspaceId} />
 
       <ConfirmDialog
         open={Boolean(channelToDisconnect)}

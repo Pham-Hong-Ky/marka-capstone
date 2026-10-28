@@ -4,13 +4,7 @@ import toast from 'react-hot-toast';
 import FacebookPagePickerModal from '@/components/features/channel/FacebookPagePickerModal';
 import { FACEBOOK_ERROR_MESSAGES } from '@/services/channel';
 
-export const FacebookConnectFlow = ({
-  workspaceId,
-  onConnected,
-}: {
-  workspaceId: string;
-  onConnected: () => void;
-}) => {
+export const FacebookConnectFlow = ({ workspaceId }: { workspaceId: string }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
@@ -31,18 +25,12 @@ export const FacebookConnectFlow = ({
 
   const closePicker = () => setPendingSessionId(null);
 
-  const handleConnected = () => {
-    closePicker();
-    onConnected();
-  };
-
   return (
     <FacebookPagePickerModal
       open={Boolean(pendingSessionId)}
       workspaceId={workspaceId}
       sessionId={pendingSessionId}
       onClose={closePicker}
-      onConnected={handleConnected}
     />
   );
 };

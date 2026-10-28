@@ -3,16 +3,12 @@ import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import SelectField from '@/components/ui/SelectField';
 import TextField from '@/components/ui/TextField';
-import type { AnalyticsFilters, AnalyticsRange } from '@/services/analytics';
+import {
+  ANALYTICS_RANGE_OPTIONS,
+  type AnalyticsFilters,
+  type AnalyticsRange,
+} from '@/services/analytics';
 import type { ChannelConnection } from '@/services/channel';
-
-const RANGE_OPTIONS: Array<{ value: AnalyticsRange; label: string }> = [
-  { value: '7d', label: '7 ngày' },
-  { value: '30d', label: '30 ngày' },
-  { value: 'mtd', label: 'Tháng này' },
-  { value: 'lastMonth', label: 'Tháng trước' },
-  { value: 'custom', label: 'Tùy chọn' },
-];
 
 const INVALID_RANGE_MESSAGE = 'Khoảng thời gian không hợp lệ.';
 const RANGE_ERROR_ID = 'analytics-range-error';
@@ -20,12 +16,10 @@ const RANGE_ERROR_ID = 'analytics-range-error';
 export const AnalyticsFilterBar = ({
   filters,
   channels,
-  tags,
   onChange,
 }: {
   filters: AnalyticsFilters;
   channels: ChannelConnection[];
-  tags: string[];
   onChange: (filters: AnalyticsFilters) => void;
 }) => {
   const [draftRange, setDraftRange] = useState<AnalyticsRange>(filters.range);
@@ -40,9 +34,7 @@ export const AnalyticsFilterBar = ({
     setError(null);
   }, [filters.range, filters.from, filters.to]);
 
-  const hasSecondaryFilters =
-    draftRange !== '7d' || Boolean(filters.channelId) || Boolean(filters.tag);
-  const tagOptions = filters.tag && !tags.includes(filters.tag) ? [filters.tag, ...tags] : tags;
+  const hasSecondaryFilters = draftRange !== '7d' || Boolean(filters.channelId);
 
   const changeRange = (range: AnalyticsRange) => {
     setDraftRange(range);
@@ -52,7 +44,7 @@ export const AnalyticsFilterBar = ({
       return;
     }
 
-    onChange({ range, channelId: filters.channelId, tag: filters.tag });
+    onChange({ range, channelId: filters.channelId });
   };
 
   const applyCustomRange = () => {
@@ -75,7 +67,7 @@ export const AnalyticsFilterBar = ({
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-3">
         <SelectField
           id="analytics-range"
           name="range"
@@ -84,7 +76,7 @@ export const AnalyticsFilterBar = ({
           value={draftRange}
           onChange={(event) => changeRange(event.target.value as AnalyticsRange)}
         >
-          {RANGE_OPTIONS.map((option) => (
+          {ANALYTICS_RANGE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -105,22 +97,6 @@ export const AnalyticsFilterBar = ({
           {channels.map((channel) => (
             <option key={channel.id} value={channel.id}>
               {channel.label ?? channel.name}
-            </option>
-          ))}
-        </SelectField>
-
-        <SelectField
-          id="analytics-tag"
-          name="tag"
-          label="Nhãn"
-          className="min-h-11"
-          value={filters.tag ?? ''}
-          onChange={(event) => onChange({ ...filters, tag: event.target.value || undefined })}
-        >
-          <option value="">Tất cả nhãn</option>
-          {tagOptions.map((tag) => (
-            <option key={tag} value={tag}>
-              {tag}
             </option>
           ))}
         </SelectField>

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -37,6 +37,7 @@ export const NotificationBell = ({ workspaceId }: { workspaceId?: string }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const notifications = useNotifications(workspaceId ?? null);
   const unreadCount = useUnreadNotificationCount(workspaceId ?? null);
@@ -47,6 +48,10 @@ export const NotificationBell = ({ workspaceId }: { workspaceId?: string }) => {
   const items = notifications.data?.notifications ?? [];
 
   useDismissable(containerRef, () => setOpen(false), { enabled: open });
+
+  useEffect(() => {
+    if (open) panelRef.current?.focus();
+  }, [open]);
 
   const handleOpenNotification = (notification: AppNotification) => {
     if (!notification.isRead) {
@@ -83,9 +88,11 @@ export const NotificationBell = ({ workspaceId }: { workspaceId?: string }) => {
 
       {open ? (
         <div
+          ref={panelRef}
           role="dialog"
           aria-label="Thông báo"
-          className="absolute right-0 top-full z-40 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-surface shadow-xl"
+          tabIndex={-1}
+          className="absolute right-0 top-full z-40 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-surface shadow-xl outline-none"
         >
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <p className="text-sm font-semibold text-foreground">Thông báo</p>

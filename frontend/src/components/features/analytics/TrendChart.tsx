@@ -1,30 +1,19 @@
 import { format, parseISO } from 'date-fns';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Area,
-  AreaChart,
   CartesianGrid,
+  ComposedChart,
+  Legend,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
-import SegmentedControl, { type SegmentedOption } from '@/components/ui/SegmentedControl';
 import type { AnalyticsSeriesPoint } from '@/services/analytics';
 import { cn } from '@/utils/cn';
 import { formatNumber } from '@/utils/format';
-
-export type TrendMetric = 'reach' | 'impressions' | 'posts';
-
-const METRIC_OPTIONS: SegmentedOption<TrendMetric>[] = [
-  { value: 'reach', label: 'Lượt tiếp cận' },
-  { value: 'impressions', label: 'Hiển thị' },
-  { value: 'posts', label: 'Số bài' },
-];
-
-const METRIC_LABELS = Object.fromEntries(
-  METRIC_OPTIONS.map((option) => [option.value, option.label])
-) as Record<TrendMetric, string>;
 
 const formatDay = (value: string): string => format(parseISO(value), 'dd/MM');
 
@@ -44,6 +33,11 @@ const formatAxisTick = (value: number): string => {
   return String(value);
 };
 
+const LEGEND_LABELS: Record<string, string> = {
+  posts: 'Số bài',
+  engagement: 'Tương tác',
+};
+
 export const TrendChart = ({
   series,
   className,
@@ -51,36 +45,28 @@ export const TrendChart = ({
   series: AnalyticsSeriesPoint[];
   className?: string;
 }) => {
-  const [metric, setMetric] = useState<TrendMetric>('reach');
-
   const totals = useMemo(
     () =>
       series.reduce(
         (sum, point) => ({
           posts: sum.posts + point.posts,
-          reach: sum.reach + point.reach,
-          impressions: sum.impressions + point.impressions,
+          engagement: sum.engagement + point.engagement,
         }),
-        { posts: 0, reach: 0, impressions: 0 }
+        { posts: 0, engagement: 0 }
       ),
     [series]
   );
 
   return (
     <section className={cn('rounded-2xl border border-border bg-surface p-5', className)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-base font-semibold text-foreground">Xu hướng</h2>
-        <SegmentedControl
-          options={METRIC_OPTIONS}
-          value={metric}
-          onChange={setMetric}
-          ariaLabel="Chọn chỉ số hiển thị trên biểu đồ"
-        />
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-base font-semibold text-foreground">Chỉ số</h2>
+        <p className="text-xs text-muted">Số bài đăng và tương tác theo ngày</p>
       </div>
 
       <div className="mt-4">
-        <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+        <ResponsiveContainer width="100%" height={280}>
+          <ComposedChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
               dataKey="date"
@@ -91,8 +77,21 @@ export const TrendChart = ({
               tick={{ fill: 'var(--muted)', fontSize: 12 }}
             />
             <YAxis
+              yAxisId="posts"
               width={40}
               allowDecimals={false}
+              domain={[0, (dataMax: number) => Math.max(dataMax, 4)]}
+              tickFormatter={formatAxisTick}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: 'var(--muted)', fontSize: 12 }}
+            />
+            <YAxis
+              yAxisId="engagement"
+              orientation="right"
+              width={48}
+              allowDecimals={false}
+              domain={[0, (dataMax: number) => Math.max(dataMax, 4)]}
               tickFormatter={formatAxisTick}
               tickLine={false}
               axisLine={false}
@@ -101,7 +100,10 @@ export const TrendChart = ({
             <Tooltip
               cursor={{ stroke: 'var(--border)' }}
               labelFormatter={(label) => formatDay(String(label))}
-              formatter={(value) => [formatNumber(Number(value)), METRIC_LABELS[metric]]}
+              formatter={(value, name) => [
+                formatNumber(Number(value)),
+                LEGEND_LABELS[name ?? ''] ?? name,
+              ]}
               contentStyle={{
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
@@ -111,21 +113,36 @@ export const TrendChart = ({
               labelStyle={{ color: 'var(--muted)' }}
               itemStyle={{ color: 'var(--foreground)' }}
             />
+            <Legend
+              formatter={(value) => LEGEND_LABELS[value] ?? value}
+              wrapperStyle={{ color: 'var(--muted)', fontSize: 12, paddingTop: 8 }}
+            />
             <Area
+              yAxisId="posts"
               type="monotone"
-              dataKey={metric}
+              dataKey="posts"
+              name="posts"
               stroke="var(--accent)"
               fill="var(--accent)"
               fillOpacity={0.15}
               strokeWidth={2}
             />
-          </AreaChart>
+            <Line
+              yAxisId="engagement"
+              type="monotone"
+              dataKey="engagement"
+              name="engagement"
+              stroke="var(--success)"
+              strokeWidth={2}
+              dot={false}
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 
       <p className="sr-only">
-        Trong kỳ có tổng {formatNumber(totals.posts)} bài, {formatNumber(totals.reach)} lượt tiếp cận và{' '}
-        {formatNumber(totals.impressions)} lượt hiển thị.
+        Trong kỳ có tổng {formatNumber(totals.posts)} bài đăng và{' '}
+        {formatNumber(totals.engagement)} lượt tương tác.
       </p>
     </section>
   );

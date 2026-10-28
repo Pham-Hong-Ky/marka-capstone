@@ -103,36 +103,6 @@ export const AdminWorkspacesPage = () => {
     },
   ];
 
-  const renderMobileCard = (workspace: AdminWorkspace) => (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">{renderName(workspace)}</div>
-        <Badge variant="accent">{workspace.plan}</Badge>
-      </div>
-
-      <dl className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <dt className="text-muted">Thành viên</dt>
-          <dd className="tabular-nums text-foreground">{formatNumber(workspace.memberCount)}</dd>
-        </div>
-        <div>
-          <dt className="text-muted">Bài viết</dt>
-          <dd className="tabular-nums text-foreground">{formatNumber(workspace.postCount)}</dd>
-        </div>
-        <div>
-          <dt className="text-muted">Credit còn lại</dt>
-          <dd className="tabular-nums text-foreground">
-            {formatNumber(workspace.remainingCredit)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted">Ngày tạo</dt>
-          <dd className="text-foreground">{formatDate(workspace.createdAt)}</dd>
-        </div>
-      </dl>
-    </div>
-  );
-
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -202,7 +172,6 @@ export const AdminWorkspacesPage = () => {
             ) : undefined
           }
           empty={<EmptyState title="Không tìm thấy workspace." />}
-          renderMobileCard={renderMobileCard}
         />
 
         {!isLoading && !isError && data ? (

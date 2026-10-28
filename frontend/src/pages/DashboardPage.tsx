@@ -1,29 +1,147 @@
-import { Link } from 'react-router-dom';
-import { buttonClasses } from '@/components/ui/button.styles';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
+import AnalyticsFilterBar from '@/components/features/analytics/AnalyticsFilterBar';
+import BestTimesCard from '@/components/features/analytics/BestTimesCard';
+import ContentTipsCard from '@/components/features/analytics/ContentTipsCard';
+import CoverageAlert from '@/components/features/analytics/CoverageAlert';
+import TrendChart from '@/components/features/analytics/TrendChart';
+import Alert from '@/components/ui/Alert';
+import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
-import PostStatusBadge from '@/components/features/post/PostStatusBadge';
+import PageHeader from '@/components/ui/PageHeader';
+import { SkeletonBlock } from '@/components/ui/Skeleton';
+import StatCard from '@/components/ui/StatCard';
+import { useAnalyticsOverview, useAnalyticsSuggestions } from '@/hooks/useAnalytics';
+import { useAnalyticsSync } from '@/hooks/useAnalyticsSync';
 import { useChannels } from '@/hooks/useChannels';
 import { usePosts } from '@/hooks/usePost';
-import { getErrorMessage } from '@/utils/error';
-import { SkeletonList } from '@/components/ui/Skeleton';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
-import { formatNumber, formatDate } from '@/utils/format';
+import {
+  ANALYTICS_RANGES,
+  type AnalyticsFilters,
+  type AnalyticsRange,
+} from '@/services/analytics';
+import { getErrorMessage } from '@/utils/error';
+import { formatNumber } from '@/utils/format';
 
-const Stat = ({ label, value }: { label: string; value: string }) => (
-  <div className="px-5 py-4">
-    <dt className="text-sm text-muted">{label}</dt>
-    <dd className="mt-1 text-2xl font-semibold text-foreground tabular-nums">{value}</dd>
-  </div>
-);
+const parseRange = (value: string | null): AnalyticsRange =>
+  ANALYTICS_RANGES.find((range) => range === value) ?? '7d';
+
+const readFilters = (params: URLSearchParams): AnalyticsFilters => {
+  const range = parseRange(params.get('range'));
+  const channelId = params.get('channelId') || undefined;
+
+  if (range !== 'custom') {
+    return { range, channelId };
+  }
+
+  return {
+    range,
+    from: params.get('from') || undefined,
+    to: params.get('to') || undefined,
+    channelId,
+  };
+};
+
+const writeFilters = (filters: AnalyticsFilters): URLSearchParams => {
+  const params = new URLSearchParams({ range: filters.range });
+
+  if (filters.range === 'custom') {
+    if (filters.from) params.set('from', filters.from);
+    if (filters.to) params.set('to', filters.to);
+  }
+
+  if (filters.channelId) params.set('channelId', filters.channelId);
+
+  return params;
+};
 
 export const DashboardPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
 
-  const posts = usePosts(workspaceId, { page: 1, limit: 5 });
-  const channels = useChannels(workspaceId);
+  const posts = usePosts(workspaceId, { page: 1, limit: 1 });
+  const { data: channelsData } = useChannels(workspaceId);
+  const channels = channelsData?.channels ?? [];
 
-  if (!activeWorkspace) {
+  const filters = useMemo(() => readFilters(searchParams), [searchParams]);
+
+  const updateFilters = useCallback(
+    (next: AnalyticsFilters) => {
+      if (next.range === 'custom' && (!next.from || !next.to || next.to < next.from)) {
+        return;
+      }
+
+      setSearchParams(writeFilters(next), { replace: true });
+    },
+    [setSearchParams]
+  );
+
+  // Kênh không còn trong danh sách đã tải (đổi workspace, URL cũ) bị loại khỏi truy vấn ngay.
+  const channelsLoaded = channelsData !== undefined;
+  const channelExists = filters.channelId
+    ? channelsLoaded && channels.some((channel) => channel.id === filters.channelId)
+    : true;
+  const effectiveFilters = useMemo(
+    () => (channelExists ? filters : { ...filters, channelId: undefined }),
+    [channelExists, filters]
+  );
+
+  const isCustomInvalid =
+    filters.range === 'custom' && (!filters.from || !filters.to || filters.to < filters.from);
+
+  const syncKey = [
+    workspaceId,
+    effectiveFilters.range,
+    effectiveFilters.from ?? '',
+    effectiveFilters.to ?? '',
+    effectiveFilters.channelId ?? '',
+  ].join('|');
+
+  const [pollInterval, setPollInterval] = useState<number | false>(false);
+  const overview = useAnalyticsOverview(workspaceId, effectiveFilters, {
+    enabled: !isCustomInvalid,
+    refetchInterval: pollInterval,
+  });
+  const { start, isWaiting, error: syncError } = useAnalyticsSync({
+    workspaceId,
+    coverage: overview.data?.coverage,
+    syncKey,
+  });
+  const suggestions = useAnalyticsSuggestions(workspaceId, effectiveFilters.channelId);
+
+  const previousWorkspaceId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const previous = previousWorkspaceId.current;
+    previousWorkspaceId.current = workspaceId;
+
+    if (!previous || previous === workspaceId) {
+      return;
+    }
+
+    if (!filters.channelId) {
+      return;
+    }
+
+    updateFilters({ ...filters, channelId: undefined });
+  }, [workspaceId, filters, updateFilters]);
+
+  useEffect(() => {
+    if (!filters.channelId || !channelsLoaded || channelExists) {
+      return;
+    }
+
+    updateFilters({ ...filters, channelId: undefined });
+  }, [channelsLoaded, channelExists, filters, updateFilters]);
+
+  useEffect(() => {
+    setPollInterval(isWaiting ? 5000 : false);
+  }, [isWaiting]);
+
+  if (!workspaceId) {
     return (
       <EmptyState
         title="Bạn chưa có workspace nào."
@@ -32,63 +150,149 @@ export const DashboardPage = () => {
     );
   }
 
-  const recentPosts = posts.data?.posts ?? [];
+  const coverage = overview.data?.coverage;
+  const summary = overview.data?.summary;
+  const hasSyncedMetrics = (coverage?.syncedPosts ?? 0) > 0;
+  const engagement = summary ? summary.likes + summary.comments + summary.shares : null;
+  const reach = summary?.reach ?? null;
+
+  const syncButton = (
+    <Button
+      type="button"
+      variant="outline"
+      className="min-h-11"
+      isLoading={isWaiting}
+      disabled={!overview.data || coverage?.publishedPosts === 0}
+      onClick={start}
+    >
+      <RefreshCw className="h-4 w-4" />
+      Đồng bộ số liệu
+    </Button>
+  );
+
+  const showSuggestions = !isCustomInvalid && !overview.isError && (coverage?.publishedPosts ?? 0) > 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <dl className="grid divide-y divide-border rounded-2xl border border-border bg-surface sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <Stat label="Bài viết" value={posts.data ? formatNumber(posts.data.meta.total) : '—'} />
-        <Stat
-          label="Kênh đã kết nối"
-          value={channels.data ? formatNumber(channels.data.channels.length) : '—'}
-        />
-        <Stat label="Credit còn lại" value={formatNumber(activeWorkspace.remainingCredit)} />
-      </dl>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        title="Tổng quan"
+        description="Theo dõi hiệu quả nội dung và tương tác trên các kênh đã kết nối."
+        actions={syncButton}
+      />
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-base font-semibold text-foreground">Bài viết gần đây</h2>
-          {recentPosts.length > 0 ? (
-            <Link to="/posts" className="text-sm text-accent-text hover:underline">
-              Xem tất cả
-            </Link>
+      <AnalyticsFilterBar
+        filters={effectiveFilters}
+        channels={channels}
+        onChange={updateFilters}
+      />
+
+      {isCustomInvalid ? (
+        <Alert variant="danger">Chọn ngày bắt đầu và kết thúc hợp lệ.</Alert>
+      ) : null}
+
+      {!isCustomInvalid && overview.isError ? (
+        <Alert
+          variant="danger"
+          title="Không tải được số liệu"
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => overview.refetch()}
+            >
+              Thử lại
+            </Button>
+          }
+        >
+          {getErrorMessage(overview.error)}
+        </Alert>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <StatCard label="Bài viết" value={posts.data ? formatNumber(posts.data.meta.total) : '—'} />
+        <StatCard
+          label="Kênh đã kết nối"
+          value={channelsData ? formatNumber(channels.length) : '—'}
+        />
+        <StatCard
+          label="Tương tác"
+          value={hasSyncedMetrics && engagement !== null ? formatNumber(engagement) : '—'}
+        />
+        <StatCard
+          label="Lượt tiếp cận"
+          value={hasSyncedMetrics && reach !== null ? formatNumber(reach) : '—'}
+        />
+        <StatCard
+          label="Credit còn lại"
+          value={formatNumber(activeWorkspace?.remainingCredit ?? 0)}
+        />
+      </div>
+
+      {!isCustomInvalid && !overview.isError ? (
+        <div className="space-y-4">
+          {overview.isLoading && !overview.data ? <SkeletonBlock /> : null}
+
+          {overview.data ? (
+            <>
+              <CoverageAlert coverage={overview.data.coverage} />
+              <TrendChart series={overview.data.series} />
+
+              {overview.data.coverage.publishedPosts === 0 ? (
+                <p className="text-sm text-muted">
+                  Chưa có bài viết nào được đăng trong khoảng thời gian này.{' '}
+                  <Link to="/schedule" className="text-accent-text hover:underline">
+                    Xem lịch xuất bản
+                  </Link>
+                </p>
+              ) : overview.data.coverage.syncedPosts === 0 ? (
+                <p className="text-sm text-muted">
+                  Chưa có số liệu từ kênh. Bấm <span className="font-medium">Đồng bộ số liệu</span>{' '}
+                  để lấy dữ liệu mới nhất.
+                </p>
+              ) : null}
+            </>
           ) : null}
         </div>
+      ) : null}
 
-        {posts.isLoading ? <SkeletonList rows={5} /> : null}
+      {showSuggestions ? (
+        <div className="space-y-4">
+          {syncError ? (
+            <Alert variant="danger" title="Không đồng bộ được số liệu">
+              {getErrorMessage(syncError)}
+            </Alert>
+          ) : null}
 
-        {posts.isError ? (
-          <p className="text-sm text-danger">{getErrorMessage(posts.error)}</p>
-        ) : null}
+          {suggestions.isFetching && !suggestions.data ? <SkeletonBlock /> : null}
 
-        {posts.data && recentPosts.length === 0 ? (
-          <EmptyState
-            title="Chưa có bài viết nào."
-            description="Soạn bài viết đầu tiên để bắt đầu quy trình duyệt và đăng bài."
-            action={
-              <Link to="/posts/new" className={buttonClasses('outline')}>
-                Tạo bài viết
-              </Link>
-            }
-          />
-        ) : null}
+          {suggestions.isError ? (
+            <Alert
+              variant="danger"
+              title="Không tải được gợi ý"
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => suggestions.refetch()}
+                >
+                  Thử lại
+                </Button>
+              }
+            >
+              {getErrorMessage(suggestions.error)}
+            </Alert>
+          ) : null}
 
-        {recentPosts.length > 0 ? (
-          <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
-            {recentPosts.map((post) => (
-              <li key={post.id} className="flex items-center gap-4 px-5 py-3.5">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                  {post.title}
-                </span>
-                <PostStatusBadge status={post.status} />
-                <span className="hidden w-24 text-right text-sm text-muted tabular-nums sm:block">
-                  {formatDate(post.updatedAt)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
+          {suggestions.data ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <BestTimesCard suggestions={suggestions.data} />
+              <ContentTipsCard suggestions={suggestions.data} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };
