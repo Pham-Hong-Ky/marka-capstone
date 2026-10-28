@@ -140,7 +140,7 @@ export const findSchedulesToSync = async ({
     select: {
       id: true,
       externalPostId: true,
-      channel: { select: { id: true, accessToken: true } },
+      channel: { select: { id: true, accessToken: true, platform: true } },
     },
     orderBy: { publishedAt: 'desc' },
     take,

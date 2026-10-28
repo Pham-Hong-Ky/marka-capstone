@@ -7,11 +7,11 @@ import { withTimeout } from '../../utils/timeout.js';
 import { decryptOrNull } from '../../utils/encryption.js';
 import auditService from '../audit/audit.service.js';
 import channelService from '../channel/channel.service.js';
+import { getProvider } from '../channel/providers/provider.registry.js';
 import {
-  FacebookTokenExpiredError,
-  FacebookTransientError,
-  facebookClient,
-} from '../channel/facebook.client.js';
+  SocialTokenExpiredError,
+  SocialTransientError,
+} from '../channel/providers/social-provider.js';
 import scheduleRepository, { type ScheduleSummary } from './schedule.repository.js';
 import { PUBLISHABLE_POST_STATUSES } from '../post/post.status.js';
 import { renderContentToPlainText } from './schedule.content.js';
@@ -298,18 +298,18 @@ const handlePublishError = async (
 ): Promise<{ outcome: 'failed' | 'retry' }> => {
   const message = getErrorMessage(error);
 
-  if (error instanceof FacebookTokenExpiredError || message.includes('hết hạn')) {
+  if (error instanceof SocialTokenExpiredError || message.includes('hết hạn')) {
     await markChannelExpired(schedule.channelId);
-    return failSchedule(schedule, 'Token Facebook đã hết hạn. Vui lòng kết nối lại Page.', {
+    return failSchedule(schedule, 'Token của kênh đã hết hạn. Vui lòng kết nối lại kênh.', {
       tokenExpired: true,
     });
   }
 
-  if (error instanceof FacebookTransientError) {
+  if (error instanceof SocialTransientError) {
     if (feedStarted) {
       return failSchedule(
         schedule,
-        'Không xác định được kết quả đăng bài do lỗi kết nối sau khi gửi lên Facebook. Vui lòng kiểm tra Page trước khi đăng lại.',
+        'Không xác định được kết quả đăng bài do lỗi kết nối sau khi gửi lên nền tảng. Vui lòng kiểm tra kênh trước khi đăng lại.',
         { ambiguous: true }
       );
     }
@@ -323,18 +323,6 @@ const handlePublishError = async (
   }
 
   return failSchedule(schedule, message);
-};
-
-const uploadPostImages = async (
-  pageId: string,
-  token: string,
-  imageUrls: string[]
-): Promise<string[]> => {
-  const mediaIds: string[] = [];
-  for (const imageUrl of imageUrls) {
-    mediaIds.push(await facebookClient.uploadPagePhoto(pageId, token, imageUrl));
-  }
-  return mediaIds;
 };
 
 export const publishSchedule = async (
@@ -383,25 +371,23 @@ export const publishSchedule = async (
     return failSchedule(schedule, text);
   }
 
+  const provider = getProvider(schedule.channel.platform);
+
   let feedStarted = false;
   try {
-    const mediaIds = await uploadPostImages(
-      schedule.channel.externalAccountId,
-      token,
-      imageUrls
-    );
-
-    feedStarted = true;
-    const externalPostId = await facebookClient.createPageFeedPost(
-      schedule.channel.externalAccountId,
-      token,
-      message,
-      mediaIds
-    );
+    const externalPostId = await provider.publish({
+      externalAccountId: schedule.channel.externalAccountId,
+      accessToken: token,
+      text: message,
+      imageUrls,
+      onRemoteStart: () => {
+        feedStarted = true;
+      },
+    });
 
     const published = await scheduleRepository.markSchedulePublished(scheduleId, externalPostId);
     if (!published) {
-      logger.error(`Đã đăng lên Facebook nhưng không cập nhật được lịch ${scheduleId}`);
+      logger.error(`Đã đăng lên nền tảng nhưng không cập nhật được lịch ${scheduleId}`);
       return { outcome: 'failed', externalPostId };
     }
 

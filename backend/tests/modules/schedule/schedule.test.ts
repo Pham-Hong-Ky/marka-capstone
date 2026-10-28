@@ -3,11 +3,11 @@ import request from 'supertest';
 import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
 import { encrypt } from '../../../src/utils/encryption.js';
+import { facebookProvider } from '../../../src/modules/channel/providers/facebook.provider.js';
 import {
-  FacebookTokenExpiredError,
-  FacebookTransientError,
-  facebookClient,
-} from '../../../src/modules/channel/facebook.client.js';
+  SocialTokenExpiredError,
+  SocialTransientError,
+} from '../../../src/modules/channel/providers/social-provider.js';
 import scheduleService from '../../../src/modules/schedule/schedule.service.js';
 import postService from '../../../src/modules/post/post.service.js';
 
@@ -389,11 +389,11 @@ describe('Schedule — đăng bài Facebook', () => {
     });
 
     const uploadSpy = vi
-      .spyOn(facebookClient, 'uploadPagePhoto')
+      .spyOn(facebookProvider, 'uploadPagePhoto')
       .mockResolvedValueOnce('photo-1')
       .mockResolvedValueOnce('photo-2');
     const feedSpy = vi
-      .spyOn(facebookClient, 'createPageFeedPost')
+      .spyOn(facebookProvider, 'createPageFeedPost')
       .mockResolvedValue('page_post_1');
 
     const result = await scheduleService.publishSchedule(schedule.id);
@@ -422,9 +422,9 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
     });
 
-    const uploadSpy = vi.spyOn(facebookClient, 'uploadPagePhoto');
+    const uploadSpy = vi.spyOn(facebookProvider, 'uploadPagePhoto');
     const feedSpy = vi
-      .spyOn(facebookClient, 'createPageFeedPost')
+      .spyOn(facebookProvider, 'createPageFeedPost')
       .mockResolvedValue('page_post_no_image');
 
     const result = await scheduleService.publishSchedule(schedule.id);
@@ -446,8 +446,8 @@ describe('Schedule — đăng bài Facebook', () => {
       },
     });
 
-    vi.spyOn(facebookClient, 'uploadPagePhoto').mockRejectedValue(
-      new FacebookTransientError('vẫn lỗi mạng')
+    vi.spyOn(facebookProvider, 'uploadPagePhoto').mockRejectedValue(
+      new SocialTransientError('vẫn lỗi mạng')
     );
 
     const result = await scheduleService.publishSchedule(schedule.id);
@@ -502,7 +502,7 @@ describe('Schedule — đăng bài Facebook', () => {
     });
     await prisma.post.update({ where: { id: postId }, data: { deletedAt: new Date() } });
 
-    const feedSpy = vi.spyOn(facebookClient, 'createPageFeedPost');
+    const feedSpy = vi.spyOn(facebookProvider, 'createPageFeedPost');
 
     const result = await scheduleService.publishSchedule(schedule.id);
 
@@ -518,7 +518,7 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
     });
 
-    vi.spyOn(facebookClient, 'uploadPagePhoto').mockRejectedValue(new FacebookTokenExpiredError());
+    vi.spyOn(facebookProvider, 'uploadPagePhoto').mockRejectedValue(new SocialTokenExpiredError());
 
     const result = await scheduleService.publishSchedule(schedule.id);
 
@@ -537,8 +537,8 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt, status: 'SCHEDULED' },
     });
 
-    vi.spyOn(facebookClient, 'uploadPagePhoto').mockRejectedValue(
-      new FacebookTransientError('mất mạng')
+    vi.spyOn(facebookProvider, 'uploadPagePhoto').mockRejectedValue(
+      new SocialTransientError('mất mạng')
     );
 
     const result = await scheduleService.publishSchedule(schedule.id);
@@ -563,7 +563,7 @@ describe('Schedule — đăng bài Facebook', () => {
       },
     });
 
-    const publish = vi.spyOn(facebookClient, 'createPageFeedPost');
+    const publish = vi.spyOn(facebookProvider, 'createPageFeedPost');
 
     await scheduleService.processDueSchedules();
 
@@ -578,9 +578,9 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
     });
 
-    vi.spyOn(facebookClient, 'uploadPagePhoto').mockResolvedValue('photo-1');
-    vi.spyOn(facebookClient, 'createPageFeedPost').mockRejectedValue(
-      new FacebookTransientError('timeout')
+    vi.spyOn(facebookProvider, 'uploadPagePhoto').mockResolvedValue('photo-1');
+    vi.spyOn(facebookProvider, 'createPageFeedPost').mockRejectedValue(
+      new SocialTransientError('timeout')
     );
 
     const result = await scheduleService.publishSchedule(schedule.id);
@@ -602,7 +602,7 @@ describe('Schedule — đăng bài Facebook', () => {
       },
     });
 
-    vi.spyOn(facebookClient, 'createPageFeedPost').mockResolvedValue('page_post_due');
+    vi.spyOn(facebookProvider, 'createPageFeedPost').mockResolvedValue('page_post_due');
 
     const result = await scheduleService.processDueSchedules();
 
@@ -643,7 +643,7 @@ describe('Schedule — đăng bài Facebook', () => {
       },
     });
 
-    const feedSpy = vi.spyOn(facebookClient, 'createPageFeedPost');
+    const feedSpy = vi.spyOn(facebookProvider, 'createPageFeedPost');
 
     const result = await scheduleService.publishSchedule(schedule.id);
 
@@ -657,8 +657,8 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
     });
 
-    const uploadSpy = vi.spyOn(facebookClient, 'uploadPagePhoto').mockResolvedValue('photo-1');
-    vi.spyOn(facebookClient, 'createPageFeedPost').mockResolvedValue('page_post_1');
+    const uploadSpy = vi.spyOn(facebookProvider, 'uploadPagePhoto').mockResolvedValue('photo-1');
+    vi.spyOn(facebookProvider, 'createPageFeedPost').mockResolvedValue('page_post_1');
 
     await scheduleService.publishSchedule(schedule.id);
     const second = await scheduleService.publishSchedule(schedule.id);

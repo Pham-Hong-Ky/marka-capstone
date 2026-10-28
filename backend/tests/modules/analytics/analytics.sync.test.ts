@@ -3,7 +3,8 @@ import request from 'supertest';
 import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
 import { encrypt } from '../../../src/utils/encryption.js';
-import { FacebookTokenExpiredError, facebookClient } from '../../../src/modules/channel/facebook.client.js';
+import { facebookProvider } from '../../../src/modules/channel/providers/facebook.provider.js';
+import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/social-provider.js';
 import analyticsService from '../../../src/modules/analytics/analytics.service.js';
 
 const password = 'password123';
@@ -64,7 +65,7 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
 
   it('lưu số liệu lấy được từ Facebook vào PostMetric', async () => {
     const schedule = await createPublishedSchedule();
-    vi.spyOn(facebookClient, 'fetchPostMetrics').mockResolvedValue({
+    vi.spyOn(facebookProvider, 'fetchMetrics').mockResolvedValue({
       reactions: 12,
       comments: 3,
       shares: 2,
@@ -92,7 +93,7 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
         fetchedAt: new Date(),
       },
     });
-    const spy = vi.spyOn(facebookClient, 'fetchPostMetrics').mockResolvedValue({
+    const spy = vi.spyOn(facebookProvider, 'fetchMetrics').mockResolvedValue({
       reactions: 99,
       comments: 0,
       shares: 0,
@@ -110,9 +111,7 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
 
   it('đánh dấu kênh hết hạn khi token bị thu hồi', async () => {
     const schedule = await createPublishedSchedule();
-    vi.spyOn(facebookClient, 'fetchPostMetrics').mockRejectedValue(
-      new FacebookTokenExpiredError()
-    );
+    vi.spyOn(facebookProvider, 'fetchMetrics').mockRejectedValue(new SocialTokenExpiredError());
 
     const result = await analyticsService.syncMetrics({ workspaceId: wsId });
 
@@ -200,7 +199,7 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
         data: { deletedAt: new Date() },
       });
 
-      const spy = vi.spyOn(facebookClient, 'fetchPostMetrics');
+      const spy = vi.spyOn(facebookProvider, 'fetchMetrics');
       const result = await analyticsService.syncMetrics({ workspaceId: ws.id });
 
       expect(result.total).toBe(0);

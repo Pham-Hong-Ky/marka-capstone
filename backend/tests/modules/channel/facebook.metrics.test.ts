@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  FacebookTokenExpiredError,
-  facebookClient,
-} from '../../../src/modules/channel/facebook.client.js';
+import { facebookProvider } from '../../../src/modules/channel/providers/facebook.provider.js';
+import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/social-provider.js';
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -12,7 +10,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const postInsights = (body: unknown, status = 200) => jsonResponse(body, status);
 
-describe('FacebookClient.fetchPostMetrics', () => {
+describe('FacebookProvider.fetchMetrics', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -41,7 +39,7 @@ describe('FacebookClient.fetchPostMetrics', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    const metrics = await facebookClient.fetchPostMetrics('123_456', 'page-token');
+    const metrics = await facebookProvider.fetchMetrics('123_456', 'page-token');
 
     expect(metrics).toEqual({
       reactions: 42,
@@ -63,7 +61,7 @@ describe('FacebookClient.fetchPostMetrics', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    const metrics = await facebookClient.fetchPostMetrics('123_456', 'page-token');
+    const metrics = await facebookProvider.fetchMetrics('123_456', 'page-token');
 
     expect(metrics.impressions).toBeNull();
     expect(metrics.reach).toBeNull();
@@ -78,8 +76,8 @@ describe('FacebookClient.fetchPostMetrics', () => {
       )
     );
 
-    await expect(facebookClient.fetchPostMetrics('123_456', 'page-token')).rejects.toBeInstanceOf(
-      FacebookTokenExpiredError
+    await expect(facebookProvider.fetchMetrics('123_456', 'page-token')).rejects.toBeInstanceOf(
+      SocialTokenExpiredError
     );
   });
 
@@ -90,7 +88,7 @@ describe('FacebookClient.fetchPostMetrics', () => {
       .mockResolvedValueOnce(jsonResponse({ data: [] }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const metrics = await facebookClient.fetchPostMetrics('123_456', 'page-token');
+    const metrics = await facebookProvider.fetchMetrics('123_456', 'page-token');
 
     expect(metrics.reactions).toBe(0);
     expect(metrics.comments).toBe(0);

@@ -6,7 +6,8 @@ import { BadRequestError, ConflictError, NotFoundError } from '../../utils/error
 import { decryptOrNull, encrypt } from '../../utils/encryption.js';
 import auditService from '../audit/audit.service.js';
 import channelRepository, { type ChannelSummary } from './channel.repository.js';
-import { facebookClient } from './facebook.client.js';
+import { getProvider } from './providers/provider.registry.js';
+import { SocialTokenExpiredError } from './providers/social-provider.js';
 import * as oauthStore from './channel.oauth-store.js';
 import type { OauthSession, OauthSessionPage } from './channel.oauth-store.js';
 
@@ -35,14 +36,15 @@ export const createFacebookAuthUrl = async (
   workspaceId: string,
   userId: string
 ): Promise<{ url: string }> => {
-  if (!facebookClient.isFacebookConfigured()) {
+  const provider = getProvider('FACEBOOK');
+  if (!provider.isConfigured()) {
     throw new BadRequestError('Chưa cấu hình Facebook App. Vui lòng liên hệ quản trị viên.');
   }
 
   const state = randomBytes(32).toString('hex');
   await oauthStore.saveOauthState(state, { userId, workspaceId });
 
-  return { url: facebookClient.buildAuthorizationUrl(state) };
+  return { url: provider.buildAuthorizationUrl(state) };
 };
 
 export const handleFacebookCallback = async (
@@ -71,11 +73,9 @@ export const handleFacebookCallback = async (
   }
 
   try {
-    const shortToken = await facebookClient.exchangeCodeForToken(query.code);
-    const userToken = await facebookClient.exchangeForLongLivedToken(shortToken);
-    const pages = await facebookClient.fetchManagedPages(userToken);
+    const accounts = await getProvider('FACEBOOK').exchangeCodeForAccounts(query.code);
 
-    if (pages.length === 0) {
+    if (accounts.length === 0) {
       return errorRedirect('no_pages');
     }
 
@@ -83,11 +83,11 @@ export const handleFacebookCallback = async (
     await oauthStore.saveOauthSession(sessionId, {
       userId: state.userId,
       workspaceId: state.workspaceId,
-      pages: pages.map((page) => ({
-        id: page.id,
-        name: page.name,
-        avatar: page.avatar,
-        accessTokenEncrypted: encrypt(page.accessToken) as string,
+      pages: accounts.map((account) => ({
+        id: account.externalAccountId,
+        name: account.name,
+        avatar: account.avatar,
+        accessTokenEncrypted: encrypt(account.accessToken) as string,
       })),
     });
 
@@ -290,9 +290,9 @@ export const refreshChannel = async (
 
   let profile;
   try {
-    profile = await facebookClient.fetchPageProfile(token);
+    profile = await getProvider(channel.platform).fetchProfile(token);
   } catch (error) {
-    if (facebookClient.isTokenExpiredError(error)) {
+    if (error instanceof SocialTokenExpiredError) {
       await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
       throw new BadRequestError('Page đã hết hạn hoặc bị thu hồi quyền. Vui lòng kết nối lại.');
     }

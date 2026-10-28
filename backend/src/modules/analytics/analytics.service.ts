@@ -1,7 +1,8 @@
 import { getErrorMessage } from '../../utils/errorMessage.js';
 import logger from '../../utils/logger.js';
 import { decryptOrNull } from '../../utils/encryption.js';
-import { facebookClient } from '../channel/facebook.client.js';
+import { getProvider } from '../channel/providers/provider.registry.js';
+import { SocialTokenExpiredError } from '../channel/providers/social-provider.js';
 import renderContentToPlainText from '../schedule/schedule.content.js';
 import analyticsRepository from './analytics.repository.js';
 import {
@@ -178,12 +179,15 @@ export const syncMetrics = async (options: { workspaceId?: string } = {}) => {
     }
 
     try {
-      const metrics = await facebookClient.fetchPostMetrics(schedule.externalPostId, token);
+      const metrics = await getProvider(schedule.channel.platform).fetchMetrics(
+        schedule.externalPostId,
+        token
+      );
       await analyticsRepository.saveMetric(schedule.id, metrics);
       synced += 1;
     } catch (error) {
       const message = getErrorMessage(error);
-      if (facebookClient.isTokenExpiredError(error)) {
+      if (error instanceof SocialTokenExpiredError) {
         await analyticsRepository.markChannelExpired(schedule.channel.id);
       }
       await analyticsRepository.markMetricError(schedule.id, message);
