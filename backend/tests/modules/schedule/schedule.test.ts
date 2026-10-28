@@ -66,11 +66,16 @@ describe('Schedule — đăng bài Facebook', () => {
     return post.id;
   };
 
-  const createChannel = async (workspaceId: string, pageId: string, name: string) =>
+  const createChannel = async (
+    workspaceId: string,
+    pageId: string,
+    name: string,
+    platform: 'FACEBOOK' | 'THREADS' = 'FACEBOOK'
+  ) =>
     prisma.channelConnection.create({
       data: {
         workspaceId,
-        platform: 'FACEBOOK',
+        platform,
         type: 'REAL',
         name,
         externalAccountId: pageId,
@@ -682,5 +687,65 @@ describe('Schedule — đăng bài Facebook', () => {
     expect(res.body.data.schedules).toHaveLength(1);
     expect(res.body.data.schedules[0].id).toBe(created.body.data.schedules[0].id);
     expect(JSON.stringify(res.body)).not.toContain('page-token');
+  });
+
+  it('giới hạn ảnh áp theo từng nền tảng: Facebook 10, Threads 20', async () => {
+    const threadsChannel = await createChannel(
+      wsId,
+      `threads-${stamp}`,
+      'Threads Channel',
+      'THREADS'
+    );
+    const postId = await createPost('APPROVED', Array<'IMAGE'>(11).fill('IMAGE'));
+
+    const facebookRes = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${postId}/schedules`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send(
+        schedulePayload([channelAId], new Date(Date.now() + 60 * 60 * 1000).toISOString())
+      );
+    expect(facebookRes.status).toBe(400);
+    expect(facebookRes.body.message).toContain('tối đa 10 ảnh');
+
+    const threadsRes = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${postId}/schedules`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send(
+        schedulePayload([threadsChannel.id], new Date(Date.now() + 60 * 60 * 1000).toISOString())
+      );
+    expect(threadsRes.status).toBe(201);
+  });
+
+  it('từ chối nội dung > 500 ký tự khi chọn Threads', async () => {
+    const threadsChannel = await createChannel(
+      wsId,
+      `threads-long-${stamp}`,
+      'Threads Long',
+      'THREADS'
+    );
+    const post = await prisma.post.create({
+      data: {
+        workspaceId: wsId,
+        title: `Bài dài ${Date.now()}`,
+        content: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'a'.repeat(501) }] },
+          ],
+        },
+        status: 'APPROVED',
+        createdById: ownerId,
+      },
+    });
+
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${post.id}/schedules`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send(
+        schedulePayload([threadsChannel.id], new Date(Date.now() + 60 * 60 * 1000).toISOString())
+      );
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('giới hạn của Threads');
   });
 });

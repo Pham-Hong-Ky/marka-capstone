@@ -93,8 +93,13 @@ const assertOk = <T extends ThreadsErrorBody>(
   return result.body ?? ({} as T);
 };
 
-const readProfile = async (accessToken: string): Promise<SocialProfile> => {
-  const url = new URL(`${GRAPH_BASE}/me`);
+const countGraphemes = (text: string): number =>
+  [...new Intl.Segmenter('vi', { granularity: 'grapheme' }).segment(text)].length;
+
+const countUniqueLinks = (text: string): number =>
+  new Set(text.match(/https?:\/\/[^\s]+/gi) ?? []).size;
+
+const readProfile = async (accessToken: string): Promise<SocialProfile> => {  const url = new URL(`${GRAPH_BASE}/me`);
   url.searchParams.set('fields', 'id,username,name,threads_profile_picture_url');
   url.searchParams.set('access_token', accessToken);
 
@@ -114,7 +119,7 @@ export class ThreadsProvider implements SocialProvider {
 
   readonly capabilities: ProviderCapabilities = {
     connect: 'single-account',
-    supportsPublish: false,
+    supportsPublish: true,
     supportsMetrics: false,
     supportsRefreshProfile: true,
     supportsTokenRefresh: true,
@@ -195,8 +200,114 @@ export class ThreadsProvider implements SocialProvider {
     }
   }
 
-  async publish(_input: PublishInput): Promise<string> {
-    throw new BadRequestError('Threads chưa hỗ trợ đăng bài');
+  async publish(input: PublishInput): Promise<string> {
+    const { externalAccountId, accessToken, text, imageUrls } = input;
+    const label = 'Threads';
+
+    if (!text.trim()) {
+      throw new BadRequestError('Bài viết chưa có nội dung để đăng');
+    }
+    if (countGraphemes(text) > this.capabilities.maxTextLength) {
+      throw new BadRequestError(`Nội dung vượt quá ${this.capabilities.maxTextLength} ký tự của Threads`);
+    }
+    if (imageUrls.length > this.capabilities.maxImages) {
+      throw new BadRequestError(
+        `Threads chỉ hỗ trợ tối đa ${this.capabilities.maxImages} ảnh mỗi bài`
+      );
+    }
+    if (countUniqueLinks(text) > 5) {
+      throw new BadRequestError('Threads chỉ cho phép tối đa 5 liên kết mỗi bài');
+    }
+
+    const createContainer = async (fields: Record<string, string>): Promise<string> => {
+      const body = assertOk(
+        await requestGraph<{ id: string } & ThreadsErrorBody>(
+          new URL(`${GRAPH_BASE}/${externalAccountId}/threads`),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ ...fields, access_token: accessToken }).toString(),
+          }
+        )
+      );
+      return body.id;
+    };
+
+    const publishContainer = async (creationId: string): Promise<string> => {
+      const body = assertOk(
+        await requestGraph<{ id: string } & ThreadsErrorBody>(
+          new URL(`${GRAPH_BASE}/${externalAccountId}/threads_publish`),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ creation_id: creationId, access_token: accessToken }).toString(),
+          }
+        )
+      );
+      return body.id;
+    };
+
+    let containerId: string;
+
+    if (imageUrls.length === 0) {
+      containerId = await createContainer({ media_type: 'TEXT', text });
+    } else if (imageUrls.length === 1) {
+      containerId = await createContainer({
+        media_type: 'IMAGE',
+        image_url: imageUrls[0],
+        text,
+      });
+      await this.waitForContainer(containerId, accessToken);
+    } else {
+      const childIds: string[] = [];
+      for (const imageUrl of imageUrls) {
+        const childId = await createContainer({
+          media_type: 'IMAGE',
+          image_url: imageUrl,
+          is_carousel_item: 'true',
+        });
+        await this.waitForContainer(childId, accessToken);
+        childIds.push(childId);
+      }
+
+      containerId = await createContainer({
+        media_type: 'CAROUSEL',
+        children: childIds.join(','),
+        text,
+      });
+      await this.waitForContainer(containerId, accessToken);
+    }
+
+    input.onRemoteStart?.();
+    logger.info(`Đăng Threads cho tài khoản ${externalAccountId} (${label})`);
+
+    return publishContainer(containerId);
+  }
+
+  private async waitForContainer(containerId: string, accessToken: string): Promise<void> {
+    const delays = [1000, 2000, 4000, 8000, 15_000, 30_000];
+
+    for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+      const url = new URL(`${GRAPH_BASE}/${containerId}`);
+      url.searchParams.set('fields', 'status,error_message');
+      url.searchParams.set('access_token', accessToken);
+
+      const body = assertOk(
+        await requestGraph<{ status?: string; error_message?: string } & ThreadsErrorBody>(url)
+      );
+
+      if (body.status === 'FINISHED' || body.status === 'PUBLISHED') return;
+      if (body.status === 'ERROR' || body.status === 'EXPIRED') {
+        throw new BadRequestError(
+          `Threads không xử lý được ảnh: ${body.error_message ?? body.status}`
+        );
+      }
+
+      if (attempt === delays.length) break;
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+
+    throw new SocialTransientError('Threads đang xử lý ảnh. Hệ thống sẽ thử lại sau.');
   }
 
   async fetchMetrics(_externalPostId: string, _accessToken: string): Promise<ProviderMetrics> {

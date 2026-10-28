@@ -11,19 +11,21 @@ import { getProvider } from '../channel/providers/provider.registry.js';
 import {
   SocialTokenExpiredError,
   SocialTransientError,
+  type SocialProvider,
 } from '../channel/providers/social-provider.js';
 import scheduleRepository, { type ScheduleSummary } from './schedule.repository.js';
 import { PUBLISHABLE_POST_STATUSES } from '../post/post.status.js';
 import { renderContentToPlainText } from './schedule.content.js';
 
 const MAX_CHANNELS = 10;
-const MAX_IMAGES = 10;
-const MAX_MESSAGE_LENGTH = 63_206;
 const MAX_SCHEDULE_AHEAD_MS = 365 * 24 * 60 * 60 * 1000;
 const MIN_SCHEDULE_AHEAD_MS = 60 * 1000;
 const RETRY_DELAYS_MS = [30_000, 2 * 60_000, 10 * 60_000];
 const STALE_PROCESSING_MS = 10 * 60 * 1000;
 const DUE_BATCH_SIZE = 10;
+
+const platformLabel = (platform: string): string =>
+  platform === 'THREADS' ? 'Threads' : platform === 'FACEBOOK' ? 'Facebook' : platform;
 
 interface CreateScheduleInput {
   channelIds: string[];
@@ -62,24 +64,31 @@ const enqueueImmediate = async (scheduleId: string): Promise<void> => {
   }
 };
 
-const validatePostContent = (post: {
-  content: unknown;
-  mediaAssets: Array<{ type: string; url: string }>;
-}): { message: string; imageUrls: string[] } => {
+const validatePostContent = (
+  post: {
+    content: unknown;
+    mediaAssets: Array<{ type: string; url: string }>;
+  },
+  provider: SocialProvider
+): { message: string; imageUrls: string[] } => {
+  const label = platformLabel(provider.platform);
   const message = renderContentToPlainText(post.content);
+
   if (!message) {
     throw new BadRequestError('Bài viết chưa có nội dung để đăng');
   }
-  if (message.length > MAX_MESSAGE_LENGTH) {
-    throw new BadRequestError('Nội dung bài viết vượt quá giới hạn của Facebook');
+  if (message.length > provider.capabilities.maxTextLength) {
+    throw new BadRequestError(`Nội dung bài viết vượt quá giới hạn của ${label}`);
   }
 
   if (post.mediaAssets.some((media) => media.type !== 'IMAGE')) {
-    throw new BadRequestError('Hiện chưa hỗ trợ đăng video lên Facebook');
+    throw new BadRequestError(`Hiện chưa hỗ trợ đăng video lên ${label}`);
   }
 
-  if (post.mediaAssets.length > MAX_IMAGES) {
-    throw new BadRequestError(`Chỉ được đăng tối đa ${MAX_IMAGES} ảnh mỗi bài`);
+  if (post.mediaAssets.length > provider.capabilities.maxImages) {
+    throw new BadRequestError(
+      `Chỉ được đăng tối đa ${provider.capabilities.maxImages} ảnh mỗi bài trên ${label}`
+    );
   }
 
   return { message, imageUrls: post.mediaAssets.map((media) => media.url) };
@@ -101,11 +110,10 @@ const loadSchedulablePost = async (postId: string, workspaceId: string): Promise
     throw new ConflictError('Chỉ có thể đăng hoặc lên lịch bài đã được duyệt');
   }
 
-  validatePostContent(post);
   return post;
 };
 
-const loadActiveFacebookChannels = async (workspaceId: string, inputChannelIds: string[]) => {
+const loadActiveChannels = async (workspaceId: string, inputChannelIds: string[]) => {
   const channelIds = [...new Set(inputChannelIds)];
   if (channelIds.length === 0 || channelIds.length > MAX_CHANNELS) {
     throw new BadRequestError(`Chọn từ 1 đến ${MAX_CHANNELS} kênh`);
@@ -116,13 +124,17 @@ const loadActiveFacebookChannels = async (workspaceId: string, inputChannelIds: 
     throw new BadRequestError('Kênh không hợp lệ hoặc không thuộc workspace');
   }
 
-  const unsupported = channels.find(
-    (channel) =>
-      channel.platform !== 'FACEBOOK' || channel.type !== 'REAL' || channel.status !== 'ACTIVE'
-  );
+  const unsupported = channels.find((channel) => {
+    if (channel.type !== 'REAL' || channel.status !== 'ACTIVE') return true;
+    try {
+      return !getProvider(channel.platform).capabilities.supportsPublish;
+    } catch {
+      return true;
+    }
+  });
   if (unsupported) {
     throw new BadRequestError(
-      `Kênh "${unsupported.name}" không khả dụng. Vui lòng kiểm tra lại kết nối Facebook.`
+      `Kênh "${unsupported.name}" không khả dụng. Vui lòng kiểm tra lại kết nối.`
     );
   }
 
@@ -163,7 +175,7 @@ const recordCreatedSchedules = async (params: {
       metadata: {
         postId,
         channelId: schedule.channelId,
-        pageId: channel?.externalAccountId ?? null,
+        externalAccountId: channel?.externalAccountId ?? null,
         scheduledAt: scheduledAt?.toISOString() ?? null,
       },
     });
@@ -180,8 +192,11 @@ export const createSchedules = async (
   postId: string,
   input: CreateScheduleInput
 ): Promise<{ schedules: ScheduleSummary[]; isImmediate: boolean }> => {
-  await loadSchedulablePost(postId, workspaceId);
-  const { channelIds, channels } = await loadActiveFacebookChannels(workspaceId, input.channelIds);
+  const post = await loadSchedulablePost(postId, workspaceId);
+  const { channelIds, channels } = await loadActiveChannels(workspaceId, input.channelIds);
+  for (const channel of channels) {
+    validatePostContent(post, getProvider(channel.platform));
+  }
   const scheduledAt = resolveScheduledAt(input.scheduledAt);
 
   const result = await scheduleRepository.createSchedulesForPost({
@@ -192,7 +207,7 @@ export const createSchedules = async (
   });
 
   if (result.outcome === 'channel_taken') {
-    throw new ConflictError('Bài viết đã được đăng hoặc đang chờ đăng trên Page đã chọn');
+    throw new ConflictError('Bài viết đã được đăng hoặc đang chờ đăng trên kênh đã chọn');
   }
   if (result.outcome === 'not_publishable') {
     throw new ConflictError('Bài viết đã được lên lịch hoặc không còn ở trạng thái đã duyệt');
@@ -284,7 +299,7 @@ const failSchedule = async (
     metadata: {
       postId: schedule.postId,
       channelId: schedule.channelId,
-      pageId: schedule.channel.externalAccountId,
+      externalAccountId: schedule.channel.externalAccountId,
       ...metadata,
     },
   });
@@ -348,30 +363,30 @@ export const publishSchedule = async (
     return failSchedule(schedule, 'Kênh đã bị ngắt kết nối');
   }
 
-  if (schedule.channel.platform !== 'FACEBOOK') {
-    return failSchedule(schedule, 'Kênh không phải Facebook Page');
-  }
   if (schedule.channel.status !== 'ACTIVE') {
-    return failSchedule(schedule, 'Kênh đã hết hạn. Vui lòng kết nối lại Page.');
+    return failSchedule(schedule, 'Kênh đã hết hạn. Vui lòng kết nối lại kênh.');
+  }
+
+  const provider = getProvider(schedule.channel.platform);
+  if (!provider.capabilities.supportsPublish) {
+    return failSchedule(schedule, `Nền tảng ${platformLabel(schedule.channel.platform)} chưa hỗ trợ đăng bài`);
   }
 
   const token = decryptOrNull(schedule.channel.accessToken);
 
   if (!token) {
     await markChannelExpired(schedule.channelId);
-    return failSchedule(schedule, 'Không đọc được token của Page. Vui lòng kết nối lại.');
+    return failSchedule(schedule, 'Không đọc được token của tài khoản. Vui lòng kết nối lại.');
   }
 
   let message: string;
   let imageUrls: string[];
   try {
-    ({ message, imageUrls } = validatePostContent(schedule.post));
+    ({ message, imageUrls } = validatePostContent(schedule.post, provider));
   } catch (error) {
     const text = getErrorMessage(error);
     return failSchedule(schedule, text);
   }
-
-  const provider = getProvider(schedule.channel.platform);
 
   let feedStarted = false;
   try {
@@ -399,7 +414,7 @@ export const publishSchedule = async (
       metadata: {
         postId: schedule.postId,
         channelId: schedule.channelId,
-        pageId: schedule.channel.externalAccountId,
+        externalAccountId: schedule.channel.externalAccountId,
         externalPostId,
       },
     });
