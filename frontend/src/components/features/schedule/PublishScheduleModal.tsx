@@ -60,10 +60,18 @@ export const PublishScheduleModal = ({
   );
   const channels = activeChannels.filter((channel) => !occupiedChannelIds.has(channel.id));
   const imageCount = post.mediaAssets.filter((media) => media.type === 'IMAGE').length;
-  const imageLimit = Math.max(
-    0,
-    ...channels.map((channel) => getChannelPlatformMeta(channel.platform).capabilities.maxImages)
-  );
+  const targetChannels =
+    selectedIds.length > 0
+      ? channels.filter((channel) => selectedIds.includes(channel.id))
+      : channels;
+  const imageLimit =
+    targetChannels.length > 0
+      ? Math.min(
+          ...targetChannels.map(
+            (channel) => getChannelPlatformMeta(channel.platform).capabilities.maxImages
+          )
+        )
+      : 0;
 
   const toggleChannel = (channelId: string) => {
     setSelectedIds((current) =>
