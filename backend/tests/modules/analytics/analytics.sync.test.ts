@@ -4,6 +4,7 @@ import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
 import { encrypt } from '../../../src/utils/encryption.js';
 import { facebookProvider } from '../../../src/modules/channel/providers/facebook.provider.js';
+import { threadsProvider } from '../../../src/modules/channel/providers/threads.provider.js';
 import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/social-provider.js';
 import analyticsService from '../../../src/modules/analytics/analytics.service.js';
 
@@ -22,7 +23,10 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
   let ownerId = '';
   let channelId = '';
 
-  const createPublishedSchedule = async (publishedAt = new Date()) => {
+  const createPublishedSchedule = async (
+    publishedAt = new Date(),
+    targetChannelId = channelId
+  ) => {
     const post = await prisma.post.create({
       data: { workspaceId: wsId, title: `Bài sync ${Date.now()}`, content, status: 'PUBLISHED', createdById: ownerId },
     });
@@ -30,10 +34,10 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
     return prisma.scheduledPost.create({
       data: {
         postId: post.id,
-        channelId,
+        channelId: targetChannelId,
         status: 'PUBLISHED',
         publishedAt,
-        externalPostId: `fb-${post.id}`,
+        externalPostId: `post-${post.id}`,
       },
     });
   };
@@ -107,6 +111,44 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
 
     expect(result.total).toBe(0);
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('đồng bộ số liệu Threads qua provider', async () => {
+    const threadsChannel = await prisma.channelConnection.create({
+      data: {
+        workspaceId: wsId,
+        platform: 'THREADS',
+        type: 'REAL',
+        name: 'Threads Sync',
+        externalAccountId: `sync-threads-${stamp}`,
+        accessToken: encrypt('threads-token') as string,
+        status: 'ACTIVE',
+      },
+    });
+    const schedule = await createPublishedSchedule(new Date(), threadsChannel.id);
+    vi.spyOn(threadsProvider, 'fetchMetrics').mockResolvedValue({
+      reactions: 20,
+      comments: 4,
+      shares: 3,
+      impressions: 1500,
+      reach: null,
+      reactionsDetail: null,
+      partialError: null,
+    });
+
+    const result = await analyticsService.syncMetrics({ workspaceId: wsId });
+
+    expect(result.synced).toBeGreaterThanOrEqual(1);
+    const metric = await prisma.postMetric.findUnique({
+      where: { scheduledPostId: schedule.id },
+    });
+    expect(metric).toMatchObject({
+      reactions: 20,
+      comments: 4,
+      shares: 3,
+      impressions: 1500,
+      reach: null,
+    });
   });
 
   it('đánh dấu kênh hết hạn khi token bị thu hồi', async () => {

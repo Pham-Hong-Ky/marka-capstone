@@ -126,7 +126,6 @@ export const findSchedulesToSync = async ({
       externalPostId: { not: null },
       publishedAt: { gte: publishedSince },
       channel: {
-        platform: 'FACEBOOK',
         status: 'ACTIVE',
         deletedAt: null,
         ...(workspaceId ? { workspaceId } : {}),

@@ -167,22 +167,22 @@ export const syncMetrics = async (options: { workspaceId?: string } = {}) => {
   let failed = 0;
 
   for (const schedule of schedules) {
+    const provider = getProvider(schedule.channel.platform);
+    if (!provider.capabilities.supportsMetrics) continue;
+
     const token = readToken(schedule.channel.accessToken);
 
     if (!schedule.externalPostId || !token) {
       await analyticsRepository.markMetricError(
         schedule.id,
-        'Không đọc được token của Page. Vui lòng kết nối lại.'
+        'Không đọc được token của tài khoản. Vui lòng kết nối lại.'
       );
       failed += 1;
       continue;
     }
 
     try {
-      const metrics = await getProvider(schedule.channel.platform).fetchMetrics(
-        schedule.externalPostId,
-        token
-      );
+      const metrics = await provider.fetchMetrics(schedule.externalPostId, token);
       await analyticsRepository.saveMetric(schedule.id, metrics);
       synced += 1;
     } catch (error) {

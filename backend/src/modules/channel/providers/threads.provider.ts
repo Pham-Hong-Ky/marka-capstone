@@ -39,6 +39,43 @@ interface ThreadsProfileResponse {
   threads_profile_picture_url?: string;
 }
 
+interface ThreadsInsightsResponse {
+  data?: Array<{
+    name?: string;
+    values?: Array<{ value?: number | Record<string, number> }>;
+  }>;
+}
+
+const insightValue = (
+  data: ThreadsInsightsResponse['data'],
+  name: string
+): number => {
+  const insight = data?.find((item) => item.name === name);
+  const value = insight?.values?.[0]?.value;
+  return typeof value === 'number' ? value : 0;
+};
+
+const mapInsights = (
+  body: ThreadsInsightsResponse,
+  partialError: string | null
+): ProviderMetrics => {
+  const reposts = insightValue(body.data, 'reposts');
+  const quotes = insightValue(body.data, 'quotes');
+  const shares = insightValue(body.data, 'shares');
+
+  return {
+    reactions: insightValue(body.data, 'likes'),
+    comments: insightValue(body.data, 'replies'),
+    shares: reposts + quotes + shares,
+    impressions: body.data?.some((item) => item.name === 'views')
+      ? insightValue(body.data, 'views')
+      : null,
+    reach: null,
+    reactionsDetail: null,
+    partialError,
+  };
+};
+
 const GRAPH_BASE = 'https://graph.threads.com/v1.0';
 const AUTHORIZE_URL = 'https://threads.com/oauth/authorize';
 const TOKEN_URL = 'https://graph.threads.com/oauth/access_token';
@@ -120,7 +157,7 @@ export class ThreadsProvider implements SocialProvider {
   readonly capabilities: ProviderCapabilities = {
     connect: 'single-account',
     supportsPublish: true,
-    supportsMetrics: false,
+    supportsMetrics: true,
     supportsRefreshProfile: true,
     supportsTokenRefresh: true,
     maxTextLength: 500,
@@ -310,8 +347,30 @@ export class ThreadsProvider implements SocialProvider {
     throw new SocialTransientError('Threads đang xử lý ảnh. Hệ thống sẽ thử lại sau.');
   }
 
-  async fetchMetrics(_externalPostId: string, _accessToken: string): Promise<ProviderMetrics> {
-    throw new BadRequestError('Threads chưa hỗ trợ đồng bộ số liệu');
+  async fetchMetrics(externalPostId: string, accessToken: string): Promise<ProviderMetrics> {
+    const requestInsights = async (metric: string) => {
+      const url = new URL(`${GRAPH_BASE}/${externalPostId}/insights`);
+      url.searchParams.set('metric', metric);
+      url.searchParams.set('access_token', accessToken);
+      return requestGraph<ThreadsInsightsResponse & ThreadsErrorBody>(url);
+    };
+
+    const allMetrics = 'views,likes,replies,reposts,quotes,shares';
+    const first = await requestInsights(allMetrics);
+
+    if (first.ok && !first.body?.error) {
+      return mapInsights(first.body ?? { data: [] }, null);
+    }
+
+    const partialError = (
+      first.body?.error?.message ??
+      first.body?.error_message ??
+      `HTTP ${first.status}`
+    ).slice(0, 255);
+
+    const fallback = await requestInsights('likes,replies,reposts,quotes');
+    const body = assertOk(fallback);
+    return mapInsights(body, partialError);
   }
 }
 
