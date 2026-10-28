@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import type { JSONContent } from '@tiptap/react';
 import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
@@ -10,6 +10,7 @@ import RichTextEditor from '@/components/ui/RichTextEditor';
 import ImageUploadField from '@/components/ui/ImageUploadField';
 import PostAIAssistant from './PostAIAssistant';
 import PostAIImageGenerator from './PostAIImageGenerator';
+import PostMediaGrid from './PostMediaGrid';
 import { EMPTY_DOC, isContentEmpty, postEditorSchema, type PostDetail, type PostEditorValues } from '@/services/post';
 import type { AiTextResult } from '@/services/ai';
 import { useCreatePost, useDeletePostMedia, useUpdatePost, useUploadPostMedia } from '@/hooks/usePost';
@@ -59,13 +60,19 @@ export const PostEditorForm = ({
     (initialDraft?.content as JSONContent) ?? (post?.content as JSONContent) ?? EMPTY_DOC
   );
   const [contentError, setContentError] = useState<string | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingImage[]>([]);
+  const [pendingHydrated, setPendingHydrated] = useState(!initialDraft);
   const [restored, setRestored] = useState(Boolean(initialDraft));
   const [aiBusy, setAiBusy] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
 
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
+  const postRef = useRef(post);
+  postRef.current = post;
+  const initialDraftRef = useRef(initialDraft);
+  initialDraftRef.current = initialDraft;
 
   useEffect(
     () => () => pendingRef.current.forEach((item) => URL.revokeObjectURL(item.url)),
@@ -108,23 +115,28 @@ export const PostEditorForm = ({
   }, [aiBusy]);
 
   useEffect(() => {
-    if (initialDraft) {
-      void loadPendingFiles(key).then((files) => {
-        if (files.length > 0) {
-          setPending(files.map((file) => ({ file, url: URL.createObjectURL(file) })));
-        }
-      });
+    if (initialDraftRef.current) {
+      void loadPendingFiles(key)
+        .then((files) => {
+          if (files.length > 0) {
+            setPending(files.map((file) => ({ file, url: URL.createObjectURL(file) })));
+          }
+        })
+        .finally(() => setPendingHydrated(true));
       return;
     }
 
     const stale = loadDraft(key);
-    if (stale && post && stale.savedAt <= new Date(post.updatedAt).getTime()) {
+    const currentPost = postRef.current;
+    if (stale && currentPost && stale.savedAt <= new Date(currentPost.updatedAt).getTime()) {
       void clearDraft(key);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Chỉ kiểm tra một lần khi mount/đổi bài; post refetch sau đó không được xoá draft mới.
   }, [key]);
 
   useEffect(() => {
+    if (!pendingHydrated) return;
+
     const timer = setTimeout(() => {
       if (!title.trim() && isContentEmpty(content) && pending.length === 0) {
         void clearDraft(key);
@@ -132,6 +144,15 @@ export const PostEditorForm = ({
       }
 
       saveDraft(key, { title, content, savedAt: Date.now() });
+    }, DRAFT_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [key, title, content, pending.length, pendingHydrated]);
+
+  useEffect(() => {
+    if (!pendingHydrated) return;
+
+    const timer = setTimeout(() => {
       void savePendingFiles(
         key,
         pending.map((item) => item.file)
@@ -139,12 +160,15 @@ export const PostEditorForm = ({
     }, DRAFT_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [key, title, content, pending]);
+  }, [key, pending, pendingHydrated]);
 
-  const addImage = (file: File) =>
+  const addImage = (file: File) => {
+    setMediaError(null);
     setPending((list) => [...list, { file, url: URL.createObjectURL(file) }]);
+  };
 
   const removeImage = (url: string) => {
+    setMediaError(null);
     URL.revokeObjectURL(url);
     setPending((list) => list.filter((item) => item.url !== url));
   };
@@ -155,6 +179,7 @@ export const PostEditorForm = ({
     setPending([]);
     reset({ title: post?.title ?? '' });
     setContent((post?.content as JSONContent) ?? EMPTY_DOC);
+    setEditorKey((current) => current + 1);
     setRestored(false);
   };
 
@@ -172,6 +197,7 @@ export const PostEditorForm = ({
     }
 
     setContentError(null);
+    setMediaError(null);
     const payload = { title: values.title, content };
 
     let saved: PostDetail;
@@ -183,15 +209,40 @@ export const PostEditorForm = ({
       return;
     }
 
+    const failedImages: PendingImage[] = [];
     for (const item of pending) {
       try {
         await uploadMedia.mutateAsync({ workspaceId, postId: saved.id, file: item.file });
       } catch {
-        break;
+        failedImages.push(item);
       }
     }
 
-    void clearDraft(key);
+    if (failedImages.length > 0) {
+      const message = `Không tải lên được ${failedImages.length} ảnh: ${failedImages
+        .map((item) => item.file.name)
+        .join(', ')}.`;
+
+      if (post) {
+        setMediaError(message);
+        return;
+      }
+
+      // Bài mới đã được tạo: giữ ảnh lỗi dưới draft của bài đó rồi chuyển sang trang sửa
+      // để tránh tạo trùng bài khi người dùng bấm lưu lại.
+      const editKey = draftKey(workspaceId, saved.id);
+      saveDraft(editKey, { title: values.title, content, savedAt: Date.now() });
+      await savePendingFiles(
+        editKey,
+        failedImages.map((item) => item.file)
+      );
+      await clearDraft(key);
+      toast.error(`${message} Bài đã được lưu nháp, vui lòng thử tải lại ảnh.`);
+      navigate(`/posts/${saved.id}/edit`, { replace: true });
+      return;
+    }
+
+    await clearDraft(key);
     navigate('/posts');
   });
 
@@ -246,53 +297,21 @@ export const PostEditorForm = ({
       <div className="space-y-3">
         <span className="block text-sm font-medium text-foreground">Ảnh đính kèm</span>
 
-        {existingMedia.length + pending.length > 0 ? (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-            {existingMedia.map((media) => (
-              <div
-                key={media.id}
-                className="relative overflow-hidden rounded-lg border border-border"
-              >
-                <img src={media.url} alt="" className="h-24 w-full object-cover" />
-                {media.source === 'AI_GENERATED' ? (
-                  <span
-                    title="Ảnh tạo bởi AI"
-                    className="absolute bottom-2 left-2 rounded-md bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-accent-text"
-                  >
-                    AI
-                  </span>
-                ) : null}
-                <button
-                  type="button"
-                  aria-label="Gỡ ảnh"
-                  disabled={deleteMedia.isPending}
-                  onClick={() =>
-                    post && deleteMedia.mutate({ workspaceId, postId: post.id, mediaId: media.id })
-                  }
-                  className="absolute right-2 top-2 grid h-11 w-11 place-items-center rounded-lg bg-black/50 text-white transition hover:bg-black/70 disabled:opacity-60"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+        <PostMediaGrid
+          existingMedia={existingMedia}
+          pendingMedia={pending}
+          isDeleting={deleteMedia.isPending}
+          onDeleteExisting={(mediaId) => {
+            if (post) deleteMedia.mutate({ workspaceId, postId: post.id, mediaId });
+          }}
+          onRemovePending={removeImage}
+        />
 
-            {pending.map((item) => (
-              <div key={item.url} className="relative overflow-hidden rounded-lg border border-border">
-                <img src={item.url} alt="" className="h-24 w-full object-cover" />
-                <button
-                  type="button"
-                  aria-label="Bỏ ảnh"
-                  onClick={() => removeImage(item.url)}
-                  className="absolute right-2 top-2 grid h-11 w-11 place-items-center rounded-lg bg-black/50 text-white transition hover:bg-black/70"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-subtle">Chưa có ảnh nào.</p>
-        )}
+        {mediaError ? (
+          <p role="alert" className="text-sm text-danger">
+            {mediaError}
+          </p>
+        ) : null}
 
         <ImageUploadField
           id="post-editor-media"

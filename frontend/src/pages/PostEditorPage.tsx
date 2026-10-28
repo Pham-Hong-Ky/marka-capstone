@@ -4,6 +4,8 @@ import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
 import PostEditorForm from '@/components/features/post/PostEditorForm';
 import { usePost } from '@/hooks/usePost';
+import { canModifyPost } from '@/services/post';
+import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
@@ -30,6 +32,7 @@ export const PostEditorPage = () => {
 
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null);
 
   const { data: post, isLoading, isError, error } = usePost(
     workspaceId,
@@ -53,12 +56,15 @@ export const PostEditorPage = () => {
     return <p className="text-sm text-danger">{getErrorMessage(error)}</p>;
   }
 
-  if (post && post.status !== 'DRAFT' && post.status !== 'REJECTED') {
+  if (
+    post &&
+    !canModifyPost(post, currentUserId, activeWorkspace?.role ?? 'CONTENT_CREATOR')
+  ) {
     return (
       <EmptyState
         className="mx-auto max-w-xl"
         title="Bài viết không thể chỉnh sửa"
-        description="Chỉ chỉnh sửa được bài ở trạng thái Nháp hoặc Bị từ chối."
+        description="Chỉ chỉnh sửa được bài ở trạng thái Nháp hoặc Bị từ chối và do bạn tạo."
       />
     );
   }

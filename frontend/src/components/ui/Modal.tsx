@@ -1,9 +1,8 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useId, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import { cn } from '@/utils/cn';
-
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export const Modal = ({
   open,
@@ -23,54 +22,11 @@ export const Modal = ({
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  useEffect(() => {
-    if (!open) return;
-
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    dialogRef.current?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-        return;
-      }
-
-      if (event.key !== 'Tab' || !dialogRef.current) return;
-
-      const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-      );
-      if (focusable.length === 0) {
-        event.preventDefault();
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus();
-    };
-  }, [open, onClose]);
+  useDialogFocusTrap(open, dialogRef, onClose);
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
 
@@ -103,7 +59,8 @@ export const Modal = ({
 
         {footer ? <div className="mt-6 flex justify-end gap-2">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

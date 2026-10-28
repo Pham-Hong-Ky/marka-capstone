@@ -136,6 +136,7 @@ export const PostsPage = () => {
           workspaceId={workspaceId}
           postId={selectedPostId}
           role={role}
+          currentUserId={currentUserId}
           onEdit={(post) => navigate(`/posts/${post.id}/edit`)}
           onReject={(id) => {
             setSelectedPostId(null);

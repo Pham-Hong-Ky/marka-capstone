@@ -1,9 +1,7 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import { cn } from '@/utils/cn';
-
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export const Drawer = ({
   open,
@@ -24,50 +22,7 @@ export const Drawer = ({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
 
-  useEffect(() => {
-    if (!open) return;
-
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    closeButtonRef.current?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-        return;
-      }
-
-      if (event.key !== 'Tab' || !panelRef.current) return;
-
-      const focusable = Array.from(
-        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-      );
-      if (focusable.length === 0) {
-        event.preventDefault();
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus();
-    };
-  }, [open, onClose]);
+  useDialogFocusTrap(open, panelRef, onClose, { initialFocusRef: closeButtonRef });
 
   if (!open) return null;
 

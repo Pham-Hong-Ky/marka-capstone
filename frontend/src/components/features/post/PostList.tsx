@@ -1,10 +1,11 @@
 import Avatar from '@/components/ui/Avatar';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
+import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table';
 import PostRowActions from './PostRowActions';
 import PostStatusBadge from './PostStatusBadge';
 import type { WorkspaceRole } from '@/services/auth';
-import type { PaginationMeta, PostSummary } from '@/services/post';
+import { canModifyPost, type PaginationMeta, type PostSummary } from '@/services/post';
 import { formatDate } from '@/utils/format';
 
 export const PostList = ({
@@ -35,66 +36,61 @@ export const PostList = ({
     );
   }
 
-  const canModify = (post: PostSummary) =>
-    (role === 'OWNER' || post.createdById === currentUserId) &&
-    (post.status === 'DRAFT' || post.status === 'REJECTED');
-
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-2xl border border-border bg-surface">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="bg-surface-2 text-xs uppercase text-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Tiêu đề</th>
-                <th className="hidden px-4 py-3 font-medium md:table-cell">Người tạo</th>
-                <th className="px-4 py-3 font-medium">Trạng thái</th>
-                <th className="hidden px-4 py-3 font-medium sm:table-cell">Cập nhật</th>
-                <th className="px-4 py-3 text-right font-medium">Hành động</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {posts.map((post) => (
-                <tr key={post.id}>
-                  <td
-                    className="max-w-xs truncate px-4 py-3 font-medium text-foreground"
-                    title={post.title}
-                  >
-                    {post.title}
-                  </td>
-                  <td className="hidden px-4 py-3 md:table-cell">
-                    <div className="flex items-center gap-2">
-                      <Avatar
-                        name={post.createdBy?.name}
-                        src={post.createdBy?.avatar}
-                        className="h-7 w-7"
-                      />
-                      <span className="max-w-40 truncate text-foreground">
-                        {post.createdBy?.name ?? 'Không xác định'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <PostStatusBadge status={post.status} />
-                  </td>
-                  <td className="hidden whitespace-nowrap px-4 py-3 text-muted sm:table-cell">
-                    {formatDate(post.updatedAt)}
-                  </td>
-                  <td className="px-2 py-2 text-right">
-                    <PostRowActions
-                      post={post}
-                      canEdit={canModify(post)}
-                      onView={() => onOpen(post)}
-                      onEdit={() => onEdit(post)}
-                      onDelete={() => onDelete(post)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <Table className="min-w-[640px]">
+        <THead>
+          <TR>
+            <TH scope="col">Tiêu đề</TH>
+            <TH scope="col" className="hidden md:table-cell">
+              Người tạo
+            </TH>
+            <TH scope="col">Trạng thái</TH>
+            <TH scope="col" className="hidden sm:table-cell">
+              Cập nhật
+            </TH>
+            <TH scope="col" className="text-right">
+              Hành động
+            </TH>
+          </TR>
+        </THead>
+        <TBody>
+          {posts.map((post) => (
+            <TR key={post.id}>
+              <TD className="max-w-xs truncate font-medium text-foreground" title={post.title}>
+                {post.title}
+              </TD>
+              <TD className="hidden md:table-cell">
+                <div className="flex items-center gap-2">
+                  <Avatar
+                    name={post.createdBy?.name}
+                    src={post.createdBy?.avatar}
+                    className="h-7 w-7"
+                  />
+                  <span className="max-w-40 truncate text-foreground">
+                    {post.createdBy?.name ?? 'Không xác định'}
+                  </span>
+                </div>
+              </TD>
+              <TD className="whitespace-nowrap">
+                <PostStatusBadge status={post.status} />
+              </TD>
+              <TD className="hidden whitespace-nowrap text-muted sm:table-cell">
+                {formatDate(post.updatedAt)}
+              </TD>
+              <TD className="px-2 py-2 text-right">
+                <PostRowActions
+                  post={post}
+                  canEdit={canModifyPost(post, currentUserId, role)}
+                  onView={() => onOpen(post)}
+                  onEdit={() => onEdit(post)}
+                  onDelete={() => onDelete(post)}
+                />
+              </TD>
+            </TR>
+          ))}
+        </TBody>
+      </Table>
 
       <Pagination
         page={meta.page}
