@@ -48,12 +48,12 @@ export const AdminOverviewPage = () => {
         <StatCard
           label="Người dùng"
           value={formatNumber(users.total)}
-          hint={`${formatNumber(users.active)} hoạt động · ${formatNumber(users.suspended)} bị khoá`}
+          hint={`${formatNumber(users.active)} hoạt động · ${formatNumber(users.suspended)} bị khoá · ${formatNumber(users.createdLast30Days)} mới trong 30 ngày`}
         />
         <StatCard
           label="Admin"
           value={formatNumber(users.admins)}
-          hint={`${formatNumber(users.createdLast30Days)} mới trong 30 ngày`}
+          hint="Có quyền quản trị hệ thống"
         />
         <StatCard
           label="Workspace"
