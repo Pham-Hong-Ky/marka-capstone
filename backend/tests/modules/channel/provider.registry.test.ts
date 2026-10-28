@@ -7,7 +7,10 @@ import {
 describe('provider registry', () => {
   it('trả provider Facebook', () => {
     expect(getProvider('FACEBOOK').platform).toBe('FACEBOOK');
-    expect(listProviders().map((provider) => provider.platform)).toEqual(['FACEBOOK']);
+    expect(listProviders().map((provider) => provider.platform)).toEqual([
+      'FACEBOOK',
+      'THREADS',
+    ]);
   });
 
   it('báo lỗi với nền tảng chưa hỗ trợ', () => {
