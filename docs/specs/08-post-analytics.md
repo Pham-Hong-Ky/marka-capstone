@@ -1,9 +1,8 @@
-# Phân hệ 8 — Post Analytics (Roadmap)
+# Phân hệ 8 — Post Analytics
 
 > [Quay lại Mục lục](README.md)
 >
-> **Trạng thái: CHƯA TRIỂN KHAI.** Không có module analytics, không có endpoint, không có đồng bộ số liệu, không tích hợp n8n.
-> Tài liệu này giữ lại mục tiêu, phần schema đã có và các việc cần làm.
+> **Trạng thái: ĐÃ TRIỂN KHAI (backend + frontend).** Có module `analytics` với endpoint xem thống kê/gợi ý và đồng bộ `PostMetric` qua queue; trang `/analytics` hiển thị KPI, biểu đồ, độ phủ số liệu và gợi ý. n8n và snapshot xu hướng vẫn ngoài phạm vi.
 
 ---
 
@@ -19,11 +18,18 @@ Chỉ số dự kiến: **reactions, comments, shares** cho bài đăng trên Fa
 
 ## 8.2. Hiện trạng trong code
 
-- **Không có endpoint** `/posts/:id/metrics`, `/workspaces/:id/analytics/*`, `/internal/metrics/*`.
-- Không có service/repository analytics; không gọi Facebook Graph API để đọc chỉ số.
-- Không có n8n trong repo/backend.
-- **Đã có dữ liệu publish:** luồng đăng bài đã tạo `ScheduledPost` và lưu `externalPostId` (xem [04](./04-social-publishing.md)); analytics vẫn chưa đồng bộ chỉ số.
-- Schema `PostMetric` đã có sẵn nhưng chưa được ghi/đọc ở đâu.
+- Module `backend/src/modules/analytics` (service, repository, aggregate, suggestion, processor), route đều `requireAuth` + `requireWorkspaceRole()`.
+- `GET /workspaces/:workspaceId/analytics/overview` — query `range` (`7d`/`30d`/`mtd`/`lastMonth`/`custom`), `from`/`to` (bắt buộc khi `custom`, tối đa 366 ngày), `channelId`, `tag`; trả:
+  - `summary`: `likes` (reactions), `comments`, `shares`, `impressions` (`null` khi chưa có), `engagementRate`, `deltas` so với kỳ trước dài bằng kỳ hiện tại.
+  - `series`: điểm theo ngày (múi giờ Việt Nam) gồm `posts`, `reach`, `impressions`.
+  - `coverage`: `publishedPosts`, `syncedPosts`, `missingImpressions`, `lastSyncedAt`.
+  - `tags`: nhãn chiến dịch (`Post.campaignTag`) để lọc.
+- `GET /workspaces/:workspaceId/analytics/suggestions` — `channelId` tuỳ chọn; trả `bestTimes` (khung giờ tốt nhất 90 ngày, `usedFallback` khi không đủ mẫu), `sampleSize`, `windowDays`, `contentTips` (bài nháp: thiếu media, caption quá ngắn/dài, thiếu CTA, quá nhiều hashtag, ngoài khung giờ tốt, có link ngoài).
+- `POST /workspaces/:workspaceId/analytics/sync` — trả `202` `{ queued: true }`, đẩy job `analytics-sync` vào `analytics-queue` cho workspace hiện tại.
+- **Đồng bộ:** `analyticsWorker` gọi `facebookClient.fetchPostMetrics` cho bài `PUBLISHED` có `externalPostId`, kênh `FACEBOOK`/`ACTIVE`, trong 30 ngày, tối đa 50 bài/lần, bỏ qua bài đã đồng bộ trong 6 giờ; upsert `PostMetric` theo `scheduledPostId`, ghi `fetchedAt`/`syncError`. Lỗi đọc token ghi `syncError`; token hết hạn đánh dấu kênh `EXPIRED`.
+- Job lặp mỗi 6 giờ (`registerAnalyticsScheduler`) chạy toàn hệ thống; endpoint chỉ đồng bộ trong workspace gọi.
+- **Frontend `/analytics`:** lọc khoảng thời gian/kênh/nhãn (đồng bộ query string), 5 KPI (tương tác, bình luận, chia sẻ, tỷ lệ tương tác, hiển thị — chỉ hiện khi có dữ liệu) kèm delta, biểu đồ xu hướng, cảnh báo độ phủ, thẻ khung giờ tốt + gợi ý nội dung; nút "Đồng bộ số liệu" gọi `POST .../sync` rồi poll `overview` mỗi 5 giây, tối đa 60 giây.
+- `reach`/`impressions` lấy thêm từ Insights; chỉ hiển thị khi Facebook trả về.
 
 ---
 
@@ -56,23 +62,22 @@ Quan hệ: `PostMetric.scheduledPost → ScheduledPost` (Cascade); `ScheduledPos
 
 ---
 
-## 8.4. Chưa có endpoint/service
+## 8.4. Giới hạn hiện tại
 
-Không có hàm/service nào cho:
+Đã có endpoint/service cho đồng bộ, upsert `PostMetric` và tổng hợp theo workspace. Chưa có:
 
-- Đồng bộ chỉ số từ Graph API (thủ công hoặc định kỳ).
-- Upsert `PostMetric` theo `scheduledPostId`.
-- Tổng hợp chỉ số theo workspace, top bài, biểu đồ theo thời gian.
-- Xử lý token hết hạn/rate limit khi đồng bộ.
-- Endpoint nội bộ cho n8n/cron.
+- Endpoint làm mới **một bài** riêng lẻ (chỉ có đồng bộ theo workspace, tối đa 50 bài/lần).
+- Xử lý rate limit chi tiết: gặp lỗi Graph API chỉ ghi `syncError` và thử lại ở lần đồng bộ sau, không backoff riêng.
+- Snapshot chỉ số theo thời gian (hiện chỉ giữ số liệu mới nhất trong `PostMetric`).
+- Endpoint nội bộ cho n8n/cron; lịch đồng bộ chạy bằng job lặp BullMQ.
+- Danh sách top bài và trang chi tiết từng bài (UI hiện chỉ có số liệu tổng hợp, biểu đồ và bộ lọc kênh/nhãn).
 
 ---
 
 ## 8.5. Roadmap
 
-1. **Phụ thuộc bắt buộc:** hoàn thành publish bài thật (Phân hệ 4) và lưu `externalPostId` + `status = PUBLISHED`.
-2. **Đồng bộ:** gọi các edge `/{post-id}?fields=shares,permalink_url`, `/{post-id}/comments?summary=true`, `/{post-id}/reactions?summary=true` bằng Page token đã giải mã; upsert `PostMetric` (idempotent theo `scheduledPostId`), ghi `fetchedAt`/`syncError`.
-3. **Làm mới thủ công:** endpoint refresh cho 1 bài, có rate limit.
-4. **API xem (UC39):** tổng hợp hiệu quả workspace (tổng/trung bình/top bài), lọc theo khoảng thời gian/kênh.
-5. **Tuỳ chọn:** reach/impressions qua Insights (chỉ hiển thị khi có dữ liệu); snapshot theo thời gian nếu cần biểu đồ xu hướng.
-6. **n8n (nếu dùng):** chỉ dùng để kích hoạt đồng bộ metrics qua endpoint nội bộ có API key; **không** dùng n8n để đăng bài.
+1. **Làm mới thủ công từng bài:** endpoint refresh cho 1 bài, có rate limit riêng.
+2. **Top bài & chi tiết bài:** danh sách bài hiệu quả nhất, trang chi tiết chỉ số một bài.
+3. **Snapshot theo thời gian:** bảng snapshot để vẽ xu hướng dài hạn (hiện chỉ có số liệu mới nhất).
+4. **Xử lý lỗi nâng cao:** backoff/retry riêng khi gặp rate limit Graph API.
+5. **n8n (nếu dùng):** chỉ dùng để kích hoạt đồng bộ metrics qua endpoint nội bộ có API key; **không** dùng n8n để đăng bài.

@@ -2,7 +2,7 @@
 
 > [Quay lại Mục lục](README.md)
 >
-> **Trạng thái: ĐÃ TRIỂN KHAI (backend).** Có module `admin` và API đọc audit log cho System Admin/Owner; frontend `/admin` chưa có.
+> **Trạng thái: ĐÃ TRIỂN KHAI (backend + frontend).** Có module `admin` và API đọc audit log cho System Admin/Owner; frontend `/admin` có trang tổng quan, người dùng (khoá/mở khoá), workspace (chỉ đọc) và audit log hệ thống. Audit log theo workspace mới có API, chưa có UI.
 
 ---
 
@@ -29,6 +29,15 @@
 - `requireWorkspaceRole` coi `SYSTEM_ADMIN` như `OWNER` ở mọi workspace.
 - **Audit log đọc được:** thêm `auditRepository.listAuditLogsAndCount` + `GET /workspaces/:workspaceId/audit-logs` cho Owner (chỉ log workspace, Creator bị `403`).
 - Bản ghi `WORKSPACE_DELETE` không có `workspaceId` (workspace đã xoá mềm).
+
+### Frontend `/admin`
+
+- Route `/admin` bọc `AdminRoute` (chặn nếu `systemRole !== 'SYSTEM_ADMIN'`); mục menu quản trị chỉ hiện với System Admin (`SidebarContent`).
+- `/admin` — tổng quan: user (tổng/hoạt động/bị khoá/admin/mới 30 ngày), workspace, bài theo trạng thái, kênh, đơn `PAID` + doanh thu 30 ngày từ `GET /admin/stats`.
+- `/admin/users` — tìm kiếm, lọc `systemRole`/`isSuspended`, phân trang; khoá/mở khoá qua `PATCH /admin/users/:userId/suspend` (nút tự khoá bị vô hiệu hoá).
+- `/admin/workspaces` — tìm kiếm, lọc `plan`, `includeDeleted`, phân trang; **chỉ đọc** (không xoá/khôi phục).
+- `/admin/audit-logs` — lọc theo action/target/khoảng ngày, phân trang, xem chi tiết metadata.
+- **Chưa có UI audit log theo workspace** (Owner vẫn phải gọi API `GET /workspaces/:workspaceId/audit-logs`).
 
 ### Các action audit đang được ghi
 
@@ -77,14 +86,15 @@ Index: `(targetType, targetId, createdAt)`, `(workspaceId, createdAt)`, `(actorI
 - Tổng hợp số liệu dashboard hệ thống (user/workspace/bài/kênh/doanh thu 30 ngày).
 - Danh sách user/workspace, khoá/mở khoá user (không đổi `systemRole`, không xoá user).
 - Đọc audit log (list, filter theo actor/action/target/thời gian/workspace, phân trang) cho admin và Owner.
-- Chưa có: xuất báo cáo, dashboard riêng cho workspace (thuộc UC39), xoá/khôi phục workspace, chính sách lưu trữ audit.
+- Trang `/admin` (tổng quan, người dùng, workspace, audit log hệ thống) giới hạn cho System Admin.
+- Chưa có: UI audit log theo workspace (chỉ có API), xuất báo cáo, xoá/khôi phục workspace, chính sách lưu trữ audit.
 
 ---
 
 ## 7.5. Roadmap
 
-1. **Dashboard workspace:** số bài theo trạng thái, số thành viên, mức dùng credit (gắn với UC39).
+1. **Dashboard workspace nâng cao:** số thành viên, mức dùng credit (phần số liệu bài đăng đã có ở `/analytics` — UC39).
 2. **Quản lý user nâng cao:** đổi `systemRole`, xem chi tiết hoạt động.
 3. **Quản lý workspace:** xoá mềm/khôi phục, xem chi tiết.
 4. **Audit nâng cao:** xuất CSV, archive/xoá bản ghi cũ theo thời hạn.
-5. **Frontend `/admin`:** trang dashboard, users, workspaces, audit log; ẩn menu với người không phải `SYSTEM_ADMIN`.
+5. **UI audit log workspace:** trang cho Owner xem `GET /workspaces/:workspaceId/audit-logs` (hiện chỉ có API).
