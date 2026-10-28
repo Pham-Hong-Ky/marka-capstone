@@ -31,10 +31,10 @@ import { brandVoiceSchema } from '../modules/brandvoice/brandvoice.validation.js
 import brandVoiceController from '../modules/brandvoice/brandvoice.controller.js';
 import {
   listChannelsSchema,
-  facebookOauthUrlSchema,
-  facebookCallbackSchema,
+  oauthUrlSchema,
+  oauthCallbackSchema,
   oauthSessionSchema,
-  connectFacebookSchema,
+  connectAccountsSchema,
   channelIdSchema,
   channelProfileSchema,
   updateChannelLabelSchema,
@@ -264,30 +264,30 @@ router.get(
   channelController.listChannels
 );
 router.get(
-  '/channels/facebook/oauth/url',
+  '/channels/:platform/oauth/url',
   requireAuth,
-  validate(facebookOauthUrlSchema),
+  validate(oauthUrlSchema),
   requireWorkspaceRole('OWNER'),
-  channelController.getFacebookAuthUrl
+  channelController.getOauthUrl
 );
 router.get(
-  '/channels/facebook/oauth/callback',
-  validate(facebookCallbackSchema),
-  channelController.facebookCallback
+  '/channels/:platform/oauth/callback',
+  validate(oauthCallbackSchema),
+  channelController.oauthCallback
 );
 router.get(
-  '/channels/facebook/oauth/session/:sessionId',
+  '/channels/:platform/oauth/session/:sessionId',
   requireAuth,
   validate(oauthSessionSchema),
   requireWorkspaceRole('OWNER'),
-  channelController.getPendingFacebookPages
+  channelController.getPendingAccounts
 );
 router.post(
-  '/channels/facebook/oauth/session/:sessionId/connect',
+  '/channels/:platform/oauth/session/:sessionId/connect',
   requireAuth,
-  validate(connectFacebookSchema),
+  validate(connectAccountsSchema),
   requireWorkspaceRole('OWNER'),
-  channelController.connectFacebookPages
+  channelController.connectAccounts
 );
 router.delete(
   '/channels/:channelId',

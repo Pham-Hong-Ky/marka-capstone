@@ -1,5 +1,6 @@
 import { getErrorMessage } from '../../utils/errorMessage.js';
 import { randomBytes } from 'node:crypto';
+import type { SocialPlatform } from '@prisma/client';
 import env from '../../config/env.js';
 import logger from '../../utils/logger.js';
 import { BadRequestError, ConflictError, NotFoundError } from '../../utils/errors/index.js';
@@ -9,14 +10,21 @@ import channelRepository, { type ChannelSummary } from './channel.repository.js'
 import { getProvider } from './providers/provider.registry.js';
 import { SocialTokenExpiredError } from './providers/social-provider.js';
 import * as oauthStore from './channel.oauth-store.js';
-import type { OauthSession, OauthSessionPage } from './channel.oauth-store.js';
+import type { OauthSession, OauthSessionAccount } from './channel.oauth-store.js';
 
-interface FacebookCallbackQuery {
+interface OauthCallbackQuery {
   code?: string;
   state?: string;
   error?: string;
   error_reason?: string;
 }
+
+const PLATFORM_LABELS: Record<string, string> = {
+  FACEBOOK: 'Facebook',
+  THREADS: 'Threads',
+};
+
+const platformLabel = (platform: SocialPlatform): string => PLATFORM_LABELS[platform] ?? platform;
 
 const buildClientRedirect = (params: Record<string, string>): string => {
   const url = new URL('/channels', env.CLIENT_URL);
@@ -24,7 +32,9 @@ const buildClientRedirect = (params: Record<string, string>): string => {
   return url.toString();
 };
 
-const errorRedirect = (reason: string): string => buildClientRedirect({ fb: 'error', reason });
+const errorRedirect = (platform: SocialPlatform, reason: string): string =>
+  buildClientRedirect({ platform, connect_error: reason });
+
 
 export const listChannels = async (
   workspaceId: string
@@ -32,23 +42,64 @@ export const listChannels = async (
   channels: await channelRepository.findChannelsByWorkspace(workspaceId),
 });
 
-export const createFacebookAuthUrl = async (
+export const createAuthUrl = async (
+  platform: SocialPlatform,
   workspaceId: string,
   userId: string
 ): Promise<{ url: string }> => {
-  const provider = getProvider('FACEBOOK');
+  const provider = getProvider(platform);
   if (!provider.isConfigured()) {
-    throw new BadRequestError('Chưa cấu hình Facebook App. Vui lòng liên hệ quản trị viên.');
+    throw new BadRequestError(
+      `Chưa cấu hình ${platformLabel(platform)}. Vui lòng liên hệ quản trị viên.`
+    );
   }
 
   const state = randomBytes(32).toString('hex');
-  await oauthStore.saveOauthState(state, { userId, workspaceId });
+  await oauthStore.saveOauthState(state, { userId, workspaceId, platform });
 
   return { url: provider.buildAuthorizationUrl(state) };
 };
 
-export const handleFacebookCallback = async (
-  query: FacebookCallbackQuery
+const saveConnectedAccounts = async (
+  platform: SocialPlatform,
+  workspaceId: string,
+  userId: string,
+  accounts: Array<{
+    externalAccountId: string;
+    name: string;
+    avatar: string | null;
+    accessTokenEncrypted: string;
+  }>
+): Promise<ChannelSummary[]> => {
+  const channels = await channelRepository.upsertChannels(
+    workspaceId,
+    platform,
+    accounts.map((account) => ({
+      externalAccountId: account.externalAccountId,
+      name: account.name,
+      avatar: account.avatar,
+      accessToken: account.accessTokenEncrypted,
+    }))
+  );
+
+  for (const [index, channel] of channels.entries()) {
+    const account = accounts[index];
+    await auditService.recordAuditLog({
+      workspaceId,
+      actorId: userId,
+      action: 'CHANNEL_CONNECTED',
+      targetType: 'ChannelConnection',
+      targetId: channel.id,
+      metadata: { externalAccountId: account.externalAccountId, name: account.name },
+    });
+  }
+
+  return channels;
+};
+
+export const handleOauthCallback = async (
+  platform: SocialPlatform,
+  query: OauthCallbackQuery
 ): Promise<string> => {
   if (query.error) {
     if (query.state) {
@@ -59,142 +110,155 @@ export const handleFacebookCallback = async (
       });
     }
     return errorRedirect(
+      platform,
       query.error === 'access_denied' ? 'access_denied' : 'token_exchange_failed'
     );
   }
 
   if (!query.state || !query.code) {
-    return errorRedirect('invalid_state');
+    return errorRedirect(platform, 'invalid_state');
   }
 
   const state = await oauthStore.consumeOauthState(query.state);
-  if (!state) {
-    return errorRedirect('invalid_state');
+  if (!state || state.platform !== platform) {
+    return errorRedirect(platform, 'invalid_state');
   }
 
   try {
-    const accounts = await getProvider('FACEBOOK').exchangeCodeForAccounts(query.code);
+    const provider = getProvider(platform);
+    const accounts = await provider.exchangeCodeForAccounts(query.code);
 
     if (accounts.length === 0) {
-      return errorRedirect('no_pages');
+      return errorRedirect(platform, 'no_accounts');
+    }
+
+    if (provider.capabilities.connect === 'single-account') {
+      const account = accounts[0];
+      await saveConnectedAccounts(platform, state.workspaceId, state.userId, [
+        {
+          externalAccountId: account.externalAccountId,
+          name: account.name,
+          avatar: account.avatar,
+          accessTokenEncrypted: encrypt(account.accessToken) as string,
+        },
+      ]);
+      return buildClientRedirect({ connected: platform });
     }
 
     const sessionId = randomBytes(24).toString('hex');
     await oauthStore.saveOauthSession(sessionId, {
       userId: state.userId,
       workspaceId: state.workspaceId,
-      pages: accounts.map((account) => ({
-        id: account.externalAccountId,
+      platform,
+      accounts: accounts.map((account) => ({
+        externalAccountId: account.externalAccountId,
         name: account.name,
         avatar: account.avatar,
         accessTokenEncrypted: encrypt(account.accessToken) as string,
       })),
     });
 
-    return buildClientRedirect({ fb: 'select', session: sessionId });
+    return buildClientRedirect({ connect: platform, session: sessionId });
   } catch (error) {
     const message = getErrorMessage(error);
-    logger.warn(`Kết nối Facebook thất bại: ${message}`);
-    return errorRedirect('token_exchange_failed');
+    logger.warn(`Kết nối ${platformLabel(platform)} thất bại: ${message}`);
+    return errorRedirect(platform, 'token_exchange_failed');
   }
 };
 
 const getSessionForUser = async (
   sessionId: string,
   userId: string,
-  workspaceId: string
+  workspaceId: string,
+  platform: SocialPlatform
 ): Promise<OauthSession> => {
   const session = await oauthStore.getOauthSession(sessionId);
 
-  if (!session || session.userId !== userId || session.workspaceId !== workspaceId) {
+  if (
+    !session ||
+    session.userId !== userId ||
+    session.workspaceId !== workspaceId ||
+    session.platform !== platform
+  ) {
     throw new NotFoundError('Phiên kết nối không tồn tại hoặc đã hết hạn');
   }
 
   return session;
 };
 
-export const getFacebookPendingPages = async (
+export const getPendingAccounts = async (
+  platform: SocialPlatform,
   sessionId: string,
   userId: string,
   workspaceId: string
 ) => {
-  const session = await getSessionForUser(sessionId, userId, workspaceId);
+  if (getProvider(platform).capabilities.connect !== 'multi-account') {
+    throw new BadRequestError('Nền tảng này không cần chọn tài khoản');
+  }
+
+  const session = await getSessionForUser(sessionId, userId, workspaceId, platform);
 
   return {
-    pages: session.pages.map(({ id, name, avatar }) => ({ id, name, avatar })),
+    accounts: session.accounts.map(({ externalAccountId, name, avatar }) => ({
+      externalAccountId,
+      name,
+      avatar,
+    })),
   };
 };
 
-const resolveSelectedPages = (session: OauthSession, pageIds: string[]): OauthSessionPage[] => {
-  const pagesById = new Map(session.pages.map((page) => [page.id, page]));
-  const uniquePageIds = [...new Set(pageIds)];
-  const selectedPages = uniquePageIds
-    .map((pageId) => pagesById.get(pageId))
-    .filter((page): page is OauthSessionPage => Boolean(page));
+const resolveSelectedAccounts = (
+  session: OauthSession,
+  accountIds: string[]
+): OauthSessionAccount[] => {
+  const accountsById = new Map(
+    session.accounts.map((account) => [account.externalAccountId, account])
+  );
+  const uniqueAccountIds = [...new Set(accountIds)];
+  const selectedAccounts = uniqueAccountIds
+    .map((accountId) => accountsById.get(accountId))
+    .filter((account): account is OauthSessionAccount => Boolean(account));
 
-  if (selectedPages.length !== uniquePageIds.length) {
-    throw new BadRequestError('Page không hợp lệ trong phiên kết nối');
+  if (selectedAccounts.length !== uniqueAccountIds.length) {
+    throw new BadRequestError('Tài khoản không hợp lệ trong phiên kết nối');
   }
-  return selectedPages;
+  return selectedAccounts;
 };
 
-const buildFacebookChannelInputs = (pages: OauthSessionPage[]) =>
-  pages.map((page) => {
-    if (!decryptOrNull(page.accessTokenEncrypted)) {
-      throw new BadRequestError('Không đọc được token của Page. Vui lòng kết nối lại.');
+const buildChannelInputs = (accounts: OauthSessionAccount[]) =>
+  accounts.map((account) => {
+    if (!decryptOrNull(account.accessTokenEncrypted)) {
+      throw new BadRequestError('Không đọc được token của tài khoản. Vui lòng kết nối lại.');
     }
 
     return {
-      page,
-      data: {
-        externalAccountId: page.id,
-        name: page.name,
-        avatar: page.avatar,
-        accessToken: page.accessTokenEncrypted,
-      },
+      externalAccountId: account.externalAccountId,
+      name: account.name,
+      avatar: account.avatar,
+      accessTokenEncrypted: account.accessTokenEncrypted,
     };
   });
 
-const auditConnectedChannels = async (
-  workspaceId: string,
-  userId: string,
-  channels: ChannelSummary[],
-  pages: OauthSessionPage[]
-) => {
-  for (const [index, channel] of channels.entries()) {
-    const page = pages[index];
-    await auditService.recordAuditLog({
-      workspaceId,
-      actorId: userId,
-      action: 'CHANNEL_CONNECTED',
-      targetType: 'ChannelConnection',
-      targetId: channel.id,
-      metadata: { pageId: page.id, name: page.name },
-    });
-  }
-};
-
-export const connectFacebookPages = async (
+export const connectAccounts = async (
+  platform: SocialPlatform,
   sessionId: string,
   userId: string,
   workspaceId: string,
-  pageIds: string[]
+  accountIds: string[]
 ): Promise<{ channels: ChannelSummary[] }> => {
-  const session = await getSessionForUser(sessionId, userId, workspaceId);
-  const selectedPages = resolveSelectedPages(session, pageIds);
-  const inputs = buildFacebookChannelInputs(selectedPages);
+  if (getProvider(platform).capabilities.connect !== 'multi-account') {
+    throw new BadRequestError('Nền tảng này không cần chọn tài khoản');
+  }
 
-  const channels = await channelRepository.upsertFacebookChannels(
-    workspaceId,
-    inputs.map((item) => item.data)
-  );
-
-  await auditConnectedChannels(
+  const session = await getSessionForUser(sessionId, userId, workspaceId, platform);
+  const selectedAccounts = resolveSelectedAccounts(session, accountIds);
+  const channels = await saveConnectedAccounts(
+    platform,
     workspaceId,
     userId,
-    channels,
-    inputs.map((item) => item.page)
+    buildChannelInputs(selectedAccounts)
   );
+
   await oauthStore.deleteOauthSession(sessionId);
 
   return { channels };
@@ -226,7 +290,7 @@ export const disconnectChannel = async (
     action: 'CHANNEL_DISCONNECTED',
     targetType: 'ChannelConnection',
     targetId: channelId,
-    metadata: { pageId: channel.externalAccountId, name: channel.name },
+    metadata: { externalAccountId: channel.externalAccountId, name: channel.name },
   });
 
   return { success: true };
@@ -285,7 +349,7 @@ export const refreshChannel = async (
   const token = decryptOrNull(channel.accessToken);
   if (!token) {
     await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
-    throw new BadRequestError('Không đọc được token của Page. Vui lòng kết nối lại.');
+    throw new BadRequestError('Không đọc được token của tài khoản. Vui lòng kết nối lại.');
   }
 
   let profile;
@@ -294,13 +358,13 @@ export const refreshChannel = async (
   } catch (error) {
     if (error instanceof SocialTokenExpiredError) {
       await channelRepository.updateChannelStatus(channelId, 'EXPIRED');
-      throw new BadRequestError('Page đã hết hạn hoặc bị thu hồi quyền. Vui lòng kết nối lại.');
+      throw new BadRequestError('Tài khoản đã hết hạn hoặc bị thu hồi quyền. Vui lòng kết nối lại.');
     }
     throw error;
   }
 
   if (profile.id !== channel.externalAccountId) {
-    throw new BadRequestError('Token không thuộc Page đã kết nối. Vui lòng kết nối lại.');
+    throw new BadRequestError('Token không thuộc tài khoản đã kết nối. Vui lòng kết nối lại.');
   }
 
   const updated = await channelRepository.updateChannelProfile(channelId, {
@@ -314,7 +378,7 @@ export const refreshChannel = async (
     action: 'CHANNEL_REFRESHED',
     targetType: 'ChannelConnection',
     targetId: channelId,
-    metadata: { pageId: profile.id, name: profile.name },
+    metadata: { externalAccountId: profile.id, name: profile.name },
   });
 
   return { channel: updated };
@@ -322,10 +386,10 @@ export const refreshChannel = async (
 
 export default {
   listChannels,
-  createFacebookAuthUrl,
-  handleFacebookCallback,
-  getFacebookPendingPages,
-  connectFacebookPages,
+  createAuthUrl,
+  handleOauthCallback,
+  getPendingAccounts,
+  connectAccounts,
   markChannelExpired,
   disconnectChannel,
   getChannelDetail,

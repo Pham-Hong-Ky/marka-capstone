@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, SocialPlatform } from '@prisma/client';
 import prisma from '../../config/db.js';
 import { recomputePostStatus } from '../post/post.status.js';
 
@@ -26,21 +26,22 @@ export const findChannelsByWorkspace = async (workspaceId: string): Promise<Chan
     orderBy: { createdAt: 'desc' },
   });
 
-interface UpsertFacebookChannelData {
+export interface UpsertChannelData {
   externalAccountId: string;
   name: string;
   avatar: string | null;
   accessToken: string;
 }
 
-const buildFacebookUpsertArgs = (
+const buildChannelUpsertArgs = (
   workspaceId: string,
-  data: UpsertFacebookChannelData
+  platform: SocialPlatform,
+  data: UpsertChannelData
 ): Prisma.ChannelConnectionUpsertArgs => ({
   where: {
     workspaceId_platform_externalAccountId: {
       workspaceId,
-      platform: 'FACEBOOK',
+      platform,
       externalAccountId: data.externalAccountId,
     },
   },
@@ -54,7 +55,7 @@ const buildFacebookUpsertArgs = (
   },
   create: {
     workspaceId,
-    platform: 'FACEBOOK',
+    platform,
     type: 'REAL',
     externalAccountId: data.externalAccountId,
     name: data.name,
@@ -65,12 +66,13 @@ const buildFacebookUpsertArgs = (
   select: CHANNEL_PUBLIC_SELECT,
 });
 
-export const upsertFacebookChannels = async (
+export const upsertChannels = async (
   workspaceId: string,
-  pages: UpsertFacebookChannelData[]
+  platform: SocialPlatform,
+  accounts: UpsertChannelData[]
 ): Promise<ChannelSummary[]> =>
   prisma.$transaction(
-    pages.map((data) => prisma.channelConnection.upsert(buildFacebookUpsertArgs(workspaceId, data)))
+    accounts.map((data) => prisma.channelConnection.upsert(buildChannelUpsertArgs(workspaceId, platform, data)))
   );
 
 export const findChannelInWorkspace = async (channelId: string, workspaceId: string) =>
@@ -206,7 +208,7 @@ export const disconnectChannelAndCancelSchedules = async (
 export default {
   CHANNEL_PUBLIC_SELECT,
   findChannelsByWorkspace,
-  upsertFacebookChannels,
+  upsertChannels,
   findChannelInWorkspace,
   findChannelWithToken,
   findChannelDetail,

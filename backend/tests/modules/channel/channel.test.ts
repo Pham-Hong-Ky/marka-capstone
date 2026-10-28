@@ -58,7 +58,7 @@ describe('Channel (UC27, UC28, UC29)', () => {
 
   const createOauthState = async (): Promise<string> => {
     const res = await request(app)
-      .get(`/api/v1/channels/facebook/oauth/url?workspaceId=${wsId}`)
+      .get(`/api/v1/channels/FACEBOOK/oauth/url?workspaceId=${wsId}`)
       .set('Authorization', `Bearer ${ownerToken}`);
 
     expect(res.status).toBe(200);
@@ -70,7 +70,7 @@ describe('Channel (UC27, UC28, UC29)', () => {
     mockFacebook(pages);
 
     const res = await request(app).get(
-      `/api/v1/channels/facebook/oauth/callback?code=test-code&state=${state}`
+      `/api/v1/channels/FACEBOOK/oauth/callback?code=test-code&state=${state}`
     );
 
     expect(res.status).toBe(302);
@@ -129,7 +129,7 @@ describe('Channel (UC27, UC28, UC29)', () => {
 
   it('UC28 — Owner lấy URL đăng nhập Facebook', async () => {
     const res = await request(app)
-      .get(`/api/v1/channels/facebook/oauth/url?workspaceId=${wsId}`)
+      .get(`/api/v1/channels/FACEBOOK/oauth/url?workspaceId=${wsId}`)
       .set('Authorization', `Bearer ${ownerToken}`);
 
     expect(res.status).toBe(200);
@@ -142,10 +142,19 @@ describe('Channel (UC27, UC28, UC29)', () => {
 
   it('UC28 — Creator không lấy được URL đăng nhập Facebook', async () => {
     const res = await request(app)
-      .get(`/api/v1/channels/facebook/oauth/url?workspaceId=${wsId}`)
+      .get(`/api/v1/channels/FACEBOOK/oauth/url?workspaceId=${wsId}`)
       .set('Authorization', `Bearer ${creatorToken}`);
 
     expect(res.status).toBe(403);
+  });
+
+  it('UC28 — Nền tảng chưa hỗ trợ trả 400', async () => {
+    const res = await request(app)
+      .get(`/api/v1/channels/INSTAGRAM/oauth/url?workspaceId=${wsId}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('chưa được hỗ trợ');
   });
 
   it('UC28 — Callback tạo session và redirect về trang chọn Page', async () => {
@@ -153,7 +162,7 @@ describe('Channel (UC27, UC28, UC29)', () => {
     const fetchMock = mockFacebook();
 
     const res = await request(app).get(
-      `/api/v1/channels/facebook/oauth/callback?code=test-code&state=${state}`
+      `/api/v1/channels/FACEBOOK/oauth/callback?code=test-code&state=${state}`
     );
 
     expect(res.status).toBe(302);
@@ -161,17 +170,17 @@ describe('Channel (UC27, UC28, UC29)', () => {
 
     const location = new URL(res.headers.location as string);
     expect(location.pathname).toBe('/channels');
-    expect(location.searchParams.get('fb')).toBe('select');
+    expect(location.searchParams.get('connect')).toBe('FACEBOOK');
     expect(location.searchParams.get('session')).toMatch(/^[a-f0-9]{48}$/);
   });
 
   it('UC28 — State sai bị từ chối', async () => {
     const res = await request(app).get(
-      '/api/v1/channels/facebook/oauth/callback?code=x&state=bad'
+      '/api/v1/channels/FACEBOOK/oauth/callback?code=x&state=bad'
     );
 
     expect(res.status).toBe(302);
-    expect(res.headers.location).toContain('reason=invalid_state');
+    expect(res.headers.location).toContain('connect_error=invalid_state');
   });
 
   it('UC28 — State dùng lại lần hai bị từ chối', async () => {
@@ -179,50 +188,50 @@ describe('Channel (UC27, UC28, UC29)', () => {
     mockFacebook();
 
     const first = await request(app).get(
-      `/api/v1/channels/facebook/oauth/callback?code=x&state=${state}`
+      `/api/v1/channels/FACEBOOK/oauth/callback?code=x&state=${state}`
     );
     const second = await request(app).get(
-      `/api/v1/channels/facebook/oauth/callback?code=x&state=${state}`
+      `/api/v1/channels/FACEBOOK/oauth/callback?code=x&state=${state}`
     );
 
-    expect(first.headers.location).toContain('fb=select');
-    expect(second.headers.location).toContain('reason=invalid_state');
+    expect(first.headers.location).toContain('connect=FACEBOOK');
+    expect(second.headers.location).toContain('connect_error=invalid_state');
   });
 
   it('UC28 — Người dùng từ chối cấp quyền được báo lỗi', async () => {
     const state = await createOauthState();
 
     const res = await request(app).get(
-      `/api/v1/channels/facebook/oauth/callback?error=access_denied&state=${state}`
+      `/api/v1/channels/FACEBOOK/oauth/callback?error=access_denied&state=${state}`
     );
 
     expect(res.status).toBe(302);
-    expect(res.headers.location).toContain('reason=access_denied');
+    expect(res.headers.location).toContain('connect_error=access_denied');
   });
 
-  it('UC28 — Tài khoản không có Page nào trả no_pages', async () => {
+  it('UC28 — Tài khoản không có Page nào trả no_accounts', async () => {
     const state = await createOauthState();
     mockFacebook([]);
 
     const res = await request(app).get(
-      `/api/v1/channels/facebook/oauth/callback?code=x&state=${state}`
+      `/api/v1/channels/FACEBOOK/oauth/callback?code=x&state=${state}`
     );
 
     expect(res.status).toBe(302);
-    expect(res.headers.location).toContain('reason=no_pages');
+    expect(res.headers.location).toContain('connect_error=no_accounts');
   });
 
   it('UC28 — Owner xem danh sách Page chờ chọn, không có token', async () => {
     const sessionId = await createOauthSession();
 
     const res = await request(app)
-      .get(`/api/v1/channels/facebook/oauth/session/${sessionId}`)
+      .get(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId);
 
     expect(res.status).toBe(200);
-    expect(res.body.data.pages).toEqual([
-      { id: 'page-1', name: 'Page Một', avatar: 'https://example.com/page-1.png' },
+    expect(res.body.data.accounts).toEqual([
+      { externalAccountId: 'page-1', name: 'Page Một', avatar: 'https://example.com/page-1.png' },
     ]);
   });
 
@@ -230,7 +239,7 @@ describe('Channel (UC27, UC28, UC29)', () => {
     const sessionId = await createOauthSession();
 
     const res = await request(app)
-      .get(`/api/v1/channels/facebook/oauth/session/${sessionId}`)
+      .get(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}`)
       .set('Authorization', `Bearer ${outsiderToken}`)
       .set('x-workspace-id', outsiderWorkspaceId);
 
@@ -241,10 +250,10 @@ describe('Channel (UC27, UC28, UC29)', () => {
     const sessionId = await createOauthSession();
 
     const res = await request(app)
-      .post(`/api/v1/channels/facebook/oauth/session/${sessionId}/connect`)
+      .post(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}/connect`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId)
-      .send({ pageIds: ['page-1'] });
+      .send({ accountIds: ['page-1'] });
 
     expect(res.status).toBe(201);
     expect(res.body.data.channels[0].name).toBe('Page Một');
@@ -259,10 +268,10 @@ describe('Channel (UC27, UC28, UC29)', () => {
     const sessionId = await createOauthSession();
 
     const res = await request(app)
-      .post(`/api/v1/channels/facebook/oauth/session/${sessionId}/connect`)
+      .post(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}/connect`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId)
-      .send({ pageIds: ['page-khac'] });
+      .send({ accountIds: ['page-khac'] });
 
     expect(res.status).toBe(400);
     const row = await prisma.channelConnection.findFirst({
@@ -287,13 +296,17 @@ describe('Channel (UC27, UC28, UC29)', () => {
     ]);
 
     const res = await request(app)
-      .get(`/api/v1/channels/facebook/oauth/session/${sessionId}`)
+      .get(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId);
 
     expect(res.status).toBe(200);
-    expect(res.body.data.pages).toEqual([
-      { id: 'page-3', name: 'Page Có Token', avatar: 'https://example.com/page-3.png' },
+    expect(res.body.data.accounts).toEqual([
+      {
+        externalAccountId: 'page-3',
+        name: 'Page Có Token',
+        avatar: 'https://example.com/page-3.png',
+      },
     ]);
   });
 
@@ -309,10 +322,10 @@ describe('Channel (UC27, UC28, UC29)', () => {
     ]);
 
     const res = await request(app)
-      .post(`/api/v1/channels/facebook/oauth/session/${sessionId}/connect`)
+      .post(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}/connect`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId)
-      .send({ pageIds: ['page-long-avatar'] });
+      .send({ accountIds: ['page-long-avatar'] });
 
     expect(res.status).toBe(201);
     expect(res.body.data.channels[0].avatar).toBe(longAvatar);
@@ -325,7 +338,7 @@ describe('Channel (UC27, UC28, UC29)', () => {
 
   it('UC28 — URL lấy workspace từ header, không dùng query lệch', async () => {
     const urlRes = await request(app)
-      .get(`/api/v1/channels/facebook/oauth/url?workspaceId=${outsiderWorkspaceId}`)
+      .get(`/api/v1/channels/FACEBOOK/oauth/url?workspaceId=${outsiderWorkspaceId}`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId);
 
@@ -334,14 +347,14 @@ describe('Channel (UC27, UC28, UC29)', () => {
     const state = new URL(urlRes.body.data.url).searchParams.get('state') as string;
     mockFacebook();
     const callback = await request(app).get(
-      `/api/v1/channels/facebook/oauth/callback?code=x&state=${state}`
+      `/api/v1/channels/FACEBOOK/oauth/callback?code=x&state=${state}`
     );
     const sessionId = new URL(callback.headers.location as string).searchParams.get(
       'session'
     ) as string;
 
     const res = await request(app)
-      .get(`/api/v1/channels/facebook/oauth/session/${sessionId}`)
+      .get(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId);
 
@@ -352,10 +365,10 @@ describe('Channel (UC27, UC28, UC29)', () => {
     const sessionId = await createOauthSession();
 
     const res = await request(app)
-      .post(`/api/v1/channels/facebook/oauth/session/${sessionId}/connect`)
+      .post(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}/connect`)
       .set('Authorization', `Bearer ${creatorToken}`)
       .set('x-workspace-id', wsId)
-      .send({ pageIds: ['page-1'] });
+      .send({ accountIds: ['page-1'] });
 
     expect(res.status).toBe(403);
   });
@@ -363,10 +376,10 @@ describe('Channel (UC27, UC28, UC29)', () => {
   it('UC28 — Kết nối lại cùng Page giữ nguyên channel id', async () => {
     const firstSession = await createOauthSession();
     const first = await request(app)
-      .post(`/api/v1/channels/facebook/oauth/session/${firstSession}/connect`)
+      .post(`/api/v1/channels/FACEBOOK/oauth/session/${firstSession}/connect`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId)
-      .send({ pageIds: ['page-1'] });
+      .send({ accountIds: ['page-1'] });
 
     const secondSession = await createOauthSession([
       {
@@ -377,10 +390,10 @@ describe('Channel (UC27, UC28, UC29)', () => {
       },
     ]);
     const second = await request(app)
-      .post(`/api/v1/channels/facebook/oauth/session/${secondSession}/connect`)
+      .post(`/api/v1/channels/FACEBOOK/oauth/session/${secondSession}/connect`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId)
-      .send({ pageIds: ['page-1'] });
+      .send({ accountIds: ['page-1'] });
 
     expect(second.status).toBe(201);
     expect(second.body.data.channels[0].id).toBe(first.body.data.channels[0].id);
@@ -395,13 +408,13 @@ describe('Channel (UC27, UC28, UC29)', () => {
   it('UC28 — Session bị xoá sau khi kết nối', async () => {
     const sessionId = await createOauthSession();
     await request(app)
-      .post(`/api/v1/channels/facebook/oauth/session/${sessionId}/connect`)
+      .post(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}/connect`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId)
-      .send({ pageIds: ['page-1'] });
+      .send({ accountIds: ['page-1'] });
 
     const res = await request(app)
-      .get(`/api/v1/channels/facebook/oauth/session/${sessionId}`)
+      .get(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId);
 
@@ -479,10 +492,10 @@ describe('Channel (UC27, UC28, UC29)', () => {
   it('UC29 — Kết nối lại Page sau khi ngắt khôi phục kênh cũ', async () => {
     const sessionId = await createOauthSession();
     const res = await request(app)
-      .post(`/api/v1/channels/facebook/oauth/session/${sessionId}/connect`)
+      .post(`/api/v1/channels/FACEBOOK/oauth/session/${sessionId}/connect`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('x-workspace-id', wsId)
-      .send({ pageIds: ['page-1'] });
+      .send({ accountIds: ['page-1'] });
 
     expect(res.status).toBe(201);
     const row = await basePrisma.channelConnection.findFirst({

@@ -11,7 +11,7 @@ vi.mock('../../../src/config/redis.js', () => ({ default: redisMock }));
 
 import * as oauthStore from '../../../src/modules/channel/channel.oauth-store.js';
 
-const state = { userId: 'user-1', workspaceId: 'workspace-1' };
+const state = { userId: 'user-1', workspaceId: 'workspace-1', platform: 'FACEBOOK' as const };
 
 describe('channel.oauth-store', () => {
   beforeEach(() => {
@@ -24,7 +24,7 @@ describe('channel.oauth-store', () => {
     await oauthStore.saveOauthState('state-1', state);
 
     expect(redisMock.setex).toHaveBeenCalledWith(
-      'fb:oauth:state:state-1',
+      'channel:oauth:state:state-1',
       600,
       JSON.stringify(state)
     );
@@ -42,7 +42,7 @@ describe('channel.oauth-store', () => {
     redisMock.getdel.mockResolvedValueOnce(JSON.stringify(state));
 
     await expect(oauthStore.consumeOauthState('state-1')).resolves.toEqual(state);
-    expect(redisMock.getdel).toHaveBeenCalledWith('fb:oauth:state:state-1');
+    expect(redisMock.getdel).toHaveBeenCalledWith('channel:oauth:state:state-1');
   });
 
   it('state không tồn tại → null', async () => {

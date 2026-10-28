@@ -1,3 +1,4 @@
+import { SocialPlatform } from '@prisma/client';
 import { workspaceIdField, workspaceIdParamSchema } from '../../utils/validation/common.js';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
@@ -6,11 +7,14 @@ extendZodWithOpenApi(z);
 
 export const listChannelsSchema = { params: workspaceIdParamSchema };
 
-export const facebookOauthUrlQuerySchema = z.object({
-  workspaceId: workspaceIdField,
+export const platformParamSchema = z.object({
+  platform: z
+    .string()
+    .transform((value) => value.toUpperCase())
+    .pipe(z.nativeEnum(SocialPlatform)),
 });
 
-export const facebookCallbackQuerySchema = z.object({
+export const oauthCallbackQuerySchema = z.object({
   code: z.string().optional(),
   state: z.string().optional(),
   error: z.string().optional(),
@@ -48,25 +52,36 @@ export const oauthSessionParamSchema = z.object({
   sessionId: z.string().regex(/^[a-f0-9]{48}$/, 'Phiên kết nối không hợp lệ'),
 });
 
-export const connectFacebookPagesBodySchema = z.object({
-  pageIds: z
+export const connectAccountsBodySchema = z.object({
+  accountIds: z
     .array(z.string().min(1))
-    .min(1, 'Chọn ít nhất một Page')
-    .max(50, 'Chỉ được kết nối tối đa 50 Page mỗi lần'),
+    .min(1, 'Chọn ít nhất một tài khoản')
+    .max(50, 'Chỉ được kết nối tối đa 50 tài khoản mỗi lần'),
 });
 
-export const facebookOauthUrlSchema = { query: facebookOauthUrlQuerySchema };
-export const facebookCallbackSchema = { query: facebookCallbackQuerySchema };
-export const oauthSessionSchema = { params: oauthSessionParamSchema };
-export const connectFacebookSchema = {
-  params: oauthSessionParamSchema,
-  body: connectFacebookPagesBodySchema,
+export const oauthUrlSchema = {
+  params: platformParamSchema,
+  query: z.object({ workspaceId: workspaceIdField }),
+};
+
+export const oauthCallbackSchema = {
+  params: platformParamSchema,
+  query: oauthCallbackQuerySchema,
+};
+
+export const oauthSessionSchema = {
+  params: platformParamSchema.merge(oauthSessionParamSchema),
+};
+
+export const connectAccountsSchema = {
+  params: platformParamSchema.merge(oauthSessionParamSchema),
+  body: connectAccountsBodySchema,
 };
 
 export default {
   listChannelsSchema,
-  facebookOauthUrlSchema,
-  facebookCallbackSchema,
+  oauthUrlSchema,
+  oauthCallbackSchema,
   oauthSessionSchema,
-  connectFacebookSchema,
+  connectAccountsSchema,
 };
