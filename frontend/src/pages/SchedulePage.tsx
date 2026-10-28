@@ -93,7 +93,7 @@ export const SchedulePage = () => {
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
         title="Lịch xuất bản"
-        description="Theo dõi các bài đã lên lịch, đang đăng và đã đăng lên Facebook Page."
+        description="Theo dõi các bài đã lên lịch, đang đăng và đã đăng lên các kênh đã kết nối."
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -221,7 +221,7 @@ export const SchedulePage = () => {
               </div>
 
               <div className="flex shrink-0 flex-wrap items-center gap-2">
-                {schedule.externalPostId ? (
+                {schedule.externalPostId && schedule.channel.platform === 'FACEBOOK' ? (
                   <a
                     href={`https://www.facebook.com/${schedule.externalPostId}`}
                     target="_blank"
@@ -256,7 +256,7 @@ export const SchedulePage = () => {
         onClose={() => setScheduleToCancel(null)}
         title="Huỷ lịch đăng?"
         description={`Huỷ lịch đăng "${scheduleToCancel?.post.title ?? ''}" lên ${
-          scheduleToCancel ? getDisplayName(scheduleToCancel.channel) : 'Page'
+          scheduleToCancel ? getDisplayName(scheduleToCancel.channel) : 'k�nh'
         }? Bài viết sẽ quay về trạng thái đã duyệt.`}
         confirmLabel="Huỷ lịch"
         tone="danger"

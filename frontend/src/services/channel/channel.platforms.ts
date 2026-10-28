@@ -1,4 +1,4 @@
-import { Link2, Share2, type LucideIcon } from 'lucide-react';
+import { AtSign, Link2, Share2, type LucideIcon } from 'lucide-react';
 import type { ChannelPlatform } from './channel.types';
 
 export type ChannelConnectKind = 'oauth' | 'unavailable';
@@ -8,6 +8,7 @@ export interface ChannelPlatformCapabilities {
   refreshProfile: boolean;
   metrics: boolean;
   scheduling: boolean;
+  maxImages: number;
 }
 
 export interface ChannelPlatformMeta {
@@ -24,7 +25,26 @@ const PLATFORMS: Partial<Record<ChannelPlatform, ChannelPlatformMeta>> = {
     shortLabel: 'Facebook',
     icon: Share2,
     connect: 'oauth',
-    capabilities: { label: true, refreshProfile: true, metrics: true, scheduling: true },
+    capabilities: {
+      label: true,
+      refreshProfile: true,
+      metrics: true,
+      scheduling: true,
+      maxImages: 10,
+    },
+  },
+  THREADS: {
+    label: 'Threads',
+    shortLabel: 'Threads',
+    icon: AtSign,
+    connect: 'oauth',
+    capabilities: {
+      label: true,
+      refreshProfile: true,
+      metrics: true,
+      scheduling: true,
+      maxImages: 20,
+    },
   },
 };
 
@@ -39,6 +59,6 @@ export const getChannelPlatformMeta = (platform: string): ChannelPlatformMeta =>
     shortLabel: platform,
     icon: Link2,
     connect: 'unavailable',
-    capabilities: { label: false, refreshProfile: false, metrics: false, scheduling: false },
+    capabilities: { label: false, refreshProfile: false, metrics: false, scheduling: false, maxImages: 0 },
   };
 };

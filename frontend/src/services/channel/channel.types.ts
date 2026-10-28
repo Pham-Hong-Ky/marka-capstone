@@ -1,4 +1,4 @@
-export type ChannelPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'TIKTOK' | 'ZALO';
+export type ChannelPlatform = 'FACEBOOK' | 'THREADS' | 'INSTAGRAM' | 'TIKTOK' | 'ZALO';
 export type ChannelType = 'REAL' | 'SIMULATED';
 export type ChannelStatus = 'ACTIVE' | 'EXPIRED';
 

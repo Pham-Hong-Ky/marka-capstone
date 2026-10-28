@@ -10,6 +10,7 @@ import { useChannels } from '@/hooks/useChannels';
 import { useCreateSchedules } from '@/hooks/useSchedule';
 import type { PostDetail } from '@/services/post';
 import { OCCUPIED_SCHEDULE_STATUSES } from '@/services/schedule';
+import { getChannelPlatformMeta } from '@/services/channel';
 import { getErrorMessage } from '@/utils/error';
 
 const toLocalInputValue = (date: Date): string => {
@@ -53,10 +54,16 @@ export const PublishScheduleModal = ({
       .map((schedule) => schedule.channelId)
   );
   const activeChannels = (data?.channels ?? []).filter(
-    (channel) => channel.platform === 'FACEBOOK' && channel.status === 'ACTIVE'
+    (channel) =>
+      getChannelPlatformMeta(channel.platform).capabilities.scheduling &&
+      channel.status === 'ACTIVE'
   );
   const channels = activeChannels.filter((channel) => !occupiedChannelIds.has(channel.id));
   const imageCount = post.mediaAssets.filter((media) => media.type === 'IMAGE').length;
+  const imageLimit = Math.max(
+    0,
+    ...channels.map((channel) => getChannelPlatformMeta(channel.platform).capabilities.maxImages)
+  );
 
   const toggleChannel = (channelId: string) => {
     setSelectedIds((current) =>
@@ -70,7 +77,7 @@ export const PublishScheduleModal = ({
     setFormError('');
 
     if (selectedIds.length === 0) {
-      setFormError('Chọn ít nhất một Page để đăng bài');
+      setFormError('Chọn ít nhất một kênh để đăng bài');
       return;
     }
 
@@ -122,7 +129,7 @@ export const PublishScheduleModal = ({
             type="button"
             onClick={handleSubmit}
             isLoading={createSchedules.isPending}
-            disabled={channels.length === 0 || imageCount > 10}
+            disabled={channels.length === 0 || (imageLimit > 0 && imageCount > imageLimit)}
           >
             {mode === 'now' ? (
               <>
@@ -144,7 +151,7 @@ export const PublishScheduleModal = ({
           <span className="font-medium text-foreground">{post.title}</span>
           <span className="ml-2">
             · {imageCount} ảnh
-            {imageCount > 10 ? ' (quá giới hạn 10 ảnh)' : ''}
+            {imageCount > imageLimit && imageLimit > 0 ? ` (quá giới hạn ${imageLimit} ảnh)` : ''}
           </span>
         </div>
 
@@ -159,21 +166,21 @@ export const PublishScheduleModal = ({
           />
         ) : null}
 
-        {isLoading ? <p className="text-sm text-muted">Đang tải danh sách Page...</p> : null}
+        {isLoading ? <p className="text-sm text-muted">Đang tải danh sách kênh...</p> : null}
 
         {isError ? <p className="text-sm text-danger">{getErrorMessage(error)}</p> : null}
 
         {!isLoading && !isError && channels.length === 0 && activeChannels.length > 0 ? (
           <EmptyState
-            title="Không còn Page nào để đăng."
-            description="Bài viết đã được đăng hoặc đang chờ đăng trên tất cả Page đang kết nối."
+            title="Không còn kênh nào để đăng."
+            description="Bài viết đã được đăng hoặc đang chờ đăng trên tất cả kênh đang kết nối."
           />
         ) : null}
 
         {!isLoading && !isError && activeChannels.length === 0 ? (
           <EmptyState
-            title="Chưa có Page nào khả dụng."
-            description="Workspace cần kết nối ít nhất một Facebook Page đang hoạt động."
+            title="Chưa có kênh nào khả dụng."
+            description="Workspace cần kết nối ít nhất một kênh đang hoạt động."
             action={
               <Link to="/channels" className="text-sm font-medium text-accent-text hover:underline">
                 Đi tới Kênh kết nối

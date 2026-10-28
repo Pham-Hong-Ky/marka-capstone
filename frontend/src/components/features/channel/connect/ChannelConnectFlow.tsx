@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import ChannelAccountPickerModal from '@/components/features/channel/ChannelAccountPickerModal';
 import {
-  FACEBOOK_ERROR_MESSAGES,
+  CHANNEL_CONNECT_ERROR_MESSAGES,
   getChannelPlatformMeta,
   type ChannelPlatform,
 } from '@/services/channel';
@@ -36,7 +36,7 @@ export const ChannelConnectFlow = ({ workspaceId }: { workspaceId: string }) => 
     } else if (errorCode) {
       const platform = searchParams.get('platform') ?? '';
       toast.error(
-        FACEBOOK_ERROR_MESSAGES[errorCode] ??
+        CHANNEL_CONNECT_ERROR_MESSAGES[errorCode] ??
           `Kết nối ${getChannelPlatformMeta(platform).label} thất bại. Vui lòng thử lại.`
       );
     }

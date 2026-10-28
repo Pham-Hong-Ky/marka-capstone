@@ -365,37 +365,60 @@ class "brandVoiceRepository" as brandVoiceRepository {
 together {
 class "channelController" as channelController {
   + listChannels(req, res)
-  + getFacebookAuthUrl(req, res)
-  + facebookCallback(req, res)
-  + getPendingFacebookPages(req, res)
-  + connectFacebookPages(req, res)
+  + getOauthUrl(req, res)
+  + oauthCallback(req, res)
+  + getPendingAccounts(req, res)
+  + connectAccounts(req, res)
   + disconnectChannel(req, res)
 }
 
 class "channelService" as channelService {
   + listChannels(workspaceId)
-  + createFacebookAuthUrl(workspaceId, userId)
-  + handleFacebookCallback(query)
-  + getFacebookPendingPages(sessionId, userId, workspaceId)
-  + connectFacebookPages(sessionId, userId, workspaceId, pageIds)
+  + createAuthUrl(platform, workspaceId, userId)
+  + handleOauthCallback(platform, query)
+  + getPendingAccounts(platform, sessionId, userId, workspaceId)
+  + connectAccounts(platform, sessionId, userId, workspaceId, accountIds)
   + disconnectChannel(channelId, workspaceId, userId)
-  + verifyChannelToken(channelId, workspaceId)
+  + refreshChannel(channelId, workspaceId, userId)
 }
 
 class "channelRepository" as channelRepository {
   + findChannelsByWorkspace(workspaceId)
-  + upsertFacebookChannels(workspaceId, pages)
+  + upsertChannels(workspaceId, platform, accounts)
   + findChannelInWorkspace(channelId, workspaceId)
+  + findChannelsWithRefreshableTokens(platforms)
+  + updateChannelToken(channelId, token)
   + updateChannelStatus(channelId, status)
-  + deleteChannelAndCancelSchedules(channelId)
+  + disconnectChannelAndCancelSchedules(channelId)
 }
 
-class "FacebookClient" as facebookClient {
-  + isFacebookConfigured()
-  + buildAuthorizationUrl(state)
-  + exchangeCodeForToken(code)
-  + fetchManagedPages(userToken)
-  + verifyPageToken(pageToken)
+interface "SocialProvider" as socialProvider {
+  + platform : SocialPlatform
+  + capabilities : ProviderCapabilities
+  + isConfigured() : boolean
+  + buildAuthorizationUrl(state) : string
+  + exchangeCodeForAccounts(code) : SocialAccount[]
+  + fetchProfile(accessToken) : SocialProfile
+  + publish(input) : string
+  + fetchMetrics(externalPostId, accessToken) : ProviderMetrics
+  + refreshToken(accessToken) : string
+}
+
+class "FacebookProvider" as facebookProvider {
+  + platform = FACEBOOK
+}
+
+class "ThreadsProvider" as threadsProvider {
+  + platform = THREADS
+}
+
+class "providerRegistry" as providerRegistry {
+  + getProvider(platform) : SocialProvider
+  + listProviders() : SocialProvider[]
+}
+
+class "channelTokenRefresh" as channelTokenRefresh {
+  + refreshChannelTokens() : TokenRefreshResult
 }
 
 class "oauthStore" as oauthStore {
@@ -678,8 +701,13 @@ brandVoiceService ..> brandVoiceRepository
 
 channelController ..> channelService
 channelService ..> channelRepository
-channelService ..> facebookClient
+channelService ..> providerRegistry
 channelService ..> oauthStore
+channelService ..> channelTokenRefresh
+facebookProvider ..|> socialProvider
+threadsProvider ..|> socialProvider
+providerRegistry ..> facebookProvider
+providerRegistry ..> threadsProvider
 
 postController ..> postService
 postService ..> postRepository
@@ -688,7 +716,7 @@ postService ..> mailerClient
 
 scheduleController ..> scheduleService
 scheduleService ..> scheduleRepository
-scheduleService ..> facebookClient
+scheduleService ..> providerRegistry
 scheduleService ..> channelRepository
 scheduleProcessor ..> scheduleService
 
@@ -708,7 +736,7 @@ aiProcessor ..> cloudinaryClient
 
 analyticsController ..> analyticsService
 analyticsService ..> analyticsRepository
-analyticsService ..> facebookClient
+analyticsService ..> providerRegistry
 analyticsProcessor ..> analyticsService
 
 adminController ..> adminService
