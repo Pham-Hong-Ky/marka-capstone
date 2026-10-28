@@ -75,10 +75,12 @@ interface FacebookInsightsResponse {
 
 /** Map mã lỗi Graph API sang lỗi chung của provider. */
 const throwGraphError = (status: number, error: FacebookApiError | undefined): never => {
-  const message = error?.message ?? `HTTP ${status}`;
+  const message = error?.message ?? '';
 
+  // Chỉ log mã lỗi do ta kiểm soát. Message thô từ Graph có thể kèm giá trị
+  // tham số của request (kể cả access_token) nên không được ghi log.
   logger.warn(
-    `Facebook Graph API lỗi [code: ${error?.code ?? 'N/A'}, subcode: ${error?.error_subcode ?? 'N/A'}]: ${message}`
+    `Facebook Graph API lỗi [status: ${status}, code: ${error?.code ?? 'N/A'}, subcode: ${error?.error_subcode ?? 'N/A'}, type: ${error?.type ?? 'N/A'}]`
   );
 
   if (error?.code === 190) {
@@ -110,9 +112,8 @@ const throwGraphError = (status: number, error: FacebookApiError | undefined): n
     throw new SocialTransientError('Facebook đang gặp sự cố. Hệ thống sẽ thử lại sau.');
   }
 
-  throw new BadRequestError(
-    error?.message ? `Facebook: ${error.message}` : 'Facebook từ chối yêu cầu. Vui lòng thử lại.'
-  );
+  // Không trả nguyên văn message của nền tảng cho người dùng: thường là tiếng Anh.
+  throw new BadRequestError('Facebook từ chối yêu cầu. Vui lòng thử lại.');
 };
 
 export class FacebookProvider implements SocialProvider {
