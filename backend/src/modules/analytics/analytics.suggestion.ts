@@ -222,7 +222,7 @@ const buildTipsForDraft = (
     add(
       'too_long',
       'medium',
-      `Caption dài ${length} ký tự; Facebook chỉ hiện phần đầu nên nên rút dưới ${MAX_CAPTION_LENGTH} ký tự.`
+      `Caption dài ${length} ký tự; nền tảng chỉ hiện phần đầu nên nên rút dưới ${MAX_CAPTION_LENGTH} ký tự.`
     );
   }
 
