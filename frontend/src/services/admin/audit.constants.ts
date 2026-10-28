@@ -31,6 +31,11 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   BILLING_ORDER_CREATED: 'Tạo đơn nạp',
   BILLING_ORDER_CANCELLED: 'Huỷ đơn nạp',
   BILLING_CREDIT_TOP_UP: 'Nạp credit',
+  TOP_UP: 'Nạp credit',
+  SCHEDULE_CREATED: 'Tạo lịch đăng',
+  SCHEDULE_CANCELLED: 'Huỷ lịch đăng',
+  SCHEDULE_PUBLISH_FAILED: 'Đăng bài thất bại',
+  SCHEDULE_PUBLISHED: 'Đăng bài thành công',
 };
 
 export const AUDIT_TARGET_TYPES = [
@@ -40,4 +45,6 @@ export const AUDIT_TARGET_TYPES = [
   'WorkspaceInvite',
   'Post',
   'ChannelConnection',
+  'Order',
+  'ScheduledPost',
 ];
