@@ -43,6 +43,20 @@ const envSchema = z.object({
     .url()
     .or(z.literal(''))
     .default('http://localhost:5000/api/v1/channels/facebook/oauth/callback'),
+  THREADS_APP_ID: z.string().default(''),
+  THREADS_APP_SECRET: z.string().default(''),
+  THREADS_REDIRECT_URI: z
+    .string()
+    .url()
+    .or(z.literal(''))
+    .default('http://localhost:5000/api/v1/channels/threads/oauth/callback'),
+  LINKEDIN_CLIENT_ID: z.string().default(''),
+  LINKEDIN_CLIENT_SECRET: z.string().default(''),
+  LINKEDIN_REDIRECT_URI: z
+    .string()
+    .url()
+    .or(z.literal(''))
+    .default('http://localhost:5000/api/v1/channels/linkedin/oauth/callback'),
   RESEND_API_KEY: z.string().default(''),
   MAIL_FROM: z.string().default('no-reply@marka.vn'),
   APP_BASE_URL: z.string().default('http://localhost:5173'),
