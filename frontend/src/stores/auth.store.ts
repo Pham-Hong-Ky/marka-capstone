@@ -1,12 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { queryClient } from '@/lib/queryClient';
+import { authStorage, STORAGE_KEYS } from '@/lib/storage';
 import type { AuthSession, AuthUser } from '@/services/auth';
 
-const ACCESS_TOKEN_KEY = 'access_token';
-const ACTIVE_WORKSPACE_KEY = 'active_workspace_id';
-
 interface AuthState {
-  accessToken: string | null;
   user: AuthUser | null;
   activeWorkspaceId: string | null;
   setSession: (session: AuthSession) => void;
@@ -18,18 +16,23 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      accessToken: null,
       user: null,
       activeWorkspaceId: null,
 
       setSession: (session) => {
-        localStorage.setItem(ACCESS_TOKEN_KEY, session.accessToken);
+        authStorage.setAccessToken(session.accessToken);
 
-        const workspaceId = get().activeWorkspaceId ?? session.user.workspaces[0]?.id ?? null;
-        if (workspaceId) localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspaceId);
+        const currentWorkspaceId = get().activeWorkspaceId;
+        const stillMember = session.user.workspaces.some(
+          (workspace) => workspace.id === currentWorkspaceId
+        );
+        const workspaceId =
+          (stillMember ? currentWorkspaceId : null) ?? session.user.workspaces[0]?.id ?? null;
+
+        if (workspaceId) authStorage.setActiveWorkspaceId(workspaceId);
+        else authStorage.clearActiveWorkspaceId();
 
         set({
-          accessToken: session.accessToken,
           user: session.user,
           activeWorkspaceId: workspaceId,
         });
@@ -44,32 +47,36 @@ export const useAuthStore = create<AuthState>()(
             (stillMember ? state.activeWorkspaceId : null) ?? user.workspaces[0]?.id ?? null;
 
           if (workspaceId) {
-            localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspaceId);
+            authStorage.setActiveWorkspaceId(workspaceId);
           } else {
-            localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
+            authStorage.clearActiveWorkspaceId();
           }
 
           return { user, activeWorkspaceId: workspaceId };
         }),
 
       setActiveWorkspace: (workspaceId) => {
-        localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspaceId);
+        authStorage.setActiveWorkspaceId(workspaceId);
         set({ activeWorkspaceId: workspaceId });
       },
 
       clearSession: () => {
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
-        set({ accessToken: null, user: null, activeWorkspaceId: null });
+        authStorage.clearAccessToken();
+        authStorage.clearActiveWorkspaceId();
+        set({ user: null, activeWorkspaceId: null });
       },
     }),
     {
-      name: 'marka-auth',
+      name: STORAGE_KEYS.auth,
       partialize: (state) => ({
-        accessToken: state.accessToken,
         user: state.user,
         activeWorkspaceId: state.activeWorkspaceId,
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = { ...(persistedState as Record<string, unknown>) };
+        delete persisted.accessToken;
+        return { ...currentState, ...persisted } as AuthState;
+      },
     }
   )
 );
@@ -80,5 +87,6 @@ export const useIsAuthenticated = () => useAuthStore((state) => Boolean(state.us
 if (typeof window !== 'undefined') {
   window.addEventListener('auth:unauthorized', () => {
     useAuthStore.getState().clearSession();
+    queryClient.clear();
   });
 }

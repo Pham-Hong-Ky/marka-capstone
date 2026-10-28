@@ -6,30 +6,23 @@ import {
   type AdminUsersQuery,
   type AdminWorkspacesQuery,
 } from '@/services/admin';
-import { getErrorMessage } from '@/utils/error';
-
-export const adminKeys = {
-  stats: () => ['admin', 'stats'] as const,
-  users: (query: AdminUsersQuery) => ['admin', 'users', query] as const,
-  workspaces: (query: AdminWorkspacesQuery) => ['admin', 'workspaces', query] as const,
-  auditLogs: (query: AdminAuditLogsQuery) => ['admin', 'audit-logs', query] as const,
-};
+import { queryKeys } from '@/lib/queryKeys';
 
 export const useAdminStats = () =>
   useQuery({
-    queryKey: adminKeys.stats(),
+    queryKey: queryKeys.admin.stats(),
     queryFn: () => adminService.getStats(),
   });
 
 export const useAdminUsers = (query: AdminUsersQuery) =>
   useQuery({
-    queryKey: adminKeys.users(query),
+    queryKey: queryKeys.admin.users(query),
     queryFn: () => adminService.listUsers(query),
   });
 
 export const useAdminWorkspaces = (query: AdminWorkspacesQuery) =>
   useQuery({
-    queryKey: adminKeys.workspaces(query),
+    queryKey: queryKeys.admin.workspaces(query),
     queryFn: () => adminService.listWorkspaces(query),
   });
 
@@ -38,7 +31,7 @@ export const useAdminAuditLogs = (
   options?: { enabled?: boolean }
 ) =>
   useQuery({
-    queryKey: adminKeys.auditLogs(query),
+    queryKey: queryKeys.admin.auditLogs(query),
     queryFn: () => adminService.listAuditLogs(query),
     enabled: options?.enabled ?? true,
   });
@@ -53,10 +46,9 @@ export const useSuspendUser = () => {
         reason: variables.reason,
       }),
     onSuccess: (_user, variables) => {
-      queryClient.invalidateQueries({ queryKey: adminKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.usersRoot() });
       toast.success(variables.suspended ? 'Đã khoá tài khoản' : 'Đã mở khoá tài khoản');
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
   });
 };

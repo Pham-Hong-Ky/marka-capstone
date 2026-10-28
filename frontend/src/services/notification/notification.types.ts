@@ -1,4 +1,4 @@
-import type { PaginationMeta } from '../post/post.types';
+import type { PaginationMeta } from '@/types';
 
 export interface NotificationPayload {
   postId?: string;

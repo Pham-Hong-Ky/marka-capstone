@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { STORAGE_KEYS } from '@/lib/storage';
 
 interface UiState {
   sidebarCollapsed: boolean;
@@ -19,7 +20,7 @@ export const useUiStore = create<UiState>()(
       closeMobileNav: () => set({ mobileNavOpen: false }),
     }),
     {
-      name: 'marka-ui',
+      name: STORAGE_KEYS.ui,
       partialize: (state) => ({ sidebarCollapsed: state.sidebarCollapsed }),
     }
   )

@@ -1,3 +1,5 @@
+import type { PaginationMeta } from '@/types';
+
 export type BillingOrderStatus = 'PENDING' | 'PAID' | 'CANCELLED';
 export type CreditFlowType = 'INFLOW' | 'OUTFLOW';
 export type CreditActionType =
@@ -35,12 +37,7 @@ export interface CreditTransaction {
   createdBy: { id: string; name: string } | null;
 }
 
-export interface BillingPaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
+export type BillingPaginationMeta = PaginationMeta;
 
 export interface BillingTransactionsResult {
   transactions: CreditTransaction[];

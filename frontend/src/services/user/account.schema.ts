@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { passwordSchema } from '@/services/auth/auth.schema';
 
 export const profileFormSchema = z.object({
   name: z
@@ -13,14 +14,7 @@ export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 export const passwordFormSchema = z
   .object({
     oldPassword: z.string().min(1, 'Mật khẩu hiện tại không được để trống'),
-    newPassword: z
-      .string()
-      .min(8, 'Mật khẩu tối thiểu 8 ký tự')
-      .max(100, 'Mật khẩu tối đa 100 ký tự')
-      .regex(
-        /^(?=.*[A-Za-z])(?=.*\d).+$/,
-        'Mật khẩu phải chứa ít nhất một chữ cái và một chữ số'
-      ),
+    newPassword: passwordSchema,
     confirmPassword: z.string(),
   })
   .refine((values) => values.newPassword === values.confirmPassword, {

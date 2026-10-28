@@ -1,15 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { authService } from '@/services/auth';
+import { queryKeys } from '@/lib/queryKeys';
 import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
 
 export const useLogin = () => {
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((state) => state.setSession);
 
   return useMutation({
     mutationFn: authService.login,
     onSuccess: (session) => {
+      queryClient.clear();
       setSession(session);
       toast.success('Đăng nhập thành công');
     },
@@ -18,11 +21,13 @@ export const useLogin = () => {
 };
 
 export const useRegister = () => {
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((state) => state.setSession);
 
   return useMutation({
     mutationFn: authService.register,
     onSuccess: (session) => {
+      queryClient.clear();
       setSession(session);
       toast.success('Đăng ký thành công');
     },
@@ -31,11 +36,13 @@ export const useRegister = () => {
 };
 
 export const useGoogleLogin = () => {
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((state) => state.setSession);
 
   return useMutation({
     mutationFn: authService.googleLogin,
     onSuccess: (session) => {
+      queryClient.clear();
       setSession(session);
       toast.success('Đăng nhập Google thành công');
     },
@@ -61,7 +68,7 @@ export const useCurrentUser = () => {
   const isAuthenticated = useAuthStore((state) => Boolean(state.user));
 
   return useQuery({
-    queryKey: ['auth', 'me'],
+    queryKey: queryKeys.auth.me,
     queryFn: authService.getMe,
     enabled: isAuthenticated,
   });

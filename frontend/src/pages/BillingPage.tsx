@@ -11,22 +11,19 @@ import PackageCard from '@/components/features/billing/PackageCard';
 import PaymentModal from '@/components/features/billing/PaymentModal';
 import { useActiveWorkspace, syncSessionUser } from '@/hooks/useWorkspace';
 import {
-  billingKeys,
   useBilling,
   useBillingOrder,
   useCancelBillingOrder,
   useCreateBillingOrder,
   useCreditTransactions,
 } from '@/hooks/useBilling';
-import type {
-  BillingOrder,
-  BillingPaginationMeta,
-  CreditPackage,
-} from '@/services/billing';
+import { queryKeys } from '@/lib/queryKeys';
+import type { BillingOrder, CreditPackage } from '@/services/billing';
 import { getErrorMessage } from '@/utils/error';
 import { formatNumber } from '@/utils/format';
+import { emptyPaginationMeta } from '@/utils/pagination';
 
-const EMPTY_META: BillingPaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
+const EMPTY_META = emptyPaginationMeta();
 
 export const BillingPage = () => {
   const activeWorkspace = useActiveWorkspace();
@@ -65,8 +62,10 @@ export const BillingPage = () => {
     void syncSessionUser();
 
     if (workspaceId) {
-      queryClient.invalidateQueries({ queryKey: billingKeys.overview(workspaceId) });
-      queryClient.invalidateQueries({ queryKey: ['billing', workspaceId, 'transactions'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.billing.overview(workspaceId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.billing.transactionsRoot(workspaceId),
+      });
     }
 
     toast.success('Nạp credit thành công');

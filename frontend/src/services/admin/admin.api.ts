@@ -1,5 +1,5 @@
 import httpClient from '../httpClient';
-import { unwrap } from '../http';
+import { unwrap, unwrapPaginated } from '../http';
 import type { ApiResponse } from '@/types';
 import type {
   AdminAuditLog,
@@ -15,13 +15,13 @@ import type {
   AdminWorkspacesResponse,
 } from './admin.types';
 
-const DEFAULT_META: AdminPaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
-
 export const getStats = async (): Promise<AdminStats> =>
   unwrap(await httpClient.get<ApiResponse<AdminStats>>('/admin/stats'));
 
 export const listUsers = async (query: AdminUsersQuery): Promise<AdminUsersResponse> => {
-  const response = await httpClient.get<ApiResponse<{ users: AdminUser[] }>>('/admin/users', {
+  const response = await httpClient.get<
+    ApiResponse<{ users: AdminUser[] }, AdminPaginationMeta>
+  >('/admin/users', {
     params: {
       page: query.page,
       limit: query.limit,
@@ -32,11 +32,9 @@ export const listUsers = async (query: AdminUsersQuery): Promise<AdminUsersRespo
         : {}),
     },
   });
+  const { data, meta } = unwrapPaginated(response);
 
-  return {
-    users: response.data.data?.users ?? [],
-    meta: (response.data.meta as AdminPaginationMeta | undefined) ?? DEFAULT_META,
-  };
+  return { users: data.users, meta };
 };
 
 export const suspendUser = async (
@@ -50,46 +48,40 @@ export const suspendUser = async (
 export const listWorkspaces = async (
   query: AdminWorkspacesQuery
 ): Promise<AdminWorkspacesResponse> => {
-  const response = await httpClient.get<ApiResponse<{ workspaces: AdminWorkspace[] }>>(
-    '/admin/workspaces',
-    {
-      params: {
-        page: query.page,
-        limit: query.limit,
-        ...(query.search ? { search: query.search } : {}),
-        ...(query.plan ? { plan: query.plan } : {}),
-        includeDeleted: query.includeDeleted ? 'true' : 'false',
-      },
-    }
-  );
+  const response = await httpClient.get<
+    ApiResponse<{ workspaces: AdminWorkspace[] }, AdminPaginationMeta>
+  >('/admin/workspaces', {
+    params: {
+      page: query.page,
+      limit: query.limit,
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.plan ? { plan: query.plan } : {}),
+      includeDeleted: query.includeDeleted ? 'true' : 'false',
+    },
+  });
+  const { data, meta } = unwrapPaginated(response);
 
-  return {
-    workspaces: response.data.data?.workspaces ?? [],
-    meta: (response.data.meta as AdminPaginationMeta | undefined) ?? DEFAULT_META,
-  };
+  return { workspaces: data.workspaces, meta };
 };
 
 export const listAuditLogs = async (
   query: AdminAuditLogsQuery
 ): Promise<AdminAuditLogsResponse> => {
-  const response = await httpClient.get<ApiResponse<{ auditLogs: AdminAuditLog[] }>>(
-    '/admin/audit-logs',
-    {
-      params: {
-        page: query.page,
-        limit: query.limit,
-        ...(query.action ? { action: query.action } : {}),
-        ...(query.targetType ? { targetType: query.targetType } : {}),
-        ...(query.dateFrom ? { dateFrom: query.dateFrom } : {}),
-        ...(query.dateTo ? { dateTo: query.dateTo } : {}),
-      },
-    }
-  );
+  const response = await httpClient.get<
+    ApiResponse<{ auditLogs: AdminAuditLog[] }, AdminPaginationMeta>
+  >('/admin/audit-logs', {
+    params: {
+      page: query.page,
+      limit: query.limit,
+      ...(query.action ? { action: query.action } : {}),
+      ...(query.targetType ? { targetType: query.targetType } : {}),
+      ...(query.dateFrom ? { dateFrom: query.dateFrom } : {}),
+      ...(query.dateTo ? { dateTo: query.dateTo } : {}),
+    },
+  });
+  const { data, meta } = unwrapPaginated(response);
 
-  return {
-    auditLogs: response.data.data?.auditLogs ?? [],
-    meta: (response.data.meta as AdminPaginationMeta | undefined) ?? DEFAULT_META,
-  };
+  return { auditLogs: data.auditLogs, meta };
 };
 
 export default {

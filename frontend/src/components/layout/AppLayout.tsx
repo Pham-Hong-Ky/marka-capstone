@@ -5,16 +5,23 @@ import Sidebar from './Sidebar';
 import SidebarContent from './SidebarContent';
 import Drawer from '@/components/ui/Drawer';
 import { MOBILE_NAV_ID } from '@/config/navigation';
+import { useCurrentUser } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 import { useUiStore } from '@/stores/ui.store';
 
 export const AppLayout = () => {
   const user = useAuthStore((state) => state.user);
+  const updateUser = useAuthStore((state) => state.updateUser);
+  const currentUser = useCurrentUser();
   const activeWorkspace = useActiveWorkspace();
   const { pathname } = useLocation();
   const mobileNavOpen = useUiStore((state) => state.mobileNavOpen);
   const closeMobileNav = useUiStore((state) => state.closeMobileNav);
+
+  useEffect(() => {
+    if (currentUser.data) updateUser(currentUser.data);
+  }, [currentUser.data, updateUser]);
 
   useEffect(() => {
     closeMobileNav();

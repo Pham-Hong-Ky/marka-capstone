@@ -1,26 +1,21 @@
 import httpClient from '../httpClient';
-import type { ApiResponse } from '@/types';
-import type { PaginationMeta } from '../post/post.types';
+import { unwrapPaginated } from '../http';
+import type { ApiResponse, PaginationMeta } from '@/types';
 import type {
   AppNotification,
   NotificationListParams,
   NotificationListResult,
 } from './notification.types';
 
-const DEFAULT_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
-
 export const listNotifications = async (
   params: NotificationListParams = {}
 ): Promise<NotificationListResult> => {
-  const response = await httpClient.get<ApiResponse<{ notifications: AppNotification[] }>>(
-    '/users/me/notifications',
-    { params }
-  );
+  const response = await httpClient.get<
+    ApiResponse<{ notifications: AppNotification[] }, PaginationMeta>
+  >('/users/me/notifications', { params });
+  const { data, meta } = unwrapPaginated(response);
 
-  return {
-    notifications: response.data.data?.notifications ?? [],
-    meta: (response.data.meta as PaginationMeta | undefined) ?? DEFAULT_META,
-  };
+  return { notifications: data.notifications, meta };
 };
 
 export const getUnreadCount = async (workspaceId?: string): Promise<number> => {
@@ -37,7 +32,7 @@ export const markNotificationRead = async (notificationId: string): Promise<void
 };
 
 export const markAllNotificationsRead = async (workspaceId?: string): Promise<void> => {
-  await httpClient.patch('/users/me/notifications/read-all', null, {
+  await httpClient.patch('/users/me/notifications/read-all', {}, {
     params: workspaceId ? { workspaceId } : undefined,
   });
 };

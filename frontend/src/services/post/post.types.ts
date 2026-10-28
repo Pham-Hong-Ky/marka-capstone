@@ -1,4 +1,7 @@
+import type { PaginationMeta } from '@/types';
 import type { ScheduleItem } from '../schedule/schedule.types';
+
+export type { PaginationMeta } from '@/types';
 
 export type PostStatus =
   | 'DRAFT'
@@ -50,13 +53,6 @@ export interface PostDetail extends PostSummary {
   reviewedAt: string | null;
   mediaAssets: PostMedia[];
   schedules: ScheduleItem[];
-}
-
-export interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
 }
 
 export interface PostsResult {

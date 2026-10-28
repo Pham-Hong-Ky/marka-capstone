@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useSyncAnalytics } from '@/hooks/useAnalytics';
+import { queryKeys } from '@/lib/queryKeys';
 import type { AnalyticsCoverage } from '@/services/analytics';
 
 const SYNC_TIMEOUT_MS = 60_000;
@@ -59,9 +60,11 @@ export const useAnalyticsSync = ({
     }
 
     setBaseline(null);
-    queryClient.invalidateQueries({ queryKey: ['analytics', 'suggestions'] });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.analytics.suggestionsRoot,
+    });
     toast.success('Đã cập nhật số liệu mới.');
-  }, [baseline, coverage, queryClient, syncKey]);
+  }, [baseline, coverage, queryClient, syncKey, workspaceId]);
 
   useEffect(() => {
     if (baseline && sync.isError) {

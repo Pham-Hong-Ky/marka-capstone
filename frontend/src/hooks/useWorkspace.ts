@@ -3,19 +3,15 @@ import toast from 'react-hot-toast';
 import { workspaceService, type InviteMemberPayload, type WorkspaceMembersResponse } from '@/services/workspace';
 import { authService, type AuthUser, type UserWorkspace, type WorkspaceRole } from '@/services/auth';
 import { queryClient } from '@/lib/queryClient';
+import { queryKeys } from '@/lib/queryKeys';
 import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
-
-export const workspaceKeys = {
-  members: (id: string) => ['workspace', id, 'members'] as const,
-  invite: (token: string, viewerId: string) => ['invite', token, viewerId] as const,
-};
 
 export const syncSessionUser = async (): Promise<AuthUser | null> => {
   try {
     const user = await authService.getMe();
     useAuthStore.getState().updateUser(user);
-    queryClient.setQueryData(['auth', 'me'], user);
+    queryClient.setQueryData(queryKeys.auth.me, user);
     return user;
   } catch (error) {
     console.error('Không đồng bộ được phiên đăng nhập', error);
@@ -32,7 +28,7 @@ export const useActiveWorkspace = (): UserWorkspace | undefined => {
 
 export const useWorkspaceMembers = (workspaceId: string | null) =>
   useQuery({
-    queryKey: workspaceKeys.members(workspaceId ?? ''),
+    queryKey: queryKeys.workspace.members(workspaceId ?? ''),
     queryFn: () => workspaceService.listMembers(workspaceId as string),
     enabled: Boolean(workspaceId),
   });
@@ -44,7 +40,7 @@ export const useInviteDetails = (token: string | null) => {
   const viewerId = useAuthStore((state) => state.user?.id ?? 'guest');
 
   return useQuery({
-    queryKey: workspaceKeys.invite(token ?? '', viewerId),
+    queryKey: queryKeys.workspace.invite(token ?? '', viewerId),
     queryFn: () => workspaceService.acceptInvite(token as string),
     enabled: Boolean(token),
     retry: false,
@@ -90,8 +86,9 @@ export const useInviteMember = () => {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: InviteMemberPayload }) =>
       workspaceService.inviteMember(id, payload),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: workspaceKeys.members(variables.id) });
+    onSuccess: (data, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.workspace.members(variables.id) });
+      toast.success(`Đã gửi lời mời tới ${data.invite.email}`);
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
@@ -103,7 +100,7 @@ export const useLeaveWorkspace = () => {
   return useMutation({
     mutationFn: (id: string) => workspaceService.leaveWorkspace(id),
     onSuccess: async (_data, id) => {
-      qc.removeQueries({ queryKey: workspaceKeys.members(id) });
+      qc.removeQueries({ queryKey: queryKeys.workspace.members(id) });
       await syncSessionUser();
       toast.success('Đã rời workspace');
     },
@@ -118,7 +115,7 @@ export const useRemoveMember = () => {
     mutationFn: ({ id, userId }: { id: string; userId: string }) =>
       workspaceService.removeMember(id, userId),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: workspaceKeys.members(variables.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.workspace.members(variables.id) });
       toast.success('Đã xóa thành viên');
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -132,11 +129,11 @@ export const useChangeMemberRole = () => {
     mutationFn: ({ id, userId, role }: { id: string; userId: string; role: WorkspaceRole }) =>
       workspaceService.changeMemberRole(id, userId, role),
     onMutate: async ({ id, userId, role }) => {
-      await qc.cancelQueries({ queryKey: workspaceKeys.members(id) });
-      const previous = qc.getQueryData<WorkspaceMembersResponse>(workspaceKeys.members(id));
+      await qc.cancelQueries({ queryKey: queryKeys.workspace.members(id) });
+      const previous = qc.getQueryData<WorkspaceMembersResponse>(queryKeys.workspace.members(id));
 
       if (previous) {
-        qc.setQueryData<WorkspaceMembersResponse>(workspaceKeys.members(id), {
+        qc.setQueryData<WorkspaceMembersResponse>(queryKeys.workspace.members(id), {
           ...previous,
           members: previous.members.map((member) =>
             member.userId === userId ? { ...member, role } : member
@@ -148,13 +145,13 @@ export const useChangeMemberRole = () => {
     },
     onError: (error, _variables, context) => {
       if (context?.previous) {
-        qc.setQueryData(workspaceKeys.members(context.id), context.previous);
+        qc.setQueryData(queryKeys.workspace.members(context.id), context.previous);
       }
       toast.error(getErrorMessage(error));
     },
     onSuccess: () => toast.success('Đã cập nhật vai trò'),
     onSettled: (_data, _error, variables) => {
-      qc.invalidateQueries({ queryKey: workspaceKeys.members(variables.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.workspace.members(variables.id) });
     },
   });
 };

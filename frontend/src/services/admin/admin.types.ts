@@ -1,3 +1,4 @@
+import type { PaginationMeta } from '@/types';
 import type { WorkspacePlan } from '@/services/auth';
 
 export interface AdminStats {
@@ -53,12 +54,7 @@ export interface AdminAuditLog {
   workspace: { id: string; name: string } | null;
 }
 
-export interface AdminPaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
+export type AdminPaginationMeta = PaginationMeta;
 
 export interface AdminUsersResponse {
   users: AdminUser[];

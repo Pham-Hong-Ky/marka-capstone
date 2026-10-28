@@ -11,23 +11,19 @@ import {
   type CreateSchedulePayload,
   type ScheduleListParams,
 } from '@/services/schedule';
+import { queryKeys } from '@/lib/queryKeys';
 import { getErrorMessage } from '@/utils/error';
 import { hasPublishInProgress, PUBLISH_POLL_INTERVAL_MS } from '@/utils/schedule';
 
-const scheduleKeys = {
-  list: (workspaceId: string, params: ScheduleListParams) =>
-    ['schedules', workspaceId, params] as const,
-};
-
 const invalidateScheduleData = (queryClient: QueryClient, workspaceId: string) => {
-  queryClient.invalidateQueries({ queryKey: ['schedules', workspaceId] });
-  queryClient.invalidateQueries({ queryKey: ['posts', workspaceId] });
-  queryClient.invalidateQueries({ queryKey: ['post', workspaceId] });
+  queryClient.invalidateQueries({ queryKey: queryKeys.schedule.workspace(workspaceId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.post.workspace(workspaceId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.post.detailWorkspace(workspaceId) });
 };
 
 export const useSchedules = (workspaceId: string | null, params: ScheduleListParams) =>
   useQuery({
-    queryKey: scheduleKeys.list(workspaceId ?? '', params),
+    queryKey: queryKeys.schedule.list(workspaceId ?? '', params),
     queryFn: () => scheduleService.listSchedules(workspaceId as string, params),
     enabled: Boolean(workspaceId),
     placeholderData: keepPreviousData,
