@@ -4,6 +4,7 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import SidebarContent from './SidebarContent';
 import Drawer from '@/components/ui/Drawer';
+import { MOBILE_NAV_ID } from '@/config/navigation';
 import { useAuthStore } from '@/stores/auth.store';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 import { useUiStore } from '@/stores/ui.store';
@@ -42,7 +43,12 @@ export const AppLayout = () => {
         </main>
       </div>
 
-      <Drawer id="mobile-nav" open={mobileNavOpen} onClose={closeMobileNav} title="Điều hướng">
+      <Drawer
+        id={MOBILE_NAV_ID}
+        open={mobileNavOpen}
+        onClose={closeMobileNav}
+        title="Điều hướng"
+      >
         <SidebarContent
           user={user}
           workspace={activeWorkspace}

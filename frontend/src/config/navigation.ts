@@ -37,6 +37,8 @@ export const ROUTE_LABELS = {
   adminAuditLogs: 'Audit log',
 } as const;
 
+export const MOBILE_NAV_ID = 'mobile-nav';
+
 export interface NavItem {
   label: string;
   to: string;

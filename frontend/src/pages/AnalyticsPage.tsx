@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import AnalyticsFilterBar from '@/components/features/analytics/AnalyticsFilterBar';
@@ -67,20 +67,43 @@ export const AnalyticsPage = () => {
   const channels = channelsData?.channels ?? [];
 
   const filters = useMemo(() => readFilters(searchParams), [searchParams]);
+
+  const updateFilters = useCallback(
+    (next: AnalyticsFilters) => {
+      if (next.range === 'custom' && (!next.from || !next.to || next.to < next.from)) {
+        return;
+      }
+
+      setSearchParams(writeFilters(next), { replace: true });
+    },
+    [setSearchParams]
+  );
+
+  // Kênh chưa có trong danh sách đã tải (đổi workspace, URL cũ) bị loại khỏi truy vấn ngay
+  // lượt render này, không chờ effect dọn URL.
+  const channelsLoaded = channelsData !== undefined;
+  const channelExists = filters.channelId
+    ? channelsLoaded && channels.some((channel) => channel.id === filters.channelId)
+    : true;
+  const effectiveFilters = useMemo(
+    () => (channelExists ? filters : { ...filters, channelId: undefined }),
+    [channelExists, filters]
+  );
+
   const isCustomInvalid =
     filters.range === 'custom' && (!filters.from || !filters.to || filters.to < filters.from);
 
   const syncKey = [
     workspaceId,
-    filters.range,
-    filters.from ?? '',
-    filters.to ?? '',
-    filters.channelId ?? '',
-    filters.tag ?? '',
+    effectiveFilters.range,
+    effectiveFilters.from ?? '',
+    effectiveFilters.to ?? '',
+    effectiveFilters.channelId ?? '',
+    effectiveFilters.tag ?? '',
   ].join('|');
 
   const [pollInterval, setPollInterval] = useState<number | false>(false);
-  const overview = useAnalyticsOverview(workspaceId, filters, {
+  const overview = useAnalyticsOverview(workspaceId, effectiveFilters, {
     enabled: !isCustomInvalid,
     refetchInterval: pollInterval,
   });
@@ -89,7 +112,42 @@ export const AnalyticsPage = () => {
     coverage: overview.data?.coverage,
     syncKey,
   });
-  const suggestions = useAnalyticsSuggestions(workspaceId, filters.channelId);
+  const suggestions = useAnalyticsSuggestions(workspaceId, effectiveFilters.channelId);
+
+  const previousWorkspaceId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const previous = previousWorkspaceId.current;
+    previousWorkspaceId.current = workspaceId;
+
+    if (!previous || previous === workspaceId) {
+      return;
+    }
+
+    if (!filters.channelId && !filters.tag) {
+      return;
+    }
+
+    updateFilters({ ...filters, channelId: undefined, tag: undefined });
+  }, [workspaceId, filters, updateFilters]);
+
+  useEffect(() => {
+    if (!filters.channelId || !channelsLoaded || channelExists) {
+      return;
+    }
+
+    updateFilters({ ...filters, channelId: undefined });
+  }, [channelsLoaded, channelExists, filters, updateFilters]);
+
+  const tags = overview.data?.tags;
+
+  useEffect(() => {
+    if (!tags || !filters.tag || tags.includes(filters.tag)) {
+      return;
+    }
+
+    updateFilters({ ...filters, tag: undefined });
+  }, [filters, tags, updateFilters]);
 
   useEffect(() => {
     setPollInterval(isWaiting ? 5000 : false);
@@ -112,14 +170,6 @@ export const AnalyticsPage = () => {
       Đồng bộ số liệu
     </Button>
   );
-
-  const updateFilters = (next: AnalyticsFilters) => {
-    if (next.range === 'custom' && (!next.from || !next.to || next.to < next.from)) {
-      return;
-    }
-
-    setSearchParams(writeFilters(next), { replace: true });
-  };
 
   const renderContent = (data: AnalyticsOverview) => {
     if (data.coverage.publishedPosts === 0) {
@@ -202,7 +252,7 @@ export const AnalyticsPage = () => {
       />
 
       <AnalyticsFilterBar
-        filters={filters}
+        filters={effectiveFilters}
         channels={channels}
         tags={overview.data?.tags ?? []}
         onChange={updateFilters}

@@ -102,7 +102,7 @@ Mọi truy vấn dữ liệu nghiệp vụ đều lọc theo `workspaceId`; khô
   Điều kiện này **không tự áp dụng cho dữ liệu lồng** nạp qua `include`/`select` quan hệ; repository phải lọc thủ công nếu cần.
   Đọc bản ghi đã xoá phải dùng `basePrisma` (export từ `config/db.ts`); **chưa có endpoint khôi phục**.
 - **Workspace đã xoá mềm:** biến mất khỏi `GET /workspaces`; mọi route đi qua `requireWorkspaceRole` trả `404 "Workspace không tồn tại hoặc đã bị xoá"` (kể cả `SYSTEM_ADMIN`).
-- **Phân trang:** `page` (mặc định 1), `limit` (mặc định 10, tối đa 50); thông tin phân trang nằm trong `meta` với `{ page, limit, total, totalPages }`. Hiện `GET .../posts` và `GET .../billing/transactions` dùng phân trang.
+- **Phân trang:** `page` (mặc định 1), `limit` (mặc định 10, tối đa 50); thông tin phân trang nằm trong `meta` với `{ page, limit, total, totalPages }`. Hiện `GET .../posts`, `GET .../billing/transactions`, `GET .../admin/users`, `GET .../admin/workspaces`, `GET .../admin/audit-logs` và `GET .../schedules` dùng phân trang.
 
 ### 2.5. Rate limit, audit, tác vụ nền
 

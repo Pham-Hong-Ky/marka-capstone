@@ -66,6 +66,13 @@ export const AdminAuditLogsPage = () => {
   );
 
   const auditLogs = data?.auditLogs ?? [];
+  const totalPages = data?.meta.totalPages;
+
+  useEffect(() => {
+    if (totalPages !== undefined && page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
 
   const clearFilters = () => {
     setAction('');

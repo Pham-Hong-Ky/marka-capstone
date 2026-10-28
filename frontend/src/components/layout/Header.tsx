@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight, Menu, Moon, Plus, Sun } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import NotificationBell from './NotificationBell';
-import { resolveBreadcrumbs } from '@/config/navigation';
+import { resolveBreadcrumbs, MOBILE_NAV_ID } from '@/config/navigation';
 import { useThemeStore } from '@/stores/theme.store';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useUiStore } from '@/stores/ui.store';
@@ -27,7 +27,7 @@ export const Header = ({ workspace }: { workspace: UserWorkspace | undefined }) 
         variant="ghost"
         aria-label="Mở menu điều hướng"
         aria-expanded={mobileNavOpen}
-        aria-controls="mobile-nav"
+        aria-controls={MOBILE_NAV_ID}
         onClick={openMobileNav}
         className="h-11 w-11 shrink-0 px-0 lg:hidden"
       >

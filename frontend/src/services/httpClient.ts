@@ -67,7 +67,14 @@ httpClient.interceptors.response.use(
       originalRequest.url?.includes('/auth/google') ||
       originalRequest.url?.includes('/auth/refresh');
 
-    if (status === 401 && !originalRequest._retry && !isAuthUrl) {
+    // Đổi mật khẩu/xoá tài khoản trả 401 khi sai mật khẩu, không phải token hết hạn:
+    // thử refresh ở đây sẽ đăng xuất người dùng và che mất thông báo lỗi của server.
+    const isBusinessAuthUrl =
+      Boolean(originalRequest.url?.includes('/users/me/password')) ||
+      (originalRequest.method?.toLowerCase() === 'delete' &&
+        Boolean(originalRequest.url?.endsWith('/users/me')));
+
+    if (status === 401 && !originalRequest._retry && !isAuthUrl && !isBusinessAuthUrl) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
