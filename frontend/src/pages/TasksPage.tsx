@@ -1,21 +1,31 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
+import TaskAssignModal from '@/components/features/task/TaskAssignModal';
 import TaskBoard from '@/components/features/task/TaskBoard';
 import TaskCreateModal from '@/components/features/task/TaskCreateModal';
 import TaskDetailModal from '@/components/features/task/TaskDetailModal';
 import TaskFilterBar from '@/components/features/task/TaskFilterBar';
-import { useDeleteTask, useTaskBoard } from '@/hooks/useTasks';
-import type { TaskItem } from '@/services/task';
+import TaskLinkPostModal from '@/components/features/task/TaskLinkPostModal';
+import { useAssignTask, useDeleteTask, useTaskBoard, useUpdateTaskStatus } from '@/hooks/useTasks';
+import type { TaskColumn, TaskItem, TaskStatus } from '@/services/task';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 import { getErrorMessage } from '@/utils/error';
 
+const COLUMN_STATUS: Record<Exclude<TaskColumn, 'unassigned'>, TaskStatus> = {
+  todo: 'TODO',
+  inProgress: 'IN_PROGRESS',
+  done: 'DONE',
+};
+
 export const TasksPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
   const canManage = activeWorkspace?.role === 'OWNER';
@@ -27,7 +37,11 @@ export const TasksPage = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<TaskItem | null>(null);
+  const [assignTarget, setAssignTarget] = useState<TaskItem | null>(null);
+  const [linkTarget, setLinkTarget] = useState<TaskItem | null>(null);
+  const [pendingUnassign, setPendingUnassign] = useState<TaskItem | null>(null);
   const debouncedSearch = useDebouncedValue(search, 300);
+  const taskIdFromQuery = searchParams.get('taskId');
 
   const { data, isLoading, isError, error, refetch } = useTaskBoard(workspaceId, {
     search: debouncedSearch.trim() || undefined,
@@ -35,6 +49,14 @@ export const TasksPage = () => {
     mine: mine || undefined,
   });
   const deleteTask = useDeleteTask();
+  const updateStatus = useUpdateTaskStatus();
+  const assignMutation = useAssignTask();
+
+  useEffect(() => {
+    if (taskIdFromQuery) {
+      setSelectedTaskId(taskIdFromQuery);
+    }
+  }, [taskIdFromQuery]);
 
   const selectedTask = useMemo(() => {
     if (!data || !selectedTaskId) return null;
@@ -45,15 +67,59 @@ export const TasksPage = () => {
     );
   }, [data, selectedTaskId]);
 
+  const closeDetail = () => {
+    setSelectedTaskId(null);
+    if (taskIdFromQuery) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('taskId');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
   const openCreate = () => {
     setEditingTask(null);
     setFormOpen(true);
   };
 
   const openEdit = (task: TaskItem) => {
-    setSelectedTaskId(null);
+    closeDetail();
     setEditingTask(task);
     setFormOpen(true);
+  };
+
+  const openAssign = (task: TaskItem) => {
+    closeDetail();
+    setAssignTarget(task);
+  };
+
+  const openLinkPost = (task: TaskItem) => {
+    closeDetail();
+    setLinkTarget(task);
+  };
+
+  const handleDropTask = (taskId: string, column: TaskColumn) => {
+    if (!workspaceId || !data) return;
+    const task = [...data.unassigned, ...data.todo, ...data.inProgress, ...data.done].find(
+      (item) => item.id === taskId
+    );
+    if (!task) return;
+
+    if (column === 'unassigned') {
+      if (task.assignee) {
+        setPendingUnassign(task);
+      }
+      return;
+    }
+
+    if (!task.assignee) {
+      setAssignTarget(task);
+      return;
+    }
+
+    const status = COLUMN_STATUS[column];
+    if (task.status !== status) {
+      updateStatus.mutate({ workspaceId, taskId: task.id, status });
+    }
   };
 
   if (!workspaceId) {
@@ -117,8 +183,13 @@ export const TasksPage = () => {
         <TaskBoard
           board={data}
           showUnassigned={showUnassigned}
+          canManage={canManage}
           onCreate={canManage ? openCreate : undefined}
           onOpenTask={(task) => setSelectedTaskId(task.id)}
+          onStatusChange={(task, status) =>
+            updateStatus.mutate({ workspaceId, taskId: task.id, status })
+          }
+          onDropTask={handleDropTask}
         />
       ) : null}
 
@@ -133,10 +204,31 @@ export const TasksPage = () => {
         open={Boolean(selectedTask)}
         task={selectedTask}
         canManage={canManage}
-        onClose={() => setSelectedTaskId(null)}
+        onClose={closeDetail}
         onEdit={openEdit}
         onDelete={(task) => setTaskToDelete(task)}
+        onAssign={openAssign}
+        onLinkPost={openLinkPost}
       />
+
+      {assignTarget ? (
+        <TaskAssignModal
+          open
+          onClose={() => setAssignTarget(null)}
+          workspaceId={workspaceId}
+          task={assignTarget}
+        />
+      ) : null}
+
+      {linkTarget ? (
+        <TaskLinkPostModal
+          open
+          onClose={() => setLinkTarget(null)}
+          workspaceId={workspaceId}
+          task={linkTarget}
+          canManage={canManage}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(taskToDelete)}
@@ -153,9 +245,26 @@ export const TasksPage = () => {
             {
               onSuccess: () => {
                 setTaskToDelete(null);
-                setSelectedTaskId(null);
+                closeDetail();
               },
             }
+          );
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingUnassign)}
+        onClose={() => setPendingUnassign(null)}
+        title="Bỏ giao việc?"
+        description={`Bỏ giao "${pendingUnassign?.title ?? ''}"? Việc sẽ về cột Chưa giao và hạn chót bị xoá.`}
+        confirmLabel="Bỏ giao"
+        tone="danger"
+        isLoading={assignMutation.isPending}
+        onConfirm={() => {
+          if (!pendingUnassign) return;
+          assignMutation.mutate(
+            { workspaceId, taskId: pendingUnassign.id, assigneeId: null },
+            { onSuccess: () => setPendingUnassign(null) }
           );
         }}
       />

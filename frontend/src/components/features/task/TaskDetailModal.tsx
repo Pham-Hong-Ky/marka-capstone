@@ -20,6 +20,8 @@ export const TaskDetailModal = ({
   canManage,
   onEdit,
   onDelete,
+  onAssign,
+  onLinkPost,
 }: {
   open: boolean;
   onClose: () => void;
@@ -27,6 +29,8 @@ export const TaskDetailModal = ({
   canManage: boolean;
   onEdit: (task: TaskItem) => void;
   onDelete: (task: TaskItem) => void;
+  onAssign: (task: TaskItem) => void;
+  onLinkPost: (task: TaskItem) => void;
 }) => {
   if (!task) return null;
 
@@ -89,6 +93,17 @@ export const TaskDetailModal = ({
           <p className="whitespace-pre-line text-sm text-muted">{task.description}</p>
         </div>
       ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {canManage ? (
+          <Button type="button" variant="outline" onClick={() => onAssign(task)}>
+            Giao việc
+          </Button>
+        ) : null}
+        <Button type="button" variant="outline" onClick={() => onLinkPost(task)}>
+          {task.post ? 'Đổi bài viết' : 'Gắn bài viết'}
+        </Button>
+      </div>
     </Modal>
   );
 };
