@@ -9,7 +9,12 @@ import PostStatusBadge from './PostStatusBadge';
 import PostPreviewModal from './PostPreviewModal';
 import PostScheduleList from './PostScheduleList';
 import PublishScheduleModal from '@/components/features/schedule/PublishScheduleModal';
-import { canModifyPost, PUBLISHABLE_POST_STATUSES, type PostDetail } from '@/services/post';
+import {
+  canManagePost,
+  canModifyPost,
+  PUBLISHABLE_POST_STATUSES,
+  type PostDetail,
+} from '@/services/post';
 import { usePost, useReviewPost, useSubmitPost } from '@/hooks/usePost';
 import { getErrorMessage } from '@/utils/error';
 import type { WorkspaceRole } from '@/services/auth';
@@ -48,7 +53,11 @@ export const PostDetailModal = ({
 
   const canEdit = Boolean(post && canModifyPost(post, currentUserId, role));
   const canReview = post?.status === 'PENDING' && role === 'OWNER';
-  const canPublish = Boolean(post && PUBLISHABLE_POST_STATUSES.includes(post.status));
+  const canPublish = Boolean(
+    post &&
+      PUBLISHABLE_POST_STATUSES.includes(post.status) &&
+      canManagePost(post, currentUserId, role)
+  );
   const schedules = post?.schedules ?? [];
 
   return (

@@ -13,6 +13,9 @@ import ScheduleStatusBadge from '@/components/features/schedule/ScheduleStatusBa
 import ScheduleCalendar from '@/components/features/schedule/ScheduleCalendar';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 import { useCancelSchedule, useSchedules } from '@/hooks/useSchedule';
+import { useAuthStore } from '@/stores/auth.store';
+import { canManagePost } from '@/services/post';
+import { buildExternalPostUrl } from '@/services/channel';
 import { useChannels } from '@/hooks/useChannels';
 import {
   SCHEDULE_STATUS_TABS,
@@ -30,6 +33,7 @@ export const SchedulePage = () => {
   const navigate = useNavigate();
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null);
 
   const [status, setStatus] = useState<ScheduleStatus | null>(null);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
@@ -190,65 +194,71 @@ export const SchedulePage = () => {
           />
         ) : null}
 
-        {schedules.map((schedule) => (
-          <article
-            key={schedule.id}
-            className="rounded-2xl border border-border bg-surface p-4 sm:p-5"
-          >
-            <div className="flex flex-wrap items-start gap-4">
-              <Avatar
-                name={getDisplayName(schedule.channel)}
-                src={schedule.channel.avatar}
-                className="h-10 w-10"
-              />
+        {schedules.map((schedule) => {
+          const postUrl = buildExternalPostUrl(schedule.channel.platform, schedule.externalPostId);
 
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="truncate text-sm font-semibold text-foreground">
-                    {schedule.post.title}
-                  </h3>
-                  <ScheduleStatusBadge status={schedule.status} />
+          return (
+            <article
+              key={schedule.id}
+              className="rounded-2xl border border-border bg-surface p-4 sm:p-5"
+            >
+              <div className="flex flex-wrap items-start gap-4">
+                <Avatar
+                  name={getDisplayName(schedule.channel)}
+                  src={schedule.channel.avatar}
+                  className="h-10 w-10"
+                />
+
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate text-sm font-semibold text-foreground">
+                      {schedule.post.title}
+                    </h3>
+                    <ScheduleStatusBadge status={schedule.status} />
+                  </div>
+
+                  <p className="text-sm text-muted">
+                    {getDisplayName(schedule.channel)} · {format(getScheduleDate(schedule), 'HH:mm')}
+                    {schedule.scheduledAt ? '' : ' · Đăng ngay'}
+                  </p>
+
+                  {schedule.errorMessage ? (
+                    <p className="text-sm text-danger">{schedule.errorMessage}</p>
+                  ) : null}
                 </div>
 
-                <p className="text-sm text-muted">
-                  {getDisplayName(schedule.channel)} · {format(getScheduleDate(schedule), 'HH:mm')}
-                  {schedule.scheduledAt ? '' : ' · Đăng ngay'}
-                </p>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {postUrl ? (
+                    <a
+                      href={postUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-accent-text transition hover:bg-accent/10"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Xem bài
+                    </a>
+                  ) : null}
 
-                {schedule.errorMessage ? (
-                  <p className="text-sm text-danger">{schedule.errorMessage}</p>
-                ) : null}
+                  {schedule.status === 'SCHEDULED' &&
+                  activeWorkspace &&
+                  canManagePost(schedule.post, currentUserId, activeWorkspace.role) ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="min-h-11 text-danger hover:bg-danger/10"
+                      disabled={cancelSchedule.isPending}
+                      onClick={() => setScheduleToCancel(schedule)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Huỷ lịch
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
-                {schedule.externalPostId && schedule.channel.platform === 'FACEBOOK' ? (
-                  <a
-                    href={`https://www.facebook.com/${schedule.externalPostId}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-accent-text transition hover:bg-accent/10"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Xem bài
-                  </a>
-                ) : null}
-
-                {schedule.status === 'SCHEDULED' ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="min-h-11 text-danger hover:bg-danger/10"
-                    disabled={cancelSchedule.isPending}
-                    onClick={() => setScheduleToCancel(schedule)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Huỷ lịch
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </section>
 
       <ConfirmDialog

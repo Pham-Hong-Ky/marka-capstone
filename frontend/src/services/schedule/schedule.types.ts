@@ -26,6 +26,7 @@ export interface SchedulePostRef {
   id: string;
   title: string;
   status: SchedulePostStatus;
+  createdById: string | null;
 }
 
 export interface ScheduleItem {

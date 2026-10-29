@@ -6,6 +6,12 @@ interface PostOwnership {
   createdById: string | null;
 }
 
+export const canManagePost = (
+  post: Pick<PostOwnership, 'createdById'>,
+  userId: string | null,
+  role: WorkspaceRole
+): boolean => role === 'OWNER' || (Boolean(userId) && post.createdById === userId);
+
 export const canModifyPost = (
   post: PostOwnership,
   userId: string | null,
@@ -15,7 +21,7 @@ export const canModifyPost = (
     return false;
   }
 
-  return role === 'OWNER' || (Boolean(userId) && post.createdById === userId);
+  return canManagePost(post, userId, role);
 };
 
 export default canModifyPost;

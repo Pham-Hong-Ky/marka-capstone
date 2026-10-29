@@ -48,7 +48,14 @@ const PLATFORMS: Partial<Record<ChannelPlatform, ChannelPlatformMeta>> = {
   },
 };
 
-export const CONNECTABLE_PLATFORMS = Object.keys(PLATFORMS) as ChannelPlatform[];
+/** Link bài trên nền tảng; null khi id không dựng được URL (Threads cần permalink riêng). */
+export const buildExternalPostUrl = (
+  platform: ChannelPlatform,
+  externalPostId: string | null
+): string | null =>
+  platform === 'FACEBOOK' && externalPostId ? `https://www.facebook.com/${externalPostId}` : null;
+
+export const CONNECTABLE_PLATFORMS =Object.keys(PLATFORMS) as ChannelPlatform[];
 
 export const getChannelPlatformMeta = (platform: string): ChannelPlatformMeta => {
   const meta = PLATFORMS[platform as ChannelPlatform];
