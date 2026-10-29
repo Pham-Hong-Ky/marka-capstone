@@ -8,6 +8,7 @@ import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
 import { useAdminAuditLogs } from '@/hooks/useAdmin';
+import { useClampPage } from '@/hooks/useClampPage';
 import { AUDIT_ACTION_LABELS, type AdminAuditLog } from '@/services/admin';
 import { getErrorMessage } from '@/utils/error';
 import { formatDateTime } from '@/utils/format';
@@ -63,11 +64,7 @@ export const AdminAuditLogsPage = () => {
   const auditLogs = data?.auditLogs ?? [];
   const totalPages = data?.meta.totalPages;
 
-  useEffect(() => {
-    if (totalPages !== undefined && page > totalPages) {
-      setPage(Math.max(1, totalPages));
-    }
-  }, [page, totalPages]);
+  useClampPage(page, totalPages, setPage);
 
   const clearFilters = () => {
     setAction('');

@@ -15,6 +15,12 @@ import { getErrorMessage } from '@/utils/error';
 
 const COLUMNS: TaskColumn[] = ['unassigned', 'todo', 'inProgress', 'done'];
 
+const STATUS_COLUMN: Record<Exclude<TaskStatus, 'CANCELLED'>, TaskColumn> = {
+  TODO: 'todo',
+  IN_PROGRESS: 'inProgress',
+  DONE: 'done',
+};
+
 const findColumn = (board: TaskBoard, taskId: string): TaskColumn | null =>
   COLUMNS.find((column) => board[column].some((task) => task.id === taskId)) ?? null;
 
@@ -44,13 +50,7 @@ const applyStatus = (board: TaskBoard, taskId: string, status: TaskStatus): Task
   }
 
   const target: TaskColumn =
-    status === 'TODO'
-      ? task.assignee
-        ? 'todo'
-        : 'unassigned'
-      : status === 'IN_PROGRESS'
-        ? 'inProgress'
-        : 'done';
+    status === 'TODO' && !task.assignee ? 'unassigned' : STATUS_COLUMN[status];
   next[target] = [
     ...next[target],
     { ...task, status, updatedAt: new Date().toISOString() },

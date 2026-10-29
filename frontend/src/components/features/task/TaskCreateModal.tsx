@@ -11,6 +11,7 @@ import { useCreateTask, useUpdateTask } from '@/hooks/useTasks';
 import { useWorkspaceMembers } from '@/hooks/useWorkspace';
 import type { TaskItem } from '@/services/task';
 import { cn } from '@/utils/cn';
+import { toDateTimeLocalValue } from '@/utils/format';
 
 const taskFormSchema = z.object({
   title: z
@@ -28,18 +29,11 @@ type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 const PRIORITY_OPTIONS = [1, 2, 3, 4, 5];
 
-const toLocalInput = (value: string | null) => {
-  if (!value) return '';
-  const date = new Date(value);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-};
-
 const buildDefaults = (task?: TaskItem | null): TaskFormValues => ({
   title: task?.title ?? '',
   description: task?.description ?? '',
   assigneeId: task?.assignee?.id ?? '',
-  dueAt: toLocalInput(task?.dueAt ?? null),
+  dueAt: task?.dueAt ? toDateTimeLocalValue(task.dueAt) : '',
   priority: task?.priority ?? 3,
 });
 

@@ -10,6 +10,7 @@ import Pagination from '@/components/ui/Pagination';
 import SelectField from '@/components/ui/SelectField';
 import TextField from '@/components/ui/TextField';
 import { useAdminUsers } from '@/hooks/useAdmin';
+import { useClampPage } from '@/hooks/useClampPage';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import type { AdminUser } from '@/services/admin';
 import { useAuthStore } from '@/stores/auth.store';
@@ -53,11 +54,7 @@ export const AdminUsersPage = () => {
 
   const totalPages = data?.meta.totalPages;
 
-  useEffect(() => {
-    if (totalPages !== undefined && page > totalPages) {
-      setPage(Math.max(1, totalPages));
-    }
-  }, [page, totalPages]);
+  useClampPage(page, totalPages, setPage);
 
   const users = data?.users ?? [];
 

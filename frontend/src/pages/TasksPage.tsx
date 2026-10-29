@@ -61,14 +61,13 @@ export const TasksPage = () => {
     setSelectedTaskId(taskIdFromQuery);
   }, [taskIdFromQuery]);
 
-  const selectedTask = useMemo(() => {
-    if (!data || !selectedTaskId) return null;
-    return (
-      [...data.unassigned, ...data.todo, ...data.inProgress, ...data.done].find(
-        (task) => task.id === selectedTaskId
-      ) ?? null
-    );
-  }, [data, selectedTaskId]);
+  const allTasks = useMemo(
+    () => (data ? [...data.unassigned, ...data.todo, ...data.inProgress, ...data.done] : []),
+    [data]
+  );
+  const findTask = (taskId: string | null) =>
+    allTasks.find((task) => task.id === taskId) ?? null;
+  const selectedTask = findTask(selectedTaskId);
 
   const closeDetail = () => {
     setSelectedTaskId(null);
@@ -103,11 +102,8 @@ export const TasksPage = () => {
   };
 
   const handleDropTask = (taskId: string, column: TaskColumn) => {
-    if (!workspaceId || !data) return;
-    const task = [...data.unassigned, ...data.todo, ...data.inProgress, ...data.done].find(
-      (item) => item.id === taskId
-    );
-    if (!task) return;
+    const task = findTask(taskId);
+    if (!workspaceId || !task) return;
 
     if (column === 'unassigned') {
       if (task.assignee) {
@@ -141,12 +137,9 @@ export const TasksPage = () => {
     updateStatus.mutate({ workspaceId, taskId: task.id, status });
   };
 
-  const linkedPostIds = useMemo(() => {
-    if (!data) return [];
-    return [...data.unassigned, ...data.todo, ...data.inProgress, ...data.done]
-      .map((task) => task.post?.id)
-      .filter((id): id is string => Boolean(id) && id !== linkTarget?.post?.id);
-  }, [data, linkTarget?.post?.id]);
+  const linkedPostIds = allTasks
+    .map((task) => task.post?.id)
+    .filter((id): id is string => Boolean(id) && id !== linkTarget?.post?.id);
 
   if (!workspaceId) {
     return (

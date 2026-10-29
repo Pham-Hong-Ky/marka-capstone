@@ -12,13 +12,10 @@ import type { PostDetail } from '@/services/post';
 import { OCCUPIED_SCHEDULE_STATUSES } from '@/services/schedule';
 import { getChannelPlatformMeta } from '@/services/channel';
 import { getErrorMessage } from '@/utils/error';
+import { toDateTimeLocalValue } from '@/utils/format';
 
-const toLocalInputValue = (date: Date): string => {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-};
-
-const defaultScheduleTime = (): string => toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000));
+const defaultScheduleTime = (): string =>
+  toDateTimeLocalValue(new Date(Date.now() + 60 * 60 * 1000));
 
 export const PublishScheduleModal = ({
   open,
@@ -169,7 +166,7 @@ export const PublishScheduleModal = ({
             name="scheduledAt"
             type="datetime-local"
             value={scheduledAt}
-            min={toLocalInputValue(new Date(Date.now() + 60_000))}
+            min={toDateTimeLocalValue(new Date(Date.now() + 60_000))}
             onChange={(event) => setScheduledAt(event.target.value)}
           />
         ) : null}

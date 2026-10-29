@@ -8,6 +8,7 @@ import Pagination from '@/components/ui/Pagination';
 import SelectField from '@/components/ui/SelectField';
 import TextField from '@/components/ui/TextField';
 import { useAdminWorkspaces } from '@/hooks/useAdmin';
+import { useClampPage } from '@/hooks/useClampPage';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import type { AdminWorkspace } from '@/services/admin';
 import type { WorkspacePlan } from '@/services/auth';
@@ -41,11 +42,7 @@ export const AdminWorkspacesPage = () => {
 
   const totalPages = data?.meta.totalPages;
 
-  useEffect(() => {
-    if (totalPages !== undefined && page > totalPages) {
-      setPage(Math.max(1, totalPages));
-    }
-  }, [page, totalPages]);
+  useClampPage(page, totalPages, setPage);
 
   const workspaces = data?.workspaces ?? [];
 
