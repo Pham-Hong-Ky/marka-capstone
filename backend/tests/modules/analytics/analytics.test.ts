@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
+import { analyticsQueue } from '../../../src/workers/queues.js';
 
 const password = 'password123';
 
@@ -194,6 +195,25 @@ describe('Analytics — thống kê & gợi ý', () => {
     });
     expect(res.body.data.series).toHaveLength(30);
     expect(res.body.data.coverage).toMatchObject({ publishedPosts: 2, syncedPosts: 2 });
+  });
+
+  it('bấm đồng bộ nhiều lần chỉ giữ một job chờ cho mỗi workspace', async () => {
+    const jobId = `analytics-sync-${wsId}`;
+    await analyticsQueue.remove(jobId);
+
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const res = await request(app)
+          .post(`/api/v1/workspaces/${wsId}/analytics/sync`)
+          .set('Authorization', `Bearer ${creatorToken}`);
+        expect(res.status).toBe(202);
+      }
+
+      const jobs = await analyticsQueue.getJobs(['waiting', 'delayed', 'active']);
+      expect(jobs.filter((job) => job.id === jobId)).toHaveLength(1);
+    } finally {
+      await analyticsQueue.remove(jobId);
+    }
   });
 
   it('chặn người ngoài workspace đọc số liệu', async () => {

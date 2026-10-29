@@ -35,7 +35,13 @@ export const getSuggestions = catchAsync(async (req: Request, res: Response) => 
 
 export const triggerSync = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = getWorkspaceId(req);
-  await enqueue(QUEUE_NAMES.analytics, 'analytics-sync', { workspaceId });
+  // jobId theo workspace: bấm đồng bộ liên tục chỉ giữ một job chờ, tránh dội API nền tảng.
+  await enqueue(
+    QUEUE_NAMES.analytics,
+    'analytics-sync',
+    { workspaceId },
+    { jobId: `analytics-sync-${workspaceId}`, removeOnComplete: true, removeOnFail: true }
+  );
 
   return ApiResponse.success(res, {
     statusCode: 202,
