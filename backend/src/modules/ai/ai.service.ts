@@ -21,6 +21,9 @@ import {
 import aiRepository from './ai.repository.js';
 import type { GenerateImageBody, GenerateTextBody } from './ai.validation.js';
 
+const STALE_GENERATION_MS = 30 * 60 * 1000;
+const STALE_GENERATION_BATCH = 100;
+
 interface StartGenerationContext {
   workspaceId: string;
   userId: string;
@@ -261,6 +264,28 @@ export const failGeneration = async (generationId: string, message: string) => {
   });
 };
 
+// Lưới an toàn khi worker chết hoặc bước hoàn credit ở event `failed` lỗi:
+// generation kẹt quá lâu bị đánh FAILED và hoàn credit để người dùng không mất tiền.
+export const recoverStaleGenerations = async (now = new Date()) => {
+  const ids = await aiRepository.findStaleGenerationIds(
+    new Date(now.getTime() - STALE_GENERATION_MS),
+    STALE_GENERATION_BATCH
+  );
+
+  let recovered = 0;
+  for (const id of ids) {
+    try {
+      if (await failGeneration(id, 'Xử lý quá lâu nên đã dừng. Credit đã được hoàn.')) {
+        recovered += 1;
+      }
+    } catch (error) {
+      logger.error(`Không dọn được generation treo ${id}: ${getErrorMessage(error)}`);
+    }
+  }
+
+  return { total: ids.length, recovered };
+};
+
 export default {
   startTextGeneration,
   startImageGeneration,
@@ -269,5 +294,6 @@ export default {
   completeTextGeneration,
   completeImageGeneration,
   failGeneration,
+  recoverStaleGenerations,
   assertPostAcceptsImages,
 };

@@ -2,6 +2,7 @@ import { getErrorMessage } from '../../utils/errorMessage.js';
 import type { AiGeneration } from '@prisma/client';
 import { UnrecoverableError, type Job } from 'bullmq';
 import logger from '../../utils/logger.js';
+import { contentGenerationQueue } from '../../workers/queues.js';
 import { cloudinaryClient } from '../../utils/cloudinary.client.js';
 import { getGeminiModel } from './ai.config.js';
 import {
@@ -148,7 +149,29 @@ export const executeAiGeneration = async (generationId: string, attempt: number)
   }
 };
 
-export const processContentJob = async (job: Job): Promise<{ success: boolean }> => {
+export const AI_RECOVERY_JOB = 'ai-recover-stale';
+
+export const registerAiRecoveryScheduler = async (): Promise<void> => {
+  await contentGenerationQueue.upsertJobScheduler(
+    AI_RECOVERY_JOB,
+    { every: 10 * 60 * 1000 },
+    {
+      name: AI_RECOVERY_JOB,
+      data: {},
+      opts: {
+        attempts: 1,
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    }
+  );
+};
+
+export const processContentJob = async (job: Job): Promise<unknown> => {
+  if (job.name === AI_RECOVERY_JOB) {
+    return aiService.recoverStaleGenerations();
+  }
+
   const { generationId } = job.data as Partial<AiJobData>;
 
   if (!generationId) {
@@ -200,6 +223,7 @@ export const buildAiFailureMessage = (type: string, error: unknown): string => {
 };
 
 export default {
+  registerAiRecoveryScheduler,
   processContentJob,
   executeAiGeneration,
   buildAiFailureMessage,

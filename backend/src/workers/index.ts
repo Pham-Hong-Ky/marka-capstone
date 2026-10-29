@@ -6,7 +6,11 @@ import { processScheduleJob } from '../modules/schedule/schedule.processor.js';
 import { processAnalyticsJob } from '../modules/analytics/analytics.processor.js';
 import { processChannelJob } from '../modules/channel/channel.processor.js';
 import { processTaskReminderJob } from '../modules/task/task.reminder.processor.js';
-import { buildAiFailureMessage, processContentJob } from '../modules/ai/ai.processor.js';
+import {
+  AI_RECOVERY_JOB,
+  buildAiFailureMessage,
+  processContentJob,
+} from '../modules/ai/ai.processor.js';
 import aiService from '../modules/ai/ai.service.js';
 import { QUEUE_NAMES, QUEUE_PREFIX, type QueueName } from './types.js';
 import { hasRemainingAttempts } from './queue-manager.js';
@@ -89,6 +93,8 @@ const createWorker = (
 };
 
 const handleAiFinalFailure = async (job: Job, error: Error) => {
+  if (job.name === AI_RECOVERY_JOB) return;
+
   const generationId = (job.data as { generationId?: string }).generationId;
   if (!generationId) {
     logger.error(`[ContentWorker] job ${job.id} thất bại nhưng thiếu generationId`);

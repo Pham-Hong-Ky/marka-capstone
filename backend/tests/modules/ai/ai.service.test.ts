@@ -336,4 +336,32 @@ describe('AI service', () => {
     });
     expect(detail).toMatchObject({ id: result.generationId, status: 'PENDING', result: null });
   });
+
+  it('dọn generation treo quá 30 phút: FAILED và hoàn credit, generation mới không bị đụng', async () => {
+    const stale = await aiService.startTextGeneration({
+      workspaceId,
+      userId,
+      role: 'OWNER',
+      body: { topic: 'Generation bị treo' },
+    });
+    const fresh = await aiService.startTextGeneration({
+      workspaceId,
+      userId,
+      role: 'OWNER',
+      body: { topic: 'Generation vừa tạo' },
+    });
+    await prisma.$executeRaw`UPDATE ai_generations SET "status" = 'PROCESSING', "updatedAt" = NOW() - INTERVAL '31 minutes' WHERE id = ${stale.generationId}`;
+
+    await aiService.recoverStaleGenerations();
+
+    const [staleRow, freshRow, workspace] = await Promise.all([
+      prisma.aiGeneration.findUniqueOrThrow({ where: { id: stale.generationId } }),
+      prisma.aiGeneration.findUniqueOrThrow({ where: { id: fresh.generationId } }),
+      prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } }),
+    ]);
+    expect(staleRow.status).toBe('FAILED');
+    expect(staleRow.errorMessage).toContain('Credit đã được hoàn');
+    expect(freshRow.status).toBe('PENDING');
+    expect(workspace.remainingCredit).toBe(100 - fresh.creditCost);
+  });
 });

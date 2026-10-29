@@ -5,6 +5,7 @@ import { registerScheduleScheduler } from '../modules/schedule/schedule.processo
 import { registerAnalyticsScheduler } from '../modules/analytics/analytics.processor.js';
 import { registerChannelScheduler } from '../modules/channel/channel.processor.js';
 import { registerTaskReminderScheduler } from '../modules/task/task.reminder.processor.js';
+import { registerAiRecoveryScheduler } from '../modules/ai/ai.processor.js';
 import {
   analyticsWorker,
   channelWorker,
@@ -59,6 +60,16 @@ export const startWorkers = async (): Promise<void> => {
   } catch (error) {
     const message = getErrorMessage(error);
     logger.error(`[Workers] Không đăng ký được scheduler nhắc hạn công việc: ${message}`);
+  }
+  try {
+    await withTimeout(
+      registerAiRecoveryScheduler(),
+      10_000,
+      () => new Error('Timeout đăng ký scheduler dọn tác vụ AI treo')
+    );
+  } catch (error) {
+    const message = getErrorMessage(error);
+    logger.error(`[Workers] Không đăng ký được scheduler dọn tác vụ AI treo: ${message}`);
   }
   logger.info(`[Workers] Đã khởi động: ${Object.values(QUEUE_NAMES).join(', ')}`);
 };

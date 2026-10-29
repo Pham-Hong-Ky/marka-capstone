@@ -151,7 +151,17 @@ export const failActiveGeneration = async (
   return { failed: count === 1, generation: count === 1 ? generation : null };
 };
 
-const buildPostForGenerationWhere = (postId: string, workspaceId: string) => ({
+export const findStaleGenerationIds = async (updatedBefore: Date, take: number) => {
+  const rows = await prisma.aiGeneration.findMany({
+    where: { status: { in: ['PENDING', 'PROCESSING'] }, updatedAt: { lt: updatedBefore } },
+    orderBy: { updatedAt: 'asc' },
+    take,
+    select: { id: true },
+  });
+  return rows.map((row) => row.id);
+};
+
+const buildPostForGenerationWhere =(postId: string, workspaceId: string) => ({
   id: postId,
   workspaceId,
 });
@@ -193,6 +203,7 @@ export default {
   completeGeneration,
   completeGenerationInTransaction,
   failActiveGeneration,
+  findStaleGenerationIds,
   getPostForGeneration,
   getPostForGenerationInTransaction,
 };
