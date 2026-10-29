@@ -6,6 +6,7 @@ import type {
 import type { AnalyticsFilters } from '@/services/analytics';
 import type { PostListParams } from '@/services/post';
 import type { ScheduleListParams } from '@/services/schedule';
+import type { TaskBoardParams } from '@/services/task';
 
 export const queryKeys = {
   auth: {
@@ -70,6 +71,11 @@ export const queryKeys = {
   ai: {
     generation: (workspaceId: string, generationId: string) =>
       ['ai-generation', workspaceId, generationId] as const,
+  },
+  task: {
+    board: (workspaceId: string, params: TaskBoardParams) =>
+      ['tasks', workspaceId, params] as const,
+    boardRoot: (workspaceId: string) => ['tasks', workspaceId] as const,
   },
 };
 
