@@ -1,4 +1,4 @@
-import type { Prisma, WorkspaceRole } from '@prisma/client';
+import type { Prisma, TaskStatus, WorkspaceRole } from '@prisma/client';
 import prisma from '../../config/db.js';
 
 export interface CreateWorkspaceData {
@@ -72,6 +72,12 @@ export const updateWorkspace = async (
 
 export const softDeleteWorkspace = async (workspaceId: string) => {
   return prisma.$transaction(async (tx) => {
+    // Lịch đang PROCESSING để worker đăng xong; lịch chờ thì huỷ để không đăng lên kênh của workspace đã xoá.
+    await tx.scheduledPost.updateMany({
+      where: { status: 'SCHEDULED', channel: { workspaceId } },
+      data: { status: 'CANCELLED', processingStartedAt: null },
+    });
+
     await tx.channelConnection.updateMany({
       where: { workspaceId, status: { not: 'EXPIRED' } },
       data: { status: 'EXPIRED' },
@@ -114,9 +120,36 @@ export const findOwnerIds = async (workspaceId: string) => {
   return owners.map((owner) => owner.userId);
 };
 
+const OPEN_TASK_STATUSES: TaskStatus[] = ['TODO', 'IN_PROGRESS'];
+
+// Việc đang mở của người rời workspace quay về "chưa giao" (giữ hạn chót) để Owner giao lại;
+// việc đã xong/huỷ giữ nguyên người nhận làm lịch sử.
+export const unassignOpenWork = async (
+  tx: Pick<typeof prisma, 'task' | 'post'>,
+  userId: string,
+  workspaceId?: string
+): Promise<number> => {
+  const scope = { assigneeId: userId, ...(workspaceId ? { workspaceId } : {}) };
+  const cleared = { assigneeId: null, assignedById: null, assignedAt: null };
+
+  const { count } = await tx.task.updateMany({
+    where: { ...scope, status: { in: OPEN_TASK_STATUSES } },
+    data: { ...cleared, status: 'TODO' },
+  });
+  await tx.post.updateMany({
+    where: { ...scope, taskStatus: { in: OPEN_TASK_STATUSES } },
+    data: { ...cleared, taskStatus: 'TODO' },
+  });
+
+  return count;
+};
+
 export const deleteMember = async (workspaceId: string, userId: string) => {
-  return prisma.workspaceMember.delete({
-    where: { userId_workspaceId: { userId, workspaceId } },
+  return prisma.$transaction(async (tx) => {
+    await tx.workspaceMember.delete({
+      where: { userId_workspaceId: { userId, workspaceId } },
+    });
+    return { unassignedTasks: await unassignOpenWork(tx, userId, workspaceId) };
   });
 };
 
@@ -208,6 +241,7 @@ export default {
   findMember,
   countOwners,
   findOwnerIds,
+  unassignOpenWork,
   deleteMember,
   updateMemberRole,
   findInviteByToken,

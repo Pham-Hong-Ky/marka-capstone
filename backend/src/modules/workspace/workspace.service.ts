@@ -314,7 +314,7 @@ export const leaveWorkspace = async (workspaceId: string, userId: string) => {
     await assertNotLastOwner(workspaceId, 'Bạn là Owner duy nhất. Hãy chuyển quyền hoặc xóa workspace');
   }
 
-  await workspaceRepository.deleteMember(workspaceId, userId);
+  const { unassignedTasks } = await workspaceRepository.deleteMember(workspaceId, userId);
 
   await auditService.recordAuditLog({
     workspaceId,
@@ -322,6 +322,7 @@ export const leaveWorkspace = async (workspaceId: string, userId: string) => {
     action: 'MEMBER_LEFT',
     targetType: 'WorkspaceMember',
     targetId: userId,
+    metadata: { unassignedTasks },
   });
 
   return { success: true };
@@ -337,7 +338,7 @@ export const removeMember = async (workspaceId: string, actorId: string, targetU
     await assertNotLastOwner(workspaceId, 'Không thể xóa Owner duy nhất của workspace');
   }
 
-  await workspaceRepository.deleteMember(workspaceId, targetUserId);
+  const { unassignedTasks } = await workspaceRepository.deleteMember(workspaceId, targetUserId);
 
   await auditService.recordAuditLog({
     workspaceId,
@@ -345,6 +346,7 @@ export const removeMember = async (workspaceId: string, actorId: string, targetU
     action: 'MEMBER_REMOVED',
     targetType: 'WorkspaceMember',
     targetId: targetUserId,
+    metadata: { unassignedTasks },
   });
 
   return { removedMemberId: targetUserId };

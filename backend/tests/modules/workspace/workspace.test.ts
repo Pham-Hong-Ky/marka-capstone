@@ -286,6 +286,48 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     expect(ids).not.toContain(createdWorkspaceId);
   });
 
+  it('UC18 — Xóa workspace huỷ các lịch đăng đang chờ', async () => {
+    const created = await request(app)
+      .post('/api/v1/workspaces')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: `Workspace có lịch ${Date.now()}` });
+    const workspaceId = created.body.data.id as string;
+
+    const channel = await prisma.channelConnection.create({
+      data: {
+        workspaceId,
+        platform: 'FACEBOOK',
+        type: 'REAL',
+        name: 'Page sắp xoá',
+        externalAccountId: `page-ws-delete-${Date.now()}`,
+        status: 'ACTIVE',
+      },
+    });
+    const post = await prisma.post.create({
+      data: { workspaceId, title: 'Bài đã lên lịch', content: { type: 'doc', content: [] }, status: 'SCHEDULED' },
+    });
+    const schedule = await prisma.scheduledPost.create({
+      data: {
+        postId: post.id,
+        channelId: channel.id,
+        scheduledAt: new Date(Date.now() + 60 * 60 * 1000),
+        status: 'SCHEDULED',
+      },
+    });
+
+    try {
+      const res = await request(app)
+        .delete(`/api/v1/workspaces/${workspaceId}`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+      expect(res.status).toBe(200);
+
+      const saved = await prisma.scheduledPost.findUnique({ where: { id: schedule.id } });
+      expect(saved?.status).toBe('CANCELLED');
+    } finally {
+      await prisma.workspace.deleteMany({ where: { id: workspaceId } });
+    }
+  });
+
   it('UC18 — getMe không trả workspace đã xóa mềm', async () => {
     const res = await request(app)
       .get('/api/v1/users/me')

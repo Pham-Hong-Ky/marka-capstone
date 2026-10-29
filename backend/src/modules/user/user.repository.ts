@@ -1,5 +1,6 @@
 import type { AuthProvider, Prisma } from '@prisma/client';
 import prisma, { basePrisma } from '../../config/db.js';
+import { unassignOpenWork } from '../workspace/workspace.repository.js';
 
 export interface CreateUserData {
   email: string;
@@ -156,6 +157,7 @@ export const softDeleteUser = async (userId: string) =>
       data: { deletedAt: new Date(), tokenVersion: { increment: 1 } },
     });
     await tx.workspaceMember.deleteMany({ where: { userId } });
+    await unassignOpenWork(tx, userId);
   });
 
 export default {
