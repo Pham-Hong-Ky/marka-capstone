@@ -10,6 +10,7 @@ import TextField from '@/components/ui/TextField';
 import { useCreateTask, useUpdateTask } from '@/hooks/useTasks';
 import { useWorkspaceMembers } from '@/hooks/useWorkspace';
 import type { TaskItem } from '@/services/task';
+import { cn } from '@/utils/cn';
 
 const taskFormSchema = z.object({
   title: z
@@ -132,15 +133,21 @@ export const TaskCreateModal = ({
           {...register('description')}
         />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField label="Người nhận" error={errors.assigneeId?.message} {...register('assigneeId')}>
-            <option value="">Chưa giao</option>
-            {(membersData?.members ?? []).map((member) => (
-              <option key={member.userId} value={member.userId}>
-                {member.name}
-              </option>
-            ))}
-          </SelectField>
+        <div className={cn('grid gap-4', !task && 'sm:grid-cols-2')}>
+          {!task ? (
+            <SelectField
+              label="Người nhận"
+              error={errors.assigneeId?.message}
+              {...register('assigneeId')}
+            >
+              <option value="">Chưa giao</option>
+              {(membersData?.members ?? []).map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.name}
+                </option>
+              ))}
+            </SelectField>
+          ) : null}
 
           <SelectField
             label="Ưu tiên"
