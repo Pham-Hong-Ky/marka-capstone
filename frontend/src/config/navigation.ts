@@ -6,6 +6,7 @@ import {
   Settings,
   Share2,
   ShieldCheck,
+  SquareKanban,
   Users,
   Wallet,
   type LucideIcon,
@@ -15,6 +16,7 @@ import { matchPath } from 'react-router-dom';
 export const ROUTE_LABELS = {
   dashboard: 'Tổng quan',
   posts: 'Bài viết',
+  tasks: 'Công việc',
   postCreate: 'Tạo bài viết',
   postEdit: 'Sửa bài viết',
   schedule: 'Lịch xuất bản',
@@ -46,6 +48,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: ROUTE_LABELS.dashboard, to: '/', icon: LayoutDashboard },
   { label: ROUTE_LABELS.posts, to: '/posts', icon: FileText },
+  { label: ROUTE_LABELS.tasks, to: '/tasks', icon: SquareKanban },
   { label: ROUTE_LABELS.schedule, to: '/schedule', icon: CalendarDays },
   { label: ROUTE_LABELS.channels, to: '/channels', icon: Share2 },
   { label: ROUTE_LABELS.brandVoice, to: '/brand-voice', icon: AudioLines },
@@ -73,6 +76,7 @@ const ADMIN_CRUMB: Breadcrumb = { label: ROUTE_LABELS.admin, to: '/admin' };
 const BREADCRUMB_ROUTES: Array<{ path: string; crumbs: Breadcrumb[] }> = [
   { path: '/', crumbs: [{ label: ROUTE_LABELS.dashboard }] },
   { path: '/posts', crumbs: [{ label: ROUTE_LABELS.posts }] },
+  { path: '/tasks', crumbs: [{ label: ROUTE_LABELS.tasks }] },
   { path: '/posts/new', crumbs: [POSTS_CRUMB, { label: ROUTE_LABELS.postCreate }] },
   { path: '/posts/:postId/edit', crumbs: [POSTS_CRUMB, { label: ROUTE_LABELS.postEdit }] },
   { path: '/schedule', crumbs: [{ label: ROUTE_LABELS.schedule }] },

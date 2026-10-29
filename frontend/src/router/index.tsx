@@ -39,6 +39,7 @@ export const router = createBrowserRouter([
               { index: true, lazy: page(() => import('@/pages/DashboardPage')) },
               { path: 'analytics', element: <Navigate to="/" replace /> },
               { path: 'posts', lazy: page(() => import('@/pages/PostsPage')) },
+              { path: 'tasks', lazy: page(() => import('@/pages/TasksPage')) },
               { path: 'posts/new', lazy: page(() => import('@/pages/PostEditorPage')) },
               { path: 'posts/:postId/edit', lazy: page(() => import('@/pages/PostEditorPage')) },
               { path: 'schedule', lazy: page(() => import('@/pages/SchedulePage')) },
