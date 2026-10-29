@@ -87,6 +87,29 @@ export const findBoardTasks = async (filters: BoardTaskFilters) => {
   return { unassigned, todo, inProgress, done };
 };
 
+export interface UpdateTaskData {
+  title?: string;
+  description?: string;
+  dueAt?: Date | null;
+  priority?: number;
+}
+
+export const updateTask = async (taskId: string, data: UpdateTaskData) =>
+  prisma.task.update({ where: { id: taskId }, data, select: TASK_SELECT });
+
+export const linkTaskPost = async (taskId: string, postId: string | null) =>
+  prisma.task.update({ where: { id: taskId }, data: { postId }, select: TASK_SELECT });
+
+export const softDeleteTask = async (taskId: string) =>
+  prisma.task.update({
+    where: { id: taskId },
+    data: { deletedAt: new Date(), postId: null },
+    select: TASK_SELECT,
+  });
+
+export const findTaskByPostId = async (postId: string) =>
+  prisma.task.findFirst({ where: { postId }, select: TASK_SELECT });
+
 export interface AssignTaskData {
   assigneeId: string | null;
   assignedById: string | null;
@@ -120,6 +143,10 @@ export default {
   findTaskById,
   findBoardTasks,
   countBoardTasks,
+  updateTask,
   assignTask,
   updateTaskStatus,
+  linkTaskPost,
+  softDeleteTask,
+  findTaskByPostId,
 };

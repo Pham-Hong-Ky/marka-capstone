@@ -1,10 +1,13 @@
-import type { WorkspaceRole } from '@prisma/client';
+import { Prisma, type WorkspaceRole } from '@prisma/client';
 import taskRepository from './task.repository.js';
 import taskNotification from './task.notification.js';
+import postRepository from '../post/post.repository.js';
 import type {
   AssignTaskBody,
   BoardQuery,
   CreateTaskBody,
+  LinkTaskPostBody,
+  UpdateTaskBody,
   UpdateTaskStatusBody,
 } from './task.validation.js';
 import workspaceService from '../workspace/workspace.service.js';
@@ -219,9 +222,120 @@ export const updateTaskStatus = async (
   return updated;
 };
 
+export const updateTask = async (
+  workspaceId: string,
+  actorId: string,
+  taskId: string,
+  body: UpdateTaskBody
+) => {
+  const task = await getTaskOrThrow(taskId, workspaceId);
+  assertDueAtValid(body.dueAt);
+
+  const updated = await taskRepository.updateTask(taskId, {
+    title: body.title,
+    description: body.description,
+    dueAt: body.dueAt,
+    priority: body.priority,
+  });
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId,
+    action: 'TASK_UPDATED',
+    targetType: 'Task',
+    targetId: taskId,
+    metadata: { title: task.title, changes: body },
+  });
+
+  return updated;
+};
+
+const assertCanManageTask = (
+  role: WorkspaceRole,
+  task: { assignee: { id: string } | null },
+  userId: string
+) => {
+  if (role !== 'OWNER' && task.assignee?.id !== userId) {
+    throw new ForbiddenError('Bạn không có quyền thao tác trên công việc này');
+  }
+};
+
+export const linkTaskPost = async (
+  workspaceId: string,
+  userId: string,
+  role: WorkspaceRole,
+  taskId: string,
+  body: LinkTaskPostBody
+) => {
+  const task = await getTaskOrThrow(taskId, workspaceId);
+  assertCanManageTask(role, task, userId);
+
+  if (body.postId === null) {
+    const updated = await taskRepository.linkTaskPost(taskId, null);
+    await auditService.recordAuditLog({
+      workspaceId,
+      actorId: userId,
+      action: 'TASK_POST_UNLINKED',
+      targetType: 'Task',
+      targetId: taskId,
+      metadata: { title: task.title },
+    });
+    return updated;
+  }
+
+  const post = await postRepository.getPostById(body.postId, workspaceId);
+  if (!post) {
+    throw new NotFoundError('Bài viết không tồn tại');
+  }
+  if (post.status === 'ARCHIVED') {
+    throw new BadRequestError('Không thể gắn bài viết đã lưu trữ');
+  }
+
+  const existing = await taskRepository.findTaskByPostId(body.postId);
+  if (existing && existing.id !== taskId) {
+    throw new ConflictError('Bài viết đã được gắn với công việc khác');
+  }
+
+  try {
+    const updated = await taskRepository.linkTaskPost(taskId, body.postId);
+    await auditService.recordAuditLog({
+      workspaceId,
+      actorId: userId,
+      action: 'TASK_POST_LINKED',
+      targetType: 'Task',
+      targetId: taskId,
+      metadata: { title: task.title, postId: body.postId },
+    });
+    return updated;
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ConflictError('Bài viết đã được gắn với công việc khác');
+    }
+    throw error;
+  }
+};
+
+export const deleteTask = async (workspaceId: string, actorId: string, taskId: string) => {
+  const task = await getTaskOrThrow(taskId, workspaceId);
+
+  await taskRepository.softDeleteTask(taskId);
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId,
+    action: 'TASK_DELETED',
+    targetType: 'Task',
+    targetId: taskId,
+    metadata: { title: task.title },
+  });
+};
+
 export default {
   createTask,
   getTaskBoard,
+  updateTask,
   assignTask,
   updateTaskStatus,
+  linkTaskPost,
+  deleteTask,
 };

@@ -56,8 +56,11 @@ import taskController from '../modules/task/task.controller.js';
 import {
   createTaskSchema,
   boardSchema,
+  updateTaskSchema,
   assignTaskSchema,
   updateTaskStatusSchema as taskStatusSchema,
+  linkTaskPostSchema,
+  taskIdSchema,
 } from '../modules/task/task.validation.js';
 import scheduleController from '../modules/schedule/schedule.controller.js';
 import {
@@ -476,6 +479,27 @@ router.patch(
   validate(taskStatusSchema),
   requireWorkspaceRole(),
   taskController.updateTaskStatus
+);
+router.patch(
+  '/workspaces/:workspaceId/tasks/:taskId/post',
+  requireAuth,
+  validate(linkTaskPostSchema),
+  requireWorkspaceRole(),
+  taskController.linkTaskPost
+);
+router.patch(
+  '/workspaces/:workspaceId/tasks/:taskId',
+  requireAuth,
+  validate(updateTaskSchema),
+  requireWorkspaceRole('OWNER'),
+  taskController.updateTask
+);
+router.delete(
+  '/workspaces/:workspaceId/tasks/:taskId',
+  requireAuth,
+  validate(taskIdSchema),
+  requireWorkspaceRole('OWNER'),
+  taskController.deleteTask
 );
 
 // AI assistant (UC07 — sinh nội dung & ảnh cho bài viết)
