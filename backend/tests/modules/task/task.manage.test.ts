@@ -237,6 +237,42 @@ describe('Task manage: update, delete, link post', () => {
     expect(relink.status).toBe(200);
   }, 15_000);
 
+  it('sửa việc quá hạn giữ nguyên hạn cũ → 200; đổi sang hạn quá khứ khác → 400', async () => {
+    const past = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const task = await prisma.task.create({
+      data: { workspaceId: wsId, title: 'Việc quá hạn', dueAt: past },
+    });
+
+    const keep = await updateTask(task.id, { title: 'Đổi tiêu đề', dueAt: past.toISOString() });
+    expect(keep.status).toBe(200);
+    expect(keep.body.data.title).toBe('Đổi tiêu đề');
+
+    const otherPast = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const bad = await updateTask(task.id, { dueAt: otherPast });
+    expect(bad.status).toBe(400);
+  });
+
+  it('huỷ việc đã gắn bài → giải phóng postId, gắn lại được', async () => {
+    const task = await createTask({ assigneeId: creatorAId });
+    const post = await createPost('Bài của việc bị huỷ');
+    await linkPost(task.id, post.id);
+
+    const cancel = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/tasks/${task.id}/status`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ status: 'CANCELLED' });
+    expect(cancel.status).toBe(200);
+
+    const [row] = await prisma.$queryRaw<Array<{ postId: string | null }>>`
+      SELECT "postId" FROM tasks WHERE id = ${task.id}
+    `;
+    expect(row.postId).toBeNull();
+
+    const next = await createTask();
+    const relink = await linkPost(next.id, post.id);
+    expect(relink.status).toBe(200);
+  }, 15_000);
+
   it('chi tiết bài viết trả kèm công việc đã gắn', async () => {
     const task = await createTask({ assigneeId: creatorAId, priority: 2 });
     const post = await createPost('Bài có công việc');

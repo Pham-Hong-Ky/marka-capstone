@@ -122,7 +122,11 @@ export const assignTask = async (taskId: string, data: AssignTaskData) =>
   prisma.task.update({ where: { id: taskId }, data, select: TASK_SELECT });
 
 export const updateTaskStatus = async (taskId: string, status: TaskStatus) =>
-  prisma.task.update({ where: { id: taskId }, data: { status }, select: TASK_SELECT });
+  prisma.task.update({
+    where: { id: taskId },
+    data: status === 'CANCELLED' ? { status, postId: null } : { status },
+    select: TASK_SELECT,
+  });
 
 const REMINDER_TASK_SELECT = {
   id: true,

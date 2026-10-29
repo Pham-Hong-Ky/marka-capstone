@@ -32,11 +32,13 @@ const notifySafely = async (action: () => Promise<void>) => {
   }
 };
 
-const assertDueAtValid = (dueAt?: Date | null) => {
+const assertDueAtValid = (dueAt?: Date | null, currentDueAt?: Date | null) => {
   if (!dueAt) return;
 
   const now = new Date();
   if (dueAt.getTime() < now.getTime()) {
+    // Cho phép giữ nguyên hạn cũ đã qua khi chỉ sửa các trường khác.
+    if (currentDueAt && dueAt.getTime() === currentDueAt.getTime()) return;
     throw new BadRequestError('Hạn chót không được ở quá khứ');
   }
   if (dueAt.getTime() > addDays(now, 365).getTime()) {
@@ -229,7 +231,7 @@ export const updateTask = async (
   body: UpdateTaskBody
 ) => {
   const task = await getTaskOrThrow(taskId, workspaceId);
-  assertDueAtValid(body.dueAt);
+  assertDueAtValid(body.dueAt, task.dueAt);
 
   const updated = await taskRepository.updateTask(taskId, {
     title: body.title,
