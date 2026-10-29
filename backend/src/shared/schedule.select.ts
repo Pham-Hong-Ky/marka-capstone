@@ -14,7 +14,7 @@ export const SCHEDULE_PUBLIC_SELECT = {
   createdAt: true,
   updatedAt: true,
   post: {
-    select: { id: true, title: true, status: true },
+    select: { id: true, title: true, status: true, createdById: true },
   },
   channel: {
     select: {

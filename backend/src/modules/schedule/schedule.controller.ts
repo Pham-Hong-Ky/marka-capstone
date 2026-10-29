@@ -10,6 +10,7 @@ export const createSchedules = catchAsync(async (req: Request, res: Response) =>
   const { schedules, isImmediate } = await scheduleService.createSchedules(
     workspaceId,
     req.user!.id,
+    req.workspaceRole!,
     req.params.postId as string,
     req.body
   );
@@ -41,6 +42,7 @@ export const cancelSchedule = catchAsync(async (req: Request, res: Response) => 
   await scheduleService.cancelSchedule(
     workspaceId,
     req.user!.id,
+    req.workspaceRole!,
     req.params.scheduleId as string
   );
 

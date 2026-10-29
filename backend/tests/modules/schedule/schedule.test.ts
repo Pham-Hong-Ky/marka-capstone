@@ -8,7 +8,11 @@ import {
   SocialTokenExpiredError,
   SocialTransientError,
 } from '../../../src/modules/channel/providers/social-provider.js';
-import scheduleService from '../../../src/modules/schedule/schedule.service.js';
+import scheduleService, {
+  PROCESSING_HEARTBEAT_MS,
+} from '../../../src/modules/schedule/schedule.service.js';
+import scheduleRepository from '../../../src/modules/schedule/schedule.repository.js';
+import { BadRequestError } from '../../../src/utils/errors/index.js';
 import postService from '../../../src/modules/post/post.service.js';
 
 const password = 'password123';
@@ -31,6 +35,8 @@ describe('Schedule — đăng bài Facebook', () => {
   let wsId = '';
   let outsiderWorkspaceId = '';
   let ownerId = '';
+  let creatorId = '';
+  let ownerToken = '';
   let channelAId = '';
   let channelBId = '';
   let outsiderChannelId = '';
@@ -45,7 +51,7 @@ describe('Schedule — đăng bài Facebook', () => {
         title: `Bài ${Date.now()}`,
         content,
         status,
-        createdById: ownerId,
+        createdById: creatorId,
       },
     });
 
@@ -96,12 +102,14 @@ describe('Schedule — đăng bài Facebook', () => {
 
     const ownerRes = await request(app).post('/api/v1/auth/register').send({ ...owner, password });
     ownerId = ownerRes.body.data.user.id;
+    ownerToken = ownerRes.body.data.accessToken;
     wsId = ownerRes.body.data.user.workspaces[0].id;
 
     const creatorRes = await request(app)
       .post('/api/v1/auth/register')
       .send({ ...creator, password });
     creatorToken = creatorRes.body.data.accessToken;
+    creatorId = creatorRes.body.data.user.id;
     await prisma.workspaceMember.create({
       data: { workspaceId: wsId, userId: creatorRes.body.data.user.id, role: 'CONTENT_CREATOR' },
     });
@@ -380,6 +388,49 @@ describe('Schedule — đăng bài Facebook', () => {
       .set('Authorization', `Bearer ${outsiderToken}`);
 
     expect(res.status).toBe(403);
+  });
+
+  it('Creator không được lên lịch hay huỷ lịch bài của người khác, Owner thì được', async () => {
+    const post = await prisma.post.create({
+      data: { workspaceId: wsId, title: `Bài Owner ${Date.now()}`, content, status: 'APPROVED', createdById: ownerId },
+    });
+    const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    const denied = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${post.id}/schedules`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send(schedulePayload([channelAId], scheduledAt));
+    expect(denied.status).toBe(403);
+
+    const created = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${post.id}/schedules`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send(schedulePayload([channelAId], scheduledAt));
+    expect(created.status).toBe(201);
+
+    const cancelDenied = await request(app)
+      .delete(`/api/v1/workspaces/${wsId}/schedules/${created.body.data.schedules[0].id}`)
+      .set('Authorization', `Bearer ${creatorToken}`);
+    expect(cancelDenied.status).toBe(403);
+
+    const schedule = await prisma.scheduledPost.findUnique({
+      where: { id: created.body.data.schedules[0].id },
+    });
+    expect(schedule?.status).toBe('SCHEDULED');
+  });
+
+  it('Owner huỷ được lịch bài do Creator tạo', async () => {
+    const postId = await createPost();
+    const created = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${postId}/schedules`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send(schedulePayload([channelAId], new Date(Date.now() + 60 * 60 * 1000).toISOString()));
+
+    const res = await request(app)
+      .delete(`/api/v1/workspaces/${wsId}/schedules/${created.body.data.schedules[0].id}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
   });
 
   it('Worker đăng thành công nhiều ảnh và lưu externalPostId', async () => {
@@ -734,7 +785,7 @@ describe('Schedule — đăng bài Facebook', () => {
           ],
         },
         status: 'APPROVED',
-        createdById: ownerId,
+        createdById: creatorId,
       },
     });
 
@@ -747,5 +798,85 @@ describe('Schedule — đăng bài Facebook', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.message).toContain('giới hạn của Threads');
+  });
+
+  it('giới hạn ký tự Threads đếm emoji là 1 ký tự', async () => {
+    const threadsChannel = await createChannel(
+      wsId,
+      `threads-emoji-${stamp}`,
+      'Threads Emoji',
+      'THREADS'
+    );
+    const post = await prisma.post.create({
+      data: {
+        workspaceId: wsId,
+        title: `Bài emoji ${Date.now()}`,
+        content: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: '😀'.repeat(400) }] }],
+        },
+        status: 'APPROVED',
+        createdById: creatorId,
+      },
+    });
+
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${post.id}/schedules`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send(
+        schedulePayload([threadsChannel.id], new Date(Date.now() + 60 * 60 * 1000).toISOString())
+      );
+
+    expect(res.status).toBe(201);
+  });
+
+  it('Lỗi nền tảng có chữ "hết hạn" nhưng không phải token thì không đánh EXPIRED kênh', async () => {
+    const postId = await createPost();
+    const schedule = await prisma.scheduledPost.create({
+      data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
+    });
+
+    vi.spyOn(facebookProvider, 'createPageFeedPost').mockRejectedValue(
+      new BadRequestError('Mã xác thực Facebook không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.')
+    );
+
+    const result = await scheduleService.publishSchedule(schedule.id);
+
+    expect(result.outcome).toBe('failed');
+    const channel = await prisma.channelConnection.findUnique({ where: { id: channelAId } });
+    expect(channel?.status).toBe('ACTIVE');
+  });
+
+  it('Đăng lâu không bị recovery đánh FAILED nhờ làm mới mốc xử lý', async () => {
+    const postId = await createPost();
+    const schedule = await prisma.scheduledPost.create({
+      data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
+    });
+
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      vi.spyOn(facebookProvider, 'createPageFeedPost').mockImplementation(async () => {
+        // Giả lập đã xử lý 20 phút, rồi tới nhịp heartbeat.
+        await prisma.scheduledPost.update({
+          where: { id: schedule.id },
+          data: { processingStartedAt: new Date(Date.now() - 20 * 60 * 1000) },
+        });
+        vi.advanceTimersByTime(PROCESSING_HEARTBEAT_MS);
+        await vi.waitFor(async () => {
+          const row = await prisma.scheduledPost.findUnique({ where: { id: schedule.id } });
+          expect(row?.processingStartedAt?.getTime()).toBeGreaterThan(Date.now() - 60_000);
+        });
+        await scheduleRepository.recoverStaleSchedules(new Date(Date.now() - 10 * 60 * 1000));
+        return 'page_long_post';
+      });
+
+      const result = await scheduleService.publishSchedule(schedule.id);
+
+      expect(result.outcome).toBe('published');
+      const saved = await prisma.scheduledPost.findUnique({ where: { id: schedule.id } });
+      expect(saved?.status).toBe('PUBLISHED');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

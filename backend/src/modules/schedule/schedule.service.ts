@@ -1,9 +1,10 @@
 import { buildPaginationMeta } from '../../utils/pagination.js';
 import { getErrorMessage } from '../../utils/errorMessage.js';
-import type { PublishStatus } from '@prisma/client';
+import type { PublishStatus, WorkspaceRole } from '@prisma/client';
 import logger from '../../utils/logger.js';
 import { BadRequestError, ConflictError, NotFoundError, ServiceUnavailableError } from '../../utils/errors/index.js';
 import { withTimeout } from '../../utils/timeout.js';
+import { countGraphemes } from '../../utils/text.js';
 import { decryptOrNull } from '../../utils/encryption.js';
 import auditService from '../audit/audit.service.js';
 import channelService from '../channel/channel.service.js';
@@ -15,6 +16,7 @@ import {
 } from '../channel/providers/social-provider.js';
 import scheduleRepository, { type ScheduleSummary } from './schedule.repository.js';
 import { PUBLISHABLE_POST_STATUSES } from '../post/post.status.js';
+import { assertCanModify } from '../post/post.service.js';
 import { renderContentToPlainText } from './schedule.content.js';
 
 const MAX_CHANNELS = 10;
@@ -22,6 +24,7 @@ const MAX_SCHEDULE_AHEAD_MS = 365 * 24 * 60 * 60 * 1000;
 const MIN_SCHEDULE_AHEAD_MS = 60 * 1000;
 const RETRY_DELAYS_MS = [30_000, 2 * 60_000, 10 * 60_000];
 const STALE_PROCESSING_MS = 10 * 60 * 1000;
+export const PROCESSING_HEARTBEAT_MS = 60 * 1000;
 const DUE_BATCH_SIZE = 10;
 
 const platformLabel = (platform: string): string =>
@@ -77,7 +80,7 @@ const validatePostContent = (
   if (!message) {
     throw new BadRequestError('Bài viết chưa có nội dung để đăng');
   }
-  if (message.length > provider.capabilities.maxTextLength) {
+  if (countGraphemes(message) > provider.capabilities.maxTextLength) {
     throw new BadRequestError(`Nội dung bài viết vượt quá giới hạn của ${label}`);
   }
 
@@ -189,10 +192,12 @@ const recordCreatedSchedules = async (params: {
 export const createSchedules = async (
   workspaceId: string,
   userId: string,
+  role: WorkspaceRole,
   postId: string,
   input: CreateScheduleInput
 ): Promise<{ schedules: ScheduleSummary[]; isImmediate: boolean }> => {
   const post = await loadSchedulablePost(postId, workspaceId);
+  assertCanModify(post, userId, role);
   const { channelIds, channels } = await loadActiveChannels(workspaceId, input.channelIds);
   for (const channel of channels) {
     validatePostContent(post, getProvider(channel.platform));
@@ -244,12 +249,14 @@ export const listSchedules = async (workspaceId: string, query: ListSchedulesQue
 export const cancelSchedule = async (
   workspaceId: string,
   userId: string,
+  role: WorkspaceRole,
   scheduleId: string
 ): Promise<{ success: true }> => {
   const schedule = await scheduleRepository.findScheduleInWorkspace(scheduleId, workspaceId);
   if (!schedule) {
     throw new NotFoundError('Lịch đăng không tồn tại');
   }
+  assertCanModify(schedule.post, userId, role);
   if (schedule.status !== 'SCHEDULED') {
     throw new ConflictError('Chỉ có thể huỷ lịch đang chờ đăng');
   }
@@ -313,7 +320,7 @@ const handlePublishError = async (
 ): Promise<{ outcome: 'failed' | 'retry' }> => {
   const message = getErrorMessage(error);
 
-  if (error instanceof SocialTokenExpiredError || message.includes('hết hạn')) {
+  if (error instanceof SocialTokenExpiredError) {
     await markChannelExpired(schedule.channelId);
     return failSchedule(schedule, 'Token của kênh đã hết hạn. Vui lòng kết nối lại kênh.', {
       tokenExpired: true,
@@ -338,6 +345,18 @@ const handlePublishError = async (
   }
 
   return failSchedule(schedule, message);
+};
+
+// Đăng nhiều ảnh (nhất là Threads) có thể lâu hơn STALE_PROCESSING_MS; làm mới mốc
+// processingStartedAt định kỳ để recovery chỉ nhặt lịch của worker đã chết thật.
+const keepProcessingAlive = (scheduleId: string): (() => void) => {
+  const timer = setInterval(() => {
+    scheduleRepository.touchProcessingSchedule(scheduleId).catch((error: unknown) => {
+      logger.warn(`Không làm mới mốc xử lý của lịch ${scheduleId}: ${getErrorMessage(error)}`);
+    });
+  }, PROCESSING_HEARTBEAT_MS);
+
+  return () => clearInterval(timer);
 };
 
 export const publishSchedule = async (
@@ -390,15 +409,21 @@ export const publishSchedule = async (
 
   let feedStarted = false;
   try {
-    const externalPostId = await provider.publish({
-      externalAccountId: schedule.channel.externalAccountId,
-      accessToken: token,
-      text: message,
-      imageUrls,
-      onRemoteStart: () => {
-        feedStarted = true;
-      },
-    });
+    const stopHeartbeat = keepProcessingAlive(scheduleId);
+    let externalPostId: string;
+    try {
+      externalPostId = await provider.publish({
+        externalAccountId: schedule.channel.externalAccountId,
+        accessToken: token,
+        text: message,
+        imageUrls,
+        onRemoteStart: () => {
+          feedStarted = true;
+        },
+      });
+    } finally {
+      stopHeartbeat();
+    }
 
     const published = await scheduleRepository.markSchedulePublished(scheduleId, externalPostId);
     if (!published) {

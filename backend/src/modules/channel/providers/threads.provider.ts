@@ -2,6 +2,7 @@ import { getErrorMessage } from '../../../utils/errorMessage.js';
 import env from '../../../config/env.js';
 import logger from '../../../utils/logger.js';
 import { BadRequestError } from '../../../utils/errors/index.js';
+import { countGraphemes } from '../../../utils/text.js';
 import { requestGraph } from './graph-request.js';
 import {
   SocialRateLimitError,
@@ -130,8 +131,6 @@ const assertOk = <T extends ThreadsErrorBody>(
   return result.body ?? ({} as T);
 };
 
-const countGraphemes = (text: string): number =>
-  [...new Intl.Segmenter('vi', { granularity: 'grapheme' }).segment(text)].length;
 
 const countUniqueLinks = (text: string): number =>
   new Set(text.match(/https?:\/\/[^\s]+/gi) ?? []).size;

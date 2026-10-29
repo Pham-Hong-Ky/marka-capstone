@@ -161,7 +161,7 @@ export const listSchedulesAndCount = async (params: ListSchedulesParams) => {
 export const findScheduleInWorkspace = async (scheduleId: string, workspaceId: string) =>
   prisma.scheduledPost.findFirst({
     where: { id: scheduleId, channel: { workspaceId } },
-    select: { id: true, postId: true, status: true },
+    select: { id: true, postId: true, status: true, post: { select: { createdById: true } } },
   });
 
 export const cancelSchedule = async (scheduleId: string, workspaceId: string) =>
@@ -209,6 +209,12 @@ export const claimSchedule = async (scheduleId: string): Promise<boolean> => {
 
   return count === 1;
 };
+
+export const touchProcessingSchedule = async (scheduleId: string) =>
+  prisma.scheduledPost.updateMany({
+    where: { id: scheduleId, status: 'PROCESSING' },
+    data: { processingStartedAt: new Date() },
+  });
 
 export const findScheduleForPublish = async (scheduleId: string) =>
   prisma.scheduledPost.findFirst({
@@ -354,6 +360,7 @@ export default {
   cancelSchedule,
   findDueScheduleIds,
   claimSchedule,
+  touchProcessingSchedule,
   findScheduleForPublish,
   findPublishablePost,
   findPublishableChannel,
