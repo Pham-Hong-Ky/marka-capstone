@@ -20,6 +20,7 @@ export interface Summary {
   comments: number;
   shares: number;
   impressions: number | null;
+  reach: number | null;
   engagementRate: number | null;
 }
 
@@ -28,6 +29,7 @@ export interface SeriesPoint {
   posts: number;
   reach: number;
   impressions: number;
+  engagement: number;
 }
 
 export interface DateWindow {
@@ -143,6 +145,7 @@ export const computeSummary = (rows: MetricRow[]): Summary => {
     comments,
     shares,
     impressions: hasImpressions ? impressionsTotal : null,
+    reach: hasReach ? reachTotal : null,
     engagementRate: denominator > 0 ? round((engagement / denominator) * 100, 2) : null,
   };
 };
@@ -157,10 +160,17 @@ export const buildSeries = (rows: MetricRow[], window: DateWindow): SeriesPoint[
 
   for (const row of rows) {
     const key = vnDateKey(row.publishedAt);
-    const point = buckets.get(key) ?? { date: key, posts: 0, reach: 0, impressions: 0 };
+    const point = buckets.get(key) ?? {
+      date: key,
+      posts: 0,
+      reach: 0,
+      impressions: 0,
+      engagement: 0,
+    };
     point.posts += 1;
     point.reach += row.reach ?? 0;
     point.impressions += row.impressions ?? 0;
+    point.engagement += row.reactions + row.comments + row.shares;
     buckets.set(key, point);
   }
 
@@ -169,7 +179,9 @@ export const buildSeries = (rows: MetricRow[], window: DateWindow): SeriesPoint[
 
   for (let day = startOfVnDay(window.start).getTime(); day <= lastDay; day += DAY_MS) {
     const key = vnDateKey(new Date(day));
-    series.push(buckets.get(key) ?? { date: key, posts: 0, reach: 0, impressions: 0 });
+    series.push(
+      buckets.get(key) ?? { date: key, posts: 0, reach: 0, impressions: 0, engagement: 0 }
+    );
   }
 
   return series;

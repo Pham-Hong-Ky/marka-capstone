@@ -29,8 +29,18 @@ describe('computeSummary', () => {
       comments: 3,
       shares: 1,
       impressions: 1500,
+      reach: 1200,
       engagementRate: 1.27,
     });
+  });
+
+  it('trả reach bằng null khi chưa kênh nào trả về dữ liệu tiếp cận', () => {
+    const summary = computeSummary([
+      row({ reactions: 10, impressions: 1000 }),
+      row({ reactions: 5, impressions: 500 }),
+    ]);
+
+    expect(summary.reach).toBeNull();
   });
 
   it('dùng reach làm mẫu số khi Facebook không trả impressions', () => {
@@ -84,6 +94,22 @@ describe('buildSeries', () => {
     expect(series[1].reach).toBe(100);
     expect(series[2].reach).toBe(50);
     expect(series[2].impressions).toBe(60);
+  });
+
+  it('cộng dồn tương tác theo ngày trong series', () => {
+    const series = buildSeries(
+      [
+        row({ publishedAt: new Date('2026-10-25T03:00:00.000Z'), reactions: 10, comments: 2, shares: 1 }),
+        row({ publishedAt: new Date('2026-10-25T04:00:00.000Z'), reactions: 5, comments: 0, shares: 0 }),
+        row({ publishedAt: new Date('2026-10-26T03:00:00.000Z'), reactions: 1, comments: 1, shares: 1 }),
+      ],
+      {
+        start: new Date('2026-10-24T17:00:00.000Z'),
+        end: new Date('2026-10-26T12:00:00.000Z'),
+      }
+    );
+
+    expect(series.map((point) => point.engagement)).toEqual([18, 3]);
   });
 });
 
