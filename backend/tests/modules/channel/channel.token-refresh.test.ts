@@ -18,6 +18,11 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+// refreshChannelTokens quét mọi kênh Threads trong DB, kể cả kênh của file test khác chạy song song.
+// Token lạ nhận phản hồi "too new" để bị bỏ qua, không bị đổi token hay đánh EXPIRED.
+const skipOtherChannel = () =>
+  jsonResponse({ error: { code: 400, message: 'Token is too new; wait 24 hours' } }, 400);
+
 describe('channel token refresh', () => {
   const stamp = Date.now();
   const owner = { email: `test_token_refresh_${stamp}@marka.vn`, name: 'Token Refresh' };
@@ -59,7 +64,7 @@ describe('channel token refresh', () => {
         if (url.searchParams.get('access_token') === 'old-threads-token') {
           return jsonResponse({ access_token: 'new-threads-token', expires_in: 5_183_944 });
         }
-        return jsonResponse({ error: { code: 190, message: 'expired' } }, 400);
+        return skipOtherChannel();
       })
     );
 
@@ -79,7 +84,7 @@ describe('channel token refresh', () => {
         if (url.searchParams.get('access_token') === 'expired-threads-token') {
           return jsonResponse({ error: { code: 190, message: 'expired' } }, 400);
         }
-        return jsonResponse({ access_token: 'rotated', expires_in: 5_183_944 });
+        return skipOtherChannel();
       })
     );
 
@@ -101,7 +106,7 @@ describe('channel token refresh', () => {
             400
           );
         }
-        return jsonResponse({ access_token: 'rotated', expires_in: 5_183_944 });
+        return skipOtherChannel();
       })
     );
 

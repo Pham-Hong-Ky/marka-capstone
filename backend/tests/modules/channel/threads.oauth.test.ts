@@ -11,6 +11,10 @@ const threadsEnv = vi.hoisted(() => {
   process.env.THREADS_APP_ID = 'threads-app-id';
   process.env.THREADS_APP_SECRET = 'threads-app-secret';
   process.env.THREADS_REDIRECT_URI = redirectUri;
+  // Test "state của nền tảng khác" cần tạo state Facebook; CI không có key thật.
+  process.env.FACEBOOK_APP_ID = 'facebook-app-id';
+  process.env.FACEBOOK_APP_SECRET = 'facebook-app-secret';
+  process.env.FACEBOOK_REDIRECT_URI = 'http://localhost:5000/api/v1/channels/facebook/oauth/callback';
   return { redirectUri };
 });
 
