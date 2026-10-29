@@ -27,6 +27,7 @@ class "User" as User {
   + systemRole : SystemRole
   + tokenVersion : number
   + isSuspended : boolean
+  + deletedAt : Date?
   + createdAt : Date
   + updatedAt : Date
 }
@@ -49,7 +50,6 @@ class "Workspace" as Workspace {
 }
 
 class "authController" as authController {
-  - authService : authService
   + register(req, res) : Promise<Response>
   + login(req, res) : Promise<Response>
   + googleLogin(req, res) : Promise<Response>
@@ -58,8 +58,6 @@ class "authController" as authController {
 }
 
 class "authService" as authService {
-  - userRepository : userRepository
-  - googleClient : GoogleOAuth2Client
   - issueTokens(user)
   - assertNotSuspended(user)
   - findOrCreateGoogleUser(profile)
@@ -71,27 +69,22 @@ class "authService" as authService {
 }
 
 class "GoogleOAuth2Client" as googleOAuthClient {
-  - client : OAuth2Client
-  - clientId : string
   + verifyIdToken({ idToken, audience })
 }
 
 class "userController" as userController {
-  - userService : userService
   + getMe(req, res) : Promise<Response>
   + updateProfile(req, res) : Promise<Response>
   + changePassword(req, res) : Promise<Response>
 }
 
 class "userService" as userService {
-  - userRepository : userRepository
   + getProfile(userId)
   + updateProfile(userId, { name, avatar })
   + changePassword(userId, oldPassword, newPassword) : Promise<boolean>
 }
 
 class "userRepository" as userRepository {
-  - prisma : PrismaClient
   + findUserById(userId)
   + findUserByEmail(email)
   + createUserWithDefaultWorkspace(data)

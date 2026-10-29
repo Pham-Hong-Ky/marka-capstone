@@ -1,13 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
 import { aiService, isAiTerminal, type StartImagePayload, type StartTextPayload } from '@/services/ai';
+import { queryKeys } from '@/lib/queryKeys';
 import { syncSessionUser } from './useWorkspace';
-import { getErrorMessage } from '@/utils/error';
-
-export const aiKeys = {
-  generation: (workspaceId: string, generationId: string) =>
-    ['ai-generation', workspaceId, generationId] as const,
-};
 
 export const useStartAiText = () =>
   useMutation({
@@ -16,7 +10,6 @@ export const useStartAiText = () =>
     onSuccess: () => {
       void syncSessionUser();
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
 export const useStartAiImage = () =>
@@ -26,12 +19,11 @@ export const useStartAiImage = () =>
     onSuccess: () => {
       void syncSessionUser();
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
 export const useAiGeneration = (workspaceId: string | null, generationId: string | null) =>
   useQuery({
-    queryKey: aiKeys.generation(workspaceId ?? '', generationId ?? ''),
+    queryKey: queryKeys.ai.generation(workspaceId ?? '', generationId ?? ''),
     queryFn: () => aiService.getGeneration(workspaceId as string, generationId as string),
     enabled: Boolean(workspaceId && generationId),
     retry: 1,

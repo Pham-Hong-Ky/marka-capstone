@@ -1,5 +1,4 @@
-const escapeHtml = (value: string): string =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+import { escapeHtml, sanitizeSubject } from './email.utils.js';
 
 export interface PostSubmittedEmailInput {
   workspaceName: string;
@@ -13,7 +12,7 @@ export const buildPostSubmittedEmail = ({
   submitterName,
 }: PostSubmittedEmailInput): { subject: string; html: string } => {
   const title = escapeHtml(postTitle);
-  const subject = `[Marka] Bài viết "${postTitle}" đang chờ duyệt`;
+  const subject = `[Marka] Bài viết "${sanitizeSubject(postTitle)}" đang chờ duyệt`;
 
   const html = `
   <div style="font-family: Arial, Helvetica, sans-serif; max-width: 560px; margin: 0 auto; color: #1f2937;">
@@ -42,8 +41,8 @@ export const buildPostReviewedEmail = ({
 }: PostReviewedEmailInput): { subject: string; html: string } => {
   const title = escapeHtml(postTitle);
   const subject = approved
-    ? `[Marka] Bài viết "${postTitle}" đã được duyệt`
-    : `[Marka] Bài viết "${postTitle}" bị từ chối`;
+    ? `[Marka] Bài viết "${sanitizeSubject(postTitle)}" đã được duyệt`
+    : `[Marka] Bài viết "${sanitizeSubject(postTitle)}" bị từ chối`;
 
   const heading = approved ? 'Bài viết đã được duyệt' : 'Bài viết bị từ chối';
   const body = approved

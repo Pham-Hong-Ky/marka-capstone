@@ -1,3 +1,5 @@
+import { escapeHtml, sanitizeSubject } from './email.utils.js';
+
 export interface WorkspaceInviteEmailInput {
   workspaceName: string;
   inviterName: string;
@@ -11,15 +13,15 @@ export const buildWorkspaceInviteEmail = ({
   roleLabel,
   inviteUrl,
 }: WorkspaceInviteEmailInput): { subject: string; html: string } => {
-  const subject = `Lời mời tham gia workspace "${workspaceName}" trên Marka`;
+  const subject = `Lời mời tham gia workspace "${sanitizeSubject(workspaceName)}" trên Marka`;
 
   const html = `
   <div style="font-family: Arial, Helvetica, sans-serif; max-width: 560px; margin: 0 auto; color: #1f2937;">
     <h2 style="color: #4338ca;">Bạn được mời tham gia workspace</h2>
-    <p><strong>${inviterName}</strong> đã mời bạn tham gia workspace <strong>${workspaceName}</strong> với vai trò <strong>${roleLabel}</strong>.</p>
+    <p><strong>${escapeHtml(inviterName)}</strong> đã mời bạn tham gia workspace <strong>${escapeHtml(workspaceName)}</strong> với vai trò <strong>${escapeHtml(roleLabel)}</strong>.</p>
     <p>Nhấn nút bên dưới để chấp nhận lời mời. Liên kết có hiệu lực trong 7 ngày.</p>
     <p style="text-align: center; margin: 32px 0;">
-      <a href="${inviteUrl}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+      <a href="${escapeHtml(inviteUrl)}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
         Chấp nhận lời mời
       </a>
     </p>

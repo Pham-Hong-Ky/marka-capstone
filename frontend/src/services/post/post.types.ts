@@ -1,4 +1,7 @@
+import type { PaginationMeta } from '@/types';
 import type { ScheduleItem } from '../schedule/schedule.types';
+
+export type { PaginationMeta } from '@/types';
 
 export type PostStatus =
   | 'DRAFT'
@@ -39,6 +42,15 @@ export interface PostMedia {
   createdAt: string;
 }
 
+export interface PostTaskSummary {
+  id: string;
+  title: string;
+  status: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+  dueAt: string | null;
+  priority: number;
+  assignee: PostAuthor | null;
+}
+
 export interface PostDetail extends PostSummary {
   workspaceId: string;
   content: unknown;
@@ -50,13 +62,7 @@ export interface PostDetail extends PostSummary {
   reviewedAt: string | null;
   mediaAssets: PostMedia[];
   schedules: ScheduleItem[];
-}
-
-export interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
+  task: PostTaskSummary | null;
 }
 
 export interface PostsResult {

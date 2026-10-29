@@ -1,15 +1,12 @@
+import { workspaceIdField, workspaceIdParamSchema } from '../../utils/validation/common.js';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-import { PostStatus } from '@prisma/client';
+import { PostStatus, TaskStatus } from '@prisma/client';
 import { z } from 'zod';
 
 extendZodWithOpenApi(z);
 
-export const workspaceIdParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
-});
-
 export const postIdParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  workspaceId: workspaceIdField,
   postId: z.string().uuid('Post ID không hợp lệ'),
 });
 
@@ -34,7 +31,11 @@ export const listPostsQuerySchema = z
     limit: z.coerce.number().int().min(1).max(50).default(10),
     search: z.string().trim().min(1).optional(),
     status: z.nativeEnum(PostStatus).optional(),
+    taskStatus: z.nativeEnum(TaskStatus).optional(),
     createdById: z.string().uuid('Người tạo không hợp lệ').optional(),
+    assigneeId: z
+      .union([z.literal('me'), z.string().uuid('Người nhận việc không hợp lệ')])
+      .optional(),
     dateFrom: z.coerce.date().optional(),
     dateTo: z.coerce.date().optional(),
   })
@@ -60,7 +61,7 @@ export const updatePostSchema = { body: updatePostBodySchema, params: postIdPara
 export const postMediaSchema = { params: postIdParamSchema };
 
 export const postMediaParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  workspaceId: workspaceIdField,
   postId: z.string().uuid('Post ID không hợp lệ'),
   mediaId: z.string().uuid('Media ID không hợp lệ'),
 });
@@ -85,6 +86,24 @@ export const reviewPostBodySchema = z
 export const reviewPostSchema = { body: reviewPostBodySchema, params: postIdParamSchema };
 export type ReviewPostBody = z.infer<typeof reviewPostBodySchema>;
 
+export const assignPostBodySchema = z.object({
+  assigneeId: z.string().uuid('Người nhận việc không hợp lệ').nullable(),
+  dueAt: z.coerce.date().nullable().optional(),
+});
+
+export const assignPostSchema = { body: assignPostBodySchema, params: postIdParamSchema };
+export type AssignPostBody = z.infer<typeof assignPostBodySchema>;
+
+export const updateTaskStatusBodySchema = z.object({
+  status: z.nativeEnum(TaskStatus),
+});
+
+export const updateTaskStatusSchema = {
+  body: updateTaskStatusBodySchema,
+  params: postIdParamSchema,
+};
+export type UpdateTaskStatusBody = z.infer<typeof updateTaskStatusBodySchema>;
+
 export default {
   createPostSchema,
   postIdSchema,
@@ -93,6 +112,8 @@ export default {
   postMediaSchema,
   deletePostMediaSchema,
   reviewPostSchema,
+  assignPostSchema,
+  updateTaskStatusSchema,
   workspaceIdParamSchema,
   postIdParamSchema,
 };

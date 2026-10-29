@@ -33,6 +33,51 @@ export const createAuditLog = async ({
   });
 };
 
+export interface ListAuditLogsParams {
+  workspaceId?: string;
+  actorId?: string;
+  action?: string;
+  targetType?: string;
+  targetId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  skip: number;
+  take: number;
+}
+
+export const listAuditLogsAndCount = async (params: ListAuditLogsParams) => {
+  const where: Prisma.AuditLogWhereInput = {
+    ...(params.workspaceId ? { workspaceId: params.workspaceId } : {}),
+    ...(params.actorId ? { actorId: params.actorId } : {}),
+    ...(params.action ? { action: params.action } : {}),
+    ...(params.targetType ? { targetType: params.targetType } : {}),
+    ...(params.targetId ? { targetId: params.targetId } : {}),
+    ...(params.dateFrom || params.dateTo
+      ? {
+          createdAt: {
+            ...(params.dateFrom ? { gte: params.dateFrom } : {}),
+            ...(params.dateTo ? { lte: params.dateTo } : {}),
+          },
+        }
+      : {}),
+  };
+
+  return prisma.$transaction([
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: params.skip,
+      take: params.take,
+      include: {
+        actor: { select: { id: true, name: true, email: true } },
+        workspace: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.auditLog.count({ where }),
+  ]);
+};
+
 export default {
   createAuditLog,
+  listAuditLogsAndCount,
 };

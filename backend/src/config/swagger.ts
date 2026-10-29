@@ -1,18 +1,19 @@
 import { extendZodWithOpenApi, OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import env from './env.js';
+import { workspaceIdParamSchema } from '../utils/validation/common.js';
 import { registerBodySchema, loginBodySchema, refreshTokenBodySchema } from '../modules/auth/auth.validation.js';
 import { updateProfileBodySchema, changePasswordBodySchema } from '../modules/user/user.validation.js';
 import {
   createWorkspaceBodySchema,
   updateWorkspaceBodySchema,
-  workspaceIdParamSchema,
   memberIdParamSchema,
   inviteMemberBodySchema,
   changeMemberRoleBodySchema,
   inviteTokenParamSchema,
 } from '../modules/workspace/workspace.validation.js';
 import { brandVoiceBodySchema } from '../modules/brandvoice/brandvoice.validation.js';
+import { registerTaskPaths } from './openapi/task.paths.js';
 import {
   createPostBodySchema,
   updatePostBodySchema,
@@ -503,6 +504,8 @@ registry.registerPath({
     422: { description: 'Thiếu lý do khi từ chối bài viết' },
   },
 });
+
+registerTaskPaths(registry);
 
 const generator = new OpenApiGeneratorV3(registry.definitions);
 

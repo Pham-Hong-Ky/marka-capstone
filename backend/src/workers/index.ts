@@ -1,13 +1,27 @@
+import { getErrorMessage } from '../utils/errorMessage.js';
 import { UnrecoverableError, Worker, type Job } from 'bullmq';
 import { queueConnection } from '../config/redis.js';
 import logger from '../utils/logger.js';
 import { processScheduleJob } from '../modules/schedule/schedule.processor.js';
-import { buildAiFailureMessage, processContentJob } from '../modules/ai/ai.processor.js';
+import { processAnalyticsJob } from '../modules/analytics/analytics.processor.js';
+import { processChannelJob } from '../modules/channel/channel.processor.js';
+import { processTaskReminderJob } from '../modules/task/task.reminder.processor.js';
+import {
+  AI_RECOVERY_JOB,
+  buildAiFailureMessage,
+  processContentJob,
+} from '../modules/ai/ai.processor.js';
 import aiService from '../modules/ai/ai.service.js';
 import { QUEUE_NAMES, QUEUE_PREFIX, type QueueName } from './types.js';
 import { hasRemainingAttempts } from './queue-manager.js';
 
-type WorkerLabel = 'ContentWorker' | 'ScheduleWorker' | 'EmailWorker';
+type WorkerLabel =
+  | 'ContentWorker'
+  | 'ScheduleWorker'
+  | 'AnalyticsWorker'
+  | 'ChannelWorker'
+  | 'TaskReminderWorker'
+  | 'EmailWorker';
 
 // Processor mẫu. Khi có module nghiệp vụ, thay thân hàm bằng logic thật:
 // dùng `job.updateProgress()` để báo "đang xử lý" và `throw` để đánh dấu lỗi (BullMQ tự retry).
@@ -49,7 +63,7 @@ const attachLifecycle = (
 
     if (job && onFinalFailure) {
       void onFinalFailure(job, error).catch((handlerError: unknown) => {
-        const message = handlerError instanceof Error ? handlerError.message : String(handlerError);
+        const message = getErrorMessage(handlerError);
         logger.error(`[${label}] không xử lý được final failure của job ${job.id}: ${message}`);
       });
     }
@@ -79,6 +93,8 @@ const createWorker = (
 };
 
 const handleAiFinalFailure = async (job: Job, error: Error) => {
+  if (job.name === AI_RECOVERY_JOB) return;
+
   const generationId = (job.data as { generationId?: string }).generationId;
   if (!generationId) {
     logger.error(`[ContentWorker] job ${job.id} thất bại nhưng thiếu generationId`);
@@ -100,10 +116,37 @@ export const scheduleWorker = createWorker(
   'ScheduleWorker',
   processScheduleJob
 );
-export const emailWorker = createWorker(QUEUE_NAMES.email, 'EmailWorker');
+export const analyticsWorker = createWorker(
+  QUEUE_NAMES.analytics,
+  'AnalyticsWorker',
+  processAnalyticsJob
+);
+export const channelWorker = createWorker(
+  QUEUE_NAMES.channelMaintenance,
+  'ChannelWorker',
+  processChannelJob
+);
+export const taskReminderWorker = createWorker(
+  QUEUE_NAMES.taskReminder,
+  'TaskReminderWorker',
+  processTaskReminderJob
+);
 
 export const closeWorkers = async (): Promise<void> => {
-  await Promise.allSettled([contentWorker.close(), scheduleWorker.close(), emailWorker.close()]);
+  await Promise.allSettled([
+    contentWorker.close(),
+    scheduleWorker.close(),
+    analyticsWorker.close(),
+    channelWorker.close(),
+    taskReminderWorker.close(),
+  ]);
 };
 
-export default { contentWorker, scheduleWorker, emailWorker, closeWorkers };
+export default {
+  contentWorker,
+  scheduleWorker,
+  analyticsWorker,
+  channelWorker,
+  taskReminderWorker,
+  closeWorkers,
+};

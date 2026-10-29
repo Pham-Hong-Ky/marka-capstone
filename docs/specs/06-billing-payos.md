@@ -231,7 +231,7 @@ Mã nguồn:
 
 ## 6.9. Kiểm thử
 
-`backend/src/modules/billing/billing.test.ts` (DB thật, mock PayOS):
+`backend/tests/modules/billing/billing.test.ts` (DB thật, mock PayOS):
 
 - Xem số dư + danh sách gói nạp.
 - Mọi thành viên tạo order; người ngoài workspace `403`.

@@ -1,3 +1,4 @@
+import { workspaceIdField, workspaceIdParamSchema } from '../../utils/validation/common.js';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 
@@ -12,12 +13,8 @@ const workspaceNameSchema = z
 
 const workspaceRoleSchema = z.enum(['OWNER', 'CONTENT_CREATOR']).openapi({ example: 'CONTENT_CREATOR' });
 
-export const workspaceIdParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
-});
-
 export const memberIdParamSchema = z.object({
-  workspaceId: z.string().uuid('Workspace ID không hợp lệ'),
+  workspaceId: workspaceIdField,
   memberId: z.string().uuid('Member ID không hợp lệ'),
 });
 

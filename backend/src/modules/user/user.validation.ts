@@ -1,16 +1,11 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { personNameSchema, strongPasswordSchema } from '../../utils/validation/common.js';
 
 extendZodWithOpenApi(z);
 
 export const updateProfileBodySchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2, 'Tên tối thiểu 2 ký tự')
-    .max(100)
-    .optional()
-    .openapi({ example: 'Nguyễn Văn B' }),
+  name: personNameSchema.optional().openapi({ example: 'Nguyễn Văn B' }),
 
   avatar: z
     .string()
@@ -26,18 +21,24 @@ export const changePasswordBodySchema = z.object({
     .min(1, 'Mật khẩu cũ không được để trống')
     .openapi({ example: 'password123' }),
 
-  newPassword: z
+  newPassword: strongPasswordSchema('Mật khẩu mới').openapi({ example: 'newPassword456' }),
+});
+
+export const deleteAccountBodySchema = z.object({
+  password: z.string().optional().openapi({ example: 'password123' }),
+  confirm: z
     .string()
-    .min(8, 'Mật khẩu mới tối thiểu 8 ký tự')
-    .max(100, 'Mật khẩu tối đa 100 ký tự')
-    .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, 'Mật khẩu phải chứa ít nhất một chữ cái và một chữ số')
-    .openapi({ example: 'newPassword456' }),
+    .refine((value) => value === 'XOA', {
+      message: 'Nhập XOA để xác nhận xoá tài khoản',
+    }),
 });
 
 export const updateProfileSchema = { body: updateProfileBodySchema };
 export const changePasswordSchema = { body: changePasswordBodySchema };
+export const deleteAccountSchema = { body: deleteAccountBodySchema };
 
 export default {
   updateProfileSchema,
   changePasswordSchema,
+  deleteAccountSchema,
 };

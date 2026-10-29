@@ -1,0 +1,142 @@
+@startuml 11-admin
+hide circle
+hide stereotype
+!pragma layout smetana
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "User" as User {
+  + id : string
+  + email : string
+  + passwordHash : string?
+  + name : string
+  + avatar : string?
+  + authProvider : AuthProvider
+  + googleId : string?
+  + emailVerified : boolean
+  + systemRole : SystemRole
+  + tokenVersion : number
+  + isSuspended : boolean
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "Workspace" as Workspace {
+  + id : string
+  + name : string
+  + plan : WorkspacePlan
+  + remainingCredit : number
+  + monthlyQuota : number
+  + planExpiresAt : Date?
+  + billingCycleStart : Date?
+  + nextResetAt : Date?
+  + planExpiryWarningSentAt : Date?
+  + creditWarningSentAt : Date?
+  + brandVoice : Json?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "Post" as Post {
+  + id : string
+  + workspaceId : string
+  + title : string
+  + content : Json
+  + status : PostStatus
+  + taskStatus : TaskStatus
+  + campaignTag : string?
+  + rejectReason : string?
+  + assigneeId : string?
+  + assignedById : string?
+  + assignedAt : Date?
+  + dueAt : Date?
+  + submittedById : string?
+  + createdById : string?
+  + submittedAt : Date?
+  + reviewedById : string?
+  + reviewedAt : Date?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "ChannelConnection" as ChannelConnection {
+  + id : string
+  + workspaceId : string
+  + platform : SocialPlatform
+  + type : ChannelType
+  + name : string
+  + label : string?
+  + avatar : string?
+  + externalAccountId : string
+  + accessToken : string?
+  + status : ChannelStatus
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "Order" as Order {
+  + id : string
+  + orderCode : string
+  + workspaceId : string
+  + packageId : string?
+  + amount : number
+  + creditAmount : number?
+  + targetPlan : WorkspacePlan?
+  + paymentLinkId : string?
+  + checkoutUrl : string?
+  + expiresAt : Date?
+  + payosTransId : string?
+  + paidAt : Date?
+  + status : OrderStatus
+  + createdById : string?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "adminController" as adminController {
+  + getStats(req, res) : Promise<Response>
+  + listUsers(req, res) : Promise<Response>
+  + suspendUser(req, res) : Promise<Response>
+  + listWorkspaces(req, res) : Promise<Response>
+}
+
+class "adminService" as adminService {
+  - mapUser(user)
+  - mapWorkspace(workspace)
+  + getStats()
+  + listUsers(query)
+  + setUserSuspension(actorId, targetUserId, data)
+  + listWorkspaces(query)
+}
+
+class "adminRepository" as adminRepository {
+  + getStats()
+  + listUsersAndCount(params)
+  + findUserForAdmin(userId)
+  + updateUserSuspension(userId, suspended)
+  + listWorkspacesAndCount(params)
+}
+
+adminController ..> adminService
+adminService ..> adminRepository
+
+adminRepository ..> User
+adminRepository ..> Workspace
+adminRepository ..> Post
+adminRepository ..> ChannelConnection
+adminRepository ..> Order
+
+@enduml

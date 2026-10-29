@@ -101,8 +101,13 @@ Lưu trữ nội dung bài viết chính và vòng đời trạng thái của n�
 | `title` | VARCHAR(255) | NOT NULL | Tiêu đề của bài viết phục vụ tìm kiếm quản lý |
 | `content` | JSON | NOT NULL | Nội dung soạn thảo rich-text dưới dạng JSON |
 | `status` | ENUM | Default: 'DRAFT', NOT NULL | Trạng thái duyệt/xuất bản (`DRAFT`, `PENDING`, `APPROVED`, `REJECTED`, `SCHEDULED`, `PUBLISHED`, `FAILED`, `ARCHIVED`) |
+| `taskStatus` | ENUM | Default: 'TODO', NOT NULL | Trạng thái công việc (`TODO`, `IN_PROGRESS`, `DONE`, `CANCELLED`) |
 | `campaignTag` | VARCHAR(255) | Nullable | Thẻ gắn nhãn chiến dịch |
 | `rejectReason` | VARCHAR(255) | Nullable | Lý do từ chối phê duyệt từ Owner |
+| `assigneeId` | VARCHAR(36) | FK -> `users.id`, SetNull | Thành viên được giao việc |
+| `assignedById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người giao việc (Owner) |
+| `assignedAt` | TIMESTAMP | Nullable | Thời điểm giao việc gần nhất |
+| `dueAt` | TIMESTAMP | Nullable | Hạn chót của công việc |
 | `createdById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người tạo bài viết (service nhận `userId` từ JWT rồi ghi vào `createdById`) |
 | `submittedById` | VARCHAR(36) | FK -> `users.id`, SetNull | Người gửi duyệt bài viết |
 | `submittedAt` | TIMESTAMP | Nullable | Thời điểm gửi duyệt bài viết |
@@ -112,7 +117,7 @@ Lưu trữ nội dung bài viết chính và vòng đời trạng thái của n�
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm tạo bài viết |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật bài viết lần cuối |
 
-* **Index**: composite `(workspaceId, status, deletedAt)` và index `createdById`.
+* **Index**: composite `(workspaceId, status, deletedAt)`, composite `(workspaceId, assigneeId, taskStatus)` và index `createdById`.
 
 ### 2.6. Bảng `media_assets` (Thư viện hình ảnh và video)
 Thư viện tệp tin đa phương tiện **cấp Workspace**; việc gắn vào bài viết là **tùy chọn** (D1).
@@ -284,7 +289,7 @@ Bảng ghi sự kiện bảo mật toàn hệ thống dành cho System Admin qu�
 | `metadata` | JSON | Nullable | Dữ liệu chi tiết về thay đổi trước/sau hoặc tham số request |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm hành động diễn ra |
 
-* **Index**: Composite Index trên `(targetType, targetId, createdAt)`, `(workspaceId, createdAt)` và `(actorId, createdAt)` (D8).
+* **Index**: Composite Index trên `(targetType, targetId, createdAt)`, `(workspaceId, createdAt)`, `(actorId, createdAt)` và `(action, createdAt)` (D8).
 
 ### 2.15. Bảng `post_metrics` (Chỉ số tương tác bài đăng — Phân hệ 8)
 Lưu chỉ số hiệu suất của một bài đã đăng trên kênh; quan hệ **1-1** với `scheduled_posts`.

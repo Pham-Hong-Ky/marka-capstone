@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import type { SocialPlatform } from '@prisma/client';
 import channelService from './channel.service.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
@@ -12,45 +13,54 @@ export const listChannels = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-export const getFacebookAuthUrl = catchAsync(async (req: Request, res: Response) => {
-  const data = await channelService.createFacebookAuthUrl(req.workspaceId!, req.user!.id);
+export const getOauthUrl = catchAsync(async (req: Request, res: Response) => {
+  const data = await channelService.createAuthUrl(
+    req.params.platform as SocialPlatform,
+    req.workspaceId!,
+    req.user!.id
+  );
 
   return ApiResponse.success(res, {
-    message: 'Tạo URL đăng nhập Facebook thành công',
+    message: 'Tạo URL đăng nhập thành công',
     data,
   });
 });
 
-export const facebookCallback = catchAsync(async (req: Request, res: Response) => {
-  const redirectUrl = await channelService.handleFacebookCallback(req.query);
+export const oauthCallback = catchAsync(async (req: Request, res: Response) => {
+  const redirectUrl = await channelService.handleOauthCallback(
+    req.params.platform as SocialPlatform,
+    req.query
+  );
 
   return res.redirect(redirectUrl);
 });
 
-export const getPendingFacebookPages = catchAsync(async (req: Request, res: Response) => {
-  const data = await channelService.getFacebookPendingPages(
+export const getPendingAccounts = catchAsync(async (req: Request, res: Response) => {
+  const data = await channelService.getPendingAccounts(
+    req.params.platform as SocialPlatform,
     req.params.sessionId as string,
     req.user!.id,
     req.workspaceId!
   );
 
   return ApiResponse.success(res, {
-    message: 'Lấy danh sách Page thành công',
+    message: 'Lấy danh sách tài khoản thành công',
     data,
   });
 });
 
-export const connectFacebookPages = catchAsync(async (req: Request, res: Response) => {
-  const data = await channelService.connectFacebookPages(
+export const connectAccounts = catchAsync(async (req: Request, res: Response) => {
+  const data = await channelService.connectAccounts(
+    req.params.platform as SocialPlatform,
     req.params.sessionId as string,
     req.user!.id,
     req.workspaceId!,
-    req.body.pageIds as string[]
+    req.body.accountIds as string[]
   );
 
   return ApiResponse.success(res, {
     statusCode: 201,
-    message: 'Kết nối Facebook thành công',
+    message: 'Kết nối kênh thành công',
     data,
   });
 });
@@ -68,11 +78,53 @@ export const disconnectChannel = catchAsync(async (req: Request, res: Response) 
   });
 });
 
+export const getChannelDetail = catchAsync(async (req: Request, res: Response) => {
+  const data = await channelService.getChannelDetail(
+    req.params.channelId as string,
+    req.workspaceId!
+  );
+
+  return ApiResponse.success(res, {
+    message: 'Lấy thông tin kênh thành công',
+    data,
+  });
+});
+
+export const updateChannelLabel = catchAsync(async (req: Request, res: Response) => {
+  const data = await channelService.updateChannelLabel(
+    req.params.channelId as string,
+    req.workspaceId!,
+    req.user!.id,
+    req.body.label
+  );
+
+  return ApiResponse.success(res, {
+    message: 'Cập nhật tên hiển thị của kênh thành công',
+    data,
+  });
+});
+
+export const refreshChannel = catchAsync(async (req: Request, res: Response) => {
+  const data = await channelService.refreshChannel(
+    req.params.channelId as string,
+    req.workspaceId!,
+    req.user!.id
+  );
+
+  return ApiResponse.success(res, {
+    message: 'Làm mới thông tin kênh thành công',
+    data,
+  });
+});
+
 export default {
   listChannels,
-  getFacebookAuthUrl,
-  facebookCallback,
-  getPendingFacebookPages,
-  connectFacebookPages,
+  getOauthUrl,
+  oauthCallback,
+  getPendingAccounts,
+  connectAccounts,
   disconnectChannel,
+  getChannelDetail,
+  updateChannelLabel,
+  refreshChannel,
 };

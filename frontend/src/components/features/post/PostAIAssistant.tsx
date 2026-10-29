@@ -4,8 +4,8 @@ import { ChevronDown, Sparkles } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import TextArea from '@/components/ui/TextArea';
 import TextField from '@/components/ui/TextField';
-import { useAiGeneration, useStartAiText } from '@/hooks/useAi';
-import { syncSessionUser } from '@/hooks/useWorkspace';
+import { useStartAiText } from '@/hooks/useAi';
+import { useAiGenerationWatcher } from '@/hooks/useAiGenerationWatcher';
 import type { AiTextResult } from '@/services/ai';
 import { cn } from '@/utils/cn';
 import { getErrorMessage } from '@/utils/error';
@@ -40,45 +40,25 @@ export const PostAIAssistant = ({
   const [topic, setTopic] = useState('');
   const [instructions, setInstructions] = useState('');
   const [textGenerationId, setTextGenerationId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const textGeneration = useAiGeneration(workspaceId, textGenerationId);
-  const isTextBusy = Boolean(textGenerationId) || startText.isPending;
+  const { error, setError, isBusy } = useAiGenerationWatcher({
+    workspaceId,
+    generationId: textGenerationId,
+    setGenerationId: setTextGenerationId,
+    isResult: isTextResult,
+    resultLabel: 'nội dung bài viết',
+    onSuccess: (result) => {
+      onApplyText(result);
+      toast.success('Đã tạo nội dung bằng AI');
+      setOpen(false);
+    },
+  });
+
+  const isTextBusy = isBusy || startText.isPending;
 
   useEffect(() => {
     onBusyChange(isTextBusy);
   }, [isTextBusy, onBusyChange]);
-
-  useEffect(() => {
-    const generation = textGeneration.data;
-    if (!generation) return;
-
-    if (generation.status === 'SUCCESS') {
-      if (isTextResult(generation.result)) {
-        onApplyText(generation.result);
-        toast.success('Đã tạo nội dung bằng AI');
-        setError(null);
-        setOpen(false);
-      } else {
-        setError('AI không trả về nội dung bài viết hợp lệ. Credit đã được hoàn.');
-        void syncSessionUser();
-      }
-      setTextGenerationId(null);
-      return;
-    }
-
-    if (generation.status === 'FAILED') {
-      setError(generation.errorMessage ?? 'Tạo nội dung thất bại. Credit đã được hoàn.');
-      setTextGenerationId(null);
-      void syncSessionUser();
-    }
-  }, [textGeneration.data, onApplyText]);
-
-  useEffect(() => {
-    if (!textGeneration.isError || !textGenerationId) return;
-    setError(getErrorMessage(textGeneration.error));
-    setTextGenerationId(null);
-  }, [textGeneration.isError, textGeneration.error, textGenerationId]);
 
   const handleText = async () => {
     if (topic.trim().length < 5) {

@@ -1,3 +1,4 @@
+import { getWorkspaceId } from '../../utils/request.js';
 import { Request, Response } from 'express';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
@@ -5,7 +6,7 @@ import billingService from './billing.service.js';
 import type { CreateOrderBody, ListTransactionsQuery } from './billing.validation.js';
 
 export const getBilling = catchAsync(async (req: Request, res: Response) => {
-  const data = await billingService.getBilling(req.workspaceId as string);
+  const data = await billingService.getBilling(getWorkspaceId(req));
 
   return ApiResponse.success(res, {
     statusCode: 200,
@@ -16,7 +17,7 @@ export const getBilling = catchAsync(async (req: Request, res: Response) => {
 
 export const listTransactions = catchAsync(async (req: Request, res: Response) => {
   const data = await billingService.listTransactions(
-    req.workspaceId as string,
+    getWorkspaceId(req),
     req.query as unknown as ListTransactionsQuery
   );
 
@@ -31,7 +32,7 @@ export const listTransactions = catchAsync(async (req: Request, res: Response) =
 export const createOrder = catchAsync(async (req: Request, res: Response) => {
   const { packageId } = req.body as CreateOrderBody;
   const data = await billingService.createOrder(
-    req.workspaceId as string,
+    getWorkspaceId(req),
     req.user!.id,
     packageId
   );
@@ -45,7 +46,7 @@ export const createOrder = catchAsync(async (req: Request, res: Response) => {
 
 export const getOrder = catchAsync(async (req: Request, res: Response) => {
   const data = await billingService.getOrder(
-    req.workspaceId as string,
+    getWorkspaceId(req),
     req.params.orderId as string
   );
 
@@ -58,7 +59,7 @@ export const getOrder = catchAsync(async (req: Request, res: Response) => {
 
 export const cancelOrder = catchAsync(async (req: Request, res: Response) => {
   const data = await billingService.cancelOrder(
-    req.workspaceId as string,
+    getWorkspaceId(req),
     req.params.orderId as string,
     req.user!.id
   );

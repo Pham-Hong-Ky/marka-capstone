@@ -1,0 +1,130 @@
+@startuml 07-schedule
+hide circle
+hide stereotype
+!pragma layout smetana
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "ScheduledPost" as ScheduledPost {
+  + id : string
+  + postId : string
+  + channelId : string
+  + customContent : Json?
+  + scheduledAt : Date?
+  + status : PublishStatus
+  + externalPostId : string?
+  + errorMessage : string?
+  + retryCount : number
+  + processingStartedAt : Date?
+  + retryAt : Date?
+  + publishedAt : Date?
+  + reminderSentAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "Post" as Post {
+  + id : string
+  + workspaceId : string
+  + title : string
+  + content : Json
+  + status : PostStatus
+  + taskStatus : TaskStatus
+  + campaignTag : string?
+  + rejectReason : string?
+  + assigneeId : string?
+  + assignedById : string?
+  + assignedAt : Date?
+  + dueAt : Date?
+  + submittedById : string?
+  + createdById : string?
+  + submittedAt : Date?
+  + reviewedById : string?
+  + reviewedAt : Date?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "ChannelConnection" as ChannelConnection {
+  + id : string
+  + workspaceId : string
+  + platform : SocialPlatform
+  + type : ChannelType
+  + name : string
+  + label : string?
+  + avatar : string?
+  + externalAccountId : string
+  + accessToken : string?
+  + status : ChannelStatus
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "scheduleController" as scheduleController {
+  + createSchedules(req, res) : Promise<Response>
+  + listSchedules(req, res) : Promise<Response>
+  + cancelSchedule(req, res) : Promise<Response>
+}
+
+class "scheduleService" as scheduleService {
+  - validatePostContent(post)
+  - enqueueImmediate(scheduleId)
+  - markChannelExpired(channelId)
+  - failSchedule(schedule, message, metadata)
+  - handlePublishError(schedule, error, feedStarted)
+  + createSchedules(workspaceId, userId, postId, input)
+  + listSchedules(workspaceId, query)
+  + cancelSchedule(workspaceId, userId, scheduleId)
+  + publishSchedule(scheduleId)
+  + processDueSchedules()
+}
+
+class "scheduleRepository" as scheduleRepository {
+  + findPostForSchedule(postId, workspaceId)
+  + findChannelsForSchedule(workspaceId, channelIds)
+  + createSchedulesForPost(params)
+  + listSchedulesAndCount(params)
+  + findScheduleInWorkspace(scheduleId, workspaceId)
+  + cancelSchedule(scheduleId, workspaceId)
+  + findDueScheduleIds(limit)
+  + claimSchedule(scheduleId) : Promise<boolean>
+  + findScheduleForPublish(scheduleId)
+  + markSchedulePublished(scheduleId, externalPostId)
+  + markScheduleFailed(scheduleId, errorMessage)
+  + rescheduleSchedule(scheduleId, errorMessage, delayMs)
+  + recoverStaleSchedules(staleBefore)
+  + recomputePostStatus(tx, postId)
+}
+
+class "scheduleProcessor" as scheduleProcessor {
+  + processScheduleJob(job) : Promise<unknown>
+  + registerScheduleScheduler() : Promise<void>
+}
+
+class "FacebookClient" as facebookClient {
+  + isTokenExpiredError(error) : boolean
+  + uploadPagePhoto(pageId, accessToken, imageUrl) : Promise<string>
+  + createPageFeedPost(pageId, accessToken, message, mediaIds) : Promise<string>
+}
+
+scheduleController ..> scheduleService
+scheduleService ..> scheduleRepository
+scheduleService ..> facebookClient
+scheduleProcessor ..> scheduleService
+
+scheduleRepository ..> ScheduledPost
+scheduleRepository ..> Post
+scheduleRepository ..> ChannelConnection
+
+@enduml

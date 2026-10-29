@@ -1,0 +1,224 @@
+import type { PostStatus, Prisma, TaskStatus } from '@prisma/client';
+import prisma from '../../config/db.js';
+
+const TASK_ASSIGNEE_SELECT = { id: true, name: true, avatar: true } as const;
+const TASK_POST_SELECT = { id: true, title: true, status: true, deletedAt: true } as const;
+
+export const TASK_SELECT = {
+  id: true,
+  workspaceId: true,
+  title: true,
+  description: true,
+  status: true,
+  priority: true,
+  assignedAt: true,
+  dueAt: true,
+  assignee: { select: TASK_ASSIGNEE_SELECT },
+  post: { select: TASK_POST_SELECT },
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.TaskSelect;
+
+type TaskRow = Prisma.TaskGetPayload<{ select: typeof TASK_SELECT }>;
+
+export type TaskDto = Omit<TaskRow, 'post'> & {
+  post: { id: string; title: string; status: PostStatus } | null;
+};
+
+const toTaskDto = (task: TaskRow): TaskDto => {
+  const { post, ...rest } = task;
+
+  return {
+    ...rest,
+    post:
+      post && !post.deletedAt
+        ? { id: post.id, title: post.title, status: post.status }
+        : null,
+  };
+};
+
+export const createTask = async (data: Prisma.TaskUncheckedCreateInput) =>
+  toTaskDto(await prisma.task.create({ data, select: TASK_SELECT }));
+
+export const findTaskById = async (taskId: string, workspaceId: string) => {
+  const task = await prisma.task.findFirst({ where: { id: taskId, workspaceId }, select: TASK_SELECT });
+  return task ? toTaskDto(task) : null;
+};
+
+export interface BoardTaskFilters {
+  workspaceId: string;
+  assigneeId?: string;
+  includeUnassigned: boolean;
+  search?: string;
+  priority?: number;
+  limit: number;
+}
+
+type BoardTaskWhereFilters = Omit<BoardTaskFilters, 'limit'>;
+
+const buildWhere = (
+  filters: BoardTaskWhereFilters,
+  status: TaskStatus,
+  unassigned = false
+): Prisma.TaskWhereInput => ({
+  workspaceId: filters.workspaceId,
+  status,
+  assigneeId: unassigned ? null : filters.assigneeId ?? { not: null },
+  ...(filters.search ? { title: { contains: filters.search, mode: 'insensitive' } } : {}),
+  ...(filters.priority ? { priority: filters.priority } : {}),
+});
+
+const BOARD_ORDER_BY: Prisma.TaskOrderByWithRelationInput[] = [
+  { priority: 'asc' },
+  { dueAt: { sort: 'asc', nulls: 'last' } },
+  { updatedAt: 'desc' },
+];
+
+export const findBoardTasks = async (filters: BoardTaskFilters) => {
+  const [unassigned, todo, inProgress, done] = await Promise.all([
+    filters.includeUnassigned
+      ? prisma.task.findMany({
+          where: buildWhere(filters, 'TODO', true),
+          orderBy: BOARD_ORDER_BY,
+          take: filters.limit,
+          select: TASK_SELECT,
+        })
+      : [],
+    prisma.task.findMany({
+      where: buildWhere(filters, 'TODO'),
+      orderBy: BOARD_ORDER_BY,
+      take: filters.limit,
+      select: TASK_SELECT,
+    }),
+    prisma.task.findMany({
+      where: buildWhere(filters, 'IN_PROGRESS'),
+      orderBy: BOARD_ORDER_BY,
+      take: filters.limit,
+      select: TASK_SELECT,
+    }),
+    prisma.task.findMany({
+      where: buildWhere(filters, 'DONE'),
+      orderBy: BOARD_ORDER_BY,
+      take: filters.limit,
+      select: TASK_SELECT,
+    }),
+  ]);
+
+  return {
+    unassigned: unassigned.map(toTaskDto),
+    todo: todo.map(toTaskDto),
+    inProgress: inProgress.map(toTaskDto),
+    done: done.map(toTaskDto),
+  };
+};
+
+export interface UpdateTaskData {
+  title?: string;
+  description?: string;
+  dueAt?: Date | null;
+  priority?: number;
+}
+
+export const updateTask = async (taskId: string, data: UpdateTaskData) =>
+  toTaskDto(await prisma.task.update({ where: { id: taskId }, data, select: TASK_SELECT }));
+
+export const linkTaskPost = async (taskId: string, postId: string | null) =>
+  toTaskDto(
+    await prisma.task.update({ where: { id: taskId }, data: { postId }, select: TASK_SELECT })
+  );
+
+export const softDeleteTask = async (taskId: string) =>
+  toTaskDto(
+    await prisma.task.update({
+      where: { id: taskId },
+      data: { deletedAt: new Date(), postId: null },
+      select: TASK_SELECT,
+    })
+  );
+
+export const findTaskByPostId = async (postId: string) => {
+  const task = await prisma.task.findFirst({ where: { postId }, select: TASK_SELECT });
+  return task ? toTaskDto(task) : null;
+};
+
+export interface AssignTaskData {
+  assigneeId: string | null;
+  assignedById: string | null;
+  assignedAt: Date | null;
+  dueAt: Date | null;
+  status?: TaskStatus;
+}
+
+export const assignTask = async (taskId: string, data: AssignTaskData) =>
+  toTaskDto(await prisma.task.update({ where: { id: taskId }, data, select: TASK_SELECT }));
+
+export const updateTaskStatus = async (taskId: string, status: TaskStatus) =>
+  toTaskDto(
+    await prisma.task.update({
+      where: { id: taskId },
+      data: status === 'CANCELLED' ? { status, postId: null } : { status },
+      select: TASK_SELECT,
+    })
+  );
+
+const REMINDER_TASK_SELECT = {
+  id: true,
+  workspaceId: true,
+  title: true,
+  priority: true,
+  dueAt: true,
+  assigneeId: true,
+} satisfies Prisma.TaskSelect;
+
+export const findDueSoonTasks = async (from: Date, to: Date, workspaceId?: string) =>
+  prisma.task.findMany({
+    where: {
+      ...(workspaceId ? { workspaceId } : {}),
+      dueAt: { gte: from, lt: to },
+      status: { in: ['TODO', 'IN_PROGRESS'] },
+      assigneeId: { not: null },
+    },
+    select: REMINDER_TASK_SELECT,
+    take: 500,
+  });
+
+export const findOverdueTasks = async (before: Date, workspaceId?: string) =>
+  prisma.task.findMany({
+    where: {
+      ...(workspaceId ? { workspaceId } : {}),
+      dueAt: { lt: before },
+      status: { in: ['TODO', 'IN_PROGRESS'] },
+      assigneeId: { not: null },
+    },
+    select: REMINDER_TASK_SELECT,
+    take: 500,
+  });
+
+export const countBoardTasks = async (filters: BoardTaskWhereFilters) => {
+  const [unassigned, todo, inProgress, done] = await Promise.all([
+    filters.includeUnassigned
+      ? prisma.task.count({ where: buildWhere(filters, 'TODO', true) })
+      : 0,
+    prisma.task.count({ where: buildWhere(filters, 'TODO') }),
+    prisma.task.count({ where: buildWhere(filters, 'IN_PROGRESS') }),
+    prisma.task.count({ where: buildWhere(filters, 'DONE') }),
+  ]);
+
+  return { unassigned, todo, inProgress, done };
+};
+
+export default {
+  TASK_SELECT,
+  createTask,
+  findTaskById,
+  findBoardTasks,
+  countBoardTasks,
+  updateTask,
+  assignTask,
+  updateTaskStatus,
+  linkTaskPost,
+  softDeleteTask,
+  findTaskByPostId,
+  findDueSoonTasks,
+  findOverdueTasks,
+};

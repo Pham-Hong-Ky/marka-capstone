@@ -25,7 +25,7 @@ Marka giúp nhóm marketing:
 
 | Vai trò | Trạng thái | Quyền trong code |
 | :--- | :--- | :--- |
-| `SYSTEM_ADMIN` | 🟡 có trong schema/middleware | Được `requireRoles` cho phép; trong `requireWorkspaceRole` được coi như `OWNER` của mọi workspace. **Chưa có API quản trị nào** (suspend user, xem audit toàn hệ thống...). |
+| `SYSTEM_ADMIN` | ✅ | Dashboard hệ thống, danh sách/khoá-mở khoá user, danh sách workspace, đọc audit log toàn hệ thống (`/admin/*`); trong `requireWorkspaceRole` được coi như `OWNER` của mọi workspace. |
 | `USER` | ✅ | Người dùng thường. |
 
 ### 2.2. Cấp workspace (`WorkspaceMember.role`)
@@ -113,9 +113,10 @@ Quy tắc:
 ### 3.5. Bài viết, media & duyệt bài ✅
 
 - Tạo bài nháp (`DRAFT`), nội dung JSON rich-text.
-- Danh sách bài viết có phân trang, tìm theo tiêu đề, lọc trạng thái/người tạo/khoảng ngày.
+- Danh sách bài viết có phân trang, tìm theo tiêu đề, lọc trạng thái/người tạo/khoảng ngày, lọc `taskStatus` và người nhận việc (`assigneeId=me`).
 - Xem chi tiết bài kèm media.
-- Sửa/xoá bài khi `DRAFT` hoặc `REJECTED`; `OWNER` hoặc người tạo bài.
+- Giao việc (UC42/UC43): Owner giao/đổi người nhận + hạn chót; người nhận hoặc Owner cập nhật `taskStatus` (`TODO`/`IN_PROGRESS`/`DONE`/`CANCELLED`); notification + audit khi giao/đổi trạng thái.
+- Sửa/xoá bài: `OWNER` sửa/xoá mọi bài; người tạo sửa/xoá bài của mình khi `DRAFT`/`REJECTED`. Xoá bài tự huỷ các `ScheduledPost` đang `SCHEDULED` và ghi audit `POST_DELETED`.
 - Upload ảnh JPG/PNG/WEBP ≤ 10MB qua Cloudinary; xoá mềm ảnh.
 - Ảnh AI tạo bởi trợ lý cũng là `MediaAsset` (`source = AI_GENERATED`) và hiển thị chung mục ảnh đính kèm.
 - Gửi duyệt: `DRAFT`/`REJECTED` → `PENDING`.
@@ -123,7 +124,7 @@ Quy tắc:
 - Ghi notification in-app cho Owner (khi gửi duyệt) và tác giả (khi duyệt/từ chối).
 - Ghi audit log cho submit/approve/reject.
 
-**Chưa có:** lưu nháp tự động, template, campaign tag (cột có trong schema nhưng API chưa nhận), lịch sử phiên bản, bình luận, giao việc, archive.
+**Chưa có:** lưu nháp tự động, template, campaign tag (cột có trong schema nhưng API chưa nhận), lịch sử phiên bản, bình luận, archive.
 
 ### 3.6. Email ✅
 
@@ -133,16 +134,18 @@ Quy tắc:
 
 **Chưa có:** nhắc lịch đăng, cảnh báo hết credit/gói, email marketing.
 
-### 3.7. Thông báo in-app 🟡
+### 3.7. Thông báo in-app ✅
 
 - Bảng `Notification` được ghi khi:
   - thành viên mới tham gia workspace (`MEMBER_JOINED`, gửi các Owner còn lại);
   - bài được gửi duyệt / được duyệt / bị từ chối.
-- **UC38 đã bỏ khỏi phạm vi:** không có API đọc danh sách/đếm số chưa đọc; frontend không hiển thị chuông thông báo.
+- API hộp thư của chính người dùng: `GET /users/me/notifications` (phân trang, lọc `isRead`, `workspaceId`), `GET .../unread-count`, `PATCH .../:id/read`, `PATCH .../read-all`.
+- Chuông trên header hiển thị số chưa đọc, poll 30 giây, bấm thông báo mở đúng bài viết.
 
 ### 3.8. Audit, health & hạ tầng ✅
 
-- Audit log cho các hành động auth, workspace, member, Brand Voice, kênh, duyệt bài, billing.
+- Audit log cho các hành động auth, workspace, member, Brand Voice, kênh, duyệt/giao việc bài, billing, quản trị user.
+- API đọc audit log: `GET /admin/audit-logs` (System Admin) và `GET /workspaces/:workspaceId/audit-logs` (Owner), có lọc actor/action/target/thời gian + phân trang.
 - `GET /health` kiểm tra PostgreSQL + Redis.
 - BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`); `scheduleWorker` đăng bài thật, `contentWorker` sinh AI thật, `email` vẫn là worker khung. Billing không dùng queue.
 - Soft delete bằng Prisma Client Extension cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset`.
@@ -162,6 +165,18 @@ Quy tắc:
 
 ---
 
+### 3.10. Quản trị hệ thống ✅
+
+- `GET /admin/stats`: user (tổng/hoạt động/bị khoá/admin), workspace, bài theo trạng thái, kênh, đơn PAID + doanh thu 30 ngày.
+- `GET /admin/users`: tìm theo email/tên, lọc `systemRole`/`isSuspended`, phân trang; không trả `passwordHash`.
+- `PATCH /admin/users/:userId/suspend`: khoá/mở khoá, tăng `tokenVersion` để đá phiên, chặn tự khoá, ghi audit.
+- `GET /admin/workspaces`: tìm/lọc `plan`, `includeDeleted`, kèm số thành viên/bài.
+- `GET /admin/audit-logs` cho System Admin và `GET /workspaces/:workspaceId/audit-logs` cho Owner.
+
+**Chưa có:** frontend `/admin`, đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo.
+
+---
+
 ## 4. Chưa triển khai (Roadmap)
 
 Các phần dưới đây **không có** trong `backend/src/modules` hay `frontend/src/pages` (ngoài trang placeholder):
@@ -170,8 +185,6 @@ Các phần dưới đây **không có** trong `backend/src/modules` hay `fronte
 | :--- | :--- | :--- |
 | Calendar nâng cao | Kéo-thả đổi giờ, sửa lịch sau khi tạo | Đăng ngay/lên lịch/huỷ lịch cơ bản đã có; calendar nâng cao là Roadmap |
 | Analytics | Đồng bộ metrics Facebook, biểu đồ | bảng `post_metrics`; chưa có service, không có n8n |
-| Admin | Quản lý user/workspace, dashboard hệ thống | `SYSTEM_ADMIN` trong schema/middleware; chưa có module admin |
-| Giao việc | UC42/UC43 | chưa có cột trong `schema.prisma` |
 
 Frontend hiện có các trang placeholder: `/ai`, `/publishing`.
 

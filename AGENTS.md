@@ -65,7 +65,7 @@ Luồng: `route → validate(Zod) → controller → service → repository → 
 
 ## 6. Testing
 
-- Backend: **Vitest + Supertest**, test cạnh module `*.test.ts`, chạy trên DB thật.
+- Backend: **Vitest + Supertest**, test đặt trong `backend/tests/` mirror cấu trúc `src/` (vd `tests/modules/post/post.test.ts`), chạy trên DB thật.
 - Mỗi feature/luồng mới: thêm test (happy path + lỗi chính).
 - Chạy `npm test`.
 

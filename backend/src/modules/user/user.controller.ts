@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import userService from './user.service.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
+import { clearRefreshTokenCookie } from '../../utils/cookies.js';
 
 export const getMe = catchAsync(async (req: Request, res: Response) => {
   const profile = await userService.getProfile(req.user!.id);
@@ -31,8 +32,42 @@ export const changePassword = catchAsync(async (req: Request, res: Response) => 
   });
 });
 
+export const uploadAvatar = catchAsync(async (req: Request, res: Response) => {
+  const updatedUser = await userService.uploadAvatar(req.user!.id, req.file);
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Cập nhật ảnh đại diện thành công',
+    data: updatedUser,
+  });
+});
+
+export const logoutAll = catchAsync(async (req: Request, res: Response) => {
+  await userService.logoutAll(req.user!.id);
+  clearRefreshTokenCookie(res);
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Đã đăng xuất khỏi mọi thiết bị',
+  });
+});
+
+export const deleteAccount = catchAsync(async (req: Request, res: Response) => {
+  await userService.deleteAccount(req.user!.id, req.body);
+  clearRefreshTokenCookie(res);
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Tài khoản đã được xoá',
+    data: { success: true },
+  });
+});
+
 export default {
   getMe,
   updateProfile,
+  uploadAvatar,
   changePassword,
+  logoutAll,
+  deleteAccount,
 };

@@ -108,25 +108,6 @@ export const claimPaidOrder = async (
   });
 };
 
-export const incrementWorkspaceCredit = async (
-  tx: TransactionClient,
-  workspaceId: string,
-  creditAmount: number
-) => {
-  return tx.workspace.update({
-    where: { id: workspaceId },
-    data: { remainingCredit: { increment: creditAmount } },
-    select: { remainingCredit: true },
-  });
-};
-
-export const createCreditTransaction = async (
-  tx: TransactionClient,
-  data: Prisma.CreditTransactionUncheckedCreateInput
-) => {
-  return tx.creditTransaction.create({ data });
-};
-
 export default {
   findWorkspaceCredit,
   findWorkspaceCreditForUpdate,
@@ -142,6 +123,4 @@ export default {
   updateOrder,
   cancelPendingOrder,
   claimPaidOrder,
-  incrementWorkspaceCredit,
-  createCreditTransaction,
 };

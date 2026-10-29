@@ -1,4 +1,4 @@
-import type { WorkspaceRole } from '@prisma/client';
+import type { Prisma, TaskStatus, WorkspaceRole } from '@prisma/client';
 import prisma from '../../config/db.js';
 
 export interface CreateWorkspaceData {
@@ -39,14 +39,15 @@ export const findWorkspaceById = async (workspaceId: string) => {
 
 export const createWorkspaceWithOwner = async (
   { name }: CreateWorkspaceData,
-  ownerId: string
+  ownerId: string,
+  tx?: Prisma.TransactionClient
 ) => {
-  return prisma.$transaction(async (tx) => {
-    const workspace = await tx.workspace.create({
+  const create = async (client: Prisma.TransactionClient) => {
+    const workspace = await client.workspace.create({
       data: { name },
     });
 
-    await tx.workspaceMember.create({
+    await client.workspaceMember.create({
       data: {
         workspaceId: workspace.id,
         userId: ownerId,
@@ -56,7 +57,10 @@ export const createWorkspaceWithOwner = async (
     });
 
     return workspace;
-  });
+  };
+
+  if (tx) return create(tx);
+  return prisma.$transaction((client) => create(client as unknown as Prisma.TransactionClient));
 };
 
 export const updateWorkspace = async (
@@ -68,6 +72,12 @@ export const updateWorkspace = async (
 
 export const softDeleteWorkspace = async (workspaceId: string) => {
   return prisma.$transaction(async (tx) => {
+    // Lịch đang PROCESSING để worker đăng xong; lịch chờ thì huỷ để không đăng lên kênh của workspace đã xoá.
+    await tx.scheduledPost.updateMany({
+      where: { status: 'SCHEDULED', channel: { workspaceId } },
+      data: { status: 'CANCELLED', processingStartedAt: null },
+    });
+
     await tx.channelConnection.updateMany({
       where: { workspaceId, status: { not: 'EXPIRED' } },
       data: { status: 'EXPIRED' },
@@ -84,7 +94,7 @@ export const softDeleteWorkspace = async (workspaceId: string) => {
 
 export const findMembersByWorkspace = async (workspaceId: string) => {
   return prisma.workspaceMember.findMany({
-    where: { workspaceId },
+    where: { workspaceId, user: { deletedAt: null } },
     include: {
       user: { select: { id: true, name: true, email: true, avatar: true } },
     },
@@ -104,25 +114,42 @@ export const countOwners = async (workspaceId: string) => {
 
 export const findOwnerIds = async (workspaceId: string) => {
   const owners = await prisma.workspaceMember.findMany({
-    where: { workspaceId, role: 'OWNER' },
+    where: { workspaceId, role: 'OWNER', user: { deletedAt: null } },
     select: { userId: true },
   });
   return owners.map((owner) => owner.userId);
 };
 
-export const createMember = async (
-  workspaceId: string,
+const OPEN_TASK_STATUSES: TaskStatus[] = ['TODO', 'IN_PROGRESS'];
+
+// Việc đang mở của người rời workspace quay về "chưa giao" (giữ hạn chót) để Owner giao lại;
+// việc đã xong/huỷ giữ nguyên người nhận làm lịch sử.
+export const unassignOpenWork = async (
+  tx: Pick<typeof prisma, 'task' | 'post'>,
   userId: string,
-  role: WorkspaceRole
-) => {
-  return prisma.workspaceMember.create({
-    data: { workspaceId, userId, role, allowDirectPublish: role === 'OWNER' },
+  workspaceId?: string
+): Promise<number> => {
+  const scope = { assigneeId: userId, ...(workspaceId ? { workspaceId } : {}) };
+  const cleared = { assigneeId: null, assignedById: null, assignedAt: null };
+
+  const { count } = await tx.task.updateMany({
+    where: { ...scope, status: { in: OPEN_TASK_STATUSES } },
+    data: { ...cleared, status: 'TODO' },
   });
+  await tx.post.updateMany({
+    where: { ...scope, taskStatus: { in: OPEN_TASK_STATUSES } },
+    data: { ...cleared, taskStatus: 'TODO' },
+  });
+
+  return count;
 };
 
 export const deleteMember = async (workspaceId: string, userId: string) => {
-  return prisma.workspaceMember.delete({
-    where: { userId_workspaceId: { userId, workspaceId } },
+  return prisma.$transaction(async (tx) => {
+    await tx.workspaceMember.delete({
+      where: { userId_workspaceId: { userId, workspaceId } },
+    });
+    return { unassignedTasks: await unassignOpenWork(tx, userId, workspaceId) };
   });
 };
 
@@ -203,38 +230,6 @@ export const acceptInviteAsMember = async (
   });
 };
 
-// ---- Cross-entity lookups ----
-
-export const findUserByEmail = async (email: string) => {
-  return prisma.user.findUnique({
-    where: { email },
-    select: { id: true, name: true, email: true },
-  });
-};
-
-export const findUserById = async (userId: string) => {
-  return prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, name: true, email: true },
-  });
-};
-
-export const createNotification = async (data: {
-  userId: string;
-  workspaceId?: string | null;
-  type: string;
-  payload: Record<string, unknown>;
-}) => {
-  return prisma.notification.create({
-    data: {
-      userId: data.userId,
-      workspaceId: data.workspaceId ?? null,
-      type: data.type,
-      payload: data.payload,
-    },
-  });
-};
-
 export default {
   findWorkspacesByUserId,
   findWorkspaceByNameAndOwner,
@@ -246,7 +241,7 @@ export default {
   findMember,
   countOwners,
   findOwnerIds,
-  createMember,
+  unassignOpenWork,
   deleteMember,
   updateMemberRole,
   findInviteByToken,
@@ -256,7 +251,4 @@ export default {
   refreshInvite,
   markInviteUsed,
   acceptInviteAsMember,
-  findUserByEmail,
-  findUserById,
-  createNotification,
 };

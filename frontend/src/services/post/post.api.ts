@@ -1,5 +1,5 @@
 import httpClient from '../httpClient';
-import { unwrap } from '../http';
+import { unwrap, unwrapPaginated } from '../http';
 import type { ApiResponse } from '@/types';
 import type {
   PaginationMeta,
@@ -14,17 +14,13 @@ import type {
 
 const base = (workspaceId: string) => `/workspaces/${workspaceId}/posts`;
 
-const DEFAULT_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
-
 export const listPosts = async (workspaceId: string, params: PostListParams): Promise<PostsResult> => {
-  const response = await httpClient.get<ApiResponse<{ posts: PostsResult['posts'] }>>(base(workspaceId), {
-    params,
-  });
+  const response = await httpClient.get<
+    ApiResponse<{ posts: PostsResult['posts'] }, PaginationMeta>
+  >(base(workspaceId), { params });
+  const { data, meta } = unwrapPaginated(response);
 
-  return {
-    posts: response.data.data?.posts ?? [],
-    meta: (response.data.meta as PaginationMeta | undefined) ?? DEFAULT_META,
-  };
+  return { posts: data.posts, meta };
 };
 
 export const getPost = async (workspaceId: string, postId: string): Promise<PostDetail> =>

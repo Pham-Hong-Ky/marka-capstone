@@ -1,3 +1,4 @@
+import { getErrorMessage } from './errorMessage.js';
 import { Resend } from 'resend';
 import env from '../config/env.js';
 import logger from './logger.js';
@@ -40,7 +41,7 @@ export class MailerClient {
 
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       logger.error(`Gửi email tới ${to} thất bại: ${message}`);
       return false;
     }

@@ -36,7 +36,19 @@ export const refund = async (tx: TransactionClient, params: CreditMutationParams
   return creditRepository.refundCredit(tx, params);
 };
 
+export const increase = async (
+  tx: TransactionClient,
+  params: {
+    workspaceId: string;
+    userId: string | null;
+    amount: number;
+    action: 'TOP_UP' | 'REFUND';
+    reason: string;
+  }
+) => creditRepository.increaseCredit(tx, params);
+
 export default {
   reserve,
   refund,
+  increase,
 };

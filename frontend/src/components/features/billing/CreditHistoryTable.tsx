@@ -1,6 +1,7 @@
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
 import { SkeletonList } from '@/components/ui/Skeleton';
+import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table';
 import { cn } from '@/utils/cn';
 import { formatDateTime, formatNumber } from '@/utils/format';
 import type {
@@ -57,58 +58,56 @@ export const CreditHistoryTable = ({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead>
-            <tr className="text-xs uppercase tracking-wide text-muted">
-              <th className="px-5 py-3 font-medium">Thời gian</th>
-              <th className="px-5 py-3 font-medium">Loại</th>
-              <th className="px-5 py-3 font-medium">Số credit</th>
-              <th className="px-5 py-3 font-medium">Số dư sau</th>
-              <th className="px-5 py-3 font-medium">Ghi chú</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.map((transaction) => (
-              <tr key={transaction.id} className="border-t border-border align-top">
-                <td className="whitespace-nowrap px-5 py-4 text-muted">
-                  {formatDateTime(transaction.createdAt)}
-                </td>
-                <td className="px-5 py-4">
-                  <span
-                    className={cn(
-                      'rounded-full px-2.5 py-1 text-xs font-medium',
-                      transaction.type === 'INFLOW'
-                        ? 'bg-success/10 text-success'
-                        : 'bg-surface-2 text-muted'
-                    )}
-                  >
-                    {ACTION_LABELS[transaction.action]}
-                  </span>
-                </td>
-                <td
+      <Table className="min-w-[720px]">
+        <THead className="uppercase tracking-wide">
+          <TR>
+            <TH scope="col">Thời gian</TH>
+            <TH scope="col">Loại</TH>
+            <TH scope="col">Số credit</TH>
+            <TH scope="col">Số dư sau</TH>
+            <TH scope="col">Ghi chú</TH>
+          </TR>
+        </THead>
+        <TBody>
+          {transactions.map((transaction) => (
+            <TR key={transaction.id} className="align-top">
+              <TD className="whitespace-nowrap text-muted">
+                {formatDateTime(transaction.createdAt)}
+              </TD>
+              <TD>
+                <span
                   className={cn(
-                    'whitespace-nowrap px-5 py-4 font-semibold tabular-nums',
-                    transaction.type === 'INFLOW' ? 'text-success' : 'text-foreground'
+                    'rounded-full px-2.5 py-1 text-xs font-medium',
+                    transaction.type === 'INFLOW'
+                      ? 'bg-success/10 text-success'
+                      : 'bg-surface-2 text-muted'
                   )}
                 >
-                  {transaction.type === 'INFLOW' ? '+' : '-'}
-                  {formatNumber(transaction.amount)}
-                </td>
-                <td className="whitespace-nowrap px-5 py-4 tabular-nums text-foreground">
-                  {formatNumber(transaction.balanceAfter)}
-                </td>
-                <td className="px-5 py-4 text-muted">
-                  <p>{transaction.reason ?? '—'}</p>
-                  {transaction.createdBy ? (
-                    <p className="mt-1 text-xs text-subtle">{transaction.createdBy.name}</p>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  {ACTION_LABELS[transaction.action]}
+                </span>
+              </TD>
+              <TD
+                className={cn(
+                  'whitespace-nowrap font-semibold tabular-nums',
+                  transaction.type === 'INFLOW' ? 'text-success' : 'text-foreground'
+                )}
+              >
+                {transaction.type === 'INFLOW' ? '+' : '-'}
+                {formatNumber(transaction.amount)}
+              </TD>
+              <TD className="whitespace-nowrap tabular-nums text-foreground">
+                {formatNumber(transaction.balanceAfter)}
+              </TD>
+              <TD className="text-muted">
+                <p>{transaction.reason ?? '—'}</p>
+                {transaction.createdBy ? (
+                  <p className="mt-1 text-xs text-subtle">{transaction.createdBy.name}</p>
+                ) : null}
+              </TD>
+            </TR>
+          ))}
+        </TBody>
+      </Table>
 
       <Pagination
         page={meta.page}

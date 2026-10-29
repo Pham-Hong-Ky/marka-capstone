@@ -47,22 +47,30 @@ export const reserveCredit = async (tx: TransactionClient, params: ReserveCredit
   return { balanceBefore, balanceAfter };
 };
 
-export const refundCredit = async (tx: TransactionClient, params: CreditMutationParams) => {
+interface IncreaseCreditParams {
+  workspaceId: string;
+  userId: string | null;
+  amount: number;
+  action: Extract<CreditActionType, 'TOP_UP' | 'REFUND'>;
+  reason: string;
+}
+
+export const increaseCredit = async (tx: TransactionClient, params: IncreaseCreditParams) => {
   const workspace = await tx.workspace.update({
     where: { id: params.workspaceId },
-    data: { remainingCredit: { increment: params.cost } },
+    data: { remainingCredit: { increment: params.amount } },
     select: { remainingCredit: true },
   });
 
   const balanceAfter = workspace.remainingCredit;
-  const balanceBefore = balanceAfter - params.cost;
+  const balanceBefore = balanceAfter - params.amount;
 
   await tx.creditTransaction.create({
     data: {
       workspaceId: params.workspaceId,
       type: 'INFLOW',
-      action: 'REFUND',
-      amount: params.cost,
+      action: params.action,
+      amount: params.amount,
       balanceBefore,
       balanceAfter,
       reason: params.reason,
@@ -73,7 +81,11 @@ export const refundCredit = async (tx: TransactionClient, params: CreditMutation
   return { balanceBefore, balanceAfter };
 };
 
+export const refundCredit = async (tx: TransactionClient, params: CreditMutationParams) =>
+  increaseCredit(tx, { ...params, amount: params.cost, action: 'REFUND' });
+
 export default {
   reserveCredit,
   refundCredit,
+  increaseCredit,
 };

@@ -7,29 +7,25 @@ import {
   type ReviewPostPayload,
   type UpdatePostPayload,
 } from '@/services/post';
+import { queryKeys } from '@/lib/queryKeys';
 import { getErrorMessage } from '@/utils/error';
 import { hasPublishInProgress, PUBLISH_POLL_INTERVAL_MS } from '@/utils/schedule';
 
-const postKeys = {
-  list: (workspaceId: string, params: PostListParams) => ['posts', workspaceId, params] as const,
-  detail: (workspaceId: string, postId: string) => ['post', workspaceId, postId] as const,
-};
-
 const invalidatePosts = (queryClient: QueryClient, workspaceId: string) => {
-  queryClient.invalidateQueries({ queryKey: ['posts', workspaceId] });
-  queryClient.invalidateQueries({ queryKey: ['post', workspaceId] });
+  queryClient.invalidateQueries({ queryKey: queryKeys.post.workspace(workspaceId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.post.detailWorkspace(workspaceId) });
 };
 
 export const usePosts = (workspaceId: string | null, params: PostListParams) =>
   useQuery({
-    queryKey: postKeys.list(workspaceId ?? '', params),
+    queryKey: queryKeys.post.list(workspaceId ?? '', params),
     queryFn: () => postService.listPosts(workspaceId as string, params),
     enabled: Boolean(workspaceId),
   });
 
 export const usePost = (workspaceId: string | null, postId: string | null) =>
   useQuery({
-    queryKey: postKeys.detail(workspaceId ?? '', postId ?? ''),
+    queryKey: queryKeys.post.detail(workspaceId ?? '', postId ?? ''),
     queryFn: () => postService.getPost(workspaceId as string, postId as string),
     enabled: Boolean(workspaceId && postId),
     refetchInterval: (query) =>
@@ -136,10 +132,11 @@ export const useUploadPostMedia = () => {
       file: File;
     }) => postService.uploadPostMedia(workspaceId, postId, file),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['post', variables.workspaceId] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.post.detailWorkspace(variables.workspaceId),
+      });
       toast.success('Tải ảnh lên thành công');
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
   });
 };
 
@@ -157,7 +154,9 @@ export const useDeletePostMedia = () => {
       mediaId: string;
     }) => postService.deletePostMedia(workspaceId, postId, mediaId),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['post', variables.workspaceId] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.post.detailWorkspace(variables.workspaceId),
+      });
       toast.success('Đã gỡ ảnh');
     },
     onError: (error) => toast.error(getErrorMessage(error)),

@@ -1,14 +1,10 @@
 export class AppError extends Error {
   public statusCode: number;
-  public status: string;
-  public isOperational: boolean;
   public errors: unknown;
 
   constructor(message: string, statusCode = 500, errors: unknown = null) {
     super(message);
     this.statusCode = statusCode;
-    this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
-    this.isOperational = true;
     this.errors = errors;
   }
 }
@@ -34,12 +30,6 @@ export class ForbiddenError extends AppError {
 export class ConflictError extends AppError {
   constructor(message = 'Xung đột dữ liệu') {
     super(message, 409);
-  }
-}
-
-export class ValidationError extends AppError {
-  constructor(message = 'Dữ liệu không hợp lệ', errors: unknown = null) {
-    super(message, 422, errors);
   }
 }
 
@@ -73,7 +63,6 @@ export default {
   UnauthorizedError,
   ForbiddenError,
   ConflictError,
-  ValidationError,
   BadRequestError,
   PaymentRequiredError,
   ServiceUnavailableError,

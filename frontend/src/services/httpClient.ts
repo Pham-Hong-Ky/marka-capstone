@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import env from '../config/env';
+import { authStorage } from '@/lib/storage';
 
 // Chỉ một lượt refresh chạy tại một thời điểm; các request 401 khác xếp hàng chờ.
 let isRefreshing = false;
@@ -30,12 +31,12 @@ export const httpClient = axios.create({
 
 httpClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const accessToken = localStorage.getItem('access_token');
+    const accessToken = authStorage.getAccessToken();
     if (accessToken && config.headers && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
 
-    const workspaceId = localStorage.getItem('active_workspace_id');
+    const workspaceId = authStorage.getActiveWorkspaceId();
     if (workspaceId && config.headers && !config.headers['x-workspace-id']) {
       config.headers['x-workspace-id'] = workspaceId;
     }
@@ -67,7 +68,14 @@ httpClient.interceptors.response.use(
       originalRequest.url?.includes('/auth/google') ||
       originalRequest.url?.includes('/auth/refresh');
 
-    if (status === 401 && !originalRequest._retry && !isAuthUrl) {
+    // Đổi mật khẩu/xoá tài khoản trả 401 khi sai mật khẩu, không phải token hết hạn:
+    // thử refresh ở đây sẽ đăng xuất người dùng và che mất thông báo lỗi của server.
+    const isBusinessAuthUrl =
+      Boolean(originalRequest.url?.includes('/users/me/password')) ||
+      (originalRequest.method?.toLowerCase() === 'delete' &&
+        Boolean(originalRequest.url?.endsWith('/users/me')));
+
+    if (status === 401 && !originalRequest._retry && !isAuthUrl && !isBusinessAuthUrl) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -75,7 +83,7 @@ httpClient.interceptors.response.use(
           .then(() => {
             // Request xếp hàng vẫn mang token cũ; interceptor request không ghi đè header có sẵn.
             originalRequest._retry = true;
-            originalRequest.headers.Authorization = `Bearer ${localStorage.getItem('access_token')}`;
+            originalRequest.headers.Authorization = `Bearer ${authStorage.getAccessToken()}`;
             return httpClient(originalRequest);
           })
           .catch((err) => Promise.reject(err));
@@ -88,7 +96,7 @@ httpClient.interceptors.response.use(
         const refreshResponse = await axios.post(
           `${env.VITE_API_URL}/auth/refresh-token`,
           {},
-          { withCredentials: true }
+          { withCredentials: true, timeout: 10_000 }
         );
 
         const newAccessToken =
@@ -96,7 +104,7 @@ httpClient.interceptors.response.use(
           refreshResponse.data?.accessToken;
 
         if (newAccessToken) {
-          localStorage.setItem('access_token', newAccessToken);
+          authStorage.setAccessToken(newAccessToken);
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
           }
@@ -106,7 +114,7 @@ httpClient.interceptors.response.use(
         return httpClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError as AxiosError);
-        localStorage.removeItem('access_token');
+        authStorage.clearAccessToken();
 
         // Phát sự kiện để auth store tự đăng xuất, giữ httpClient không phụ thuộc vào store.
         window.dispatchEvent(new CustomEvent('auth:unauthorized'));

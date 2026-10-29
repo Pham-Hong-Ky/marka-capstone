@@ -1,0 +1,143 @@
+@startuml 09-ai
+hide circle
+hide stereotype
+!pragma layout smetana
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "AiGeneration" as AiGeneration {
+  + id : string
+  + workspaceId : string
+  + userId : string?
+  + postId : string?
+  + type : AiGenType
+  + provider : string
+  + model : string
+  + status : AiGenStatus
+  + prompt : string
+  + response : string?
+  + errorMessage : string?
+  + creditCost : number
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "Post" as Post {
+  + id : string
+  + workspaceId : string
+  + title : string
+  + content : Json
+  + status : PostStatus
+  + taskStatus : TaskStatus
+  + campaignTag : string?
+  + rejectReason : string?
+  + assigneeId : string?
+  + assignedById : string?
+  + assignedAt : Date?
+  + dueAt : Date?
+  + submittedById : string?
+  + createdById : string?
+  + submittedAt : Date?
+  + reviewedById : string?
+  + reviewedAt : Date?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "MediaAsset" as MediaAsset {
+  + id : string
+  + workspaceId : string
+  + postId : string?
+  + url : string
+  + type : MediaType
+  + mimeType : string?
+  + thumbnailUrl : string?
+  + size : number
+  + tags : string?
+  + source : MediaSource
+  + createdById : string?
+  + deletedAt : Date?
+  + createdAt : Date
+}
+
+class "aiController" as aiController {
+  + generateText(req, res) : Promise<Response>
+  + generateImage(req, res) : Promise<Response>
+  + getGeneration(req, res) : Promise<Response>
+}
+
+class "aiService" as aiService {
+  - buildRefundReason(type) : string
+  - enqueueOrRefund(generationId, jobName, failureMessage)
+  - removeDraftQuietly(postId)
+  - enqueueImageGeneration(generationId, createdDraftId)
+  + startTextGeneration(params)
+  + startImageGeneration(params)
+  + getGeneration(params)
+  + markProcessing(generationId)
+  + completeTextGeneration(generationId, response)
+  + completeImageGeneration(params)
+  + failGeneration(generationId, message)
+  + assertPostAcceptsImages(post)
+}
+
+class "aiRepository" as aiRepository {
+  + findGenerationByIdAndWorkspace(generationId, workspaceId)
+  + findGenerationStatus(db, generationId)
+  + createGeneration(db, data)
+  + createDraftPost(db, data)
+  + createMediaAsset(db, data)
+  + takeGenerationForProcessing(generationId)
+  + completeGeneration(generationId, response) : Promise<boolean>
+  + completeGenerationInTransaction(db, generationId, response)
+  + failActiveGeneration(db, generationId, errorMessage)
+  + getPostForGeneration(postId, workspaceId)
+  + getPostForGenerationInTransaction(db, postId, workspaceId)
+}
+
+class "aiProcessor" as aiProcessor {
+  - resolveImagePrompt(source)
+  - normalizeAiError(error, attempt)
+  - runTextGeneration(generation)
+  - runImageGeneration(generation)
+  + executeAiGeneration(generationId, attempt) : Promise<void>
+  + processContentJob(job) : Promise<{ success: boolean }>
+  + buildAiFailureMessage(type, error) : string
+}
+
+class "GeminiClient" as geminiClient {
+  + generateJson({ model, systemInstruction, userPrompt, responseSchema })
+}
+
+class "CloudflareImageClient" as cloudflareImageClient {
+  + generateImage({ model, prompt }) : Promise<Buffer>
+}
+
+class "CloudinaryClient" as cloudinaryClient {
+  + uploadImageBuffer(buffer, folder) : Promise<string>
+}
+
+aiController ..> aiService
+aiService ..> aiRepository
+aiProcessor ..> aiService
+aiProcessor ..> aiRepository
+aiProcessor ..> geminiClient
+aiProcessor ..> cloudflareImageClient
+aiProcessor ..> cloudinaryClient
+
+aiRepository ..> AiGeneration
+aiRepository ..> Post
+aiRepository ..> MediaAsset
+
+@enduml

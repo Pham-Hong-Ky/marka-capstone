@@ -24,4 +24,14 @@ export const decrypt = (cipherText?: string | null): string | null | undefined =
   return decrypted.toString('utf8');
 };
 
-export default { encrypt, decrypt };
+/** Giải mã token; trả null thay vì ném lỗi khi key/chuỗi mã hoá không hợp lệ. */
+export const decryptOrNull = (cipherText?: string | null): string | null => {
+  if (!cipherText) return null;
+  try {
+    return decrypt(cipherText) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+export default { encrypt, decrypt, decryptOrNull };

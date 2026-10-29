@@ -1,5 +1,5 @@
 import { Queue, type DefaultJobOptions } from 'bullmq';
-import { queueConnection } from '../config/redis.js';
+import { producerConnection } from '../config/redis.js';
 import { QUEUE_NAMES, QUEUE_PREFIX, type QueueName } from './types.js';
 
 export const defaultJobOptions: DefaultJobOptions = {
@@ -11,19 +11,31 @@ export const defaultJobOptions: DefaultJobOptions = {
 };
 
 export const contentGenerationQueue = new Queue(QUEUE_NAMES.contentGeneration, {
-  connection: queueConnection,
+  connection: producerConnection,
   prefix: QUEUE_PREFIX,
   defaultJobOptions,
 });
 
 export const scheduleQueue = new Queue(QUEUE_NAMES.schedule, {
-  connection: queueConnection,
+  connection: producerConnection,
   prefix: QUEUE_PREFIX,
   defaultJobOptions,
 });
 
-export const emailQueue = new Queue(QUEUE_NAMES.email, {
-  connection: queueConnection,
+export const analyticsQueue = new Queue(QUEUE_NAMES.analytics, {
+  connection: producerConnection,
+  prefix: QUEUE_PREFIX,
+  defaultJobOptions,
+});
+
+export const channelMaintenanceQueue = new Queue(QUEUE_NAMES.channelMaintenance, {
+  connection: producerConnection,
+  prefix: QUEUE_PREFIX,
+  defaultJobOptions,
+});
+
+export const taskReminderQueue = new Queue(QUEUE_NAMES.taskReminder, {
+  connection: producerConnection,
   prefix: QUEUE_PREFIX,
   defaultJobOptions,
 });
@@ -31,7 +43,16 @@ export const emailQueue = new Queue(QUEUE_NAMES.email, {
 export const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.contentGeneration]: contentGenerationQueue,
   [QUEUE_NAMES.schedule]: scheduleQueue,
-  [QUEUE_NAMES.email]: emailQueue,
+  [QUEUE_NAMES.analytics]: analyticsQueue,
+  [QUEUE_NAMES.channelMaintenance]: channelMaintenanceQueue,
+  [QUEUE_NAMES.taskReminder]: taskReminderQueue,
 };
 
-export default { contentGenerationQueue, scheduleQueue, emailQueue, queues };
+export default {
+  contentGenerationQueue,
+  scheduleQueue,
+  analyticsQueue,
+  channelMaintenanceQueue,
+  taskReminderQueue,
+  queues,
+};

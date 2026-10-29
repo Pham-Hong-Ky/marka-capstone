@@ -1,13 +1,12 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import toast from 'react-hot-toast';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import SelectField from '@/components/ui/SelectField';
 import { useInviteMember } from '@/hooks/useWorkspace';
 import {
-  WORKSPACE_ROLE_LABELS,
+  WORKSPACE_ROLE_OPTIONS,
   inviteMemberSchema,
   type InviteMemberValues,
 } from '@/services/workspace';
@@ -42,10 +41,7 @@ export const InviteMemberModal = ({
     inviteMember.mutate(
       { id: workspaceId, payload: { email, role } },
       {
-        onSuccess: (data) => {
-          toast.success(`Đã gửi lời mời tới ${data.invite.email}`);
-          close();
-        },
+        onSuccess: () => close(),
       }
     );
   });
@@ -62,8 +58,11 @@ export const InviteMemberModal = ({
         />
 
         <SelectField label="Vai trò" id="invite-role" {...register('role')}>
-          <option value="CONTENT_CREATOR">{WORKSPACE_ROLE_LABELS.CONTENT_CREATOR}</option>
-          <option value="OWNER">{WORKSPACE_ROLE_LABELS.OWNER}</option>
+          {WORKSPACE_ROLE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </SelectField>
       </form>
 

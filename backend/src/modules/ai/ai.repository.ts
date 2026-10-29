@@ -30,6 +30,18 @@ interface CreateMediaData {
   createdById: string | null;
 }
 
+interface GenerationSnapshot {
+  workspaceId: string;
+  userId: string | null;
+  creditCost: number;
+  type: AiGenType;
+}
+
+export interface FailGenerationResult {
+  failed: boolean;
+  generation: GenerationSnapshot | null;
+}
+
 export const findGenerationByIdAndWorkspace = async (
   generationId: string,
   workspaceId: string
@@ -39,8 +51,11 @@ export const findGenerationByIdAndWorkspace = async (
   });
 };
 
-export const findGenerationById = async (generationId: string) => {
-  return prisma.aiGeneration.findUnique({ where: { id: generationId } });
+export const findGenerationStatus = async (db: DbClient, generationId: string) => {
+  return db.aiGeneration.findUnique({
+    where: { id: generationId },
+    select: { status: true },
+  });
 };
 
 export const createGeneration = async (db: DbClient, data: CreateGenerationData) => {
@@ -61,26 +76,51 @@ export const createMediaAsset = async (db: DbClient, data: CreateMediaData) => {
   });
 };
 
-export const markProcessing = async (generationId: string): Promise<boolean> => {
+/**
+ * Chuyển generation sang PROCESSING và trả về bản ghi mới.
+ * Trả null khi generation đã kết thúc hoặc không tồn tại — worker bỏ qua job.
+ */
+export const takeGenerationForProcessing = async (generationId: string) => {
   const { count } = await prisma.aiGeneration.updateMany({
     where: { id: generationId, status: { in: ['PENDING', 'PROCESSING'] } },
     data: { status: 'PROCESSING' },
   });
-  return count > 0;
+
+  if (count === 0) return null;
+
+  return prisma.aiGeneration.findUnique({ where: { id: generationId } });
 };
 
-export const completeTextGeneration = async (
+const COMPLETABLE_STATUSES = ['PENDING', 'PROCESSING'] as const;
+
+const buildCompletionData = (response: unknown) => ({
+  status: 'SUCCESS' as const,
+  response: JSON.stringify(response),
+  errorMessage: null,
+});
+
+export const completeGeneration = async (
   generationId: string,
   response: unknown
 ): Promise<boolean> => {
   const { count } = await prisma.aiGeneration.updateMany({
-    where: { id: generationId, status: { in: ['PENDING', 'PROCESSING'] } },
-    data: {
-      status: 'SUCCESS',
-      response: JSON.stringify(response),
-      errorMessage: null,
-    },
+    where: { id: generationId, status: { in: [...COMPLETABLE_STATUSES] } },
+    data: buildCompletionData(response),
   });
+
+  return count > 0;
+};
+
+export const completeGenerationInTransaction = async (
+  db: DbClient,
+  generationId: string,
+  response: unknown
+): Promise<boolean> => {
+  const { count } = await db.aiGeneration.updateMany({
+    where: { id: generationId, status: { in: [...COMPLETABLE_STATUSES] } },
+    data: buildCompletionData(response),
+  });
+
   return count > 0;
 };
 
@@ -88,14 +128,14 @@ export const failActiveGeneration = async (
   db: DbClient,
   generationId: string,
   errorMessage: string
-): Promise<{ count: number; generation: { workspaceId: string; userId: string | null; creditCost: number; type: AiGenType } | null }> => {
+): Promise<FailGenerationResult> => {
   const generation = await db.aiGeneration.findUnique({
     where: { id: generationId },
     select: { workspaceId: true, userId: true, creditCost: true, type: true, status: true },
   });
 
   if (!generation || generation.status === 'SUCCESS' || generation.status === 'FAILED') {
-    return { count: 0, generation: null };
+    return { failed: false, generation: null };
   }
 
   const { count } = await db.aiGeneration.updateMany({
@@ -108,24 +148,62 @@ export const failActiveGeneration = async (
     },
   });
 
-  return { count, generation: count === 1 ? generation : null };
+  return { failed: count === 1, generation: count === 1 ? generation : null };
 };
+
+export const findStaleGenerationIds = async (updatedBefore: Date, take: number) => {
+  const rows = await prisma.aiGeneration.findMany({
+    where: { status: { in: ['PENDING', 'PROCESSING'] }, updatedAt: { lt: updatedBefore } },
+    orderBy: { updatedAt: 'asc' },
+    take,
+    select: { id: true },
+  });
+  return rows.map((row) => row.id);
+};
+
+const buildPostForGenerationWhere =(postId: string, workspaceId: string) => ({
+  id: postId,
+  workspaceId,
+});
+
+const POST_FOR_GENERATION_SELECT = {
+  id: true,
+  title: true,
+  content: true,
+  status: true,
+  workspaceId: true,
+  createdById: true,
+} satisfies Prisma.PostSelect;
 
 export const getPostForGeneration = async (postId: string, workspaceId: string) => {
   return prisma.post.findFirst({
-    where: { id: postId, workspaceId },
-    select: { id: true, title: true, content: true, status: true, workspaceId: true },
+    where: buildPostForGenerationWhere(postId, workspaceId),
+    select: POST_FOR_GENERATION_SELECT,
+  });
+};
+
+export const getPostForGenerationInTransaction = async (
+  db: DbClient,
+  postId: string,
+  workspaceId: string
+) => {
+  return db.post.findFirst({
+    where: buildPostForGenerationWhere(postId, workspaceId),
+    select: POST_FOR_GENERATION_SELECT,
   });
 };
 
 export default {
   findGenerationByIdAndWorkspace,
-  findGenerationById,
+  findGenerationStatus,
   createGeneration,
   createDraftPost,
   createMediaAsset,
-  markProcessing,
-  completeTextGeneration,
+  takeGenerationForProcessing,
+  completeGeneration,
+  completeGenerationInTransaction,
   failActiveGeneration,
+  findStaleGenerationIds,
   getPostForGeneration,
+  getPostForGenerationInTransaction,
 };

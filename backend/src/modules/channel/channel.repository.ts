@@ -1,12 +1,13 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, SocialPlatform } from '@prisma/client';
 import prisma from '../../config/db.js';
-import { recomputePostStatus } from '../schedule/schedule.repository.js';
+import { recomputePostStatus } from '../post/post.status.js';
 
 export const CHANNEL_PUBLIC_SELECT = {
   id: true,
   platform: true,
   type: true,
   name: true,
+  label: true,
   avatar: true,
   externalAccountId: true,
   status: true,
@@ -25,21 +26,22 @@ export const findChannelsByWorkspace = async (workspaceId: string): Promise<Chan
     orderBy: { createdAt: 'desc' },
   });
 
-interface UpsertFacebookChannelData {
+export interface UpsertChannelData {
   externalAccountId: string;
   name: string;
   avatar: string | null;
   accessToken: string;
 }
 
-const buildFacebookUpsertArgs = (
+const buildChannelUpsertArgs = (
   workspaceId: string,
-  data: UpsertFacebookChannelData
+  platform: SocialPlatform,
+  data: UpsertChannelData
 ): Prisma.ChannelConnectionUpsertArgs => ({
   where: {
     workspaceId_platform_externalAccountId: {
       workspaceId,
-      platform: 'FACEBOOK',
+      platform,
       externalAccountId: data.externalAccountId,
     },
   },
@@ -49,10 +51,11 @@ const buildFacebookUpsertArgs = (
     avatar: data.avatar,
     accessToken: data.accessToken,
     status: 'ACTIVE',
+    deletedAt: null,
   },
   create: {
     workspaceId,
-    platform: 'FACEBOOK',
+    platform,
     type: 'REAL',
     externalAccountId: data.externalAccountId,
     name: data.name,
@@ -63,12 +66,13 @@ const buildFacebookUpsertArgs = (
   select: CHANNEL_PUBLIC_SELECT,
 });
 
-export const upsertFacebookChannels = async (
+export const upsertChannels = async (
   workspaceId: string,
-  pages: UpsertFacebookChannelData[]
+  platform: SocialPlatform,
+  accounts: UpsertChannelData[]
 ): Promise<ChannelSummary[]> =>
   prisma.$transaction(
-    pages.map((data) => prisma.channelConnection.upsert(buildFacebookUpsertArgs(workspaceId, data)))
+    accounts.map((data) => prisma.channelConnection.upsert(buildChannelUpsertArgs(workspaceId, platform, data)))
   );
 
 export const findChannelInWorkspace = async (channelId: string, workspaceId: string) =>
@@ -91,8 +95,85 @@ export const findChannelWithToken = async (channelId: string, workspaceId: strin
       platform: true,
       status: true,
       accessToken: true,
+      externalAccountId: true,
     },
   });
+
+export const findChannelDetail = async (channelId: string, workspaceId: string) =>
+  prisma.channelConnection.findFirst({
+    where: { id: channelId, workspaceId },
+    select: CHANNEL_PUBLIC_SELECT,
+  });
+
+export const findChannelStats = async (channelId: string) => {
+  const [publishedPosts, metrics, lastPublished] = await Promise.all([
+    prisma.scheduledPost.count({ where: { channelId, status: 'PUBLISHED' } }),
+    prisma.postMetric.aggregate({
+      where: { scheduledPost: { channelId, status: 'PUBLISHED' } },
+      _sum: {
+        reactions: true,
+        comments: true,
+        shares: true,
+        impressions: true,
+        reach: true,
+      },
+      _max: { fetchedAt: true },
+    }),
+    prisma.scheduledPost.findFirst({
+      where: { channelId, status: 'PUBLISHED' },
+      orderBy: { publishedAt: 'desc' },
+      select: { publishedAt: true },
+    }),
+  ]);
+
+  return {
+    publishedPosts,
+    reactions: metrics._sum.reactions ?? 0,
+    comments: metrics._sum.comments ?? 0,
+    shares: metrics._sum.shares ?? 0,
+    impressions: metrics._sum.impressions ?? 0,
+    reach: metrics._sum.reach ?? 0,
+    lastPublishedAt: lastPublished?.publishedAt ?? null,
+    lastSyncedAt: metrics._max.fetchedAt ?? null,
+  };
+};
+
+export const updateChannelLabel = async (channelId: string, label: string | null) =>
+  prisma.channelConnection.update({
+    where: { id: channelId },
+    data: { label },
+    select: CHANNEL_PUBLIC_SELECT,
+  });
+
+export const updateChannelProfile = async (
+  channelId: string,
+  data: { name: string; avatar: string | null }
+) =>
+  prisma.channelConnection.update({
+    where: { id: channelId },
+    data,
+    select: CHANNEL_PUBLIC_SELECT,
+  });
+
+export const findChannelsWithRefreshableTokens = async (
+  platforms: SocialPlatform[]
+): Promise<Array<{ id: string; platform: SocialPlatform; accessToken: string | null }>> =>
+  prisma.channelConnection.findMany({
+    where: {
+      platform: { in: platforms },
+      type: 'REAL',
+      status: 'ACTIVE',
+      deletedAt: null,
+    },
+    select: { id: true, platform: true, accessToken: true },
+  });
+
+export const updateChannelToken = async (
+  channelId: string,
+  accessToken: string
+): Promise<void> => {
+  await prisma.channelConnection.update({ where: { id: channelId }, data: { accessToken } });
+};
 
 export const updateChannelStatus = async (
   channelId: string,
@@ -103,32 +184,59 @@ export const updateChannelStatus = async (
     data: { status },
   });
 
-export const deleteChannelAndCancelSchedules = async (channelId: string): Promise<void> => {
-  await prisma.$transaction(async (tx) => {
-    const affectedPosts = await tx.scheduledPost.findMany({
-      where: { channelId },
-      select: { postId: true },
-      distinct: ['postId'],
-    });
+export const disconnectChannelAndCancelSchedules = async (
+  channelId: string
+): Promise<'disconnected' | 'publishing'> => {
+  const publishing = Symbol('publishing');
 
-    await tx.scheduledPost.updateMany({
-      where: { channelId, status: 'SCHEDULED' },
-      data: { status: 'CANCELLED' },
-    });
-    await tx.channelConnection.delete({ where: { id: channelId } });
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // Huỷ lịch chờ trước, rồi mới kiểm tra PROCESSING. Nếu worker claim chen
+      // giữa hai bước, count sẽ thấy PROCESSING và rollback toàn bộ.
+      await tx.scheduledPost.updateMany({
+        where: { channelId, status: 'SCHEDULED' },
+        data: { status: 'CANCELLED', processingStartedAt: null },
+      });
 
-    for (const { postId } of affectedPosts) {
-      await recomputePostStatus(tx, postId);
-    }
-  });
+      const processing = await tx.scheduledPost.count({
+        where: { channelId, status: 'PROCESSING' },
+      });
+      if (processing > 0) throw publishing;
+
+      const affectedPosts = await tx.scheduledPost.findMany({
+        where: { channelId },
+        select: { postId: true },
+        distinct: ['postId'],
+      });
+
+      await tx.channelConnection.update({
+        where: { id: channelId },
+        data: { deletedAt: new Date(), accessToken: null, status: 'EXPIRED' },
+      });
+
+      for (const { postId } of affectedPosts) {
+        await recomputePostStatus(tx, postId);
+      }
+      return 'disconnected' as const;
+    });
+  } catch (error) {
+    if (error === publishing) return 'publishing';
+    throw error;
+  }
 };
 
 export default {
   CHANNEL_PUBLIC_SELECT,
   findChannelsByWorkspace,
-  upsertFacebookChannels,
+  upsertChannels,
   findChannelInWorkspace,
   findChannelWithToken,
+  findChannelDetail,
+  findChannelStats,
+  findChannelsWithRefreshableTokens,
+  updateChannelToken,
+  updateChannelLabel,
+  updateChannelProfile,
   updateChannelStatus,
-  deleteChannelAndCancelSchedules,
+  disconnectChannelAndCancelSchedules,
 };

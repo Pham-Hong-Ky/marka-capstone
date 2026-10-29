@@ -1,0 +1,136 @@
+@startuml 10-analytics
+hide circle
+hide stereotype
+!pragma layout smetana
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  ArrowColor #475569
+}
+
+class "ScheduledPost" as ScheduledPost {
+  + id : string
+  + postId : string
+  + channelId : string
+  + customContent : Json?
+  + scheduledAt : Date?
+  + status : PublishStatus
+  + externalPostId : string?
+  + errorMessage : string?
+  + retryCount : number
+  + processingStartedAt : Date?
+  + retryAt : Date?
+  + publishedAt : Date?
+  + reminderSentAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "PostMetric" as PostMetric {
+  + id : string
+  + scheduledPostId : string
+  + reactions : number
+  + reactionsDetail : Json?
+  + comments : number
+  + shares : number
+  + reach : number?
+  + impressions : number?
+  + permalinkUrl : string?
+  + syncError : string?
+  + fetchedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "Post" as Post {
+  + id : string
+  + workspaceId : string
+  + title : string
+  + content : Json
+  + status : PostStatus
+  + taskStatus : TaskStatus
+  + campaignTag : string?
+  + rejectReason : string?
+  + assigneeId : string?
+  + assignedById : string?
+  + assignedAt : Date?
+  + dueAt : Date?
+  + submittedById : string?
+  + createdById : string?
+  + submittedAt : Date?
+  + reviewedById : string?
+  + reviewedAt : Date?
+  + deletedAt : Date?
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "ChannelConnection" as ChannelConnection {
+  + id : string
+  + workspaceId : string
+  + platform : SocialPlatform
+  + type : ChannelType
+  + name : string
+  + label : string?
+  + avatar : string?
+  + externalAccountId : string
+  + accessToken : string?
+  + status : ChannelStatus
+  + createdAt : Date
+  + updatedAt : Date
+}
+
+class "analyticsController" as analyticsController {
+  + getOverview(req, res) : Promise<Response>
+  + getSuggestions(req, res) : Promise<Response>
+  + triggerSync(req, res) : Promise<Response>
+}
+
+class "analyticsService" as analyticsService {
+  - toMetricRows(rows) : MetricRow[]
+  - buildDeltas(current, previous)
+  - readToken(encryptedToken) : string?
+  + getOverview(workspaceId, query)
+  + getSuggestions(workspaceId, query)
+  + syncMetrics(options)
+}
+
+class "analyticsRepository" as analyticsRepository {
+  + findMetricRows(query)
+  + findPublishedForSuggestions(params)
+  + findDraftPostsForSuggestions(workspaceId)
+  + findCampaignTags(workspaceId) : Promise<string[]>
+  + findSchedulesToSync(params)
+  + saveMetric(scheduledPostId, payload)
+  + markMetricError(scheduledPostId, message)
+  + markChannelExpired(channelId)
+}
+
+class "analyticsProcessor" as analyticsProcessor {
+  + processAnalyticsJob(job) : Promise<unknown>
+  + registerAnalyticsScheduler() : Promise<void>
+}
+
+class "FacebookClient" as facebookClient {
+  + isTokenExpiredError(error) : boolean
+  + fetchPostMetrics(postId, accessToken) : Promise<FacebookPostMetrics>
+}
+
+analyticsController ..> analyticsService
+analyticsService ..> analyticsRepository
+analyticsService ..> facebookClient
+analyticsProcessor ..> analyticsService
+
+analyticsRepository ..> ScheduledPost
+analyticsRepository ..> PostMetric
+analyticsRepository ..> Post
+analyticsRepository ..> ChannelConnection
+
+@enduml

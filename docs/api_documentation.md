@@ -288,6 +288,54 @@ Yêu cầu `requireAuth`.
 
 **Lỗi**: `401` `"Mật khẩu cũ không chính xác"`; `400` nếu tài khoản Google không có `passwordHash`.
 
+### `GET /users/me/notifications`
+
+Yêu cầu `requireAuth`. Trả thông báo của chính người gọi, mới nhất trước.
+
+**Query**
+
+| Field | Kiểu | Mặc định | Ghi chú |
+| :--- | :--- | :--- | :--- |
+| `page` | number | 1 | |
+| `limit` | number | 10 | tối đa 50 |
+| `isRead` | `true` \| `false` | — | lọc theo trạng thái đọc |
+| `workspaceId` | uuid | — | phải là workspace người gọi tham gia, nếu không trả `403` |
+
+**Response 200**
+
+```json
+{
+  "status": "success",
+  "message": "Lấy danh sách thông báo thành công",
+  "data": {
+    "notifications": [
+      {
+        "id": "uuid",
+        "userId": "uuid",
+        "workspaceId": "uuid",
+        "type": "POST_SUBMITTED",
+        "payload": { "postId": "uuid", "postTitle": "Bài viết A" },
+        "isRead": false,
+        "createdAt": "2026-10-25T08:00:00.000Z"
+      }
+    ]
+  },
+  "meta": { "page": 1, "limit": 10, "total": 1, "totalPages": 1 }
+}
+```
+
+### `GET /users/me/notifications/unread-count`
+
+**Query**: `workspaceId?` (uuid). **Response 200**: `data.unreadCount` là số thông báo chưa đọc.
+
+### `PATCH /users/me/notifications/:notificationId/read`
+
+Đánh dấu một thông báo của chính người gọi là đã đọc (idempotent). `404` nếu thông báo không tồn tại hoặc thuộc người khác.
+
+### `PATCH /users/me/notifications/read-all`
+
+**Query**: `workspaceId?` (uuid). Đánh dấu tất cả thông báo chưa đọc của người gọi (trong workspace nếu có) là đã đọc. **Response 200**: `data.updated` là số bản ghi đã cập nhật.
+
 ---
 
 ## 4. Workspace
@@ -767,7 +815,9 @@ Mọi endpoint post yêu cầu `requireAuth` + là thành viên workspace.
 | `limit` | number | 10 | 1–50 |
 | `search` | string | — | tìm theo `title` (không phân biệt hoa/thường) |
 | `status` | PostStatus | — | `DRAFT`, `PENDING`, `APPROVED`, `REJECTED`, `SCHEDULED`, `PUBLISHED`, `FAILED`, `ARCHIVED` |
+| `taskStatus` | TaskStatus | — | `TODO`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
 | `createdById` | uuid | — | lọc theo người tạo |
+| `assigneeId` | uuid \| `me` | — | lọc theo người nhận việc; `me` = người gọi |
 | `dateFrom` | date | — | lọc `createdAt >= dateFrom` |
 | `dateTo` | date | — | lọc `createdAt <= dateTo`, phải ≥ `dateFrom` |
 
@@ -781,7 +831,7 @@ Sắp xếp theo `updatedAt` giảm dần; bỏ qua bài đã xoá mềm.
   "message": "Lấy danh sách bài viết thành công",
   "data": {
     "posts": [
-      { "id": "uuid", "title": "...", "status": "DRAFT", "createdById": "uuid", "createdAt": "...", "updatedAt": "..." }
+      { "id": "uuid", "title": "...", "status": "DRAFT", "taskStatus": "TODO", "assigneeId": null, "assignee": null, "dueAt": null, "createdById": "uuid", "createdAt": "...", "updatedAt": "..." }
     ]
   },
   "meta": { "page": 1, "limit": 10, "total": 1, "totalPages": 1 }
@@ -804,8 +854,8 @@ Quyền: OWNER hoặc người tạo bài; nếu không → `403`.
 
 ### `DELETE /workspaces/:workspaceId/posts/:postId`
 
-**Điều kiện**: `DRAFT` hoặc `REJECTED`; OWNER hoặc người tạo.
-**Xử lý**: `deletedAt = now` (xoá mềm).
+**Điều kiện**: OWNER xoá được mọi trạng thái; người tạo chỉ xoá bài `DRAFT`/`REJECTED` của mình.
+**Xử lý**: huỷ các `ScheduledPost` đang `SCHEDULED` của bài, đặt `deletedAt = now` (xoá mềm), ghi audit `POST_DELETED`.
 
 **Response 200**: `{ "status": "success", "message": "Xóa bài viết thành công", "data": { "success": true } }`
 
@@ -874,6 +924,45 @@ hoặc
 ```
 
 Message khi từ chối: `"Từ chối bài viết thành công"`.
+
+### `PATCH /workspaces/:workspaceId/posts/:postId/assign`
+
+Yêu cầu `requireAuth` + `OWNER`.
+
+**Body**
+
+```json
+{ "assigneeId": "uuid", "dueAt": "2026-11-01T17:00:00.000Z" }
+```
+
+hoặc bỏ giao việc:
+
+```json
+{ "assigneeId": null }
+```
+
+- `assigneeId`: uuid hoặc `null`; người nhận phải là thành viên workspace, nếu không → `400`.
+- `dueAt`: ISO-8601 tuỳ chọn, `null` để bỏ hạn chót.
+
+**Xử lý**: ghi `assigneeId`, `assignedById`, `assignedAt`, `dueAt`; khi bỏ giao việc thì xoá các cột này và đưa `taskStatus` về `TODO`. Tạo notification `TASK_ASSIGNED` cho người nhận (nếu không phải người giao) và audit `POST_ASSIGNED`.
+
+**Response 200**: `Post` sau cập nhật, kèm `assignee { id, name, avatar }`.
+
+### `PATCH /workspaces/:workspaceId/posts/:postId/task-status`
+
+Yêu cầu `requireAuth` + là thành viên workspace. Chỉ **người nhận việc** hoặc **OWNER** được cập nhật.
+
+**Body**
+
+```json
+{ "status": "IN_PROGRESS" }
+```
+
+- `status`: `TODO` | `IN_PROGRESS` | `DONE` | `CANCELLED`.
+
+**Xử lý**: cập nhật `taskStatus`; tạo notification `TASK_STATUS_CHANGED` cho Owner và tác giả bài (trừ người thao tác); audit `TASK_STATUS_CHANGED`.
+
+**Lỗi**: `409` `"Bài viết chưa được giao việc"`; `403` nếu không phải người nhận việc/Owner; `422` nếu trạng thái không hợp lệ.
 
 ---
 
@@ -1048,7 +1137,66 @@ Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, ch�
 
 ---
 
-## 10. Bảng tổng hợp endpoint
+## 10. Admin & Audit
+
+Mọi endpoint `/admin/*` yêu cầu `requireAuth` + `requireRoles('SYSTEM_ADMIN')`; USER thường nhận `403`.
+
+### `GET /admin/stats`
+
+**Response 200**
+
+```json
+{
+  "status": "success",
+  "message": "Lấy số liệu hệ thống thành công",
+  "data": {
+    "users": { "total": 120, "active": 118, "suspended": 2, "admins": 1, "createdLast30Days": 15 },
+    "workspaces": { "total": 40, "createdLast30Days": 6 },
+    "posts": { "total": 320, "byStatus": { "DRAFT": 80, "PENDING": 12, "APPROVED": 40, "REJECTED": 5, "SCHEDULED": 3, "PUBLISHED": 170, "FAILED": 2, "ARCHIVED": 8 } },
+    "channels": { "ACTIVE": 25, "EXPIRED": 4 },
+    "billing": { "paidOrdersLast30Days": 18, "revenueLast30Days": 1250000 }
+  }
+}
+```
+
+### `GET /admin/users`
+
+**Query**: `page`, `limit` (≤ 50), `search` (email/tên), `systemRole` (`SYSTEM_ADMIN`/`USER`), `isSuspended` (`true`/`false`).
+
+**Response 200**: `data.users[]` gồm `id`, `email`, `name`, `avatar`, `authProvider`, `systemRole`, `emailVerified`, `isSuspended`, `workspaceCount`, `createdAt`; **không trả `passwordHash`**.
+
+### `PATCH /admin/users/:userId/suspend`
+
+**Body**
+
+```json
+{ "suspended": true, "reason": "Vi phạm điều khoản" }
+```
+
+- `suspended`: bắt buộc; `reason`: tuỳ chọn, ≤ 255 ký tự.
+- Tăng `tokenVersion` để đá mọi phiên cũ, kể cả khi mở khoá.
+- Không cho tự khoá chính mình → `400`; user không tồn tại → `404`.
+- Audit `ADMIN_USER_SUSPENDED` / `ADMIN_USER_REACTIVATED` (kèm `reason`).
+
+### `GET /admin/workspaces`
+
+**Query**: `page`, `limit` (≤ 50), `search` (tên), `plan` (`FREE`/`PRO`/`ENTERPRISE`), `includeDeleted` (`true`/`false`, mặc định `false`).
+
+**Response 200**: `data.workspaces[]` gồm `id`, `name`, `plan`, `remainingCredit`, `deletedAt`, `createdAt`, `memberCount`, `postCount`.
+
+### `GET /admin/audit-logs`
+
+**Query**: `page`, `limit` (≤ 50), `workspaceId`, `actorId`, `action`, `targetType`, `targetId`, `dateFrom`, `dateTo`.
+
+**Response 200**: `data.auditLogs[]` gồm log + `actor { id, name, email }`, `workspace { id, name }`; sắp xếp mới nhất trước; phân trang trong `meta`.
+
+### `GET /workspaces/:workspaceId/audit-logs`
+
+Yêu cầu `requireAuth` + `OWNER` của workspace. Cùng bộ lọc với `/admin/audit-logs` (trừ `workspaceId`), chỉ trả log thuộc workspace trong URL. Creator → `403`; workspace không tồn tại/đã xoá → `404`.
+
+---
+
+## 11. Bảng tổng hợp endpoint
 
 
 | Method | Path | Auth | Workspace role |
@@ -1062,6 +1210,10 @@ Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, ch�
 | GET | `/users/me` | Bearer | — |
 | PATCH | `/users/me` | Bearer | — |
 | PATCH | `/users/me/password` | Bearer | — |
+| GET | `/users/me/notifications` | Bearer | — |
+| GET | `/users/me/notifications/unread-count` | Bearer | — |
+| PATCH | `/users/me/notifications/:notificationId/read` | Bearer | — |
+| PATCH | `/users/me/notifications/read-all` | Bearer | — |
 | POST | `/workspaces` | Bearer | — |
 | GET | `/workspaces` | Bearer | — |
 | PATCH | `/workspaces/:workspaceId` | Bearer | OWNER |
@@ -1092,6 +1244,8 @@ Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, ch�
 | DELETE | `/workspaces/:workspaceId/posts/:postId/media/:mediaId` | Bearer | Thành viên (bài của mình) |
 | POST | `/workspaces/:workspaceId/posts/:postId/submit` | Bearer | Thành viên (bài của mình) |
 | PATCH | `/workspaces/:workspaceId/posts/:postId/review` | Bearer | OWNER |
+| PATCH | `/workspaces/:workspaceId/posts/:postId/assign` | Bearer | OWNER |
+| PATCH | `/workspaces/:workspaceId/posts/:postId/task-status` | Bearer | Người nhận việc hoặc OWNER |
 | POST | `/workspaces/:workspaceId/posts/:postId/schedules` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/schedules` | Bearer | Thành viên |
 | DELETE | `/workspaces/:workspaceId/schedules/:scheduleId` | Bearer | Thành viên |
@@ -1101,6 +1255,12 @@ Public, không dùng Bearer. PayOS gửi webhook; backend verify chữ ký, ch�
 | GET | `/workspaces/:workspaceId/billing/orders/:orderId` | Bearer | Thành viên |
 | POST | `/workspaces/:workspaceId/billing/orders/:orderId/cancel` | Bearer | Người tạo đơn |
 | POST | `/webhooks/payos` | — | — |
+| GET | `/admin/stats` | Bearer | SYSTEM_ADMIN |
+| GET | `/admin/users` | Bearer | SYSTEM_ADMIN |
+| PATCH | `/admin/users/:userId/suspend` | Bearer | SYSTEM_ADMIN |
+| GET | `/admin/workspaces` | Bearer | SYSTEM_ADMIN |
+| GET | `/admin/audit-logs` | Bearer | SYSTEM_ADMIN |
+| GET | `/workspaces/:workspaceId/audit-logs` | Bearer | OWNER |
 
-**Không có trong code** (đừng gọi): calendar kéo-thả, admin, analytics, giao việc, upload media độc lập.
-**UC38 đã bỏ khỏi phạm vi:** không có endpoint notification.
+**Không có trong code** (đừng gọi): calendar kéo-thả, analytics, upload media độc lập.
+**Thông báo:** API hộp thư trong ứng dụng đã có (`/users/me/notifications`); UC38 (đẩy thông báo realtime) vẫn ngoài phạm vi.

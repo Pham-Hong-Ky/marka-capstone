@@ -1,18 +1,21 @@
+import { getErrorMessage } from '../../utils/errorMessage.js';
+import type { SocialPlatform } from '@prisma/client';
 import redis from '../../config/redis.js';
 import logger from '../../utils/logger.js';
 import { ServiceUnavailableError } from '../../utils/errors/index.js';
 
-const STATE_PREFIX = 'fb:oauth:state:';
-const SESSION_PREFIX = 'fb:oauth:session:';
+const STATE_PREFIX = 'channel:oauth:state:';
+const SESSION_PREFIX = 'channel:oauth:session:';
 const TTL_SECONDS = 600;
 
 export interface OauthState {
   userId: string;
   workspaceId: string;
+  platform: SocialPlatform;
 }
 
-export interface OauthSessionPage {
-  id: string;
+export interface OauthSessionAccount {
+  externalAccountId: string;
   name: string;
   avatar: string | null;
   accessTokenEncrypted: string;
@@ -21,7 +24,8 @@ export interface OauthSessionPage {
 export interface OauthSession {
   userId: string;
   workspaceId: string;
-  pages: OauthSessionPage[];
+  platform: SocialPlatform;
+  accounts: OauthSessionAccount[];
 }
 
 const stateKey = (state: string) => `${STATE_PREFIX}${state}`;
@@ -33,10 +37,10 @@ const runRedis = async <T>(action: string, command: () => Promise<T>): Promise<T
   try {
     return await command();
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn(`Redis lỗi khi ${action} phiên OAuth Facebook: ${message}`);
+    const message = getErrorMessage(error);
+    logger.warn(`Redis lỗi khi ${action} phiên OAuth: ${message}`);
     throw new ServiceUnavailableError(
-      'Tạm thời không truy cập được bộ nhớ phiên kết nối Facebook. Vui lòng thử lại sau ít phút.'
+      'Tạm thời không truy cập được bộ nhớ phiên kết nối. Vui lòng thử lại sau ít phút.'
     );
   }
 };
@@ -52,7 +56,7 @@ export const consumeOauthState = async (state: string): Promise<OauthState | nul
   try {
     return JSON.parse(raw) as OauthState;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.warn(`Dữ liệu OAuth state trong Redis không hợp lệ: ${message}`);
     return null;
   }
@@ -71,7 +75,7 @@ export const getOauthSession = async (sessionId: string): Promise<OauthSession |
   try {
     return JSON.parse(raw) as OauthSession;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     logger.warn(`Dữ liệu OAuth session trong Redis không hợp lệ: ${message}`);
     return null;
   }

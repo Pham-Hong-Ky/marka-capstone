@@ -2338,6 +2338,7 @@ Không dùng tài liệu này để suy ra API đã tồn tại.
   Calendar kéo-thả/sửa giờ sau khi tạo vẫn là Roadmap.
 - **Analytics, PostMetric, n8n:** chưa có module, endpoint hay job tích hợp.
   `PostMetric` có trong schema nhưng không được ghi/đọc.
-- **UC38 (API đọc notification) đã bỏ khỏi phạm vi.** Bảng `Notification` vẫn được ghi tự động
-  cho một số luồng, nhưng không có endpoint đọc/WebSocket/SSE.
-- **UC42/UC43 (giao việc cho thành viên):** chưa có model, endpoint và luồng nghiệp vụ.
+- **Thông báo:** API đọc hộp thư (`/users/me/notifications`) và chuông frontend đã có.
+  Chưa có WebSocket/SSE; UC38 (thông báo realtime) vẫn ngoài phạm vi.
+- **UC42/UC43 (giao việc cho thành viên):** đã có cột `assigneeId`/`assignedById`/`assignedAt`/`dueAt`/`taskStatus`,
+  endpoint `PATCH .../assign`, `PATCH .../task-status`, notification + audit; chưa vẽ sequence riêng.

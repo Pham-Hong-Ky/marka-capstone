@@ -1,3 +1,4 @@
+import { getWorkspaceId } from '../../utils/request.js';
 import { Request, Response } from 'express';
 import type { WorkspaceRole } from '@prisma/client';
 import ApiResponse from '../../utils/ApiResponse.js';
@@ -7,7 +8,7 @@ import type { GenerateImageBody, GenerateTextBody } from './ai.validation.js';
 
 export const generateText = catchAsync(async (req: Request, res: Response) => {
   const result = await aiService.startTextGeneration({
-    workspaceId: req.workspaceId as string,
+    workspaceId: getWorkspaceId(req),
     userId: req.user!.id,
     role: req.workspaceRole as WorkspaceRole,
     body: req.body as GenerateTextBody,
@@ -22,7 +23,7 @@ export const generateText = catchAsync(async (req: Request, res: Response) => {
 
 export const generateImage = catchAsync(async (req: Request, res: Response) => {
   const result = await aiService.startImageGeneration({
-    workspaceId: req.workspaceId as string,
+    workspaceId: getWorkspaceId(req),
     userId: req.user!.id,
     role: req.workspaceRole as WorkspaceRole,
     body: req.body as GenerateImageBody,
@@ -37,7 +38,7 @@ export const generateImage = catchAsync(async (req: Request, res: Response) => {
 
 export const getGeneration = catchAsync(async (req: Request, res: Response) => {
   const generation = await aiService.getGeneration({
-    workspaceId: req.workspaceId as string,
+    workspaceId: getWorkspaceId(req),
     generationId: req.params.generationId as string,
   });
 

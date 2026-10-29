@@ -21,8 +21,13 @@ class "Post" as Post {
   + title : string
   + content : Json
   + status : PostStatus
+  + taskStatus : TaskStatus
   + campaignTag : string?
   + rejectReason : string?
+  + assigneeId : string?
+  + assignedById : string?
+  + assignedAt : Date?
+  + dueAt : Date?
   + submittedById : string?
   + createdById : string?
   + submittedAt : Date?
@@ -50,7 +55,6 @@ class "MediaAsset" as MediaAsset {
 }
 
 class "postController" as postController {
-  - postService : postService
   + createPost(req, res)
   + getPost(req, res)
   + listPosts(req, res)
@@ -63,9 +67,6 @@ class "postController" as postController {
 }
 
 class "postService" as postService {
-  - postRepository : postRepository
-  - cloudinaryClient : CloudinaryClient
-  - ALLOWED_TRANSITIONS : Record<PostStatus, PostStatus[]>
   - transitionPost(post, data)
   - assertEditable(post)
   - assertCanModify(post, userId, role)
@@ -81,7 +82,6 @@ class "postService" as postService {
 }
 
 class "postRepository" as postRepository {
-  - prisma : PrismaClient
   + createPost(data)
   + getPostById(postId, workspaceId)
   + listPostsAndCount(params)
@@ -94,12 +94,10 @@ class "postRepository" as postRepository {
 }
 
 class "MailerClient" as mailerClient {
-  - resend : Resend
   + sendEmail({ to, subject, html }) : Promise<boolean>
 }
 
 class "CloudinaryClient" as cloudinaryClient {
-  + isCloudinaryConfigured : boolean
   + uploadImageBuffer(buffer, folder) : Promise<string>
 }
 

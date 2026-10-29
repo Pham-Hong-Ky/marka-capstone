@@ -1,3 +1,4 @@
+import type { PaginationMeta } from '@/types';
 import type { ChannelPlatform } from '../channel/channel.types';
 
 type SchedulePostStatus =
@@ -25,6 +26,7 @@ export interface SchedulePostRef {
   id: string;
   title: string;
   status: SchedulePostStatus;
+  createdById: string | null;
 }
 
 export interface ScheduleItem {
@@ -52,12 +54,7 @@ export interface ScheduleListParams {
   limit?: number;
 }
 
-export interface ScheduleListMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
+export type ScheduleListMeta = PaginationMeta;
 
 export interface ScheduleListResult {
   schedules: ScheduleItem[];

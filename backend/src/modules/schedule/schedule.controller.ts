@@ -1,3 +1,4 @@
+import { getWorkspaceId } from '../../utils/request.js';
 import { Request, Response } from 'express';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
@@ -5,25 +6,24 @@ import scheduleService from './schedule.service.js';
 import type { ListSchedulesQuery } from './schedule.validation.js';
 
 export const createSchedules = catchAsync(async (req: Request, res: Response) => {
-  const workspaceId = req.workspaceId as string;
-  const { schedules } = await scheduleService.createSchedules(
+  const workspaceId = getWorkspaceId(req);
+  const { schedules, isImmediate } = await scheduleService.createSchedules(
     workspaceId,
     req.user!.id,
+    req.workspaceRole!,
     req.params.postId as string,
     req.body
   );
 
-  const scheduledAt = req.body.scheduledAt as Date | null | undefined;
-
   return ApiResponse.success(res, {
     statusCode: 201,
-    message: scheduledAt ? 'Lên lịch đăng bài thành công' : 'Đã đưa bài vào hàng đợi đăng',
+    message: isImmediate ? 'Đã đưa bài vào hàng đợi đăng' : 'Lên lịch đăng bài thành công',
     data: { schedules },
   });
 });
 
 export const listSchedules = catchAsync(async (req: Request, res: Response) => {
-  const workspaceId = req.workspaceId as string;
+  const workspaceId = getWorkspaceId(req);
   const { schedules, meta } = await scheduleService.listSchedules(
     workspaceId,
     req.query as unknown as ListSchedulesQuery
@@ -38,10 +38,11 @@ export const listSchedules = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const cancelSchedule = catchAsync(async (req: Request, res: Response) => {
-  const workspaceId = req.workspaceId as string;
+  const workspaceId = getWorkspaceId(req);
   await scheduleService.cancelSchedule(
     workspaceId,
     req.user!.id,
+    req.workspaceRole!,
     req.params.scheduleId as string
   );
 

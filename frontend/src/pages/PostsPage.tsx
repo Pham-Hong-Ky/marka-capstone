@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import PostToolbar from '@/components/features/post/PostToolbar';
 import PostList from '@/components/features/post/PostList';
 import PostDetailModal from '@/components/features/post/PostDetailModal';
@@ -16,6 +16,7 @@ import { useAuthStore } from '@/stores/auth.store';
 
 export const PostsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
   const role = activeWorkspace?.role ?? 'CONTENT_CREATOR';
@@ -27,6 +28,14 @@ export const PostsPage = () => {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [rejectingPostId, setRejectingPostId] = useState<string | null>(null);
   const [postToDelete, setPostToDelete] = useState<PostSummary | null>(null);
+
+  const postIdFromQuery = searchParams.get('postId');
+
+  useEffect(() => {
+    if (postIdFromQuery) {
+      setSelectedPostId(postIdFromQuery);
+    }
+  }, [postIdFromQuery]);
 
   const { data, isLoading, isError, error } = usePosts(workspaceId, {
     page,
@@ -78,6 +87,15 @@ export const PostsPage = () => {
     );
   };
 
+  const closeDetail = () => {
+    setSelectedPostId(null);
+    if (postIdFromQuery) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('postId');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
@@ -114,10 +132,11 @@ export const PostsPage = () => {
       {selectedPostId ? (
         <PostDetailModal
           open
-          onClose={() => setSelectedPostId(null)}
+          onClose={closeDetail}
           workspaceId={workspaceId}
           postId={selectedPostId}
           role={role}
+          currentUserId={currentUserId}
           onEdit={(post) => navigate(`/posts/${post.id}/edit`)}
           onReject={(id) => {
             setSelectedPostId(null);

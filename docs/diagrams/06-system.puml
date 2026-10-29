@@ -26,7 +26,8 @@ class "workers" as workers {
   - attachLifecycle(worker, label)
   - createWorker(queueName, label)
   + contentWorker : Worker
-  + publishingWorker : Worker
+  + scheduleWorker : Worker
+  + analyticsWorker : Worker
   + emailWorker : Worker
   + closeWorkers() : Promise<void>
 }
@@ -34,7 +35,8 @@ class "workers" as workers {
 class "queues" as queues {
   + defaultJobOptions : DefaultJobOptions
   + contentGenerationQueue : Queue
-  + publishingQueue : Queue
+  + scheduleQueue : Queue
+  + analyticsQueue : Queue
   + emailQueue : Queue
   + queues : Record<QueueName, Queue>
 }

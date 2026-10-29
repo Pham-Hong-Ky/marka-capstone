@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import {
-  AI_IMAGE_CONTENT_LIMIT,
-  AI_IMAGE_MAX_PROMPT_LENGTH,
-} from './ai.constants.js';
+  AI_BRAND_VOICE_EXAMPLE_LIMIT,
+  AI_BRAND_VOICE_EXAMPLE_MAX_LENGTH,
+} from './ai.config.js';
 import { AiOutputError } from './ai.errors.js';
+import { parseStoredPayload } from './ai.payload.js';
 
 export interface BrandVoice {
   industry?: string;
@@ -21,11 +22,27 @@ interface TiptapNode {
   text?: string;
 }
 
-export const aiTextBlockSchema = z.object({
-  type: z.enum(['paragraph', 'heading', 'bulletList']),
-  text: z.string().trim().max(5000).optional(),
-  items: z.array(z.string().trim().min(1).max(1000)).max(20).optional(),
-});
+export interface TextPromptPayload {
+  systemInstruction: string;
+  userPrompt: string;
+}
+
+export const aiTextBlockSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('paragraph'),
+    text: z.string().trim().min(1).max(5000),
+  }),
+  z.object({
+    type: z.literal('heading'),
+    text: z.string().trim().min(1).max(5000),
+  }),
+  z.object({
+    type: z.literal('bulletList'),
+    items: z.array(z.string().trim().min(1).max(1000)).min(1).max(20),
+  }),
+]);
+
+export type AiTextBlock = z.infer<typeof aiTextBlockSchema>;
 
 export const aiTextOutputSchema = z.object({
   title: z.string().trim().min(1, 'Tiêu đề không được để trống').max(255),
@@ -39,7 +56,9 @@ const asString = (value: unknown): string | undefined =>
 
 const asStringArray = (value: unknown): string[] | undefined => {
   if (!Array.isArray(value)) return undefined;
-  const items = value.filter((item): item is string => typeof item === 'string').map((item) => item.trim());
+  const items = value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim());
   return items.length > 0 ? items : undefined;
 };
 
@@ -80,15 +99,16 @@ export const aiTextResponseSchema = {
           type: {
             type: 'string',
             enum: ['paragraph', 'heading', 'bulletList'],
+            description: 'Loại khối nội dung',
           },
           text: {
             type: 'string',
-            description: 'Nội dung cho paragraph hoặc heading',
+            description: 'Bắt buộc khi type là paragraph hoặc heading',
           },
           items: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Các gạch đầu dòng cho bulletList',
+            description: 'Bắt buộc khi type là bulletList, mỗi phần tử là một gạch đầu dòng',
           },
         },
         required: ['type'],
@@ -97,6 +117,82 @@ export const aiTextResponseSchema = {
   },
   required: ['title', 'blocks'],
 } as const;
+
+const renderBrandVoiceExamples = (
+  examples?: BrandVoice['fewShotExamples']
+): string | undefined => {
+  const picked = examples?.slice(0, AI_BRAND_VOICE_EXAMPLE_LIMIT);
+  if (!picked?.length) return undefined;
+
+  const rendered = picked
+    .map((example) => `${example.title ? `${example.title}: ` : ''}${example.content}`)
+    .map((text) => text.slice(0, AI_BRAND_VOICE_EXAMPLE_MAX_LENGTH))
+    .join('\n');
+
+  return `- Học giọng từ các bài mẫu sau, không sao chép nguyên văn:\n${rendered}`;
+};
+
+const buildBrandVoiceRules = (voice: BrandVoice): string[] => {
+  const rules = [
+    voice.industry ? `- Ngành hàng: ${voice.industry}` : undefined,
+    voice.targetAudience ? `- Khách hàng mục tiêu: ${voice.targetAudience}` : undefined,
+    voice.writingStyle ? `- Giọng điệu: ${voice.writingStyle}` : undefined,
+    voice.keywordsShouldUse?.length
+      ? `- Từ khoá phải dùng tự nhiên: ${voice.keywordsShouldUse.join(', ')}`
+      : undefined,
+    voice.keywordsAvoid?.length
+      ? `- Tuyệt đối không dùng: ${voice.keywordsAvoid.join(', ')}`
+      : undefined,
+    renderBrandVoiceExamples(voice.fewShotExamples),
+  ];
+
+  return rules.filter((rule): rule is string => Boolean(rule));
+};
+
+const TEXT_SYSTEM_RULES = [
+  'Bạn là chuyên gia sáng tạo nội dung mạng xã hội cho marketer Việt Nam.',
+  'Viết bài đăng Facebook bằng tiếng Việt tự nhiên, giàu cảm xúc, phù hợp người đọc phổ thông.',
+  'Quy tắc ngôn ngữ:',
+  '- Luôn viết tiếng Việt có dấu đầy đủ và đúng chính tả, kể cả khi chủ đề hoặc yêu cầu của người dùng được gõ không dấu. Hiểu nghĩa rồi viết lại cho chuẩn.',
+  '- Không dùng cú pháp markdown (**đậm**, # tiêu đề); emoji và hashtag vẫn được phép.',
+  'Cấu trúc bắt buộc:',
+  '- Tiêu đề tối đa 120 ký tự, hấp dẫn, có thể kèm 1 emoji.',
+  '- Mở bài là hook 1-2 câu gợi cảm xúc hoặc nêu lợi ích, không mở bằng định nghĩa chung chung.',
+  '- Thân bài có ít nhất 2 đoạn văn liền mạch, mỗi đoạn 3-5 câu với chi tiết cụ thể.',
+  '- Chỉ dùng 1 bulletList 3-5 ý ngắn khi thật sự giúp dễ đọc; không được biến cả bài thành danh sách.',
+  '- Kết bài có CTA cụ thể (bình luận, lưu bài, chia sẻ hoặc đặt lịch).',
+  '- Block cuối là một paragraph chứa 3-5 hashtag liên quan trực tiếp, viết liền không dấu (ví dụ #HaNoi #DuLich).',
+  '- Dùng 2-5 emoji phù hợp ngữ cảnh, đặt ở đầu đoạn hoặc đầu dòng; không lạm dụng.',
+  'Độ dài 250-400 từ (không tính hashtag), tối đa 3 heading.',
+  'Không bịa số liệu, giá, khuyến mãi, chứng nhận hay thông tin sản phẩm không có trong chủ đề và yêu cầu.',
+  'Trả về JSON đúng schema: block paragraph/heading phải có "text", block bulletList phải có "items".',
+];
+
+const TEXT_DEFAULT_BRAND_VOICE_RULE =
+  '- Chưa cấu hình, dùng giọng trung tính, chuyên nghiệp.';
+
+const TEXT_CLOSING_RULES = [
+  'Nếu yêu cầu thêm của người dùng xung đột với hướng dẫn chung, ưu tiên yêu cầu thêm.',
+  'Chỉ trả về JSON đúng schema, không thêm markdown hay giải thích.',
+];
+
+const buildTextSystemInstruction = (voice: BrandVoice): string => {
+  const voiceRules = buildBrandVoiceRules(voice);
+
+  return [
+    ...TEXT_SYSTEM_RULES,
+    'Brand Voice:',
+    ...(voiceRules.length > 0 ? voiceRules : [TEXT_DEFAULT_BRAND_VOICE_RULE]),
+    ...TEXT_CLOSING_RULES,
+  ].join('\n');
+};
+
+const buildTextUserPrompt = (topic: string, instructions?: string): string =>
+  [
+    `Chủ đề: ${topic}`,
+    instructions ? `Yêu cầu thêm: ${instructions}` : 'Yêu cầu thêm: không có',
+    'Viết bài hoàn chỉnh theo đúng cấu trúc trên. Nhắc lại: tiếng Việt có dấu đầy đủ, có emoji và hashtag ở cuối bài.',
+  ].join('\n');
 
 export const buildTextPrompt = ({
   topic,
@@ -109,23 +205,11 @@ export const buildTextPrompt = ({
 }) => {
   const voice = normalizeBrandVoice(brandVoice);
 
-  const systemInstruction = [
-    'Bạn là chuyên gia sáng tạo nội dung mạng xã hội cho marketer Việt Nam.',
-    'Viết bằng tiếng Việt tự nhiên, rõ ràng, tránh sáo rỗng và không bịa số liệu hoặc thông tin sản phẩm.',
-    'Bài viết cần có tiêu đề hấp dẫn (tối đa 120 ký tự), mở bài, thân bài và kết bài có CTA.',
-    'Dùng heading hoặc bulletList khi giúp bài dễ đọc hơn.',
-    'Tuân thủ Brand Voice sau:',
-    JSON.stringify(voice, null, 2),
-    'Chỉ trả về JSON đúng schema, không thêm markdown hay giải thích.',
-  ].join('\n');
-
-  const userPrompt = [
-    `Chủ đề: ${topic}`,
-    instructions ? `Yêu cầu thêm: ${instructions}` : 'Yêu cầu thêm: không có',
-    'Hãy tạo một bài viết mạng xã hội hoàn chỉnh.',
-  ].join('\n');
-
-  return { systemInstruction, userPrompt, responseSchema: aiTextResponseSchema };
+  return {
+    systemInstruction: buildTextSystemInstruction(voice),
+    userPrompt: buildTextUserPrompt(topic, instructions),
+    responseSchema: aiTextResponseSchema,
+  };
 };
 
 export const parseTextOutput = (value: unknown): AiTextOutput => {
@@ -136,47 +220,64 @@ export const parseTextOutput = (value: unknown): AiTextOutput => {
   return parsed.data;
 };
 
+export const serializeTextPrompt = (payload: TextPromptPayload): string =>
+  JSON.stringify(payload);
+
+const textPromptPayloadSchema = z.object({
+  systemInstruction: z.string().min(1),
+  userPrompt: z.string().min(1),
+});
+
+export const parseTextPromptPayload = (prompt: string): TextPromptPayload =>
+  parseStoredPayload(prompt, textPromptPayloadSchema);
+
 const textNode = (text: string): TiptapNode => ({ type: 'text', text });
 
-export const toTiptapDoc = (output: AiTextOutput): TiptapNode => {
-  const content: TiptapNode[] = [];
+const toHeadingNode = (text: string): TiptapNode => ({
+  type: 'heading',
+  attrs: { level: 2 },
+  content: [textNode(text.trim())],
+});
 
-  for (const block of output.blocks) {
-    if (block.type === 'heading' && block.text?.trim()) {
-      content.push({
-        type: 'heading',
-        attrs: { level: 2 },
-        content: [textNode(block.text.trim())],
-      });
-      continue;
-    }
+const toParagraphNode = (text: string): TiptapNode => ({
+  type: 'paragraph',
+  content: [textNode(text.trim())],
+});
 
-    if (block.type === 'paragraph' && block.text?.trim()) {
-      content.push({
-        type: 'paragraph',
-        content: [textNode(block.text.trim())],
-      });
-      continue;
-    }
+const toListItemNode = (text: string): TiptapNode => ({
+  type: 'listItem',
+  content: [{ type: 'paragraph', content: [textNode(text)] }],
+});
 
-    if (block.type === 'bulletList') {
-      const items = (block.items ?? []).map((item) => item.trim()).filter(Boolean);
-      if (items.length > 0) {
-        content.push({
-          type: 'bulletList',
-          content: items.map((item) => ({
-            type: 'listItem',
-            content: [
-              {
-                type: 'paragraph',
-                content: [textNode(item)],
-              },
-            ],
-          })),
-        });
-      }
+const toBulletListNode = (items: string[]): TiptapNode | null => {
+  const normalized = items.map((item) => item.trim()).filter(Boolean);
+  if (normalized.length === 0) return null;
+
+  return {
+    type: 'bulletList',
+    content: normalized.map(toListItemNode),
+  };
+};
+
+const toBlockNode = (block: AiTextBlock): TiptapNode | null => {
+  switch (block.type) {
+    case 'heading': {
+      const text = block.text.trim();
+      return text ? toHeadingNode(text) : null;
     }
+    case 'paragraph': {
+      const text = block.text.trim();
+      return text ? toParagraphNode(text) : null;
+    }
+    case 'bulletList':
+      return toBulletListNode(block.items);
   }
+};
+
+export const toTiptapDoc = (output: AiTextOutput): TiptapNode => {
+  const content = output.blocks
+    .map(toBlockNode)
+    .filter((node): node is TiptapNode => node !== null);
 
   return {
     type: 'doc',
@@ -184,59 +285,33 @@ export const toTiptapDoc = (output: AiTextOutput): TiptapNode => {
   };
 };
 
-export const contentToPlainText = (content: unknown): string => {
-  const collect = (node: unknown): string => {
-    if (!node || typeof node !== 'object') return '';
+const collectText = (node: unknown): string => {
+  if (!node || typeof node !== 'object') return '';
 
-    const record = node as { type?: unknown; text?: unknown; content?: unknown };
-    if (typeof record.text === 'string') return record.text;
-    if (!Array.isArray(record.content)) return '';
+  const record = node as { type?: unknown; text?: unknown; content?: unknown };
+  if (typeof record.text === 'string') return record.text;
+  if (!Array.isArray(record.content)) return '';
 
-    const separator =
-      record.type === 'doc' || record.type === 'bulletList' || record.type === 'orderedList'
-        ? '\n'
-        : '';
+  const separator =
+    record.type === 'doc' || record.type === 'bulletList' || record.type === 'orderedList'
+      ? '\n'
+      : '';
 
-    return record.content.map(collect).join(separator);
-  };
+  return record.content.map(collectText).join(separator);
+};
 
-  return collect(content)
+export const contentToPlainText = (content: unknown): string =>
+  collectText(content)
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
     .join('\n');
-};
-
-export const buildImagePrompt = ({
-  title,
-  contentText,
-  instructions,
-  brandVoice,
-}: {
-  title?: string;
-  contentText?: string;
-  instructions?: string;
-  brandVoice?: unknown;
-}) => {
-  const voice = normalizeBrandVoice(brandVoice);
-  const parts = [
-    'Tạo một ảnh minh hoạ chất lượng cao cho bài viết mạng xã hội.',
-    title ? `Tiêu đề: ${title}` : '',
-    contentText ? `Nội dung: ${contentText.slice(0, AI_IMAGE_CONTENT_LIMIT)}` : '',
-    voice.industry ? `Ngành hàng: ${voice.industry}` : '',
-    voice.targetAudience ? `Khách hàng mục tiêu: ${voice.targetAudience}` : '',
-    voice.writingStyle ? `Phong cách: ${voice.writingStyle}` : '',
-    instructions ? `Yêu cầu thêm: ${instructions}` : '',
-    'Ảnh vuông, bố cục rõ ràng, ánh sáng tự nhiên, không chèn chữ, logo hay watermark.',
-  ].filter(Boolean);
-
-  return parts.join('\n').slice(0, AI_IMAGE_MAX_PROMPT_LENGTH);
-};
 
 export default {
   buildTextPrompt,
-  buildImagePrompt,
   parseTextOutput,
+  parseTextPromptPayload,
+  serializeTextPrompt,
   toTiptapDoc,
   contentToPlainText,
   normalizeBrandVoice,

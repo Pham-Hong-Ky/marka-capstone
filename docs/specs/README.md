@@ -16,7 +16,7 @@ Base URL của toàn bộ API: `/api/v1`.
 | :--- | :--- | :--- |
 | **Guest** | Chưa đăng nhập | Đăng ký, đăng nhập (email/mật khẩu hoặc Google), mở link mời `GET /invites/:token`, xem `GET /health`, nhận email mời |
 | **User** | Hệ thống (`User.systemRole = USER`) | Toàn bộ chức năng của thành viên trong các workspace mình thuộc về |
-| **System Admin** | Hệ thống (`User.systemRole = SYSTEM_ADMIN`) | `requireWorkspaceRole` coi như `OWNER` ở mọi workspace. **Chưa có module/endpoint quản trị nào** dùng `requireRoles`; giá trị này hiện chỉ có trong schema và middleware |
+| **System Admin** | Hệ thống (`User.systemRole = SYSTEM_ADMIN`) | `requireWorkspaceRole` coi như `OWNER` ở mọi workspace; dùng `requireRoles('SYSTEM_ADMIN')` cho toàn bộ route `/admin/*` và thấy mục menu quản trị trên frontend |
 | **Workspace Owner** | Workspace (`WorkspaceMember.role = OWNER`) | Sửa/xoá workspace, mời/xoá thành viên, đổi vai trò, cấu hình Brand Voice, kết nối/ngắt kênh, **duyệt/từ chối bài**, thao tác mọi bài viết, **nạp credit và huỷ đơn mình tạo** |
 | **Content Creator** | Workspace (`WorkspaceMember.role = CONTENT_CREATOR`) | Xem thành viên/bài viết/Brand Voice/kênh; tạo bài; sửa/xoá/gửi duyệt **bài do mình tạo**; upload/xoá ảnh của bài đó; **nạp credit và huỷ đơn mình tạo** |
 
@@ -101,9 +101,8 @@ Mọi truy vấn dữ liệu nghiệp vụ đều lọc theo `workspaceId`; khô
   Prisma client được mở rộng (`config/prismaExtensions.ts`) tự thêm `deletedAt: null` vào **truy vấn đọc trực tiếp** trên 4 model (`findFirst`, `findMany`, `findUnique`, `count`, `aggregate`, `groupBy`...).
   Điều kiện này **không tự áp dụng cho dữ liệu lồng** nạp qua `include`/`select` quan hệ; repository phải lọc thủ công nếu cần.
   Đọc bản ghi đã xoá phải dùng `basePrisma` (export từ `config/db.ts`); **chưa có endpoint khôi phục**.
-- **Workspace đã xoá mềm:** biến mất khỏi `GET /workspaces`; các API có kiểm tra workspace tồn tại (sửa/xoá workspace, danh sách thành viên, mời thành viên, Brand Voice) trả `404`.
-  Tuy nhiên `requireWorkspaceRole` **không** kiểm tra `Workspace.deletedAt`, nên các route chỉ dựa vào membership (bài viết, kênh, rời workspace) vẫn thao tác được trên dữ liệu cũ của workspace đã xoá — đây là giới hạn hiện tại của code, chưa có cơ chế chặn tập trung.
-- **Phân trang:** `page` (mặc định 1), `limit` (mặc định 10, tối đa 50); thông tin phân trang nằm trong `meta` với `{ page, limit, total, totalPages }`. Hiện `GET .../posts` và `GET .../billing/transactions` dùng phân trang.
+- **Workspace đã xoá mềm:** biến mất khỏi `GET /workspaces`; mọi route đi qua `requireWorkspaceRole` trả `404 "Workspace không tồn tại hoặc đã bị xoá"` (kể cả `SYSTEM_ADMIN`).
+- **Phân trang:** `page` (mặc định 1), `limit` (mặc định 10, tối đa 50); thông tin phân trang nằm trong `meta` với `{ page, limit, total, totalPages }`. Hiện `GET .../posts`, `GET .../billing/transactions`, `GET .../admin/users`, `GET .../admin/workspaces`, `GET .../admin/audit-logs` và `GET .../schedules` dùng phân trang.
 
 ### 2.5. Rate limit, audit, tác vụ nền
 
@@ -111,9 +110,10 @@ Mọi truy vấn dữ liệu nghiệp vụ đều lọc theo `workspaceId`; khô
 - `authLimiter`: 15 request/15 phút/IP cho `POST /auth/register` và `POST /auth/google`.
 - `loginLimiter`: 5 lần **thất bại**/15 phút theo khoá `IP:email` cho `POST /auth/login` (đăng nhập đúng không bị tính).
 - Hai limiter xác thực bị **bỏ qua khi `NODE_ENV=test`**. Vượt giới hạn → `429` với `{ "status": "fail", "message": "..." }`.
-- **Audit log:** service gọi `auditService.recordAuditLog(...)`. Ghi audit lỗi **không làm hỏng request** (chỉ `console.warn`). Chưa có API đọc audit log.
-- **Queue/worker:** BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`). `scheduleWorker` xử lý đăng bài thật; `contentWorker` xử lý job `ai:text`/`ai:image` (Gemini/Cloudflare, hoàn credit khi thất bại); `email` vẫn là processor khung. Billing **không dùng queue**. Email hiện gửi đồng bộ trong request. Khi `NODE_ENV=test`, BullMQ dùng prefix `marka-test` (production dùng `bull`).
+- **Audit log:** service gọi `auditService.recordAuditLog(...)`. Ghi audit lỗi **không làm hỏng request** (chỉ `console.warn`). Đọc audit log qua `/admin/audit-logs` (System Admin) và `/workspaces/:workspaceId/audit-logs` (Owner).
+- **Queue/worker:** BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `analytics-queue`). `scheduleWorker` xử lý đăng bài thật; `contentWorker` xử lý job `ai:text`/`ai:image` (Gemini/Cloudflare, hoàn credit khi thất bại); `analyticsWorker` đồng bộ `PostMetric` (job lặp mỗi 6 giờ + job kích hoạt từ `POST .../analytics/sync`). Billing **không dùng queue**. Email hiện gửi đồng bộ trong request. Khi `NODE_ENV=test`, BullMQ dùng prefix `marka-test` (production dùng `bull`).
 - **Health:** `GET /health` công khai, kiểm tra PostgreSQL (`SELECT 1`) và Redis (`PING`); trả `503` (status `error`, kèm `data`) nếu một trong hai lỗi.
+- **Thông báo in-app:** API hộp thư của chính người dùng (`GET /users/me/notifications`, `GET .../unread-count`, `PATCH .../:id/read`, `PATCH .../read-all`); lọc theo `workspaceId` yêu cầu là thành viên workspace.
 
 ---
 
@@ -158,17 +158,17 @@ Cột **Trạng thái**:
 | **UC29** | Connect Social Channels | Owner | Một phần | `GET /channels/facebook/oauth/url`, `GET /channels/facebook/oauth/callback`, `GET /channels/facebook/oauth/session/:sessionId`, `POST /channels/facebook/oauth/session/:sessionId/connect` — **chỉ Facebook** | [04](./04-social-publishing.md) |
 | **UC30** | Disconnect Social Channel | Owner | Đã triển khai | `DELETE /channels/:channelId` | [04](./04-social-publishing.md) |
 | **UC31** | Top Up Credits | Mọi thành viên | Đã triển khai | `POST /workspaces/:workspaceId/billing/orders` | [06](./06-billing-payos.md) |
-| **UC32** | View Dashboard & Audit Log | System Admin, Owner | Chưa triển khai (Roadmap) | — (audit log được **ghi** nhưng chưa có API đọc) | [07](./07-admin-analytics.md) |
+| **UC32** | View Dashboard & Audit Log | System Admin, Owner | Đã triển khai | `/admin/stats`, `/admin/users`, `/admin/users/:userId/suspend`, `/admin/workspaces`, `/admin/audit-logs`, `/workspaces/:workspaceId/audit-logs` | [07](./07-admin-analytics.md) |
 | **UC33** | Update Profile | User | Đã triển khai | `GET /users/me`, `PATCH /users/me` | [01](./01-auth-workspace.md) |
 | **UC34** | Refresh Token | User | Đã triển khai | `POST /auth/refresh-token` | [01](./01-auth-workspace.md) |
 | **UC35** | List Workspaces | User | Đã triển khai | `GET /workspaces` | [01](./01-auth-workspace.md) |
 | **UC36** | Change Member Role | Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/members/:memberId` | [01](./01-auth-workspace.md) |
 | **UC37** | Cancel Scheduled Post | Mọi thành viên | Đã triển khai | `DELETE /workspaces/:workspaceId/schedules/:scheduleId` | [04](./04-social-publishing.md) |
-| **UC39** | View Workspace Performance Overview | Creator, Owner | Chưa triển khai (Roadmap) | — | [08](./08-post-analytics.md) |
+| **UC39** | View Workspace Performance Overview | Creator, Owner | Đã triển khai | `GET /workspaces/:workspaceId/analytics/overview`, `GET .../analytics/suggestions`, `POST .../analytics/sync`, trang `/analytics` | [08](./08-post-analytics.md) |
 | **UC40** | List Credit Packages | Mọi thành viên | Đã triển khai | `GET /workspaces/:workspaceId/billing` | [06](./06-billing-payos.md) |
 | **UC41** | View Credit Balance & History | Thành viên workspace | Đã triển khai | `GET /workspaces/:workspaceId/billing`, `GET .../billing/transactions` | [06](./06-billing-payos.md) |
-| **UC42** | Assign Content Task | Owner | Chưa triển khai (Roadmap) | — | [02](./02-content-media.md) |
-| **UC43** | Update Task Status | Assignee, Owner | Chưa triển khai (Roadmap) | — | [02](./02-content-media.md) |
+| **UC42** | Assign Content Task | Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/posts/:postId/assign` | [02](./02-content-media.md) |
+| **UC43** | Update Task Status | Assignee, Owner | Đã triển khai | `PATCH /workspaces/:workspaceId/posts/:postId/task-status` | [02](./02-content-media.md) |
 
 ### 3.1. UC con / biến thể
 
@@ -179,10 +179,10 @@ Cột **Trạng thái**:
 | UC31a | Create Order | Đã triển khai | Tạo `Order(PENDING)` + link PayOS |
 | UC31b | PayOS Webhook | Đã triển khai | `POST /webhooks/payos`, verify chữ ký, idempotent |
 | UC31c | Poll Order Status | Đã triển khai | `GET /billing/orders/:orderId` đối soát PayOS |
-| UC32a | Admin Dashboard | Chưa triển khai (Roadmap) | — |
-| UC32b | View Audit Log | Chưa triển khai (Roadmap) | Audit log chỉ được ghi, không có API đọc |
+| UC32a | Admin Dashboard | Đã triển khai | `GET /admin/stats` — user/workspace/bài/kênh/doanh thu 30 ngày |
+| UC32b | View Audit Log | Đã triển khai | `/admin/audit-logs` (toàn hệ thống), `/workspaces/:workspaceId/audit-logs` (Owner) |
 
-**Thống kê:** 36 UC đã triển khai · 2 UC một phần (UC11, UC29) · 4 UC chưa triển khai (UC32, UC39, UC42, UC43). UC38 đã bỏ khỏi phạm vi.
+**Thống kê:** 40 UC đã triển khai · 2 UC một phần (UC11, UC29) · 0 UC chưa triển khai. UC38 (thông báo realtime) vẫn ngoài phạm vi; API đọc hộp thư thông báo đã có.
 
 ---
 
@@ -194,10 +194,10 @@ Cột **Trạng thái**:
 | 2. Nội dung & Media | [02-content-media.md](./02-content-media.md) | CRUD bài viết, upload/xoá ảnh theo bài, state machine duyệt bài, notification + audit |
 | 3. Brand Voice & AI | [03-ai-brandvoice.md](./03-ai-brandvoice.md) | Brand Voice; trợ lý AI sinh text/ảnh, trừ/hoàn credit, queue + polling |
 | 4. Kênh & Đăng bài | [04-social-publishing.md](./04-social-publishing.md) | Facebook Page OAuth; đăng ngay/lên lịch nhiều Page, worker BullMQ, trang `/schedule`; calendar nâng cao là Roadmap |
-| 5. Email & Thông báo | [05-notifications-email.md](./05-notifications-email.md) | Email mời, email duyệt/từ chối (Resend); ghi notification in-app; UC38 đã bỏ khỏi phạm vi |
+| 5. Email & Thông báo | [05-notifications-email.md](./05-notifications-email.md) | Email mời, email duyệt/từ chối (Resend); ghi notification in-app + API hộp thư/chuông thông báo (UC38 vẫn ngoài phạm vi) |
 | 6. Credit & PayOS | [06-billing-payos.md](./06-billing-payos.md) | Module billing, gói nạp credit, PayOS, webhook, trang `/billing` |
-| 7. Quản trị & Báo cáo | [07-admin-analytics.md](./07-admin-analytics.md) | Roadmap — audit log được ghi, chưa có dashboard/API quản trị |
-| 8. Post Analytics | [08-post-analytics.md](./08-post-analytics.md) | Roadmap — schema `PostMetric` đã có, chưa có đồng bộ/endpoint |
+| 7. Quản trị & Báo cáo | [07-admin-analytics.md](./07-admin-analytics.md) | Module admin: dashboard hệ thống, danh sách/khoá user, danh sách workspace, API đọc audit log (admin + Owner); frontend `/admin` (tổng quan, người dùng, workspace, audit log hệ thống) |
+| 8. Post Analytics | [08-post-analytics.md](./08-post-analytics.md) | Module analytics: đồng bộ `PostMetric` từ Graph API qua queue, endpoint overview/suggestions/sync; frontend `/analytics` (KPI, biểu đồ, độ phủ, gợi ý) |
 
 ---
 
@@ -208,9 +208,9 @@ Các mục sau **chưa có trong code** (chi tiết ở file tương ứng):
 1. **AI (03):** Viral Score, sinh lại/viết tiếp, nhiều ảnh/lần, chọn tỉ lệ/style, lịch sử AI UI, sweeper job kẹt.
 2. **Đăng bài (04):** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả/sửa giờ, video, làm mới token Facebook tự động.
 3. **Thông báo (05):** email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`. UC38 đã bỏ khỏi phạm vi.
-4. **Quản trị (07):** admin panel, quản lý user/workspace, dashboard, API đọc audit log (UC32).
-5. **Post Analytics (08):** đồng bộ `PostMetric` từ Facebook Graph API, dashboard hiệu quả, n8n (UC39).
-6. **Giao việc (02):** UC42/UC43 — giao việc và trạng thái công việc trên bài viết.
+4. **Post Analytics nâng cao (08):** snapshot chỉ số theo thời gian, làm mới từng bài, top bài/chi tiết bài, xử lý rate limit; n8n vẫn ngoài phạm vi (UC39 cơ bản đã có).
+5. **Nâng cấp giao việc:** board Kanban, độ ưu tiên, nhắc hạn qua email (UC42/UC43 bản cơ bản đã có).
+6. **Quản trị nâng cao (07):** đổi `systemRole`, xoá/khôi phục workspace, xuất audit log, chính sách lưu trữ log.
 
 ---
 

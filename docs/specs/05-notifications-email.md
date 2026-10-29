@@ -5,7 +5,7 @@
 > **Phạm vi:** phần đã có trong code: gửi email qua Resend (mời workspace, bài gửi duyệt, kết quả duyệt) và ghi notification in-app.
 > Mã nguồn: `backend/src/utils/mailer.client.ts`, `backend/src/templates/`, `modules/workspace/workspace.service.ts`, `modules/post/post.notification.ts`.
 >
-> **Không có trong code:** API đọc notification (UC38 đã bỏ khỏi phạm vi), email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`.
+> **Không có trong code:** email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`.
 
 ---
 
@@ -104,12 +104,14 @@ Bảng `notifications` (`Notification`): `id`, `userId`, `workspaceId?`, `type`,
 - Không có notification cho: mời thành viên, xoá thành viên, đổi vai trò, cập nhật workspace, kết nối/ngắt kênh, sửa/xoá bài.
 - Không có email nào cho `MEMBER_JOINED`.
 
-### UC38 đã bỏ khỏi phạm vi
+### Hộp thư thông báo (bổ sung ngoài UC38)
 
-- Hệ thống **không có** endpoint list notification hay đếm số chưa đọc.
-- Bảng `Notification` vẫn được ghi cho các luồng duyệt bài/thành viên, nhưng không có API đọc.
-- Không có WebSocket/SSE; frontend không hiển thị chuông thông báo.
-- Không có endpoint xoá notification hay lọc theo workspace/type.
+- `GET /users/me/notifications`: danh sách của chính người gọi, phân trang (`page`, `limit` ≤ 50), lọc `isRead`, `workspaceId` (phải là thành viên).
+- `GET /users/me/notifications/unread-count`: số chưa đọc; nhận `workspaceId?`.
+- `PATCH /users/me/notifications/:notificationId/read`: đánh dấu một thông báo đã đọc (idempotent, `404` nếu không thuộc người gọi).
+- `PATCH /users/me/notifications/read-all`: đánh dấu tất cả đã đọc; nhận `workspaceId?`.
+- Frontend: chuông trên header, poll 30 giây, bấm thông báo mở bài viết tương ứng qua `/posts?postId=`.
+- Vẫn **không có** WebSocket/SSE, endpoint xoá notification, hay lọc theo `type`.
 
 ---
 
@@ -121,6 +123,10 @@ Bảng `notifications` (`Notification`): `id`, `userId`, `workspaceId?`, `type`,
 | GET | `/invites/:token` | Ghi notification `MEMBER_JOINED` khi tham gia |
 | POST | `/workspaces/:workspaceId/posts/:postId/submit` | Notification + email cho Owner khác |
 | PATCH | `/workspaces/:workspaceId/posts/:postId/review` | Notification + email cho tác giả |
+| GET | `/users/me/notifications` | Đọc hộp thư của chính người gọi |
+| GET | `/users/me/notifications/unread-count` | Đếm số chưa đọc |
+| PATCH | `/users/me/notifications/:notificationId/read` | Đánh dấu một thông báo đã đọc |
+| PATCH | `/users/me/notifications/read-all` | Đánh dấu tất cả đã đọc |
 
 Không có endpoint `/notifications`.
 

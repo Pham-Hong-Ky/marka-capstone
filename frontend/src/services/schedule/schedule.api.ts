@@ -1,14 +1,13 @@
 import httpClient from '../httpClient';
-import { unwrap } from '../http';
+import { unwrap, unwrapPaginated } from '../http';
 import type { ApiResponse } from '@/types';
 import type {
   CreateSchedulePayload,
   CreateScheduleResult,
+  ScheduleListMeta,
   ScheduleListParams,
   ScheduleListResult,
 } from './schedule.types';
-
-const DEFAULT_META = { page: 1, limit: 20, total: 0, totalPages: 0 };
 
 export const createSchedules = async (
   workspaceId: string,
@@ -26,15 +25,12 @@ export const listSchedules = async (
   workspaceId: string,
   params: ScheduleListParams
 ): Promise<ScheduleListResult> => {
-  const response = await httpClient.get<ApiResponse<{ schedules: ScheduleListResult['schedules'] }>>(
-    `/workspaces/${workspaceId}/schedules`,
-    { params }
-  );
+  const response = await httpClient.get<
+    ApiResponse<{ schedules: ScheduleListResult['schedules'] }, ScheduleListMeta>
+  >(`/workspaces/${workspaceId}/schedules`, { params });
+  const { data, meta } = unwrapPaginated(response);
 
-  return {
-    schedules: response.data.data?.schedules ?? [],
-    meta: (response.data.meta as ScheduleListResult['meta'] | undefined) ?? DEFAULT_META,
-  };
+  return { schedules: data.schedules, meta };
 };
 
 export const cancelSchedule = async (workspaceId: string, scheduleId: string): Promise<void> => {

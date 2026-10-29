@@ -317,7 +317,7 @@ Các mục dưới đây **chưa được triển khai**; tài liệu chi tiết
 - Viral Score, 1-Click Fix, sinh lại/viết tiếp, nhiều ảnh/lần.
 - Calendar nâng cao, đăng bài đa kênh (Instagram/TikTok/Zalo), video, làm mới token Facebook tự động.
 - Post Analytics, `PostMetric`, n8n.
-- Admin panel, quản lý user/workspace, dashboard hệ thống, API đọc audit log.
-- Email nhắc hạn gói/hết credit/lịch đăng; UC38 (API đọc notification) đã bỏ khỏi phạm vi.
-- Giao việc cho thành viên (UC42/UC43).
+- Admin nâng cao: đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo; frontend `/admin`.
+- Email nhắc hạn gói/hết credit/lịch đăng.
+- Nâng cấp giao việc: Kanban, độ ưu tiên, nhắc hạn (bản cơ bản UC42/UC43 đã có).
 - 2FA, quên mật khẩu.

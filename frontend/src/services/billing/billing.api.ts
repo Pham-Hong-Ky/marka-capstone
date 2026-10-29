@@ -1,5 +1,5 @@
 import httpClient from '../httpClient';
-import { unwrap } from '../http';
+import { unwrap, unwrapPaginated } from '../http';
 import type { ApiResponse } from '@/types';
 import type {
   BillingOrder,
@@ -12,8 +12,6 @@ import type {
 
 const base = (workspaceId: string) => `/workspaces/${workspaceId}/billing`;
 
-const DEFAULT_META: BillingPaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
-
 export const getBilling = async (workspaceId: string): Promise<BillingOverview> =>
   unwrap(await httpClient.get<ApiResponse<BillingOverview>>(base(workspaceId)));
 
@@ -22,15 +20,12 @@ export const listTransactions = async (
   page: number,
   limit: number
 ): Promise<BillingTransactionsResult> => {
-  const response = await httpClient.get<ApiResponse<{ transactions: CreditTransaction[] }>>(
-    `${base(workspaceId)}/transactions`,
-    { params: { page, limit } }
-  );
+  const response = await httpClient.get<
+    ApiResponse<{ transactions: CreditTransaction[] }, BillingPaginationMeta>
+  >(`${base(workspaceId)}/transactions`, { params: { page, limit } });
+  const { data, meta } = unwrapPaginated(response);
 
-  return {
-    transactions: response.data.data?.transactions ?? [],
-    meta: (response.data.meta as BillingPaginationMeta | undefined) ?? DEFAULT_META,
-  };
+  return { transactions: data.transactions, meta };
 };
 
 export const createOrder = async (
