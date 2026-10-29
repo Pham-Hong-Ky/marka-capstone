@@ -84,7 +84,7 @@ export const TaskCreateModal = ({
   const onSubmit = handleSubmit((values) => {
     const payload = {
       title: values.title,
-      description: values.description || undefined,
+      description: values.description,
       priority: values.priority,
     };
     const dueAt = values.dueAt ? new Date(values.dueAt).toISOString() : null;

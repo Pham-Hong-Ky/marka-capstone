@@ -37,9 +37,13 @@ export const TasksPage = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<TaskItem | null>(null);
-  const [assignTarget, setAssignTarget] = useState<TaskItem | null>(null);
+  const [assignTarget, setAssignTarget] = useState<{
+    task: TaskItem;
+    targetStatus: TaskStatus | null;
+  } | null>(null);
   const [linkTarget, setLinkTarget] = useState<TaskItem | null>(null);
   const [pendingUnassign, setPendingUnassign] = useState<TaskItem | null>(null);
+  const [taskToCancel, setTaskToCancel] = useState<TaskItem | null>(null);
   const debouncedSearch = useDebouncedValue(search, 300);
   const taskIdFromQuery = searchParams.get('taskId');
 
@@ -89,7 +93,7 @@ export const TasksPage = () => {
 
   const openAssign = (task: TaskItem) => {
     closeDetail();
-    setAssignTarget(task);
+    setAssignTarget({ task, targetStatus: null });
   };
 
   const openLinkPost = (task: TaskItem) => {
@@ -112,7 +116,10 @@ export const TasksPage = () => {
     }
 
     if (!task.assignee) {
-      setAssignTarget(task);
+      setAssignTarget({
+        task,
+        targetStatus: column === 'todo' ? null : COLUMN_STATUS[column],
+      });
       return;
     }
 
@@ -120,6 +127,17 @@ export const TasksPage = () => {
     if (task.status !== status) {
       updateStatus.mutate({ workspaceId, taskId: task.id, status });
     }
+  };
+
+  const handleStatusChange = (task: TaskItem, status: TaskStatus) => {
+    if (!workspaceId) return;
+
+    if (status === 'CANCELLED') {
+      setTaskToCancel(task);
+      return;
+    }
+
+    updateStatus.mutate({ workspaceId, taskId: task.id, status });
   };
 
   if (!workspaceId) {
@@ -186,9 +204,7 @@ export const TasksPage = () => {
           canManage={canManage}
           onCreate={canManage ? openCreate : undefined}
           onOpenTask={(task) => setSelectedTaskId(task.id)}
-          onStatusChange={(task, status) =>
-            updateStatus.mutate({ workspaceId, taskId: task.id, status })
-          }
+          onStatusChange={handleStatusChange}
           onDropTask={handleDropTask}
         />
       ) : null}
@@ -216,7 +232,16 @@ export const TasksPage = () => {
           open
           onClose={() => setAssignTarget(null)}
           workspaceId={workspaceId}
-          task={assignTarget}
+          task={assignTarget.task}
+          onAssigned={(assigned) => {
+            if (assignTarget.targetStatus) {
+              updateStatus.mutate({
+                workspaceId,
+                taskId: assigned.id,
+                status: assignTarget.targetStatus,
+              });
+            }
+          }}
         />
       ) : null}
 
@@ -248,6 +273,23 @@ export const TasksPage = () => {
                 closeDetail();
               },
             }
+          );
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(taskToCancel)}
+        onClose={() => setTaskToCancel(null)}
+        title="Huỷ công việc?"
+        description={`Huỷ "${taskToCancel?.title ?? ''}"? Việc sẽ bị ẩn khỏi bảng và bỏ gắn bài viết (nếu có).`}
+        confirmLabel="Huỷ việc"
+        tone="danger"
+        isLoading={updateStatus.isPending}
+        onConfirm={() => {
+          if (!taskToCancel) return;
+          updateStatus.mutate(
+            { workspaceId, taskId: taskToCancel.id, status: 'CANCELLED' },
+            { onSuccess: () => setTaskToCancel(null) }
           );
         }}
       />

@@ -142,6 +142,9 @@ export const useUpdateTaskStatus = () => {
     onSuccess: () => toast.success('Cập nhật trạng thái công việc thành công'),
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.task.boardRoot(variables.workspaceId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.post.detailWorkspace(variables.workspaceId),
+      });
     },
   });
 };
@@ -161,6 +164,9 @@ export const useLinkTaskPost = () => {
     }) => taskService.linkPost(workspaceId, taskId, { postId }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.task.boardRoot(variables.workspaceId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.post.detailWorkspace(variables.workspaceId),
+      });
       toast.success(variables.postId ? 'Gắn bài viết thành công' : 'Đã bỏ gắn bài viết');
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -175,6 +181,9 @@ export const useDeleteTask = () => {
       taskService.deleteTask(workspaceId, taskId),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.task.boardRoot(variables.workspaceId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.post.detailWorkspace(variables.workspaceId),
+      });
       toast.success('Xoá công việc thành công');
     },
     onError: (error) => toast.error(getErrorMessage(error)),

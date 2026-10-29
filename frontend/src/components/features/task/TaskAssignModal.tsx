@@ -6,16 +6,20 @@ import { useAssignTask } from '@/hooks/useTasks';
 import { useWorkspaceMembers } from '@/hooks/useWorkspace';
 import type { TaskItem } from '@/services/task';
 
+const UNASSIGN_VALUE = '__unassign__';
+
 export const TaskAssignModal = ({
   open,
   onClose,
   workspaceId,
   task,
+  onAssigned,
 }: {
   open: boolean;
   onClose: () => void;
   workspaceId: string;
   task: TaskItem;
+  onAssigned?: (task: TaskItem) => void;
 }) => {
   const [assigneeId, setAssigneeId] = useState('');
   const assignTask = useAssignTask();
@@ -32,11 +36,19 @@ export const TaskAssignModal = ({
     onClose();
   };
 
+  const isUnassign = assigneeId === UNASSIGN_VALUE;
+  const nextAssigneeId = isUnassign ? null : assigneeId;
+
   const submit = () => {
     if (!assigneeId) return;
     assignTask.mutate(
-      { workspaceId, taskId: task.id, assigneeId },
-      { onSuccess: close }
+      { workspaceId, taskId: task.id, assigneeId: nextAssigneeId },
+      {
+        onSuccess: (updated) => {
+          close();
+          onAssigned?.(updated);
+        },
+      }
     );
   };
 
@@ -53,10 +65,10 @@ export const TaskAssignModal = ({
           <Button
             type="button"
             onClick={submit}
-            disabled={!assigneeId || assigneeId === task.assignee?.id}
+            disabled={!assigneeId || (!isUnassign && assigneeId === task.assignee?.id)}
             isLoading={assignTask.isPending}
           >
-            Giao việc
+            {isUnassign ? 'Bỏ giao' : 'Giao việc'}
           </Button>
         </>
       }
@@ -67,6 +79,9 @@ export const TaskAssignModal = ({
         onChange={(event) => setAssigneeId(event.target.value)}
       >
         <option value="">Chọn thành viên</option>
+        {task.assignee ? (
+          <option value={UNASSIGN_VALUE}>Bỏ giao việc (xoá hạn chót)</option>
+        ) : null}
         {(membersData?.members ?? []).map((member) => (
           <option key={member.userId} value={member.userId}>
             {member.name}
