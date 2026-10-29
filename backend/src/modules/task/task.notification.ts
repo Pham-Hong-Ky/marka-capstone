@@ -61,4 +61,40 @@ export const notifyTaskStatusChanged = async (params: {
   );
 };
 
-export default { notifyTaskAssigned, notifyTaskStatusChanged };
+interface DeadlineTask {
+  id: string;
+  workspaceId: string;
+  title: string;
+  priority: number;
+  dueAt: Date | null;
+  assigneeId: string | null;
+}
+
+const notifyTaskDeadline = async (type: 'TASK_DUE_SOON' | 'TASK_OVERDUE', task: DeadlineTask) => {
+  if (!task.assigneeId || !task.dueAt) {
+    return;
+  }
+
+  await notificationRepository.createNotification({
+    userId: task.assigneeId,
+    workspaceId: task.workspaceId,
+    type,
+    payload: {
+      taskId: task.id,
+      taskTitle: task.title,
+      dueAt: task.dueAt.toISOString(),
+      priority: task.priority,
+    },
+  });
+};
+
+export const notifyTaskDueSoon = (task: DeadlineTask) => notifyTaskDeadline('TASK_DUE_SOON', task);
+
+export const notifyTaskOverdue = (task: DeadlineTask) => notifyTaskDeadline('TASK_OVERDUE', task);
+
+export default {
+  notifyTaskAssigned,
+  notifyTaskStatusChanged,
+  notifyTaskDueSoon,
+  notifyTaskOverdue,
+};

@@ -5,6 +5,7 @@ import logger from '../utils/logger.js';
 import { processScheduleJob } from '../modules/schedule/schedule.processor.js';
 import { processAnalyticsJob } from '../modules/analytics/analytics.processor.js';
 import { processChannelJob } from '../modules/channel/channel.processor.js';
+import { processTaskReminderJob } from '../modules/task/task.reminder.processor.js';
 import { buildAiFailureMessage, processContentJob } from '../modules/ai/ai.processor.js';
 import aiService from '../modules/ai/ai.service.js';
 import { QUEUE_NAMES, QUEUE_PREFIX, type QueueName } from './types.js';
@@ -15,6 +16,7 @@ type WorkerLabel =
   | 'ScheduleWorker'
   | 'AnalyticsWorker'
   | 'ChannelWorker'
+  | 'TaskReminderWorker'
   | 'EmailWorker';
 
 // Processor mẫu. Khi có module nghiệp vụ, thay thân hàm bằng logic thật:
@@ -118,6 +120,11 @@ export const channelWorker = createWorker(
   'ChannelWorker',
   processChannelJob
 );
+export const taskReminderWorker = createWorker(
+  QUEUE_NAMES.taskReminder,
+  'TaskReminderWorker',
+  processTaskReminderJob
+);
 
 export const closeWorkers = async (): Promise<void> => {
   await Promise.allSettled([
@@ -125,7 +132,15 @@ export const closeWorkers = async (): Promise<void> => {
     scheduleWorker.close(),
     analyticsWorker.close(),
     channelWorker.close(),
+    taskReminderWorker.close(),
   ]);
 };
 
-export default { contentWorker, scheduleWorker, analyticsWorker, channelWorker, closeWorkers };
+export default {
+  contentWorker,
+  scheduleWorker,
+  analyticsWorker,
+  channelWorker,
+  taskReminderWorker,
+  closeWorkers,
+};

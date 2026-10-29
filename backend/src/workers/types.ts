@@ -8,6 +8,7 @@ export const QUEUE_NAMES = {
   schedule: 'schedule-queue',
   analytics: 'analytics-queue',
   channelMaintenance: 'channel-maintenance-queue',
+  taskReminder: 'task-reminder-queue',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

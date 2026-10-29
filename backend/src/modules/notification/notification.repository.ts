@@ -65,10 +65,31 @@ export const markAllNotificationsRead = async (userId: string, workspaceId?: str
   });
 };
 
+export const hasTaskReminder = async (params: {
+  userId: string;
+  type: string;
+  taskId: string;
+  dueAt: Date;
+}) => {
+  const count = await prisma.notification.count({
+    where: {
+      userId: params.userId,
+      type: params.type,
+      AND: [
+        { payload: { path: ['taskId'], equals: params.taskId } },
+        { payload: { path: ['dueAt'], equals: params.dueAt.toISOString() } },
+      ],
+    },
+  });
+
+  return count > 0;
+};
+
 export default {
   createNotification,
   listNotificationsAndCount,
   countUnread,
   markNotificationRead,
   markAllNotificationsRead,
+  hasTaskReminder,
 };

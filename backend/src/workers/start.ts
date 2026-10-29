@@ -4,11 +4,13 @@ import { withTimeout } from '../utils/timeout.js';
 import { registerScheduleScheduler } from '../modules/schedule/schedule.processor.js';
 import { registerAnalyticsScheduler } from '../modules/analytics/analytics.processor.js';
 import { registerChannelScheduler } from '../modules/channel/channel.processor.js';
+import { registerTaskReminderScheduler } from '../modules/task/task.reminder.processor.js';
 import {
   analyticsWorker,
   channelWorker,
   contentWorker,
   scheduleWorker,
+  taskReminderWorker,
   closeWorkers,
 } from './index.js';
 import { closeQueues } from './queue-manager.js';
@@ -48,6 +50,16 @@ export const startWorkers = async (): Promise<void> => {
     const message = getErrorMessage(error);
     logger.error(`[Workers] Không đăng ký được scheduler gia hạn token kênh: ${message}`);
   }
+  try {
+    await withTimeout(
+      registerTaskReminderScheduler(),
+      10_000,
+      () => new Error('Timeout đăng ký scheduler nhắc hạn công việc')
+    );
+  } catch (error) {
+    const message = getErrorMessage(error);
+    logger.error(`[Workers] Không đăng ký được scheduler nhắc hạn công việc: ${message}`);
+  }
   logger.info(`[Workers] Đã khởi động: ${Object.values(QUEUE_NAMES).join(', ')}`);
 };
 
@@ -57,6 +69,12 @@ export const stopWorkers = async (): Promise<void> => {
   logger.info('[Workers] Đã dừng toàn bộ worker an toàn.');
 };
 
-export const workers = { contentWorker, scheduleWorker, analyticsWorker, channelWorker };
+export const workers = {
+  contentWorker,
+  scheduleWorker,
+  analyticsWorker,
+  channelWorker,
+  taskReminderWorker,
+};
 
 export default { startWorkers, stopWorkers, workers };

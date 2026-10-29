@@ -34,11 +34,18 @@ export const channelMaintenanceQueue = new Queue(QUEUE_NAMES.channelMaintenance,
   defaultJobOptions,
 });
 
+export const taskReminderQueue = new Queue(QUEUE_NAMES.taskReminder, {
+  connection: producerConnection,
+  prefix: QUEUE_PREFIX,
+  defaultJobOptions,
+});
+
 export const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.contentGeneration]: contentGenerationQueue,
   [QUEUE_NAMES.schedule]: scheduleQueue,
   [QUEUE_NAMES.analytics]: analyticsQueue,
   [QUEUE_NAMES.channelMaintenance]: channelMaintenanceQueue,
+  [QUEUE_NAMES.taskReminder]: taskReminderQueue,
 };
 
 export default {
@@ -46,5 +53,6 @@ export default {
   scheduleQueue,
   analyticsQueue,
   channelMaintenanceQueue,
+  taskReminderQueue,
   queues,
 };

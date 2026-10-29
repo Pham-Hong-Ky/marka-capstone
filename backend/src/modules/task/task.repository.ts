@@ -124,6 +124,39 @@ export const assignTask = async (taskId: string, data: AssignTaskData) =>
 export const updateTaskStatus = async (taskId: string, status: TaskStatus) =>
   prisma.task.update({ where: { id: taskId }, data: { status }, select: TASK_SELECT });
 
+const REMINDER_TASK_SELECT = {
+  id: true,
+  workspaceId: true,
+  title: true,
+  priority: true,
+  dueAt: true,
+  assigneeId: true,
+} satisfies Prisma.TaskSelect;
+
+export const findDueSoonTasks = async (from: Date, to: Date, workspaceId?: string) =>
+  prisma.task.findMany({
+    where: {
+      ...(workspaceId ? { workspaceId } : {}),
+      dueAt: { gte: from, lt: to },
+      status: { in: ['TODO', 'IN_PROGRESS'] },
+      assigneeId: { not: null },
+    },
+    select: REMINDER_TASK_SELECT,
+    take: 500,
+  });
+
+export const findOverdueTasks = async (before: Date, workspaceId?: string) =>
+  prisma.task.findMany({
+    where: {
+      ...(workspaceId ? { workspaceId } : {}),
+      dueAt: { lt: before },
+      status: { in: ['TODO', 'IN_PROGRESS'] },
+      assigneeId: { not: null },
+    },
+    select: REMINDER_TASK_SELECT,
+    take: 500,
+  });
+
 export const countBoardTasks = async (filters: BoardTaskWhereFilters) => {
   const [unassigned, todo, inProgress, done] = await Promise.all([
     filters.includeUnassigned
@@ -149,4 +182,6 @@ export default {
   linkTaskPost,
   softDeleteTask,
   findTaskByPostId,
+  findDueSoonTasks,
+  findOverdueTasks,
 };
