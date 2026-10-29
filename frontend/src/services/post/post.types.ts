@@ -42,6 +42,15 @@ export interface PostMedia {
   createdAt: string;
 }
 
+export interface PostTaskSummary {
+  id: string;
+  title: string;
+  status: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+  dueAt: string | null;
+  priority: number;
+  assignee: PostAuthor | null;
+}
+
 export interface PostDetail extends PostSummary {
   workspaceId: string;
   content: unknown;
@@ -53,6 +62,7 @@ export interface PostDetail extends PostSummary {
   reviewedAt: string | null;
   mediaAssets: PostMedia[];
   schedules: ScheduleItem[];
+  task: PostTaskSummary | null;
 }
 
 export interface PostsResult {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { JSONContent } from '@tiptap/react';
 import { CalendarClock, Check, Eye, Pencil, Send, Trash2, X } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import PostStatusBadge from './PostStatusBadge';
@@ -132,11 +133,16 @@ export const PostDetailModal = ({
 
       {post ? (
         <div className="space-y-5">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <PostStatusBadge status={post.status} />
             <span className="text-xs text-muted">
               Cập nhật {formatDateTime(post.updatedAt)}
             </span>
+            {post.task ? (
+              <Badge variant="neutral" className="max-w-full truncate">
+                Thuộc việc: {post.task.title}
+              </Badge>
+            ) : null}
           </div>
 
           {post.status === 'REJECTED' && post.rejectReason ? (
