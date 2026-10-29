@@ -8,6 +8,7 @@ const SOFT_DELETE_MODELS = new Set([
   'MediaAsset',
   'User',
   'ChannelConnection',
+  'Task',
 ]);
 
 const READ_OPERATIONS = new Set([
