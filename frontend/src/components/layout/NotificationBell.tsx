@@ -15,43 +15,25 @@ import { cn } from '@/utils/cn';
 import { formatDateTime } from '@/utils/format';
 import { getErrorMessage } from '@/utils/error';
 
-const describeNotification = (notification: AppNotification) => {
-  switch (notification.type) {
-    case 'POST_SUBMITTED':
-      return { title: 'Bài viết chờ duyệt', description: notification.payload.postTitle };
-    case 'POST_APPROVED':
-      return { title: 'Bài viết đã được duyệt', description: notification.payload.postTitle };
-    case 'POST_REJECTED':
-      return {
-        title: 'Bài viết bị từ chối',
-        description: notification.payload.reason ?? notification.payload.postTitle,
-      };
-    case 'MEMBER_JOINED':
-      return { title: 'Thành viên mới tham gia workspace' };
-    case 'TASK_ASSIGNED':
-      return {
-        title: 'Bạn được giao việc',
-        description: notification.payload.taskTitle ?? notification.payload.postTitle,
-      };
-    case 'TASK_STATUS_CHANGED':
-      return {
-        title: 'Công việc đổi trạng thái',
-        description: notification.payload.taskTitle ?? notification.payload.postTitle,
-      };
-    case 'TASK_DUE_SOON':
-      return {
-        title: 'Công việc sắp đến hạn',
-        description: notification.payload.taskTitle ?? notification.payload.postTitle,
-      };
-    case 'TASK_OVERDUE':
-      return {
-        title: 'Công việc đã quá hạn',
-        description: notification.payload.taskTitle ?? notification.payload.postTitle,
-      };
-    default:
-      return { title: 'Thông báo mới' };
-  }
+const NOTIFICATION_TITLES: Record<string, string> = {
+  POST_SUBMITTED: 'Bài viết chờ duyệt',
+  POST_APPROVED: 'Bài viết đã được duyệt',
+  POST_REJECTED: 'Bài viết bị từ chối',
+  MEMBER_JOINED: 'Thành viên mới tham gia workspace',
+  TASK_ASSIGNED: 'Bạn được giao việc',
+  TASK_STATUS_CHANGED: 'Công việc đổi trạng thái',
+  TASK_DUE_SOON: 'Công việc sắp đến hạn',
+  TASK_OVERDUE: 'Công việc đã quá hạn',
 };
+
+const describeNotification = ({ type, payload }: AppNotification) => ({
+  title: NOTIFICATION_TITLES[type] ?? 'Thông báo mới',
+  // Bài bị từ chối ưu tiên hiện lý do; còn lại hiện tên việc hoặc tên bài.
+  description:
+    type === 'POST_REJECTED'
+      ? (payload.reason ?? payload.postTitle)
+      : (payload.taskTitle ?? payload.postTitle),
+});
 
 export const NotificationBell = ({ workspaceId }: { workspaceId?: string }) => {
   const navigate = useNavigate();
@@ -122,14 +104,15 @@ export const NotificationBell = ({ workspaceId }: { workspaceId?: string }) => {
         >
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <p className="text-sm font-semibold text-foreground">Thông báo</p>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => markAllRead.mutate()}
               disabled={unread === 0 || markAllRead.isPending}
-              className="text-xs font-medium text-accent-text transition hover:underline disabled:cursor-not-allowed disabled:text-subtle disabled:no-underline"
+              className="min-h-11 px-2 text-xs text-accent-text"
             >
               Đánh dấu tất cả đã đọc
-            </button>
+            </Button>
           </div>
 
           {notifications.isLoading ? (
@@ -144,13 +127,14 @@ export const NotificationBell = ({ workspaceId }: { workspaceId?: string }) => {
           {notifications.isError ? (
             <div className="px-4 py-4">
               <p className="text-sm text-danger">{getErrorMessage(notifications.error)}</p>
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => notifications.refetch()}
-                className="mt-2 text-xs font-medium text-accent-text hover:underline"
+                className="mt-2 min-h-11"
               >
                 Thử lại
-              </button>
+              </Button>
             </div>
           ) : null}
 
@@ -175,10 +159,9 @@ export const NotificationBell = ({ workspaceId }: { workspaceId?: string }) => {
                   >
                     <span className="flex items-start gap-2">
                       {!notification.isRead ? (
-                        <span
-                          className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent"
-                          aria-label="Chưa đọc"
-                        />
+                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent">
+                          <span className="sr-only">Chưa đọc</span>
+                        </span>
                       ) : null}
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-medium text-foreground">{title}</span>

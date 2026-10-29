@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import AnalyticsFilterBar from '@/components/features/analytics/AnalyticsFilterBar';
@@ -44,7 +44,10 @@ const readFilters = (params: URLSearchParams): AnalyticsFilters => {
   };
 };
 
-const writeFilters = (filters: AnalyticsFilters): URLSearchParams => {
+const isCustomRangeInvalid = (filters: AnalyticsFilters): boolean =>
+  filters.range === 'custom' && (!filters.from || !filters.to || filters.to < filters.from);
+
+const writeFilters =(filters: AnalyticsFilters): URLSearchParams => {
   const params = new URLSearchParams({ range: filters.range });
 
   if (filters.range === 'custom') {
@@ -70,16 +73,14 @@ export const DashboardPage = () => {
 
   const updateFilters = useCallback(
     (next: AnalyticsFilters) => {
-      if (next.range === 'custom' && (!next.from || !next.to || next.to < next.from)) {
-        return;
-      }
-
+      if (isCustomRangeInvalid(next)) return;
       setSearchParams(writeFilters(next), { replace: true });
     },
     [setSearchParams]
   );
 
-  // Kênh không còn trong danh sách đã tải (đổi workspace, URL cũ) bị loại khỏi truy vấn ngay.
+  // Kênh không thuộc danh sách đã tải (đổi workspace, URL cũ) bị loại khỏi truy vấn ngay,
+  // rồi effect bên dưới xoá luôn khỏi URL.
   const channelsLoaded = channelsData !== undefined;
   const channelExists = filters.channelId
     ? channelsLoaded && channels.some((channel) => channel.id === filters.channelId)
@@ -89,8 +90,7 @@ export const DashboardPage = () => {
     [channelExists, filters]
   );
 
-  const isCustomInvalid =
-    filters.range === 'custom' && (!filters.from || !filters.to || filters.to < filters.from);
+  const isCustomInvalid = isCustomRangeInvalid(filters);
 
   const syncKey = [
     workspaceId,
@@ -111,23 +111,6 @@ export const DashboardPage = () => {
     syncKey,
   });
   const suggestions = useAnalyticsSuggestions(workspaceId, effectiveFilters.channelId);
-
-  const previousWorkspaceId = useRef<string | null>(null);
-
-  useEffect(() => {
-    const previous = previousWorkspaceId.current;
-    previousWorkspaceId.current = workspaceId;
-
-    if (!previous || previous === workspaceId) {
-      return;
-    }
-
-    if (!filters.channelId) {
-      return;
-    }
-
-    updateFilters({ ...filters, channelId: undefined });
-  }, [workspaceId, filters, updateFilters]);
 
   useEffect(() => {
     if (!filters.channelId || !channelsLoaded || channelExists) {
@@ -188,6 +171,12 @@ export const DashboardPage = () => {
 
       {isCustomInvalid ? (
         <Alert variant="danger">Chọn ngày bắt đầu và kết thúc hợp lệ.</Alert>
+      ) : null}
+
+      {syncError ? (
+        <Alert variant="danger" title="Không đồng bộ được số liệu">
+          {getErrorMessage(syncError)}
+        </Alert>
       ) : null}
 
       {!isCustomInvalid && overview.isError ? (
@@ -258,12 +247,6 @@ export const DashboardPage = () => {
 
       {showSuggestions ? (
         <div className="space-y-4">
-          {syncError ? (
-            <Alert variant="danger" title="Không đồng bộ được số liệu">
-              {getErrorMessage(syncError)}
-            </Alert>
-          ) : null}
-
           {suggestions.isFetching && !suggestions.data ? <SkeletonBlock /> : null}
 
           {suggestions.isError ? (
