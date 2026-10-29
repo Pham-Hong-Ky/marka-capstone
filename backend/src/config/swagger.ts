@@ -13,6 +13,7 @@ import {
   inviteTokenParamSchema,
 } from '../modules/workspace/workspace.validation.js';
 import { brandVoiceBodySchema } from '../modules/brandvoice/brandvoice.validation.js';
+import { registerTaskPaths } from './openapi/task.paths.js';
 import {
   createPostBodySchema,
   updatePostBodySchema,
@@ -503,6 +504,8 @@ registry.registerPath({
     422: { description: 'Thiếu lý do khi từ chối bài viết' },
   },
 });
+
+registerTaskPaths(registry);
 
 const generator = new OpenApiGeneratorV3(registry.definitions);
 

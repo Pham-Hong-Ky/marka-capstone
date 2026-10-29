@@ -52,6 +52,8 @@ import {
   assignPostSchema,
   updateTaskStatusSchema,
 } from '../modules/post/post.validation.js';
+import taskController from '../modules/task/task.controller.js';
+import { createTaskSchema, boardSchema } from '../modules/task/task.validation.js';
 import scheduleController from '../modules/schedule/schedule.controller.js';
 import {
   createScheduleSchema,
@@ -439,6 +441,22 @@ router.patch(
   validate(updateTaskStatusSchema),
   requireWorkspaceRole(),
   postController.updateTaskStatus
+);
+
+// Công việc — bảng Kanban (UC42, UC43)
+router.get(
+  '/workspaces/:workspaceId/tasks/board',
+  requireAuth,
+  validate(boardSchema),
+  requireWorkspaceRole(),
+  taskController.getBoard
+);
+router.post(
+  '/workspaces/:workspaceId/tasks',
+  requireAuth,
+  validate(createTaskSchema),
+  requireWorkspaceRole('OWNER'),
+  taskController.createTask
 );
 
 // AI assistant (UC07 — sinh nội dung & ảnh cho bài viết)
