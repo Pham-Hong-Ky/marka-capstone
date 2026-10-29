@@ -1,4 +1,5 @@
 import notificationRepository from '../notification/notification.repository.js';
+import workspaceRepository from '../workspace/workspace.repository.js';
 
 export const notifyTaskAssigned = async (params: {
   workspaceId: string;
@@ -28,4 +29,36 @@ export const notifyTaskAssigned = async (params: {
   });
 };
 
-export default { notifyTaskAssigned };
+export const notifyTaskStatusChanged = async (params: {
+  workspaceId: string;
+  taskId: string;
+  taskTitle: string;
+  status: string;
+  actorId: string;
+  actorRole: 'OWNER' | 'CONTENT_CREATOR';
+  assigneeId: string | null;
+}) => {
+  const { workspaceId, taskId, taskTitle, status, actorId, actorRole, assigneeId } = params;
+
+  const recipientIds =
+    actorRole === 'OWNER'
+      ? assigneeId
+        ? [assigneeId]
+        : []
+      : await workspaceRepository.findOwnerIds(workspaceId);
+
+  const uniqueRecipientIds = [...new Set(recipientIds)].filter((id) => id !== actorId);
+
+  await Promise.all(
+    uniqueRecipientIds.map((userId) =>
+      notificationRepository.createNotification({
+        userId,
+        workspaceId,
+        type: 'TASK_STATUS_CHANGED',
+        payload: { taskId, taskTitle, status, changedById: actorId },
+      })
+    )
+  );
+};
+
+export default { notifyTaskAssigned, notifyTaskStatusChanged };

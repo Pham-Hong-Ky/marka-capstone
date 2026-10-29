@@ -1,5 +1,6 @@
 import { workspaceIdField, workspaceIdParamSchema } from '../../utils/validation/common.js';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import { TaskStatus } from '@prisma/client';
 import { z } from 'zod';
 
 extendZodWithOpenApi(z);
@@ -41,16 +42,35 @@ export const boardQuerySchema = z.object({
     .optional(),
 });
 
+export const assignTaskBodySchema = z.object({
+  assigneeId: z.string().uuid('Người nhận việc không hợp lệ').nullable(),
+});
+
+export const updateTaskStatusBodySchema = z.object({
+  status: z.nativeEnum(TaskStatus),
+});
+
 export const createTaskSchema = { body: createTaskBodySchema, params: workspaceIdParamSchema };
 export const boardSchema = { params: workspaceIdParamSchema, query: boardQuerySchema };
+export const assignTaskSchema = { body: assignTaskBodySchema, params: taskIdParamSchema };
+export const updateTaskStatusSchema = {
+  body: updateTaskStatusBodySchema,
+  params: taskIdParamSchema,
+};
 
 export type CreateTaskBody = z.infer<typeof createTaskBodySchema>;
 export type BoardQuery = z.infer<typeof boardQuerySchema>;
+export type AssignTaskBody = z.infer<typeof assignTaskBodySchema>;
+export type UpdateTaskStatusBody = z.infer<typeof updateTaskStatusBodySchema>;
 
 export default {
   taskIdParamSchema,
   createTaskBodySchema,
   boardQuerySchema,
+  assignTaskBodySchema,
+  updateTaskStatusBodySchema,
   createTaskSchema,
   boardSchema,
+  assignTaskSchema,
+  updateTaskStatusSchema,
 };

@@ -1,13 +1,23 @@
 import type { WorkspaceRole } from '@prisma/client';
 import taskRepository from './task.repository.js';
 import taskNotification from './task.notification.js';
-import type { BoardQuery, CreateTaskBody } from './task.validation.js';
+import type {
+  AssignTaskBody,
+  BoardQuery,
+  CreateTaskBody,
+  UpdateTaskStatusBody,
+} from './task.validation.js';
 import workspaceService from '../workspace/workspace.service.js';
 import auditService from '../audit/audit.service.js';
 import { getErrorMessage } from '../../utils/errorMessage.js';
 import logger from '../../utils/logger.js';
 import { addDays } from '../../utils/date.js';
-import { BadRequestError } from '../../utils/errors/index.js';
+import {
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+} from '../../utils/errors/index.js';
 
 const BOARD_COLUMN_LIMIT = 100;
 
@@ -111,7 +121,107 @@ export const getTaskBoard = async (
   return { ...groups, counts };
 };
 
+const getTaskOrThrow = async (taskId: string, workspaceId: string) => {
+  const task = await taskRepository.findTaskById(taskId, workspaceId);
+  if (!task) {
+    throw new NotFoundError('Công việc không tồn tại');
+  }
+  return task;
+};
+
+export const assignTask = async (
+  workspaceId: string,
+  actorId: string,
+  taskId: string,
+  body: AssignTaskBody
+) => {
+  const task = await getTaskOrThrow(taskId, workspaceId);
+  const { assigneeId } = body;
+
+  if (assigneeId) {
+    await assertAssigneeIsMember(workspaceId, assigneeId);
+  }
+
+  const updated = await taskRepository.assignTask(taskId, {
+    assigneeId,
+    assignedById: assigneeId ? actorId : null,
+    assignedAt: assigneeId ? new Date() : null,
+    dueAt: assigneeId ? task.dueAt : null,
+    status: assigneeId ? undefined : 'TODO',
+  });
+
+  if (assigneeId) {
+    await notifySafely(() =>
+      taskNotification.notifyTaskAssigned({
+        workspaceId,
+        taskId: updated.id,
+        taskTitle: updated.title,
+        assigneeId,
+        actorId,
+        dueAt: updated.dueAt,
+        priority: updated.priority,
+      })
+    );
+  }
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId,
+    action: assigneeId ? 'TASK_ASSIGNED' : 'TASK_UNASSIGNED',
+    targetType: 'Task',
+    targetId: taskId,
+    metadata: { title: task.title, assigneeId },
+  });
+
+  return updated;
+};
+
+export const updateTaskStatus = async (
+  workspaceId: string,
+  actorId: string,
+  role: WorkspaceRole,
+  taskId: string,
+  body: UpdateTaskStatusBody
+) => {
+  const task = await getTaskOrThrow(taskId, workspaceId);
+
+  if (!task.assignee) {
+    throw new ConflictError('Công việc chưa được giao cho ai');
+  }
+
+  if (role !== 'OWNER' && task.assignee.id !== actorId) {
+    throw new ForbiddenError('Bạn không có quyền cập nhật công việc này');
+  }
+
+  const updated = await taskRepository.updateTaskStatus(taskId, body.status);
+
+  await notifySafely(() =>
+    taskNotification.notifyTaskStatusChanged({
+      workspaceId,
+      taskId: updated.id,
+      taskTitle: updated.title,
+      status: updated.status,
+      actorId,
+      actorRole: role,
+      assigneeId: updated.assignee?.id ?? null,
+    })
+  );
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId,
+    action: 'TASK_STATUS_CHANGED',
+    targetType: 'Task',
+    targetId: taskId,
+    metadata: { title: task.title, status: updated.status },
+  });
+
+  return updated;
+};
+
 export default {
   createTask,
   getTaskBoard,
+  assignTask,
+  updateTaskStatus,
 };

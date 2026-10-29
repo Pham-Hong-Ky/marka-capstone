@@ -87,6 +87,20 @@ export const findBoardTasks = async (filters: BoardTaskFilters) => {
   return { unassigned, todo, inProgress, done };
 };
 
+export interface AssignTaskData {
+  assigneeId: string | null;
+  assignedById: string | null;
+  assignedAt: Date | null;
+  dueAt: Date | null;
+  status?: TaskStatus;
+}
+
+export const assignTask = async (taskId: string, data: AssignTaskData) =>
+  prisma.task.update({ where: { id: taskId }, data, select: TASK_SELECT });
+
+export const updateTaskStatus = async (taskId: string, status: TaskStatus) =>
+  prisma.task.update({ where: { id: taskId }, data: { status }, select: TASK_SELECT });
+
 export const countBoardTasks = async (filters: BoardTaskWhereFilters) => {
   const [unassigned, todo, inProgress, done] = await Promise.all([
     filters.includeUnassigned
@@ -106,4 +120,6 @@ export default {
   findTaskById,
   findBoardTasks,
   countBoardTasks,
+  assignTask,
+  updateTaskStatus,
 };
