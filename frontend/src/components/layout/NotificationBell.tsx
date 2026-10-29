@@ -29,16 +29,25 @@ const describeNotification = (notification: AppNotification) => {
     case 'MEMBER_JOINED':
       return { title: 'Thành viên mới tham gia workspace' };
     case 'TASK_ASSIGNED':
-      return { title: 'Bạn được giao việc', description: notification.payload.taskTitle };
+      return {
+        title: 'Bạn được giao việc',
+        description: notification.payload.taskTitle ?? notification.payload.postTitle,
+      };
     case 'TASK_STATUS_CHANGED':
       return {
         title: 'Công việc đổi trạng thái',
-        description: notification.payload.taskTitle,
+        description: notification.payload.taskTitle ?? notification.payload.postTitle,
       };
     case 'TASK_DUE_SOON':
-      return { title: 'Công việc sắp đến hạn', description: notification.payload.taskTitle };
+      return {
+        title: 'Công việc sắp đến hạn',
+        description: notification.payload.taskTitle ?? notification.payload.postTitle,
+      };
     case 'TASK_OVERDUE':
-      return { title: 'Công việc đã quá hạn', description: notification.payload.taskTitle };
+      return {
+        title: 'Công việc đã quá hạn',
+        description: notification.payload.taskTitle ?? notification.payload.postTitle,
+      };
     default:
       return { title: 'Thông báo mới' };
   }

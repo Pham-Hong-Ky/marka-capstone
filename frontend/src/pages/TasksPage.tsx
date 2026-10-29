@@ -36,6 +36,7 @@ export const TasksPage = () => {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
+  const [createRequireAssignee, setCreateRequireAssignee] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<TaskItem | null>(null);
   const [assignTarget, setAssignTarget] = useState<{
     task: TaskItem;
@@ -57,9 +58,7 @@ export const TasksPage = () => {
   const assignMutation = useAssignTask();
 
   useEffect(() => {
-    if (taskIdFromQuery) {
-      setSelectedTaskId(taskIdFromQuery);
-    }
+    setSelectedTaskId(taskIdFromQuery);
   }, [taskIdFromQuery]);
 
   const selectedTask = useMemo(() => {
@@ -80,14 +79,16 @@ export const TasksPage = () => {
     }
   };
 
-  const openCreate = () => {
+  const openCreate = (mode: 'unassigned' | 'todo' = 'unassigned') => {
     setEditingTask(null);
+    setCreateRequireAssignee(mode === 'todo');
     setFormOpen(true);
   };
 
   const openEdit = (task: TaskItem) => {
     closeDetail();
     setEditingTask(task);
+    setCreateRequireAssignee(false);
     setFormOpen(true);
   };
 
@@ -140,6 +141,13 @@ export const TasksPage = () => {
     updateStatus.mutate({ workspaceId, taskId: task.id, status });
   };
 
+  const linkedPostIds = useMemo(() => {
+    if (!data) return [];
+    return [...data.unassigned, ...data.todo, ...data.inProgress, ...data.done]
+      .map((task) => task.post?.id)
+      .filter((id): id is string => Boolean(id) && id !== linkTarget?.post?.id);
+  }, [data, linkTarget?.post?.id]);
+
   if (!workspaceId) {
     return (
       <EmptyState
@@ -158,7 +166,7 @@ export const TasksPage = () => {
         description="Theo dõi việc của nhóm theo 4 cột. P1 là ưu tiên cao nhất, P5 là thấp nhất."
         actions={
           canManage ? (
-            <Button type="button" onClick={openCreate}>
+            <Button type="button" onClick={() => openCreate('unassigned')}>
               Tạo việc
             </Button>
           ) : undefined
@@ -198,15 +206,20 @@ export const TasksPage = () => {
       ) : null}
 
       {!isLoading && !isError && data ? (
-        <TaskBoard
-          board={data}
-          showUnassigned={showUnassigned}
-          canManage={canManage}
-          onCreate={canManage ? openCreate : undefined}
-          onOpenTask={(task) => setSelectedTaskId(task.id)}
-          onStatusChange={handleStatusChange}
-          onDropTask={handleDropTask}
-        />
+        <>
+          <p className="sr-only">
+            Kéo thả bằng chuột hoặc dùng nút thao tác trên thẻ để đổi trạng thái công việc.
+          </p>
+          <TaskBoard
+            board={data}
+            showUnassigned={showUnassigned}
+            canManage={canManage}
+            onCreate={canManage ? (column) => openCreate(column) : undefined}
+            onOpenTask={(task) => setSelectedTaskId(task.id)}
+            onStatusChange={handleStatusChange}
+            onDropTask={handleDropTask}
+          />
+        </>
       ) : null}
 
       <TaskCreateModal
@@ -214,6 +227,7 @@ export const TasksPage = () => {
         onClose={() => setFormOpen(false)}
         workspaceId={workspaceId}
         task={editingTask}
+        requireAssignee={createRequireAssignee}
       />
 
       <TaskDetailModal
@@ -225,6 +239,12 @@ export const TasksPage = () => {
         onDelete={(task) => setTaskToDelete(task)}
         onAssign={openAssign}
         onLinkPost={openLinkPost}
+        onStatusChange={(task, status) => {
+          if (status === 'CANCELLED') {
+            closeDetail();
+          }
+          handleStatusChange(task, status);
+        }}
       />
 
       {assignTarget ? (
@@ -252,6 +272,7 @@ export const TasksPage = () => {
           workspaceId={workspaceId}
           task={linkTarget}
           canManage={canManage}
+          excludePostIds={linkedPostIds}
         />
       ) : null}
 

@@ -48,11 +48,13 @@ export const TaskCreateModal = ({
   onClose,
   workspaceId,
   task = null,
+  requireAssignee = false,
 }: {
   open: boolean;
   onClose: () => void;
   workspaceId: string;
   task?: TaskItem | null;
+  requireAssignee?: boolean;
 }) => {
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
@@ -62,6 +64,7 @@ export const TaskCreateModal = ({
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
@@ -82,6 +85,13 @@ export const TaskCreateModal = ({
   };
 
   const onSubmit = handleSubmit((values) => {
+    if (!task && requireAssignee && !values.assigneeId) {
+      setError('assigneeId', {
+        message: 'Chọn người nhận để việc vào cột Cần làm',
+      });
+      return;
+    }
+
     const payload = {
       title: values.title,
       description: values.description,

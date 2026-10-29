@@ -6,6 +6,7 @@ import {
   type TaskBoard,
   type TaskBoardParams,
   type TaskColumn,
+  type TaskItem,
   type TaskStatus,
   type UpdateTaskPayload,
 } from '@/services/task';
@@ -16,6 +17,14 @@ const COLUMNS: TaskColumn[] = ['unassigned', 'todo', 'inProgress', 'done'];
 
 const findColumn = (board: TaskBoard, taskId: string): TaskColumn | null =>
   COLUMNS.find((column) => board[column].some((task) => task.id === taskId)) ?? null;
+
+const compareTasks = (a: TaskItem, b: TaskItem): number => {
+  if (a.priority !== b.priority) return a.priority - b.priority;
+  if (a.dueAt && b.dueAt) return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+  if (a.dueAt) return -1;
+  if (b.dueAt) return 1;
+  return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+};
 
 const applyStatus = (board: TaskBoard, taskId: string, status: TaskStatus): TaskBoard => {
   const source = findColumn(board, taskId);
@@ -35,8 +44,17 @@ const applyStatus = (board: TaskBoard, taskId: string, status: TaskStatus): Task
   }
 
   const target: TaskColumn =
-    status === 'TODO' ? (task.assignee ? 'todo' : 'unassigned') : status === 'IN_PROGRESS' ? 'inProgress' : 'done';
-  next[target] = [...next[target], { ...task, status }];
+    status === 'TODO'
+      ? task.assignee
+        ? 'todo'
+        : 'unassigned'
+      : status === 'IN_PROGRESS'
+        ? 'inProgress'
+        : 'done';
+  next[target] = [
+    ...next[target],
+    { ...task, status, updatedAt: new Date().toISOString() },
+  ].sort(compareTasks);
   next.counts[target] += 1;
   return next;
 };

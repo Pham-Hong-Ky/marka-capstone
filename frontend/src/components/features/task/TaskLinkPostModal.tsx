@@ -7,6 +7,7 @@ import PostStatusBadge from '@/components/features/post/PostStatusBadge';
 import { useAuthStore } from '@/stores/auth.store';
 import type { TaskItem } from '@/services/task';
 import { cn } from '@/utils/cn';
+import { getErrorMessage } from '@/utils/error';
 import { formatDate } from '@/utils/format';
 
 export const TaskLinkPostModal = ({
@@ -15,18 +16,20 @@ export const TaskLinkPostModal = ({
   workspaceId,
   task,
   canManage,
+  excludePostIds = [],
 }: {
   open: boolean;
   onClose: () => void;
   workspaceId: string;
   task: TaskItem;
   canManage: boolean;
+  excludePostIds?: string[];
 }) => {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const linkPost = useLinkTaskPost();
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
 
-  const { data, isLoading } = usePosts(
+  const { data, isLoading, isError, error, refetch } = usePosts(
     open ? workspaceId : null,
     { limit: 50 }
   );
@@ -34,6 +37,7 @@ export const TaskLinkPostModal = ({
   const posts = (data?.posts ?? []).filter(
     (post) =>
       post.status !== 'ARCHIVED' &&
+      !excludePostIds.includes(post.id) &&
       (canManage || post.createdById === currentUserId)
   );
 
@@ -95,8 +99,17 @@ export const TaskLinkPostModal = ({
     >
       {isLoading ? <p className="text-sm text-muted">Đang tải bài viết...</p> : null}
 
-      {!isLoading && posts.length === 0 ? (
-        <p className="text-sm text-muted">Chưa có bài viết nào có thể gắn.</p>
+      {isError ? (
+        <div className="space-y-2">
+          <p className="text-sm text-danger">{getErrorMessage(error)}</p>
+          <Button type="button" variant="outline" onClick={() => refetch()}>
+            Thử lại
+          </Button>
+        </div>
+      ) : null}
+
+      {!isLoading && !isError && posts.length === 0 ? (
+        <p className="text-sm text-muted">Không còn bài viết nào có thể gắn.</p>
       ) : null}
 
       {posts.length > 0 ? (

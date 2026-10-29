@@ -109,9 +109,8 @@ export const TaskCard = ({
 
       <span className="mt-2 flex flex-wrap items-center gap-2">
         {task.post ? <Badge variant="neutral">Bài viết</Badge> : null}
-        {overdue ? (
-          <span className="text-xs font-medium text-danger">Quá hạn</span>
-        ) : task.dueAt ? (
+        {overdue ? <span className="text-xs font-medium text-danger">Quá hạn</span> : null}
+        {task.dueAt ? (
           <span className="text-xs text-muted">Hạn: {formatDateTime(task.dueAt)}</span>
         ) : null}
       </span>
@@ -120,6 +119,8 @@ export const TaskCard = ({
 
   return (
     <article
+      aria-label={`${task.title}, ưu tiên P${task.priority}`}
+      aria-roledescription={draggable ? 'thẻ công việc có thể kéo' : 'thẻ công việc'}
       className={cardClasses}
       draggable={draggable}
       onDragStart={(event) => {

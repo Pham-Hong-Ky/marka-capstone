@@ -1,5 +1,6 @@
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import SelectField from '@/components/ui/SelectField';
 import type { TaskItem, TaskStatus } from '@/services/task';
 import { formatDateTime } from '@/utils/format';
 
@@ -22,6 +23,7 @@ export const TaskDetailModal = ({
   onDelete,
   onAssign,
   onLinkPost,
+  onStatusChange,
 }: {
   open: boolean;
   onClose: () => void;
@@ -31,6 +33,7 @@ export const TaskDetailModal = ({
   onDelete: (task: TaskItem) => void;
   onAssign: (task: TaskItem) => void;
   onLinkPost: (task: TaskItem) => void;
+  onStatusChange: (task: TaskItem, status: TaskStatus) => void;
 }) => {
   if (!task) return null;
 
@@ -86,6 +89,19 @@ export const TaskDetailModal = ({
           <dd className="font-medium text-foreground">{task.post?.title ?? 'Chưa gắn'}</dd>
         </div>
       </dl>
+
+      {task.assignee ? (
+        <SelectField
+          label="Trạng thái"
+          value={task.status}
+          onChange={(event) => onStatusChange(task, event.target.value as TaskStatus)}
+        >
+          <option value="TODO">Cần làm</option>
+          <option value="IN_PROGRESS">Đang làm</option>
+          <option value="DONE">Hoàn thành</option>
+          <option value="CANCELLED">Huỷ việc</option>
+        </SelectField>
+      ) : null}
 
       {task.description ? (
         <div className="space-y-1.5">

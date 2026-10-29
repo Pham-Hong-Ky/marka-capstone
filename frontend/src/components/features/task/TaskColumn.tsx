@@ -8,6 +8,7 @@ export const TaskColumn = ({
   column,
   title,
   tasks,
+  count,
   onCreate,
   onOpenTask,
   onStatusChange,
@@ -16,6 +17,7 @@ export const TaskColumn = ({
   column: TaskColumnName;
   title: string;
   tasks: TaskItem[];
+  count: number;
   onCreate?: () => void;
   onOpenTask?: (task: TaskItem) => void;
   onStatusChange?: (task: TaskItem, status: TaskItem['status']) => void;
@@ -49,6 +51,7 @@ export const TaskColumn = ({
           onDropTask(taskId, column);
         }
       }}
+      aria-label={`Cột ${title}`}
       className={cn(
         'flex min-h-64 flex-col rounded-2xl border border-border bg-surface-2/40 p-3 transition',
         isOver && 'border-accent bg-accent/5'
@@ -57,7 +60,7 @@ export const TaskColumn = ({
       <header className="mb-3 flex items-center justify-between gap-2 px-1">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <div className="flex items-center gap-1">
-          <span className="text-xs text-muted">{tasks.length}</span>
+          <span className="text-xs text-muted">{count}</span>
           {onCreate ? (
             <button
               type="button"
@@ -89,6 +92,11 @@ export const TaskColumn = ({
             />
           ))
         )}
+        {count > tasks.length ? (
+          <p className="px-1 pt-1 text-xs text-muted">
+            Chỉ hiển thị {tasks.length}/{count} việc.
+          </p>
+        ) : null}
       </div>
     </section>
   );
