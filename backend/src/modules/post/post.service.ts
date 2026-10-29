@@ -55,8 +55,20 @@ export const getPost = async (workspaceId: string, postId: string) => {
     throw new NotFoundError('Bài viết không tồn tại');
   }
 
-  const { scheduledPosts, ...rest } = post;
-  return { ...rest, schedules: scheduledPosts };
+  const { scheduledPosts, task, ...rest } = post;
+  const taskDto =
+    task && !task.deletedAt
+      ? {
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          dueAt: task.dueAt,
+          priority: task.priority,
+          assignee: task.assignee,
+        }
+      : null;
+
+  return { ...rest, task: taskDto, schedules: scheduledPosts };
 };
 
 export const listPosts = async (workspaceId: string, userId: string, query: ListPostsQuery) => {

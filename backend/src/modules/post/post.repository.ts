@@ -24,6 +24,17 @@ export const getPostById = async (postId: string, workspaceId: string) => {
         orderBy: [{ scheduledAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }],
         select: SCHEDULE_PUBLIC_SELECT,
       },
+      task: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          dueAt: true,
+          priority: true,
+          deletedAt: true,
+          assignee: { select: POST_AUTHOR_SELECT },
+        },
+      },
     },
   });
 };

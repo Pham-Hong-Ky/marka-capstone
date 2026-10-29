@@ -236,4 +236,19 @@ describe('Task manage: update, delete, link post', () => {
     const relink = await linkPost(next.id, post.id);
     expect(relink.status).toBe(200);
   }, 15_000);
+
+  it('chi tiết bài viết trả kèm công việc đã gắn', async () => {
+    const task = await createTask({ assigneeId: creatorAId, priority: 2 });
+    const post = await createPost('Bài có công việc');
+    await linkPost(task.id, post.id);
+
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/posts/${post.id}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.task.id).toBe(task.id);
+    expect(res.body.data.task.priority).toBe(2);
+    expect(res.body.data.task.assignee.id).toBe(creatorAId);
+  });
 });
