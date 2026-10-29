@@ -273,6 +273,48 @@ describe('Task manage: update, delete, link post', () => {
     expect(relink.status).toBe(200);
   }, 15_000);
 
+  it('member xoá việc → 403', async () => {
+    const task = await createTask({ assigneeId: creatorAId });
+
+    const res = await request(app)
+      .delete(`/api/v1/workspaces/${wsId}/tasks/${task.id}`)
+      .set('Authorization', `Bearer ${creatorAToken}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('hai request gắn cùng bài đồng thời → một 200, một 409, không 500', async () => {
+    const first = await createTask({ assigneeId: creatorAId });
+    const second = await createTask({ assigneeId: creatorAId });
+    const post = await createPost('Bài gắn đồng thời');
+
+    const results = await Promise.all([
+      linkPost(first.id, post.id),
+      linkPost(second.id, post.id),
+    ]);
+    const statuses = results.map((result) => result.status).sort((a, b) => a - b);
+
+    expect(statuses).toEqual([200, 409]);
+  }, 15_000);
+
+  it('bài đã xoá mềm không còn hiển thị trong board', async () => {
+    const task = await createTask();
+    const post = await createPost('Bài sẽ xoá mềm');
+    await linkPost(task.id, post.id);
+
+    await prisma.post.update({ where: { id: post.id }, data: { deletedAt: new Date() } });
+
+    const board = await getBoard();
+    const found = [
+      ...board.body.data.unassigned,
+      ...board.body.data.todo,
+      ...board.body.data.inProgress,
+      ...board.body.data.done,
+    ].find((item: { id: string }) => item.id === task.id);
+
+    expect(found.post).toBeNull();
+  });
+
   it('chi tiết bài viết trả kèm công việc đã gắn', async () => {
     const task = await createTask({ assigneeId: creatorAId, priority: 2 });
     const post = await createPost('Bài có công việc');

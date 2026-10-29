@@ -1,8 +1,8 @@
-import type { Prisma, TaskStatus } from '@prisma/client';
+import type { PostStatus, Prisma, TaskStatus } from '@prisma/client';
 import prisma from '../../config/db.js';
 
 const TASK_ASSIGNEE_SELECT = { id: true, name: true, avatar: true } as const;
-const TASK_POST_SELECT = { id: true, title: true, status: true } as const;
+const TASK_POST_SELECT = { id: true, title: true, status: true, deletedAt: true } as const;
 
 export const TASK_SELECT = {
   id: true,
@@ -19,11 +19,31 @@ export const TASK_SELECT = {
   updatedAt: true,
 } satisfies Prisma.TaskSelect;
 
-export const createTask = async (data: Prisma.TaskUncheckedCreateInput) =>
-  prisma.task.create({ data, select: TASK_SELECT });
+type TaskRow = Prisma.TaskGetPayload<{ select: typeof TASK_SELECT }>;
 
-export const findTaskById = async (taskId: string, workspaceId: string) =>
-  prisma.task.findFirst({ where: { id: taskId, workspaceId }, select: TASK_SELECT });
+export type TaskDto = Omit<TaskRow, 'post'> & {
+  post: { id: string; title: string; status: PostStatus } | null;
+};
+
+const toTaskDto = (task: TaskRow): TaskDto => {
+  const { post, ...rest } = task;
+
+  return {
+    ...rest,
+    post:
+      post && !post.deletedAt
+        ? { id: post.id, title: post.title, status: post.status }
+        : null,
+  };
+};
+
+export const createTask = async (data: Prisma.TaskUncheckedCreateInput) =>
+  toTaskDto(await prisma.task.create({ data, select: TASK_SELECT }));
+
+export const findTaskById = async (taskId: string, workspaceId: string) => {
+  const task = await prisma.task.findFirst({ where: { id: taskId, workspaceId }, select: TASK_SELECT });
+  return task ? toTaskDto(task) : null;
+};
 
 export interface BoardTaskFilters {
   workspaceId: string;
@@ -84,7 +104,12 @@ export const findBoardTasks = async (filters: BoardTaskFilters) => {
     }),
   ]);
 
-  return { unassigned, todo, inProgress, done };
+  return {
+    unassigned: unassigned.map(toTaskDto),
+    todo: todo.map(toTaskDto),
+    inProgress: inProgress.map(toTaskDto),
+    done: done.map(toTaskDto),
+  };
 };
 
 export interface UpdateTaskData {
@@ -95,20 +120,26 @@ export interface UpdateTaskData {
 }
 
 export const updateTask = async (taskId: string, data: UpdateTaskData) =>
-  prisma.task.update({ where: { id: taskId }, data, select: TASK_SELECT });
+  toTaskDto(await prisma.task.update({ where: { id: taskId }, data, select: TASK_SELECT }));
 
 export const linkTaskPost = async (taskId: string, postId: string | null) =>
-  prisma.task.update({ where: { id: taskId }, data: { postId }, select: TASK_SELECT });
+  toTaskDto(
+    await prisma.task.update({ where: { id: taskId }, data: { postId }, select: TASK_SELECT })
+  );
 
 export const softDeleteTask = async (taskId: string) =>
-  prisma.task.update({
-    where: { id: taskId },
-    data: { deletedAt: new Date(), postId: null },
-    select: TASK_SELECT,
-  });
+  toTaskDto(
+    await prisma.task.update({
+      where: { id: taskId },
+      data: { deletedAt: new Date(), postId: null },
+      select: TASK_SELECT,
+    })
+  );
 
-export const findTaskByPostId = async (postId: string) =>
-  prisma.task.findFirst({ where: { postId }, select: TASK_SELECT });
+export const findTaskByPostId = async (postId: string) => {
+  const task = await prisma.task.findFirst({ where: { postId }, select: TASK_SELECT });
+  return task ? toTaskDto(task) : null;
+};
 
 export interface AssignTaskData {
   assigneeId: string | null;
@@ -119,14 +150,16 @@ export interface AssignTaskData {
 }
 
 export const assignTask = async (taskId: string, data: AssignTaskData) =>
-  prisma.task.update({ where: { id: taskId }, data, select: TASK_SELECT });
+  toTaskDto(await prisma.task.update({ where: { id: taskId }, data, select: TASK_SELECT }));
 
 export const updateTaskStatus = async (taskId: string, status: TaskStatus) =>
-  prisma.task.update({
-    where: { id: taskId },
-    data: status === 'CANCELLED' ? { status, postId: null } : { status },
-    select: TASK_SELECT,
-  });
+  toTaskDto(
+    await prisma.task.update({
+      where: { id: taskId },
+      data: status === 'CANCELLED' ? { status, postId: null } : { status },
+      select: TASK_SELECT,
+    })
+  );
 
 const REMINDER_TASK_SELECT = {
   id: true,

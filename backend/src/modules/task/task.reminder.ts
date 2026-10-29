@@ -2,6 +2,8 @@ import taskRepository from './task.repository.js';
 import taskNotification from './task.notification.js';
 import notificationRepository from '../notification/notification.repository.js';
 import { addDays, getVnHour, startOfVnDay } from '../../utils/date.js';
+import { getErrorMessage } from '../../utils/errorMessage.js';
+import logger from '../../utils/logger.js';
 
 export interface TaskReminderResult {
   skipped: boolean;
@@ -40,8 +42,14 @@ export const runTaskReminders = async (
     });
     if (alreadySent) continue;
 
-    await taskNotification.notifyTaskDueSoon(task);
-    dueSoon += 1;
+    try {
+      await taskNotification.notifyTaskDueSoon(task);
+      dueSoon += 1;
+    } catch (error) {
+      logger.warn(
+        `Không gửi được nhắc hạn sắp đến hạn cho việc ${task.id}: ${getErrorMessage(error)}`
+      );
+    }
   }
 
   for (const task of overdueTasks) {
@@ -55,8 +63,12 @@ export const runTaskReminders = async (
     });
     if (alreadySent) continue;
 
-    await taskNotification.notifyTaskOverdue(task);
-    overdue += 1;
+    try {
+      await taskNotification.notifyTaskOverdue(task);
+      overdue += 1;
+    } catch (error) {
+      logger.warn(`Không gửi được nhắc hạn quá hạn cho việc ${task.id}: ${getErrorMessage(error)}`);
+    }
   }
 
   return { skipped: false, dueSoon, overdue };
