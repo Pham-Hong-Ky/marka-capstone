@@ -24,7 +24,6 @@ const envSchema = z.object({
     .transform((v) => v === 'true'),
 
   // ---- Third-party integrations (tuỳ chọn; điền ở .env khi dùng) ----
-  OPENAI_API_KEY: z.string().default(''),
   GEMINI_API_KEY: z.string().default(''),
   GEMINI_MODEL: z.string().default('gemini-flash-lite-latest'),
   CLOUDFLARE_ACCOUNT_ID: z.string().default(''),
@@ -50,13 +49,6 @@ const envSchema = z.object({
     .url()
     .or(z.literal(''))
     .default('http://localhost:5000/api/v1/channels/threads/oauth/callback'),
-  LINKEDIN_CLIENT_ID: z.string().default(''),
-  LINKEDIN_CLIENT_SECRET: z.string().default(''),
-  LINKEDIN_REDIRECT_URI: z
-    .string()
-    .url()
-    .or(z.literal(''))
-    .default('http://localhost:5000/api/v1/channels/linkedin/oauth/callback'),
   RESEND_API_KEY: z.string().default(''),
   MAIL_FROM: z.string().default('no-reply@marka.vn'),
   APP_BASE_URL: z.string().default('http://localhost:5173'),
