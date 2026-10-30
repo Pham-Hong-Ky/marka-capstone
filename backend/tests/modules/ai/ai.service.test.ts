@@ -350,7 +350,7 @@ describe('AI service', () => {
       role: 'OWNER',
       body: { topic: 'Generation vừa tạo' },
     });
-    await prisma.$executeRaw`UPDATE ai_generations SET "status" = 'PROCESSING', "updatedAt" = NOW() - INTERVAL '31 minutes' WHERE id = ${stale.generationId}`;
+    await prisma.$executeRaw`UPDATE ai_generations SET "status" = 'PROCESSING', "updatedAt" = (NOW() AT TIME ZONE 'UTC') - INTERVAL '31 minutes' WHERE id = ${stale.generationId}`;
 
     await aiService.recoverStaleGenerations();
 
