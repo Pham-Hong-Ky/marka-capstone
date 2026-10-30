@@ -26,54 +26,78 @@ class "ChannelConnection" as ChannelConnection {
   + externalAccountId : string
   + accessToken : string?
   + status : ChannelStatus
+  + deletedAt : Date?
   + createdAt : Date
   + updatedAt : Date
 }
 
 class "channelController" as channelController {
   + listChannels(req, res)
-  + getFacebookAuthUrl(req, res)
-  + facebookCallback(req, res)
-  + getPendingFacebookPages(req, res)
-  + connectFacebookPages(req, res)
+  + getOauthUrl(req, res)
+  + oauthCallback(req, res)
+  + getPendingAccounts(req, res)
+  + connectAccounts(req, res)
   + disconnectChannel(req, res)
+  + getChannelDetail(req, res)
+  + updateChannelLabel(req, res)
+  + refreshChannel(req, res)
 }
 
 class "channelService" as channelService {
   - buildClientRedirect(params) : string
-  - errorRedirect(reason) : string
+  - errorRedirect(platform, reason) : string
   - getSessionForUser(sessionId, userId, workspaceId)
   + listChannels(workspaceId)
-  + createFacebookAuthUrl(workspaceId, userId)
-  + handleFacebookCallback(query)
-  + getFacebookPendingPages(sessionId, userId, workspaceId)
-  + connectFacebookPages(sessionId, userId, workspaceId, pageIds)
+  + createAuthUrl(platform, workspaceId, userId)
+  + handleOauthCallback(platform, query)
+  + getPendingAccounts(platform, sessionId, userId, workspaceId)
+  + connectAccounts(platform, sessionId, userId, workspaceId, accountIds)
   + disconnectChannel(channelId, workspaceId, userId)
-  + verifyChannelToken(channelId, workspaceId)
+  + getChannelDetail(channelId, workspaceId)
+  + updateChannelLabel(channelId, workspaceId, userId, label)
+  + refreshChannel(channelId, workspaceId)
 }
 
 class "channelRepository" as channelRepository {
   + findChannelsByWorkspace(workspaceId)
-  + upsertFacebookChannels(workspaceId, pages)
+  + upsertChannels(workspaceId, platform, accounts)
   + findChannelInWorkspace(channelId, workspaceId)
+  + findChannelDetail(channelId, workspaceId)
   + findChannelWithToken(channelId, workspaceId)
+  + findChannelsWithRefreshableTokens(platforms)
+  + updateChannelToken(channelId, accessToken)
   + updateChannelStatus(channelId, status)
-  + deleteChannelAndCancelSchedules(channelId)
+  + updateChannelProfile(channelId, data)
+  + disconnectChannelAndCancelSchedules(channelId)
 }
 
-class "FacebookClient" as facebookClient {
-  + isFacebookConfigured() : boolean
-  + buildAuthorizationUrl(state) : string
-  + isTokenExpiredError(error) : boolean
-  - graphGet(path, params) : Promise<T>
-  + exchangeCodeForToken(code) : Promise<string>
-  + exchangeForLongLivedToken(token) : Promise<string>
-  + fetchManagedPages(userToken) : Promise<FacebookPage[]>
-  + verifyPageToken(pageToken) : Promise<boolean>
+class "ProviderRegistry" as providerRegistry {
+  + getProvider(platform) : SocialProvider
+  + listProviders() : SocialProvider[]
+}
+
+class "FacebookProvider" as facebookProvider {
+  + exchangeCodeForAccounts(code) : Promise<SocialAccount[]>
+  + publish(input) : Promise<string>
+  + fetchMetrics(...)
+  + refreshProfile(...)
+  + supportsPublish : true
+  + supportsMetrics : true
+  + supportsTokenRefresh : false
+}
+
+class "ThreadsProvider" as threadsProvider {
+  + exchangeCodeForAccounts(code) : Promise<SocialAccount[]>
+  + publish(input) : Promise<string>
+  + fetchMetrics(...)
+  + refreshToken(token) : Promise<string>
+  + supportsPublish : true
+  + supportsMetrics : true
+  + supportsTokenRefresh : true
 }
 
 class "oauthStore" as oauthStore {
-  + saveOauthState(state, { userId, workspaceId }) : Promise<void>
+  + saveOauthState(state, { userId, workspaceId, platform }) : Promise<void>
   + consumeOauthState(state) : Promise<OauthState | null>
   + saveOauthSession(sessionId, session) : Promise<void>
   + getOauthSession(sessionId) : Promise<OauthSession | null>
@@ -82,8 +106,10 @@ class "oauthStore" as oauthStore {
 
 channelController ..> channelService
 channelService ..> channelRepository
-channelService ..> facebookClient
+channelService ..> providerRegistry
 channelService ..> oauthStore
 channelRepository ..> ChannelConnection
+providerRegistry --> facebookProvider
+providerRegistry --> threadsProvider
 
 @enduml

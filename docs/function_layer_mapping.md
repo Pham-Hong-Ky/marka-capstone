@@ -3,9 +3,13 @@
 > **Phạm vi:** Chỉ các UC có endpoint trong `backend/src/routes/index.ts`.
 > Nội dung bám theo code đang chạy: `backend/src/routes/index.ts`, `backend/src/modules/**`,
 > `backend/src/middlewares/**`, `backend/src/utils/**`, `backend/prisma/schema.prisma`.
-> Các tính năng chưa có endpoint (Viral Score/regenerate, admin, calendar nâng cao, analytics/n8n,
-> giao việc UC42/UC43) **không được vẽ sơ đồ**, chỉ liệt kê ở
+> Các tính năng chưa có endpoint (Viral Score/regenerate, calendar nâng cao, mở rộng kênh,
+> video, email queue) **không được vẽ sơ đồ**, chỉ liệt kê ở
 > [mục 9](#9-chưa-triển-khai-roadmap).
+>
+> **Lưu ý phiên bản:** từ khi thêm Threads, OAuth dùng route generic `/channels/:platform/oauth/*`,
+> body `{ accountIds }` và redirect `connect=FACEBOOK` / `connected=THREADS`. Các sequence Facebook
+> bên dưới ghi lại luồng ban đầu; chi tiết hiện tại xem [`specs/04`](./specs/04-social-publishing.md).
 
 ## Mục lục
 
@@ -840,7 +844,7 @@ sequenceDiagram
 ```
 
 `pendingInvites` chỉ gồm lời mời chưa dùng và còn hạn. Member trả `memberId`, `userId`,
-`name`, `email`, `avatar`, `role`, `allowDirectPublish`, `status = ACTIVE`, `joinedAt`.
+`name`, `email`, `avatar`, `role`, `status = ACTIVE`, `joinedAt` (không trả `allowDirectPublish`).
 
 ### UC21. Mời thành viên (`POST /workspaces/:workspaceId/invites`)
 
@@ -1360,7 +1364,7 @@ sequenceDiagram
 
 ### UC29. Kết nối Facebook Page qua OAuth
 
-#### Bước 1 — Lấy URL đăng nhập Facebook (`GET /channels/facebook/oauth/url`)
+#### Bước 1 — Lấy URL đăng nhập Facebook (`GET /channels/FACEBOOK/oauth/url`)
 
 ```mermaid
 sequenceDiagram
@@ -1370,18 +1374,18 @@ sequenceDiagram
     participant MW as requireAuth
     participant V as validate
     participant WR as requireWorkspaceRole
-    participant C as channelController.getFacebookAuthUrl
-    participant S as channelService.createFacebookAuthUrl
+    participant C as channelController.getOauthUrl
+    participant S as channelService.createAuthUrl
     participant OS as channel.oauth-store
     participant RD as Redis
     participant FB as facebookClient
 
-    U->>RT: GET /api/v1/channels/facebook/oauth/url?workspaceId=...
+    U->>RT: GET /api/v1/channels/FACEBOOK/oauth/url?workspaceId=...
     RT->>MW: requireAuth
     alt Token thiếu/sai/hết hạn
         MW-->>U: 401
     else Hợp lệ
-        MW->>V: validate(facebookOauthUrlSchema)
+        MW->>V: validate(oauthUrlSchema)
         alt Query workspaceId sai
             V-->>U: 422
         else Hợp lệ
@@ -1389,8 +1393,8 @@ sequenceDiagram
             alt Không phải OWNER
                 WR-->>U: 403
             else Hợp lệ
-                WR->>C: getFacebookAuthUrl(req.workspaceId, req.user.id)
-                C->>S: createFacebookAuthUrl(workspaceId, userId)
+                WR->>C: getOauthUrl(req.workspaceId, req.user.id)
+                C->>S: createAuthUrl(workspaceId, userId)
                 S->>FB: facebookClient.isFacebookConfigured()
                 alt Thiếu FACEBOOK_APP_ID, APP_SECRET hoặc REDIRECT_URI
                     S-->>C: throw BadRequestError
@@ -1411,7 +1415,7 @@ sequenceDiagram
 
 `req.workspaceId` do `requireWorkspaceRole` gán từ query `workspaceId`; state sống 600 giây.
 
-#### Bước 2 — Facebook redirect về callback (`GET /channels/facebook/oauth/callback`)
+#### Bước 2 — Facebook redirect về callback (`GET /channels/FACEBOOK/oauth/callback`)
 
 ```mermaid
 sequenceDiagram
@@ -1419,35 +1423,35 @@ sequenceDiagram
     actor FB as Facebook
     participant RT as routes/index.ts
     participant V as validate
-    participant C as channelController.facebookCallback
-    participant S as channelService.handleFacebookCallback
+    participant C as channelController.oauthCallback
+    participant S as channelService.handleOauthCallback
     participant OS as channel.oauth-store
     participant RD as Redis
     participant API as facebookClient
     participant G as Facebook Graph API
 
-    FB->>RT: GET /api/v1/channels/facebook/oauth/callback?code&state
-    RT->>V: validate(facebookCallbackSchema)
+    FB->>RT: GET /api/v1/channels/FACEBOOK/oauth/callback?code&state
+    RT->>V: validate(oauthCallbackSchema)
     alt Query sai kiểu
         V-->>FB: 422 Dữ liệu không hợp lệ
     else Hợp lệ
-        V->>C: facebookCallback(req.query)
-        C->>S: handleFacebookCallback(query)
+        V->>C: oauthCallback(req.query)
+        C->>S: handleOauthCallback(query)
         alt query.error tồn tại
             S->>OS: consumeOauthState(query.state) nếu có state
             OS->>RD: GETDEL fb:oauth:state:state
             Note over S: lỗi xoá state chỉ logger.warn
-            S-->>C: CLIENT_URL/channels?fb=error&reason=access_denied hoặc token_exchange_failed
+            S-->>C: CLIENT_URL/channels?platform=FACEBOOK&connect_error=access_denied hoặc token_exchange_failed
             C-->>FB: 302 redirect
         else Thiếu code hoặc state
             S-->>C: errorRedirect('invalid_state')
-            C-->>FB: 302 redirect fb=error&reason=invalid_state
+            C-->>FB: 302 redirect platform=FACEBOOK&connect_error=invalid_state
         else Có code và state
             S->>OS: consumeOauthState(state)
             OS->>RD: GETDEL
             alt State không tồn tại hoặc đã dùng
                 S-->>C: errorRedirect('invalid_state')
-                C-->>FB: 302 redirect reason=invalid_state
+                C-->>FB: 302 redirect platform=FACEBOOK&connect_error=invalid_state
             else State hợp lệ
                 S->>API: exchangeCodeForToken(code)
                 API->>G: GET /oauth/access_token
@@ -1459,14 +1463,14 @@ sequenceDiagram
                 API->>G: GET /me/accounts kèm appsecret_proof
                 G-->>API: danh sách Page
                 alt Không có Page nào
-                    S-->>C: errorRedirect('no_pages')
-                    C-->>FB: 302 redirect reason=no_pages
+                    S-->>C: errorRedirect('no_accounts')
+                    C-->>FB: 302 redirect reason=no_accounts
                 else Có Page
                     S->>S: sessionId = randomBytes(24).toString('hex')
                     S->>S: encrypt(accessToken) từng Page bằng AES-256-GCM
                     S->>OS: saveOauthSession(sessionId, userId, workspaceId, pages)
                     OS->>RD: SETEX fb:oauth:session:sessionId 600
-                    S-->>C: CLIENT_URL/channels?fb=select&session=sessionId
+                    S-->>C: CLIENT_URL/channels?connect=FACEBOOK&session=sessionId
                     C-->>FB: 302 redirect
                 end
             end
@@ -1476,10 +1480,10 @@ sequenceDiagram
 
 Callback là endpoint công khai, **không** dùng `ApiResponse`; mọi nhánh đều trả `302` về
 `CLIENT_URL/channels`. Lỗi gọi Graph API được log `logger.warn` và redirect
-`reason=token_exchange_failed`. `fetchManagedPages` chỉ giữ Page có `access_token`; Page mà
+`connect_error=token_exchange_failed`. `fetchManagedPages` chỉ giữ Page có `access_token`; Page mà
 người dùng không có quyền quản lý bị loại khỏi danh sách.
 
-#### Bước 3 — Xem danh sách Page trong phiên (`GET /channels/facebook/oauth/session/:sessionId`)
+#### Bước 3 — Xem danh sách Page trong phiên (`GET /channels/FACEBOOK/oauth/session/:sessionId`)
 
 ```mermaid
 sequenceDiagram
@@ -1489,12 +1493,12 @@ sequenceDiagram
     participant MW as requireAuth
     participant V as validate
     participant WR as requireWorkspaceRole
-    participant C as channelController.getPendingFacebookPages
-    participant S as channelService.getFacebookPendingPages
+    participant C as channelController.getPendingAccounts
+    participant S as channelService.getPendingAccounts
     participant OS as channel.oauth-store
     participant RD as Redis
 
-    U->>RT: GET /api/v1/channels/facebook/oauth/session/:sessionId
+    U->>RT: GET /api/v1/channels/FACEBOOK/oauth/session/:sessionId
     RT->>MW: requireAuth
     alt Token thiếu/sai/hết hạn
         MW-->>U: 401
@@ -1509,8 +1513,8 @@ sequenceDiagram
             else Không phải OWNER
                 WR-->>U: 403
             else Hợp lệ
-                WR->>C: getPendingFacebookPages(sessionId, userId, workspaceId)
-                C->>S: getFacebookPendingPages(sessionId, userId, workspaceId)
+                WR->>C: getPendingAccounts(sessionId, userId, workspaceId)
+                C->>S: getPendingAccounts(sessionId, userId, workspaceId)
                 S->>OS: getOauthSession(sessionId)
                 OS->>RD: GET fb:oauth:session:sessionId
                 RD-->>OS: JSON hoặc null
@@ -1531,7 +1535,7 @@ Session thuộc đúng user **và** workspace hiện tại; token Page không c�
 bước 4 không có `:workspaceId` trên URL, nên client phải gửi header `x-workspace-id`; thiếu
 header → `400`.
 
-#### Bước 4 — Chọn Page để lưu kênh (`POST /channels/facebook/oauth/session/:sessionId/connect`)
+#### Bước 4 — Chọn Page để lưu kênh (`POST /channels/FACEBOOK/oauth/session/:sessionId/connect`)
 
 ```mermaid
 sequenceDiagram
@@ -1541,8 +1545,8 @@ sequenceDiagram
     participant MW as requireAuth
     participant V as validate
     participant WR as requireWorkspaceRole
-    participant C as channelController.connectFacebookPages
-    participant S as channelService.connectFacebookPages
+    participant C as channelController.connectAccounts
+    participant S as channelService.connectAccounts
     participant OS as channel.oauth-store
     participant RD as Redis
     participant EN as utils/encryption
@@ -1550,13 +1554,13 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant AU as auditService.recordAuditLog
 
-    U->>RT: POST /channels/facebook/oauth/session/:sessionId/connect
+    U->>RT: POST /channels/FACEBOOK/oauth/session/:sessionId/connect
     RT->>MW: requireAuth
     alt Token thiếu/sai/hết hạn
         MW-->>U: 401
     else Hợp lệ
-        MW->>V: validate(connectFacebookSchema)
-        alt pageIds rỗng, quá 50 hoặc sessionId sai
+        MW->>V: validate(connectAccountsSchema)
+        alt accountIds rỗng, quá 50 hoặc sessionId sai
             V-->>U: 422 Dữ liệu không hợp lệ
         else Hợp lệ
             V->>WR: requireWorkspaceRole('OWNER')
@@ -1565,15 +1569,15 @@ sequenceDiagram
             else Không phải OWNER
                 WR-->>U: 403
             else Hợp lệ
-                WR->>C: connectFacebookPages(sessionId, userId, workspaceId, pageIds)
-                C->>S: connectFacebookPages(...)
+                WR->>C: connectAccounts(sessionId, userId, workspaceId, accountIds)
+                C->>S: connectAccounts(...)
                 S->>OS: getOauthSession(sessionId)
                 OS->>RD: GET
                 alt Session không tồn tại hoặc sai chủ
                     S-->>C: throw NotFoundError
                     C-->>U: 404 Phiên kết nối không tồn tại hoặc đã hết hạn
                 else Session hợp lệ
-                    S->>S: uniquePageIds, đối chiếu pagesById
+                    S->>S: uniqueAccountIds, đối chiếu accountsById
                     alt Có pageId không thuộc session
                         S-->>C: throw BadRequestError
                         C-->>U: 400 Page không hợp lệ trong phiên kết nối
@@ -1584,7 +1588,7 @@ sequenceDiagram
                             C-->>U: 400 Không đọc được token của Page
                         else Giải mã được
                             EN-->>S: token hợp lệ
-                            S->>R: upsertFacebookChannels(workspaceId, pages)
+                            S->>R: upsertChannels(workspaceId, pages)
                             R->>DB: prisma.$transaction nhiều upsert
                             Note over R,DB: unique workspaceId + FACEBOOK + externalAccountId<br/>type REAL, status ACTIVE
                             DB-->>R: ChannelSummary[]
@@ -1603,9 +1607,9 @@ sequenceDiagram
     end
 ```
 
-`pageIds` được khử trùng lặp trước khi đối chiếu. Token Page vẫn ở dạng mã hoá khi lưu
+`accountIds` được khử trùng lặp trước khi đối chiếu. Token Page vẫn ở dạng mã hoá khi lưu
 `ChannelConnection.accessToken`; `decrypt` chỉ dùng để kiểm tra token đọc được. Nếu ciphertext
-hỏng, `decrypt` ném lỗi; `connectFacebookPages` không bắt lỗi này nên `errorHandler` trả `500`.
+hỏng, `decrypt` ném lỗi; `connectAccounts` không bắt lỗi này nên `errorHandler` trả `500`.
 
 ### UC30. Ngắt kết nối kênh (`DELETE /channels/:channelId`)
 
@@ -2261,7 +2265,7 @@ sequenceDiagram
 ```
 
 `rejectReason` bắt buộc khi `REJECTED` (3–255 ký tự) và được set `null` khi `APPROVED`.
-Sau khi duyệt, bài dừng ở `APPROVED`; chưa có endpoint chuyển sang `SCHEDULED`/`PUBLISHED`.
+Sau khi duyệt, bài ở `APPROVED`; endpoint schedule chuyển sang `SCHEDULED`, worker cập nhật `PUBLISHED`/`FAILED`.
 
 ---
 
@@ -2294,10 +2298,10 @@ Bảng dùng để tra nhanh lớp xử lý của từng endpoint. Tên đầy �
 | UC27 | `GET /workspaces/:workspaceId/brand-voice` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `brandVoiceController.getBrandVoice` | `brandVoiceService.getBrandVoice` | `brandVoiceRepository.getWorkspaceBrandVoice` | Không audit |
 | UC25, UC26 | `PUT /workspaces/:workspaceId/brand-voice` | `requireAuth`, `validate(brandVoiceSchema)`, `requireWorkspaceRole('OWNER')` | `brandVoiceController.updateBrandVoice` | `brandVoiceService.updateBrandVoice` | `findWorkspaceById`, `updateWorkspaceBrandVoice` | `BRAND_VOICE_UPDATED`; dedupe keyword |
 | UC28 | `GET /workspaces/:workspaceId/channels` | `requireAuth`, `validate(listChannelsSchema)`, `requireWorkspaceRole()` | `channelController.listChannels` | `channelService.listChannels` | `findChannelsByWorkspace` | Không trả `accessToken` |
-| UC29.1 | `GET /channels/facebook/oauth/url` | `requireAuth`, `validate(facebookOauthUrlSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.getFacebookAuthUrl` | `channelService.createFacebookAuthUrl` | `oauthStore.saveOauthState`, `facebook.buildAuthorizationUrl` | Redis state TTL 600s |
-| UC29.2 | `GET /channels/facebook/oauth/callback` | `validate(facebookCallbackSchema)` | `channelController.facebookCallback` | `channelService.handleFacebookCallback` | `oauthStore.consumeOauthState`, `facebook.exchangeCodeForToken`, `exchangeForLongLivedToken`, `fetchManagedPages`, `oauthStore.saveOauthSession` | `encrypt` token Page; redirect 302 |
-| UC29.3 | `GET /channels/facebook/oauth/session/:sessionId` | `requireAuth`, `validate(oauthSessionSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.getPendingFacebookPages` | `channelService.getFacebookPendingPages` | `oauthStore.getOauthSession` | Không trả token |
-| UC29.4 | `POST /channels/facebook/oauth/session/:sessionId/connect` | `requireAuth`, `validate(connectFacebookSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.connectFacebookPages` | `channelService.connectFacebookPages` | `oauthStore.getOauthSession`, `decrypt`, `upsertFacebookChannels`, `oauthStore.deleteOauthSession` | `CHANNEL_CONNECTED` từng kênh |
+| UC29.1 | `GET /channels/FACEBOOK/oauth/url` | `requireAuth`, `validate(oauthUrlSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.getOauthUrl` | `channelService.createAuthUrl` | `oauthStore.saveOauthState`, `facebook.buildAuthorizationUrl` | Redis state TTL 600s |
+| UC29.2 | `GET /channels/FACEBOOK/oauth/callback` | `validate(oauthCallbackSchema)` | `channelController.oauthCallback` | `channelService.handleOauthCallback` | `oauthStore.consumeOauthState`, `facebook.exchangeCodeForToken`, `exchangeForLongLivedToken`, `fetchManagedPages`, `oauthStore.saveOauthSession` | `encrypt` token Page; redirect 302 |
+| UC29.3 | `GET /channels/FACEBOOK/oauth/session/:sessionId` | `requireAuth`, `validate(oauthSessionSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.getPendingAccounts` | `channelService.getPendingAccounts` | `oauthStore.getOauthSession` | Không trả token |
+| UC29.4 | `POST /channels/FACEBOOK/oauth/session/:sessionId/connect` | `requireAuth`, `validate(connectAccountsSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.connectAccounts` | `channelService.connectAccounts` | `oauthStore.getOauthSession`, `decrypt`, `upsertChannels`, `oauthStore.deleteOauthSession` | `CHANNEL_CONNECTED` từng kênh |
 | UC30 | `DELETE /channels/:channelId` | `requireAuth`, `validate(channelIdSchema)`, `requireWorkspaceRole('OWNER')` | `channelController.disconnectChannel` | `channelService.disconnectChannel` | `findChannelInWorkspace`, `deleteChannelAndCancelSchedules` | `CHANNEL_DISCONNECTED`; huỷ lịch SCHEDULED |
 | UC06 | `POST /workspaces/:workspaceId/posts` | `requireAuth`, `validate(createPostSchema)`, `requireWorkspaceRole()` | `postController.createPost` | `postService.createPost` | `postRepository.createPost` | Không audit; status DRAFT |
 | UC10 | `GET /workspaces/:workspaceId/posts` | `requireAuth`, `validate(listPostsSchema)`, `requireWorkspaceRole()` | `postController.listPosts` | `postService.listPosts` | `listPostsAndCount` | Không audit; trả `meta` |
@@ -2316,8 +2320,8 @@ Ghi chú:
   `GET /ai/generations/:id` không dùng limiter này để tránh chặn polling.
 - Các repository tự mở transaction: `createUserWithDefaultWorkspace`,
   `createWorkspaceWithOwner`, `acceptInviteAsMember`, `softDeleteWorkspace`,
-  `upsertFacebookChannels`, `deleteChannelAndCancelSchedules`, `listPostsAndCount`.
-  `utils/transaction.ts` (`withTransaction`) hiện chưa được module nào dùng.
+  `upsertChannels`, `deleteChannelAndCancelSchedules`, `listPostsAndCount`.
+  `utils/transaction.ts` (`withTransaction`) được dùng cho đăng ký, tạo workspace, nhận lời mời và các luồng credit/AI.
 
 ---
 
@@ -2327,18 +2331,19 @@ Các mục dưới đây **không có endpoint, controller, service hoặc route
 Không dùng tài liệu này để suy ra API đã tồn tại.
 
 - **AI sinh nội dung/ảnh:** đã có module `ai`, route `/ai/text`, `/ai/images`,
-  `/ai/generations/:id` và `contentWorker`. Còn Viral Score, regenerate, nhiều ảnh/lần,
-  lịch sử AI UI và sweeper job kẹt.
+  `/ai/generations/:id`, `contentWorker` và scheduler dọn generation treo. Còn Viral Score,
+  regenerate, nhiều ảnh/lần và lịch sử AI UI.
 - **Billing/PayOS:** đã có module `billing`, route `/billing`, `/billing/transactions`,
   `/billing/orders`, webhook `/webhooks/payos`. Chỉ nạp credit một lần; không có queue/cron billing.
-- **Admin panel:** chưa có route quản trị user/workspace/dashboard. `requireRoles` đã viết
-  nhưng chưa được gắn vào route nào; chưa có màn hình admin.
+- **Admin panel:** đã có `/admin/*` (stats, users, workspaces, audit logs) và frontend `/admin`.
+  Còn đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo.
 - **Lịch đăng bài và publish:** đã có module `schedule` + `scheduleWorker` (`schedule-queue`).
-  API tạo lịch/đăng ngay, danh sách lịch và huỷ lịch; worker gọi Graph API và retry.
+  API tạo lịch/đăng ngay, danh sách lịch và huỷ lịch; worker gọi provider Facebook/Threads và retry.
   Calendar kéo-thả/sửa giờ sau khi tạo vẫn là Roadmap.
-- **Analytics, PostMetric, n8n:** chưa có module, endpoint hay job tích hợp.
-  `PostMetric` có trong schema nhưng không được ghi/đọc.
+- **Analytics:** đã có module + `analyticsWorker`, endpoint overview/suggestions/sync; hiển thị
+  trong Dashboard `/`. Còn snapshot theo thời gian, top bài/chi tiết bài, xử lý rate limit.
 - **Thông báo:** API đọc hộp thư (`/users/me/notifications`) và chuông frontend đã có.
   Chưa có WebSocket/SSE; UC38 (thông báo realtime) vẫn ngoài phạm vi.
-- **UC42/UC43 (giao việc cho thành viên):** đã có cột `assigneeId`/`assignedById`/`assignedAt`/`dueAt`/`taskStatus`,
-  endpoint `PATCH .../assign`, `PATCH .../task-status`, notification + audit; chưa vẽ sequence riêng.
+- **UC42/UC43 (giao việc cho thành viên):** đã có giao việc, task board Kanban, priority,
+  nhắc hạn in-app và endpoint CRUD task; còn nhắc hạn qua email.
+- **Kênh:** mới hỗ trợ Facebook + Threads; còn Instagram/TikTok/Zalo, video và tự refresh token Facebook.

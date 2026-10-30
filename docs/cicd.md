@@ -16,7 +16,7 @@ Developer push / PR
 GitHub Actions — CI (.github/workflows/ci.yml)
   ├── frontend-ci: npm ci → oxlint → vite build
   └── backend-ci : npm ci → oxlint → prisma generate → tsc --noEmit
-                   → prisma validate → prisma db push → test:connection → npm test
+                   → prisma validate → prisma migrate deploy → test:connection → npm test
         │
         │ merge vào main (qua PR + branch protection)
         ▼
@@ -56,9 +56,9 @@ CI chạy trên PostgreSQL 16 và Redis 7 dựng tạm bằng GitHub Actions `se
 | Prisma client | `npx prisma generate` |
 | Typecheck | `npm run typecheck` |
 | Validate schema | `npx prisma validate` |
-| Tạo bảng test | `npx prisma db push --skip-generate` |
+| Tạo bảng test | `npx prisma migrate deploy` (DB `marka_test`) |
 | Kiểm tra kết nối | `npm run test:connection` |
-| Test | `npm test` (Vitest + Supertest, DB thật) |
+| Test | `npm test` (Vitest + Supertest, DB test riêng) |
 
 Biến môi trường CI dùng giá trị cố định trong workflow: `DATABASE_URL`, `REDIS_URL`, `JWT_*`, `AES_SECRET_KEY`, `NODE_ENV=test`, `CLIENT_URL`. Đây không phải credential production.
 

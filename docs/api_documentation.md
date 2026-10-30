@@ -103,7 +103,7 @@ Rate limit: `authLimiter` (15 request/15 phút/IP).
 
 1. Kiểm tra email đã tồn tại → `409`.
 2. Hash mật khẩu bcrypt (10 rounds).
-3. Tạo `User` + `Workspace` mặc định (`Workspace của <name>`, plan `FREE`) + `WorkspaceMember` role `OWNER`, `allowDirectPublish=true` trong 1 transaction.
+3. Tạo `User` + `Workspace` mặc định (`Workspace của <name>`, plan `FREE`) + `WorkspaceMember` role `OWNER` (cột `allowDirectPublish=true` là reserved, không trả API) trong 1 transaction.
 4. Ghi audit `USER_REGISTER`.
 5. Cấp access token + refresh token; refresh token ghi vào cookie `refreshToken` (HttpOnly).
 
@@ -436,7 +436,6 @@ Yêu cầu `requireAuth` + là thành viên (`requireWorkspaceRole()` không gi�
         "email": "user@marka.vn",
         "avatar": null,
         "role": "OWNER",
-        "allowDirectPublish": true,
         "status": "ACTIVE",
         "joinedAt": "2026-10-20T12:00:00.000Z"
       }
@@ -636,52 +635,54 @@ Yêu cầu `requireAuth` + là thành viên.
 
 Không trả `accessToken`.
 
-### `GET /channels/facebook/oauth/url?workspaceId=<uuid>`
+### `GET /channels/:platform/oauth/url?workspaceId=<uuid>`
 
-Yêu cầu `requireAuth` + `OWNER` (workspace lấy từ query).
+`platform`: `FACEBOOK` hoặc `THREADS`. Yêu cầu `requireAuth` + `OWNER` (workspace lấy từ query).
 
-**Xử lý**: kiểm tra đủ `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIRECT_URI`; sinh `state` 32 byte, lưu Redis 600 giây.
+**Xử lý**: kiểm tra cấu hình app tương ứng (`FACEBOOK_*` hoặc `THREADS_*`); sinh `state` 32 byte, lưu Redis 600 giây cùng `{ userId, workspaceId, platform }`.
 
 **Response 200**
 
 ```json
 {
   "status": "success",
-  "message": "Tạo URL đăng nhập Facebook thành công",
+  "message": "Tạo URL đăng nhập thành công",
   "data": { "url": "https://www.facebook.com/v21.0/dialog/oauth?..." }
 }
 ```
 
-**Lỗi**: `400` `"Chưa cấu hình Facebook App. Vui lòng liên hệ quản trị viên."`
+**Lỗi**: `400` `"Chưa cấu hình <nền tảng> App..."`; `400` nền tảng không hỗ trợ.
 
-### `GET /channels/facebook/oauth/callback`
+### `GET /channels/:platform/oauth/callback`
 
-Công khai (Facebook gọi). Query: `code?`, `state?`, `error?`, `error_reason?`.
+Công khai (nền tảng gọi). Query: `code?`, `state?`, `error?`, `error_reason?`.
 
-**Xử lý**
+**Xử lý chung**
 
-1. Nếu `error` → redirect `CLIENT_URL/channels?fb=error&reason=access_denied|token_exchange_failed`.
-2. Thiếu `code`/`state` hoặc state không hợp lệ/hết hạn → `reason=invalid_state`.
-3. Đổi code → token ngắn → long-lived token; lấy Page; mã hoá token từng Page.
-4. Không có Page → `reason=no_pages`.
-5. Lưu session Redis 600 giây → redirect `CLIENT_URL/channels?fb=select&session=<sessionId>`.
-6. Lỗi khi gọi Facebook → `reason=token_exchange_failed`.
+1. Nếu `error` → redirect `CLIENT_URL/channels?platform=<platform>&connect_error=access_denied|token_exchange_failed`.
+2. Thiếu `code`/`state` hoặc state không hợp lệ/hết hạn → `connect_error=invalid_state`.
+3. Không có tài khoản → `connect_error=no_accounts`.
+4. Lỗi khi gọi nền tảng → `connect_error=token_exchange_failed`.
+
+**Facebook (multi-account)**: đổi code → long-lived token → lấy Page → mã hoá token từng Page → lưu session Redis 600 giây → redirect `CLIENT_URL/channels?connect=FACEBOOK&session=<sessionId>`.
+
+**Threads (single-account)**: đổi code → long-lived token → lấy profile → upsert `ChannelConnection` ngay → redirect `CLIENT_URL/channels?connected=THREADS`.
 
 **Response**: `302` redirect (không trả JSON).
 
-### `GET /channels/facebook/oauth/session/:sessionId`
+### `GET /channels/:platform/oauth/session/:sessionId`
 
-Yêu cầu `requireAuth` + `OWNER`. `sessionId` là chuỗi hex 48 ký tự; session phải thuộc đúng user + workspace.
+Chỉ dùng cho Facebook (multi-account). Yêu cầu `requireAuth` + `OWNER`. `sessionId` là chuỗi hex 48 ký tự; session phải thuộc đúng user + workspace.
 
 **Response 200**
 
 ```json
 {
   "status": "success",
-  "message": "Lấy danh sách Page thành công",
+  "message": "Lấy danh sách tài khoản thành công",
   "data": {
-    "pages": [
-      { "id": "123456789", "name": "Marka Fanpage", "avatar": "https://..." }
+    "accounts": [
+      { "externalAccountId": "123456789", "name": "Marka Fanpage", "avatar": "https://..." }
     ]
   }
 }
@@ -689,17 +690,17 @@ Yêu cầu `requireAuth` + `OWNER`. `sessionId` là chuỗi hex 48 ký tự; ses
 
 **Lỗi**: `404` `"Phiên kết nối không tồn tại hoặc đã hết hạn"`.
 
-### `POST /channels/facebook/oauth/session/:sessionId/connect`
+### `POST /channels/:platform/oauth/session/:sessionId/connect`
 
-Yêu cầu `requireAuth` + `OWNER`.
+Chỉ dùng cho Facebook (multi-account). Yêu cầu `requireAuth` + `OWNER`.
 
 **Body**
 
 ```json
-{ "pageIds": ["123456789"] }
+{ "accountIds": ["123456789"] }
 ```
 
-`pageIds`: 1–50 phần tử, phải nằm trong session.
+`accountIds`: 1–50 phần tử, phải nằm trong session.
 
 **Xử lý**: upsert `ChannelConnection` theo `(workspaceId, FACEBOOK, externalAccountId)`, `type=REAL`, `status=ACTIVE`, lưu token đã mã hoá; audit `CHANNEL_CONNECTED` cho từng kênh; xoá session.
 
@@ -708,7 +709,7 @@ Yêu cầu `requireAuth` + `OWNER`.
 ```json
 {
   "status": "success",
-  "message": "Kết nối Facebook thành công",
+  "message": "Kết nối kênh thành công",
   "data": { "channels": [ { "id": "uuid", "platform": "FACEBOOK", "type": "REAL", "name": "Marka Fanpage", "avatar": "https://...", "externalAccountId": "123456789", "status": "ACTIVE", "createdAt": "...", "updatedAt": "..." } ] }
 }
 ```
@@ -717,7 +718,7 @@ Yêu cầu `requireAuth` + `OWNER`.
 
 Yêu cầu `requireAuth` + `OWNER`. Kênh phải thuộc workspace hiện tại (lấy từ `x-workspace-id`/query/body).
 
-**Xử lý**: chuyển `ScheduledPost` đang `SCHEDULED` của kênh sang `CANCELLED`, xoá `ChannelConnection`; audit `CHANNEL_DISCONNECTED`.
+**Xử lý**: chuyển `ScheduledPost` đang `SCHEDULED` của kênh sang `CANCELLED`, xoá mềm `ChannelConnection` (`deletedAt`, xoá token, `EXPIRED`); audit `CHANNEL_DISCONNECTED`. Lịch `PROCESSING` → `409`.
 
 **Response 200**: `{ "status": "success", "message": "Ngắt kết nối kênh thành công", "data": { "success": true } }`
 
@@ -731,11 +732,11 @@ Yêu cầu `requireAuth` + là thành viên workspace. Mọi thành viên đư�
 { "channelIds": ["uuid-page-1", "uuid-page-2"], "scheduledAt": "2026-10-24T09:00:00.000Z" }
 ```
 
-- `channelIds`: 1–10 UUID, thuộc workspace, `FACEBOOK`, `REAL`, `ACTIVE`.
+- `channelIds`: 1–10 UUID, thuộc workspace, `REAL`, `ACTIVE`, provider hỗ trợ đăng bài (Facebook/Threads).
 - `scheduledAt`: bỏ trống hoặc `null` để đăng ngay; nếu có phải ≥ hiện tại + 1 phút.
-- Bài phải `APPROVED`, có nội dung text, tối đa 10 ảnh, không có video.
+- Bài phải `APPROVED`, có nội dung text; giới hạn theo provider: Facebook ≤ 63.206 ký tự/10 ảnh, Threads ≤ 500 ký tự/20 ảnh/5 link; không có video.
 
-**Xử lý**: tạo một `ScheduledPost` cho mỗi Page, chuyển Post sang `SCHEDULED`, audit `SCHEDULE_CREATED`. Đăng ngay thì enqueue job `schedule-one`; lên lịch thì worker `schedule-due` nhặt khi đến hạn.
+**Xử lý**: tạo một `ScheduledPost` cho mỗi kênh, chuyển Post sang `SCHEDULED`, audit `SCHEDULE_CREATED`. Đăng ngay thì enqueue job `schedule-one`; lên lịch thì worker `schedule-due` nhặt khi đến hạn.
 
 **Response 201**
 
@@ -1194,6 +1195,50 @@ Mọi endpoint `/admin/*` yêu cầu `requireAuth` + `requireRoles('SYSTEM_ADMIN
 
 Yêu cầu `requireAuth` + `OWNER` của workspace. Cùng bộ lọc với `/admin/audit-logs` (trừ `workspaceId`), chỉ trả log thuộc workspace trong URL. Creator → `403`; workspace không tồn tại/đã xoá → `404`.
 
+### `GET /workspaces/:workspaceId/channels/:channelId`
+
+Trả chi tiết kênh + thống kê tổng hợp (`publishedPosts`, reactions/comments/shares, impressions/reach, `lastPublishedAt`, `lastSyncedAt`) + `capabilities` theo provider.
+
+### `PATCH /workspaces/:workspaceId/channels/:channelId`
+
+Body `{ "label": "Tên nội bộ" | null }` — đổi nhãn hiển thị, không đổi tên Page.
+
+### `POST /workspaces/:workspaceId/channels/:channelId/refresh`
+
+Làm mới tên/avatar từ nền tảng (Facebook/Threads). Token hết hạn → kênh `EXPIRED`.
+
+### `GET /workspaces/:workspaceId/tasks/board`
+
+Query: `search?`, `priority?`, `mine?`, `assigneeId?`. Trả board Kanban: mỗi cột tối đa 100 card + `counts` thật; Creator chỉ thấy việc của mình.
+
+### `POST /workspaces/:workspaceId/tasks`
+
+Body: `{ title, description?, assigneeId?, dueAt?, priority?, postId? }` (OWNER). Tạo việc, notification `TASK_ASSIGNED` nếu có người nhận.
+
+### `PATCH /workspaces/:workspaceId/tasks/:taskId`
+
+Body: `{ title?, description?, priority?, dueAt? }` (OWNER). `PATCH .../assign` đổi người nhận/hạn; `PATCH .../status` cho người nhận hoặc OWNER.
+
+### `PATCH /workspaces/:workspaceId/tasks/:taskId/post`
+
+Body `{ "postId": "uuid" | null }` — gắn/gỡ bài viết; mỗi bài chỉ thuộc một việc.
+
+### `DELETE /workspaces/:workspaceId/tasks/:taskId`
+
+Xoá mềm việc; giải phóng `postId` để gắn lại.
+
+### `GET /workspaces/:workspaceId/analytics/overview`
+
+Query: `range` (`7d|30d|mtd|lastMonth|custom`), `from`, `to`, `channelId`, `tag`. Trả `summary` + `deltas`, `series`, `coverage`, `tags`, `range`.
+
+### `GET /workspaces/:workspaceId/analytics/suggestions`
+
+Query: `channelId?`. Trả `bestTimes`, `usedFallback`, `sampleSize`, `windowDays`, `contentTips`.
+
+### `POST /workspaces/:workspaceId/analytics/sync`
+
+Trả `202` `{ queued: true }`; chống xếp trùng job theo workspace.
+
 ---
 
 ## 11. Bảng tổng hợp endpoint
@@ -1209,6 +1254,9 @@ Yêu cầu `requireAuth` + `OWNER` của workspace. Cùng bộ lọc với `/adm
 | POST | `/auth/refresh-token` | Cookie/Body | — |
 | GET | `/users/me` | Bearer | — |
 | PATCH | `/users/me` | Bearer | — |
+| POST | `/users/me/avatar` | Bearer | — |
+| POST | `/users/me/logout-all` | Bearer | — |
+| DELETE | `/users/me` | Bearer | — |
 | PATCH | `/users/me/password` | Bearer | — |
 | GET | `/users/me/notifications` | Bearer | — |
 | GET | `/users/me/notifications/unread-count` | Bearer | — |
@@ -1226,14 +1274,14 @@ Yêu cầu `requireAuth` + `OWNER` của workspace. Cùng bộ lọc với `/adm
 | GET | `/invites/:token` | Optional | — |
 | GET | `/workspaces/:workspaceId/brand-voice` | Bearer | Thành viên |
 | PUT | `/workspaces/:workspaceId/brand-voice` | Bearer | OWNER |
-| POST | `/workspaces/:workspaceId/ai/text` | Bearer | Thành viên |
-| POST | `/workspaces/:workspaceId/ai/images` | Bearer | Thành viên (quyền sửa bài) |
-| GET | `/workspaces/:workspaceId/ai/generations/:generationId` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/channels` | Bearer | Thành viên |
-| GET | `/channels/facebook/oauth/url` | Bearer | OWNER |
-| GET | `/channels/facebook/oauth/callback` | — | — |
-| GET | `/channels/facebook/oauth/session/:sessionId` | Bearer | OWNER |
-| POST | `/channels/facebook/oauth/session/:sessionId/connect` | Bearer | OWNER |
+| GET | `/workspaces/:workspaceId/channels/:channelId` | Bearer | Thành viên |
+| PATCH | `/workspaces/:workspaceId/channels/:channelId` | Bearer | Thành viên |
+| POST | `/workspaces/:workspaceId/channels/:channelId/refresh` | Bearer | Thành viên |
+| GET | `/channels/:platform/oauth/url` | Bearer | OWNER |
+| GET | `/channels/:platform/oauth/callback` | — | — |
+| GET | `/channels/:platform/oauth/session/:sessionId` | Bearer | OWNER |
+| POST | `/channels/:platform/oauth/session/:sessionId/connect` | Bearer | OWNER |
 | DELETE | `/channels/:channelId` | Bearer | OWNER |
 | POST | `/workspaces/:workspaceId/posts` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/posts` | Bearer | Thành viên |
@@ -1246,9 +1294,22 @@ Yêu cầu `requireAuth` + `OWNER` của workspace. Cùng bộ lọc với `/adm
 | PATCH | `/workspaces/:workspaceId/posts/:postId/review` | Bearer | OWNER |
 | PATCH | `/workspaces/:workspaceId/posts/:postId/assign` | Bearer | OWNER |
 | PATCH | `/workspaces/:workspaceId/posts/:postId/task-status` | Bearer | Người nhận việc hoặc OWNER |
+| GET | `/workspaces/:workspaceId/tasks/board` | Bearer | Thành viên |
+| POST | `/workspaces/:workspaceId/tasks` | Bearer | OWNER |
+| PATCH | `/workspaces/:workspaceId/tasks/:taskId/assign` | Bearer | OWNER |
+| PATCH | `/workspaces/:workspaceId/tasks/:taskId/status` | Bearer | Người nhận việc hoặc OWNER |
+| PATCH | `/workspaces/:workspaceId/tasks/:taskId/post` | Bearer | Thành viên |
+| PATCH | `/workspaces/:workspaceId/tasks/:taskId` | Bearer | OWNER |
+| DELETE | `/workspaces/:workspaceId/tasks/:taskId` | Bearer | OWNER |
+| POST | `/workspaces/:workspaceId/ai/text` | Bearer | Thành viên |
+| POST | `/workspaces/:workspaceId/ai/images` | Bearer | Thành viên (quyền sửa bài) |
+| GET | `/workspaces/:workspaceId/ai/generations/:generationId` | Bearer | Thành viên |
 | POST | `/workspaces/:workspaceId/posts/:postId/schedules` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/schedules` | Bearer | Thành viên |
 | DELETE | `/workspaces/:workspaceId/schedules/:scheduleId` | Bearer | Thành viên |
+| GET | `/workspaces/:workspaceId/analytics/overview` | Bearer | Thành viên |
+| GET | `/workspaces/:workspaceId/analytics/suggestions` | Bearer | Thành viên |
+| POST | `/workspaces/:workspaceId/analytics/sync` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/billing` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/billing/transactions` | Bearer | Thành viên |
 | POST | `/workspaces/:workspaceId/billing/orders` | Bearer | Thành viên |
@@ -1262,5 +1323,5 @@ Yêu cầu `requireAuth` + `OWNER` của workspace. Cùng bộ lọc với `/adm
 | GET | `/admin/audit-logs` | Bearer | SYSTEM_ADMIN |
 | GET | `/workspaces/:workspaceId/audit-logs` | Bearer | OWNER |
 
-**Không có trong code** (đừng gọi): calendar kéo-thả, analytics, upload media độc lập.
+**Không có trong code** (đừng gọi): calendar kéo-thả, đăng Instagram/TikTok/Zalo, video, Viral Score/regenerate.
 **Thông báo:** API hộp thư trong ứng dụng đã có (`/users/me/notifications`); UC38 (đẩy thông báo realtime) vẫn ngoài phạm vi.

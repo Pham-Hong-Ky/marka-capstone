@@ -100,6 +100,24 @@ package "Nội dung & Kênh" {
     + updatedAt : Date
   }
 
+  class "Task" as Task {
+    + id : string
+    + workspaceId : string
+    + title : string
+    + description : string?
+    + status : TaskStatus
+    + priority : number
+    + assigneeId : string?
+    + assignedById : string?
+    + assignedAt : Date?
+    + dueAt : Date?
+    + postId : string?
+    + createdById : string?
+    + deletedAt : Date?
+    + createdAt : Date
+    + updatedAt : Date
+  }
+
   class "MediaAsset" as MediaAsset {
     + id : string
     + workspaceId : string
@@ -474,6 +492,36 @@ class "CloudinaryClient" as cloudinaryClient {
 }
 }
 
+' ===== TASK =====
+together {
+class "taskController" as taskController {
+  + getBoard(req, res)
+  + createTask(req, res)
+  + assignTask(req, res)
+  + updateTaskStatus(req, res)
+  + linkTaskPost(req, res)
+  + updateTask(req, res)
+  + deleteTask(req, res)
+}
+
+class "taskService" as taskService {
+  + getBoard(workspaceId, userId, role, query)
+  + createTask(workspaceId, actorId, data)
+  + assignTask(workspaceId, actorId, taskId, data)
+  + updateTaskStatus(workspaceId, userId, role, taskId, status)
+  + linkTaskPost(workspaceId, userId, role, taskId, postId)
+  + updateTask(workspaceId, actorId, taskId, data)
+  + deleteTask(workspaceId, actorId, taskId)
+}
+
+class "taskRepository" as taskRepository {
+  + findBoard(workspaceId, filters)
+  + createTask(data)
+  + updateTask(taskId, data)
+  + softDeleteTask(taskId)
+}
+}
+
 ' ===== SCHEDULE =====
 together {
 class "scheduleController" as scheduleController {
@@ -714,6 +762,11 @@ postService ..> postRepository
 postService ..> cloudinaryClient
 postService ..> mailerClient
 
+taskController ..> taskService
+taskService ..> taskRepository
+taskService ..> notificationService
+taskRepository ..> Task
+
 scheduleController ..> scheduleService
 scheduleService ..> scheduleRepository
 scheduleService ..> providerRegistry
@@ -757,6 +810,11 @@ User |o--o{ WorkspaceInvite
 
 Workspace ||--o{ Post
 User |o--o{ Post
+
+Workspace ||--o{ Task
+User |o--o{ Task : assignee
+User |o--o{ Task : assignedBy
+Post |o--o| Task : postId
 
 Workspace ||--o{ MediaAsset
 Post |o--o{ MediaAsset

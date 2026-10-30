@@ -16,13 +16,13 @@
 | `GoogleOAuth2Client` | `modules/auth/google-oauth.client.ts` |
 | `MailerClient` | `utils/mailer.client.ts` (Resend) |
 | `CloudinaryClient` | `utils/cloudinary.client.ts` |
-| `FacebookClient` | `modules/channel/facebook.client.ts` (Graph API) |
+| `ProviderRegistry` | `modules/channel/providers/provider.registry.ts` (Facebook/Threads) |
 | `PayOSClient` | `modules/billing/billing.payos.ts` (`@payos/node`) |
 | `GeminiClient` | `modules/ai/ai.providers.ts` (Gemini API) |
 | `CloudflareImageClient` | `modules/ai/ai.providers.ts` (Cloudflare Workers AI) |
 | `BullMQ` | thư viện `bullmq` |
 
-`oauthStore` không phải client mà là module Redis lưu state/session OAuth của Facebook (`modules/channel/channel.oauth-store.ts`).
+`oauthStore` không phải client mà là module Redis lưu state/session OAuth của Facebook/Threads (`modules/channel/channel.oauth-store.ts`).
 
 - Không đưa vào sơ đồ: DTO, validation schema, mapper, middleware, utils JWT/password/cookie, config, enum.
 - `auditService`/`auditRepository` (ghi `AuditLog`) là tác dụng phụ cross-cutting của nhiều service, **không vẽ**; `health` cũng không vẽ. `Notification` có sơ đồ riêng (12), nhưng `createNotification` được gọi từ module khác nên không vẽ mũi tên từ mọi service.
@@ -32,7 +32,7 @@
 
 | # | Sơ đồ | Nguồn PlantUML | Ảnh |
 | :-: | :--- | :--- | :--- |
-| 0 | Tổng quan lớp & thực thể (15 bảng) | [`class-diagram.puml`](./class-diagram.puml) | [`class-diagram-overview.png`](./class-diagram-overview.png) |
+| 0 | Tổng quan lớp & thực thể (16 bảng) | [`class-diagram.puml`](./class-diagram.puml) | [`class-diagram-overview.png`](./class-diagram-overview.png) |
 | 1 | Auth & User | [`diagrams/01-auth-user.puml`](./diagrams/01-auth-user.puml) | [`diagrams/01-auth-user.png`](./diagrams/01-auth-user.png) |
 | 2 | Workspace & Member | [`diagrams/02-workspace.puml`](./diagrams/02-workspace.puml) | [`diagrams/02-workspace.png`](./diagrams/02-workspace.png) |
 | 3 | Brand Voice | [`diagrams/03-brandvoice.puml`](./diagrams/03-brandvoice.puml) | [`diagrams/03-brandvoice.png`](./diagrams/03-brandvoice.png) |
@@ -48,7 +48,7 @@
 
 Mỗi sơ đồ có kèm file `.svg` cùng tên.
 
-Sơ đồ 0 gộp **lớp nghiệp vụ + 15 bảng entity** trong cùng một ảnh: các lớp controller/service/repository/client/processor ở một khối, entity và quan hệ chân vịt ở khối còn lại. Sơ đồ tổng quan chỉ liệt kê các hàm chính; chi tiết đầy đủ nằm ở sơ đồ module 1–12.
+Sơ đồ 0 gộp **lớp nghiệp vụ + 16 bảng entity** trong cùng một ảnh: các lớp controller/service/repository/client/processor ở một khối, entity và quan hệ chân vịt ở khối còn lại. Sơ đồ tổng quan chỉ liệt kê các hàm chính; chi tiết đầy đủ nằm ở sơ đồ module 1–12.
 
 ## 3. Module và client sử dụng
 
@@ -58,13 +58,13 @@ Sơ đồ 0 gộp **lớp nghiệp vụ + 15 bảng entity** trong cùng một �
 | `user` | `userController` | `userService` | `userRepository` | `User` | — |
 | `workspace` | `workspaceController` | `workspaceService` | `workspaceRepository` | `Workspace`, `WorkspaceMember`, `WorkspaceInvite` | `MailerClient` |
 | `brandvoice` | `brandVoiceController` | `brandVoiceService` | `brandVoiceRepository` | `Workspace` (cột `brandVoice`) | — |
-| `channel` | `channelController` | `channelService` | `channelRepository` | `ChannelConnection` | `FacebookClient`, `oauthStore` |
+| `channel` | `channelController` | `channelService` | `channelRepository` | `ChannelConnection` | `ProviderRegistry` (Facebook/Threads), `oauthStore` |
 | `post` | `postController` | `postService` | `postRepository` | `Post`, `MediaAsset` | `CloudinaryClient`, `MailerClient` (qua `PostNotification`) |
-| `schedule` | `scheduleController` | `scheduleService` | `scheduleRepository` | `ScheduledPost`, `Post`, `ChannelConnection` | `FacebookClient` |
+| `schedule` | `scheduleController` | `scheduleService` | `scheduleRepository` | `ScheduledPost`, `Post`, `ChannelConnection` | `ProviderRegistry` (Facebook/Threads) |
 | `billing` | `billingController` | `billingService` | `billingRepository` | `Order`, `CreditPackage`, `CreditTransaction`, `Workspace` | `PayOSClient` |
 | `credit` | — (service dùng chung) | `creditService` | `creditRepository` | `CreditTransaction`, `Workspace` | — |
 | `ai` | `aiController` | `aiService` | `aiRepository` | `AiGeneration`, `Post`, `MediaAsset` | `GeminiClient`, `CloudflareImageClient`, `CloudinaryClient` |
-| `analytics` | `analyticsController` | `analyticsService` | `analyticsRepository` | `ScheduledPost`, `PostMetric`, `Post`, `ChannelConnection` | `FacebookClient` |
+| `analytics` | `analyticsController` | `analyticsService` | `analyticsRepository` | `ScheduledPost`, `PostMetric`, `Post`, `ChannelConnection` | `ProviderRegistry` (Facebook/Threads) |
 | `admin` | `adminController` | `adminService` | `adminRepository` | `User`, `Workspace`, `Post`, `ChannelConnection`, `Order` | — |
 | `notification` | `notificationController` | `notificationService` | `notificationRepository` | `Notification`, `WorkspaceMember` | — |
 | `health` | `healthController` | `healthService` | — | — | — |
@@ -93,9 +93,10 @@ Sơ đồ 0 gộp **lớp nghiệp vụ + 15 bảng entity** trong cùng một �
 
 ### Channel
 
-- OAuth dùng `state` và `session` lưu Redis 600 giây (`oauthStore`); Page token mã hoá AES-256-GCM.
-- `FacebookClient` gọi Graph API v21.0 với các scope `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `read_insights`.
-- `connectFacebookPages` upsert theo `(workspaceId, FACEBOOK, externalAccountId)`.
+- OAuth dùng `state` và `session` lưu Redis 600 giây (`oauthStore`); token kênh mã hoá AES-256-GCM.
+- `ProviderRegistry` chọn `FacebookProvider` hoặc `ThreadsProvider`; Facebook gọi Graph API v21.0, Threads gọi `graph.threads.com/v1.0`.
+- Facebook dùng multi-account + session chọn Page; Threads single-account, upsert ngay sau callback.
+- `connectAccounts` upsert theo `(workspaceId, platform, externalAccountId)`.
 - `disconnectChannel` chuyển `ScheduledPost` đang `SCHEDULED` sang `CANCELLED`, rồi xoá mềm kênh (`deletedAt`, `accessToken = null`, `status = EXPIRED`) để giữ lịch sử bài đã đăng và `PostMetric`.
 - `markChannelExpired` chỉ cập nhật `ChannelConnection.status` sang `EXPIRED` khi token hết hạn lúc đăng/đồng bộ.
 
@@ -167,8 +168,8 @@ Sơ đồ 0 gộp **lớp nghiệp vụ + 15 bảng entity** trong cùng một �
 
 ### Queue & Worker
 
-- 3 queue: `content-generation-queue`, `schedule-queue`, `analytics-queue`; `defaultJobOptions` có `attempts: 3`, backoff exponential 2s. Billing không dùng queue.
-- Cả 3 worker content/schedule/analytics đã nối processor thật; Redis producer tách riêng kết nối để không treo request khi Redis mất kết nối.
+- 5 queue: `content-generation-queue`, `schedule-queue`, `analytics-queue`, `channel-maintenance-queue`, `task-reminder-queue`; `defaultJobOptions` có `attempts: 3`, backoff exponential 2s. Billing không dùng queue.
+- Cả 5 worker content/schedule/analytics/channel/task-reminder đã nối processor thật; Redis producer tách riêng kết nối để không treo request khi Redis mất kết nối.
 
 ## 5. Phạm vi loại trừ
 

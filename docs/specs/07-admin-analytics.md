@@ -93,7 +93,7 @@ Index: `(targetType, targetId, createdAt)`, `(workspaceId, createdAt)`, `(actorI
 
 ## 7.5. Roadmap
 
-1. **Dashboard workspace nâng cao:** số thành viên, mức dùng credit (phần số liệu bài đăng đã có ở `/analytics` — UC39).
+1. **Dashboard workspace nâng cao:** số thành viên, mức dùng credit (phần số liệu bài đăng đã có trong Dashboard `/` — UC39).
 2. **Quản lý user nâng cao:** đổi `systemRole`, xem chi tiết hoạt động.
 3. **Quản lý workspace:** xoá mềm/khôi phục, xem chi tiết.
 4. **Audit nâng cao:** xuất CSV, archive/xoá bản ghi cũ theo thời hạn.

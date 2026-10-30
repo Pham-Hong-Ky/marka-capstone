@@ -2,32 +2,33 @@
 
 > Tài liệu lập từ **test tự động có thật** trong repo, không phải từ đề xuất tính năng.
 > Nguồn đối chiếu: `backend/tests/**/*.test.ts`, `backend/src/routes/index.ts`, `docs/api_documentation.md`.
-> Cập nhật: 2026-10-24. Tổng: **225 test case** trong **22 file**.
+> Cập nhật: 2026-10-30. Tổng: **424 test case** trong **46 file**.
 
 ## 1. Bảng tổng hợp
 
 | # | Module / nhóm | Số test | File test |
 |---|---------------|---------|-----------|
-| 1 | Auth, RBAC, refresh/logout (UC01–UC04, UC34) | 12 | `backend/tests/modules/auth/auth.test.ts` |
-| 2 | Google login (UC03) | 3 | `backend/tests/modules/auth/auth.google.test.ts` |
-| 3 | User — hồ sơ & mật khẩu (UC05, UC33) | 4 | `backend/tests/modules/user/user.test.ts` |
-| 4 | Workspace, thành viên, lời mời (UC17–UC24, UC35, UC36) | 22 | `backend/tests/modules/workspace/workspace.test.ts` |
-| 5 | Brand Voice (UC25–UC27) | 12 | `backend/tests/modules/brandvoice/brandvoice.test.ts` |
-| 6 | Channel & Facebook OAuth (UC28–UC30) | 28 | `backend/tests/modules/channel/*.test.ts` |
-| 7 | Post, media, gửi duyệt & duyệt bài (UC06, UC08–UC12, UC15) | 52 | `backend/tests/modules/post/post.test.ts` |
-| 7.1 | AI service, processor, provider, prompt, route, credit | 36 | `backend/tests/modules/ai/*.test.ts`, `backend/tests/modules/credit/*.test.ts` |
-| 7.2 | Schedule đăng bài Facebook | 32 | `backend/tests/modules/schedule/*.test.ts` |
-| 7.3 | Nạp credit, PayOS (UC31, UC40, UC41) | 11 | `backend/tests/modules/billing/billing.test.ts` |
-| 8 | Health check | 1 | `backend/tests/modules/health/health.test.ts` |
-| 8.1 | Health service (Redis/DB) | 3 | `backend/tests/modules/health/health.service.test.ts` |
-| 9 | Queue Manager (BullMQ) | 6 | `backend/tests/workers/queue-manager.test.ts` |
-| 10 | Middleware `enforceHttps` | 2 | `backend/tests/middlewares/enforceHttps.test.ts` |
-| 11 | Swagger spec | 1 | `backend/tests/config/swagger.test.ts` |
-| **Tổng** | | **225** | |
+| 1 | Auth, RBAC, refresh/logout (UC01–UC04, UC34) | 16 | `backend/tests/modules/auth/*.test.ts` |
+| 2 | User — hồ sơ, mật khẩu, xoá tài khoản (UC05, UC33) | 11 | `backend/tests/modules/user/*.test.ts` |
+| 3 | Workspace, thành viên, lời mời (UC17–UC24, UC35, UC36) | 27 | `backend/tests/modules/workspace/*.test.ts` |
+| 4 | Brand Voice (UC25–UC27) | 12 | `backend/tests/modules/brandvoice/brandvoice.test.ts` |
+| 5 | Channel, Facebook/Threads OAuth & hồ sơ kênh (UC28–UC30) | 65 | `backend/tests/modules/channel/*.test.ts` |
+| 6 | Post, media, gửi duyệt & duyệt bài (UC06, UC08–UC12, UC15) | 67 | `backend/tests/modules/post/post.test.ts` |
+| 7 | AI service, processor, provider, prompt, route + credit | 54 | `backend/tests/modules/ai/*.test.ts`, `backend/tests/modules/credit/*.test.ts` |
+| 8 | Schedule đăng bài đa kênh | 41 | `backend/tests/modules/schedule/*.test.ts` |
+| 9 | Nạp credit, PayOS (UC31, UC40, UC41) | 12 | `backend/tests/modules/billing/billing.test.ts` |
+| 10 | Health check | 4 | `backend/tests/modules/health/*.test.ts` |
+| 11 | Admin & audit log (UC32) | 16 | `backend/tests/modules/admin/admin.test.ts` |
+| 12 | Analytics & gợi ý (UC39) | 41 | `backend/tests/modules/analytics/*.test.ts` |
+| 13 | Task board, giao việc, nhắc hạn (UC42, UC43) | 37 | `backend/tests/modules/task/*.test.ts` |
+| 14 | Notification in-app | 11 | `backend/tests/modules/notification/notification.test.ts` |
+| 15 | Hạ tầng: queue, Redis, HTTPS, Swagger, email, timeout, error | 10 | `backend/tests/{workers,config,middlewares,templates,utils}/*.test.ts` |
+| **Tổng** | | **424** | **46 file** |
 
 Ghi chú:
 
-- Test dùng **DB thật** (Prisma) và **Redis thật**; dữ liệu tạo/xoá theo `Date.now()` trong `beforeAll`/`afterAll`.
+- Test dùng **DB test riêng** (`backend/.env.test`, tên DB/schema phải chứa `_test`) và Redis thật; dữ liệu tạo/xoá theo `Date.now()` trong `beforeAll`/`afterAll`.
+- Chạy `npm run test:setup` một lần để áp migration vào DB test; `vitest.config.ts` sẽ chặn nếu trỏ nhầm DB dev.
 - Mã test (`A01`, `W01`, `P01`…) do tài liệu đặt để tra cứu; **tên test giữ nguyên theo `it(...)`** trong code.
 - Endpoint trong bảng dùng tiền tố `/api/v1`.
 - Các test gắn nhãn `setup` là bước chuẩn bị dữ liệu, vẫn là test thật (có assert).
@@ -143,32 +144,32 @@ Ghi chú:
 
 ---
 
-## 7. Channel & Facebook OAuth
+## 7. Channel, Facebook/Threads OAuth & hồ sơ kênh
 
-**File:** `backend/tests/modules/channel/channel.test.ts` (mock `fetch`, env Facebook)
+**Files:** `backend/tests/modules/channel/*.test.ts` (mock `fetch`, env Facebook/Threads)
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
 | C01 | UC28 — Creator xem danh sách kênh, không lộ accessToken | `GET /api/v1/workspaces/:workspaceId/channels` | Bearer CONTENT_CREATOR | 200; `data.channels = []` | `channel.test.ts` |
 | C02 | UC28 — Outsider không xem được kênh workspace khác | `GET .../channels` | Bearer outsider | 403 | `channel.test.ts` |
-| C03 | UC29 — Owner lấy URL đăng nhập Facebook | `GET /api/v1/channels/facebook/oauth/url?workspaceId=` | Bearer OWNER | 200; host `www.facebook.com`; `client_id` đúng env; `redirect_uri` đúng env; `scope` chứa `pages_show_list` | `channel.test.ts` |
-| C04 | UC29 — Creator không lấy được URL đăng nhập Facebook | `GET /channels/facebook/oauth/url` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
-| C05 | UC29 — Callback tạo session và redirect về trang chọn Page | `GET /channels/facebook/oauth/callback` | `code`, `state` hợp lệ | 302; gọi Facebook 3 lần; `location` có path `/channels`, `fb=select`, `session` khớp `^[a-f0-9]{48}$` | `channel.test.ts` |
-| C06 | UC29 — State sai bị từ chối | callback | `state=bad` | 302; `location` chứa `reason=invalid_state` | `channel.test.ts` |
-| C07 | UC29 — State dùng lại lần hai bị từ chối | callback | dùng lại cùng `state` | Lần 1 `fb=select`; lần 2 `reason=invalid_state` | `channel.test.ts` |
-| C08 | UC29 — Người dùng từ chối cấp quyền được báo lỗi | callback | `error=access_denied` | 302; `location` chứa `reason=access_denied` | `channel.test.ts` |
-| C09 | UC29 — Tài khoản không có Page nào trả no_pages | callback | Facebook trả `data: []` | 302; `location` chứa `reason=no_pages` | `channel.test.ts` |
-| C10 | UC29 — Owner xem danh sách Page chờ chọn, không có token | `GET .../oauth/session/:sessionId` | Bearer OWNER + `x-workspace-id` | 200; `pages` chỉ gồm `{ id, name, avatar }` | `channel.test.ts` |
+| C03 | UC29 — Owner lấy URL đăng nhập Facebook | `GET /api/v1/channels/:platform/oauth/url?workspaceId=` | Bearer OWNER | 200; host `www.facebook.com`; `client_id` đúng env; `redirect_uri` đúng env; `scope` chứa `pages_show_list` | `channel.test.ts` |
+| C04 | UC29 — Creator không lấy được URL đăng nhập Facebook | `GET /channels/:platform/oauth/url` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
+| C05 | UC29 — Callback tạo session và redirect về trang chọn Page | `GET /channels/:platform/oauth/callback` | `code`, `state` hợp lệ | 302; gọi Facebook 3 lần; `location` có path `/channels`, `connect=FACEBOOK`, `session` khớp `^[a-f0-9]{48}$` | `channel.test.ts` |
+| C06 | UC29 — State sai bị từ chối | callback | `state=bad` | 302; `location` chứa `connect_error=invalid_state` | `channel.test.ts` |
+| C07 | UC29 — State dùng lại lần hai bị từ chối | callback | dùng lại cùng `state` | Lần 1 `connect=FACEBOOK`; lần 2 `connect_error=invalid_state` | `channel.test.ts` |
+| C08 | UC29 — Người dùng từ chối cấp quyền được báo lỗi | callback | `error=access_denied` | 302; `location` chứa `connect_error=access_denied` | `channel.test.ts` |
+| C09 | UC29 — Tài khoản không có Page nào trả no_accounts | callback | Facebook trả `data: []` | 302; `location` chứa `connect_error=no_accounts` | `channel.test.ts` |
+| C10 | UC29 — Owner xem danh sách tài khoản chờ chọn, không có token | `GET .../oauth/session/:sessionId` | Bearer OWNER + `x-workspace-id` | 200; `accounts` chỉ gồm `{ externalAccountId, name, avatar }` | `channel.test.ts` |
 | C11 | UC29 — Người khác không đọc được session chọn Page | `GET .../oauth/session/:sessionId` | Bearer outsider + workspace của outsider | 404 | `channel.test.ts` |
-| C12 | UC29 — Chọn Page lưu token đã mã hoá, không trả token | `POST .../oauth/session/:sessionId/connect` | `{ pageIds: ["page-1"] }` | 201; `channels[0].name` đúng; `accessToken` là `undefined`; token trong DB khác plaintext và `decrypt(token)` = `page-token-1` | `channel.test.ts` |
-| C13 | UC29 — Page không thuộc session bị từ chối | `POST .../connect` | `{ pageIds: ["page-khac"] }` | 400; không tạo `channelConnection` cho page đó | `channel.test.ts` |
-| C14 | UC29 — Bỏ Page thiếu access_token khỏi danh sách chọn | callback + `GET .../oauth/session/:sessionId` | danh sách Page có 1 page thiếu token | 200; `pages` chỉ còn page có token | `channel.test.ts` |
-| C15 | UC29 — URL lấy workspace từ header, không dùng query lệch | `GET /channels/facebook/oauth/url` | query workspaceId của outsider + header workspace của owner | 200; session tạo ra vẫn đọc được bằng owner + `x-workspace-id` | `channel.test.ts` |
+| C12 | UC29 — Chọn Page lưu token đã mã hoá, không trả token | `POST .../oauth/session/:sessionId/connect` | `{ accountIds: ["page-1"] }` | 201; `channels[0].name` đúng; `accessToken` là `undefined`; token trong DB khác plaintext và `decrypt(token)` = `page-token-1` | `channel.test.ts` |
+| C13 | UC29 — Page không thuộc session bị từ chối | `POST .../connect` | `{ accountIds: ["page-khac"] }` | 400; không tạo `channelConnection` cho page đó | `channel.test.ts` |
+| C14 | UC29 — Bỏ tài khoản thiếu access_token khỏi danh sách chọn | callback + `GET .../oauth/session/:sessionId` | danh sách có 1 tài khoản thiếu token | 200; `accounts` chỉ còn tài khoản có token | `channel.test.ts` |
+| C15 | UC29 — URL lấy workspace từ header, không dùng query lệch | `GET /channels/:platform/oauth/url` | query workspaceId của outsider + header workspace của owner | 200; session tạo ra vẫn đọc được bằng owner + `x-workspace-id` | `channel.test.ts` |
 | C16 | UC29 — Creator không được kết nối Page | `POST .../connect` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
-| C17 | UC29 — Kết nối lại cùng Page giữ nguyên channel id | `POST .../connect` hai lần | cùng `pageIds: ["page-1"]`, token mới | 201; cùng `channel.id`; tên mới được cập nhật; DB decrypt ra token mới | `channel.test.ts` |
+| C17 | UC29 — Kết nối lại cùng Page giữ nguyên channel id | `POST .../connect` hai lần | cùng `accountIds: ["page-1"]`, token mới | 201; cùng `channel.id`; tên mới được cập nhật; DB decrypt ra token mới | `channel.test.ts` |
 | C18 | UC29 — Session bị xoá sau khi kết nối | `GET .../oauth/session/:sessionId` | session vừa connect | 404 | `channel.test.ts` |
 | C19 | UC30 — Creator không được ngắt kết nối | `DELETE /api/v1/channels/:channelId` | Bearer CONTENT_CREATOR | 403 | `channel.test.ts` |
-| C20 | UC30 — Ngắt kết nối huỷ lịch đăng và xoá kênh | `DELETE /api/v1/channels/:channelId` | Bearer OWNER; kênh có 1 `ScheduledPost` | 200; `data.success = true`; `channelConnection` bị xoá; bản ghi `scheduledPost` không còn (service chuyển `CANCELLED`, sau đó FK cascade xoá khi xoá kênh) | `channel.test.ts` |
+| C20 | UC30 — Ngắt kết nối huỷ lịch đăng và xoá mềm kênh | `DELETE /api/v1/channels/:channelId` | Bearer OWNER; kênh có 1 `ScheduledPost` | 200; `data.success = true`; `channelConnection.deletedAt` được set, token bị xoá, kênh `EXPIRED`; lịch chờ `CANCELLED` | `channel.test.ts` |
 | C21 | UC30 — Thiếu workspace header bị từ chối | `DELETE /api/v1/channels/:channelId` | Bearer owner, **không** có `x-workspace-id` | 400 | `channel.test.ts` |
 
 ---
@@ -359,8 +360,8 @@ Các hành vi **đã có trong code** nhưng **không có test tự động** t�
 - Audit khi tạo lần đầu (chỉ assert log ở nhánh cập nhật B06).
 
 ### 12.5. Channel
-- Lỗi gọi Facebook API: fetch reject, HTTP 5xx, thiếu `access_token` khi exchange → `reason=token_exchange_failed`.
-- Thiếu cấu hình Facebook App → 400.
+- Lỗi gọi Facebook/Threads API: fetch reject, HTTP 5xx, thiếu `access_token` khi exchange → `connect_error=token_exchange_failed`.
+- Thiếu cấu hình Facebook/Threads App → 400.
 - `state` hết hạn theo thời gian (Redis TTL 600 giây).
 - Audit `CHANNEL_CONNECTED`, `CHANNEL_DISCONNECTED`.
 - `DELETE /channels/:channelId` với kênh không tồn tại / thuộc workspace khác → 404.

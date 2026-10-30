@@ -118,14 +118,19 @@ class "analyticsProcessor" as analyticsProcessor {
   + registerAnalyticsScheduler() : Promise<void>
 }
 
-class "FacebookClient" as facebookClient {
-  + isTokenExpiredError(error) : boolean
-  + fetchPostMetrics(postId, accessToken) : Promise<FacebookPostMetrics>
+class "ProviderRegistry" as providerRegistry {
+  + getProvider(platform) : SocialProvider
+}
+
+class "SocialProvider" as socialProvider {
+  + capabilities : ProviderCapabilities
+  + fetchMetrics(input) : Promise<ProviderMetrics>
 }
 
 analyticsController ..> analyticsService
 analyticsService ..> analyticsRepository
-analyticsService ..> facebookClient
+analyticsService ..> providerRegistry
+providerRegistry ..> socialProvider
 analyticsProcessor ..> analyticsService
 
 analyticsRepository ..> ScheduledPost

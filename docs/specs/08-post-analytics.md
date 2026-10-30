@@ -2,7 +2,7 @@
 
 > [Quay lại Mục lục](README.md)
 >
-> **Trạng thái: ĐÃ TRIỂN KHAI (backend + frontend).** Có module `analytics` với endpoint xem thống kê/gợi ý và đồng bộ `PostMetric` qua queue; trang `/analytics` hiển thị KPI, biểu đồ, độ phủ số liệu và gợi ý. n8n và snapshot xu hướng vẫn ngoài phạm vi.
+> **Trạng thái: ĐÃ TRIỂN KHAI (backend + frontend).** Có module `analytics` với endpoint xem thống kê/gợi ý và đồng bộ `PostMetric` qua queue; Dashboard `/` hiển thị KPI, biểu đồ, độ phủ số liệu và gợi ý. n8n và snapshot xu hướng vẫn ngoài phạm vi.
 
 ---
 
@@ -12,7 +12,7 @@
 | :--- | :--- | :--- |
 | **UC39** | Xem tổng quan hiệu quả của workspace | Creator, Owner |
 
-Chỉ số dự kiến: **reactions, comments, shares** cho bài đăng trên Facebook Page thật. `reach`/`impressions` chỉ hiển thị khi Facebook trả về (phụ thuộc Page Insights).
+Chỉ số dự kiến: **reactions, comments, shares** cho bài đăng trên Facebook Page/Threads thật. `reach`/`impressions` chỉ hiển thị khi nền tảng trả về (phụ thuộc Insights).
 
 ---
 
@@ -28,8 +28,8 @@ Chỉ số dự kiến: **reactions, comments, shares** cho bài đăng trên Fa
 - `POST /workspaces/:workspaceId/analytics/sync` — trả `202` `{ queued: true }`, đẩy job `analytics-sync` vào `analytics-queue` cho workspace hiện tại.
 - **Đồng bộ:** `analyticsWorker` gọi `facebookClient.fetchPostMetrics` cho bài `PUBLISHED` có `externalPostId`, kênh `FACEBOOK`/`ACTIVE`, trong 30 ngày, tối đa 50 bài/lần, bỏ qua bài đã đồng bộ trong 6 giờ; upsert `PostMetric` theo `scheduledPostId`, ghi `fetchedAt`/`syncError`. Lỗi đọc token ghi `syncError`; token hết hạn đánh dấu kênh `EXPIRED`.
 - Job lặp mỗi 6 giờ (`registerAnalyticsScheduler`) chạy toàn hệ thống; endpoint chỉ đồng bộ trong workspace gọi.
-- **Frontend `/analytics`:** lọc khoảng thời gian/kênh/nhãn (đồng bộ query string), 5 KPI (tương tác, bình luận, chia sẻ, tỷ lệ tương tác, hiển thị — chỉ hiện khi có dữ liệu) kèm delta, biểu đồ xu hướng, cảnh báo độ phủ, thẻ khung giờ tốt + gợi ý nội dung; nút "Đồng bộ số liệu" gọi `POST .../sync` rồi poll `overview` mỗi 5 giây, tối đa 60 giây.
-- `reach`/`impressions` lấy thêm từ Insights; chỉ hiển thị khi Facebook trả về.
+- **Frontend Dashboard `/`:** lọc khoảng thời gian/kênh/nhãn (đồng bộ query string), 5 KPI (tương tác, bình luận, chia sẻ, tỷ lệ tương tác, hiển thị — chỉ hiện khi có dữ liệu) kèm delta, biểu đồ xu hướng, cảnh báo độ phủ, thẻ khung giờ tốt + gợi ý nội dung; nút "Đồng bộ số liệu" gọi `POST .../sync` rồi poll `overview` mỗi 5 giây, tối đa 60 giây.
+- `reach`/`impressions` lấy thêm từ Insights; chỉ hiển thị khi nền tảng trả về.
 
 ---
 
@@ -56,7 +56,7 @@ Quan hệ: `PostMetric.scheduledPost → ScheduledPost` (Cascade); `ScheduledPos
 
 ### Các trường liên quan trên `ScheduledPost`
 
-- `externalPostId` — ID bài trên Facebook sau khi đăng (worker đã ghi khi đăng thành công).
+- `externalPostId` — ID bài trên Facebook/Threads sau khi đăng (worker đã ghi khi đăng thành công).
 - `status` — `PublishStatus`: `SCHEDULED`/`PROCESSING`/`PUBLISHED`/`FAILED`/`CANCELLED`.
 - `channelId` → `ChannelConnection` (biết kênh thật/giả lập).
 

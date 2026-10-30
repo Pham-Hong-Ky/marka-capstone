@@ -1,11 +1,11 @@
-# Phân hệ 4 — Kênh, Facebook OAuth & Lịch đăng bài
+# Phân hệ 4 — Kênh, Facebook/Threads OAuth & Lịch đăng bài
 
 > [Quay lại Mục lục](README.md)
 >
-> **Phạm vi:** phần đã có trong code: xem kênh đã kết nối, kết nối **Facebook Page thật** qua OAuth, ngắt kết nối kênh, đăng ngay/lên lịch bài đã duyệt lên nhiều Page.
+> **Phạm vi:** phần đã có trong code: xem kênh đã kết nối, kết nối **Facebook Page + Threads thật** qua OAuth, ngắt kết nối kênh, đăng ngay/lên lịch bài đã duyệt lên nhiều kênh.
 > Mã nguồn: `backend/src/modules/channel/`, `backend/src/modules/schedule/`, `utils/encryption.ts`, `config/redis.ts`, `workers/`.
 >
-> **Không có trong code:** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả, sửa giờ sau khi tạo, video, làm mới token tự động. Các mục này ở Roadmap cuối file.
+> **Không có trong code:** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả, sửa giờ sau khi tạo, video, tự làm mới token Facebook. Các mục này ở Roadmap cuối file.
 
 ---
 
@@ -16,13 +16,13 @@
 | Trường | Ghi chú |
 | :--- | :--- |
 | `workspaceId` | Chủ sở hữu kênh |
-| `platform` | Enum `FACEBOOK` / `INSTAGRAM` / `TIKTOK` / `ZALO`; code hiện chỉ tạo `FACEBOOK` |
-| `type` | `REAL` khi tạo qua OAuth Facebook; `SIMULATED` chỉ là default của schema, chưa có luồng nào tạo |
-| `name`, `avatar` | Tên/ảnh Page lấy từ Graph API |
-| `externalAccountId` | Page ID trên Facebook |
-| `accessToken` | Page token **đã mã hoá AES-256-GCM**; không bao giờ trả ra API |
+| `platform` | Enum `FACEBOOK` / `THREADS` (schema còn giá trị khác nhưng code chỉ tạo 2 loại này) |
+| `type` | `REAL` khi tạo qua OAuth; `SIMULATED` chỉ là default của schema, chưa có luồng nào tạo |
+| `name`, `avatar` | Tên/ảnh lấy từ Graph API hoặc Threads API |
+| `externalAccountId` | Page ID (Facebook) hoặc user ID (Threads) |
+| `accessToken` | Token **đã mã hoá AES-256-GCM**; không bao giờ trả ra API |
 | `status` | `ACTIVE` / `EXPIRED` |
-| unique | `(workspaceId, platform, externalAccountId)` — kết nối lại cùng Page sẽ upsert, không tạo trùng |
+| unique | `(workspaceId, platform, externalAccountId)` — kết nối lại cùng tài khoản sẽ upsert, không tạo trùng |
 
 API chỉ trả các trường công khai (`CHANNEL_PUBLIC_SELECT`): `id`, `platform`, `type`, `name`, `avatar`, `externalAccountId`, `status`, `createdAt`, `updatedAt`.
 
@@ -61,94 +61,96 @@ Mã hoá token (`utils/encryption.ts`): AES-256-GCM, key = `sha256(AES_SECRET_KE
 
 ---
 
-## 4.3. Kết nối Facebook Page (UC29)
+## 4.3. Kết nối kênh (UC29)
 
-Luồng gồm 4 bước, trong đó bước 2 do Facebook gọi về server.
+Luồng dùng route generic `/channels/:platform/oauth/*`; `platform` là `FACEBOOK` hoặc `THREADS`.
 
-### Bước 1 — Lấy URL đăng nhập Facebook
+### Bước 1 — Lấy URL đăng nhập
 
-`GET /channels/facebook/oauth/url?workspaceId=<uuid>`
+`GET /channels/:platform/oauth/url?workspaceId=<uuid>`
 
 - Yêu cầu `requireAuth` + `OWNER` của workspace trong query.
 - `workspaceId` phải là UUID, nếu không → `422`.
-- Nếu thiếu `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` hoặc `FACEBOOK_REDIRECT_URI` → `400` `"Chưa cấu hình Facebook App. Vui lòng liên hệ quản trị viên."`.
-- Sinh `state` = 32 byte ngẫu nhiên (hex 64 ký tự), lưu Redis `fb:oauth:state:<state>` với `{ userId, workspaceId }`, **TTL 600 giây**.
+- Thiếu cấu hình app tương ứng → `400` `"Chưa cấu hình <nền tảng> App..."`.
+- Sinh `state` = 32 byte ngẫu nhiên (hex 64 ký tự), lưu Redis với `{ userId, workspaceId, platform }`, **TTL 600 giây**.
 - Response `200`:
 
 ```json
 {
   "status": "success",
-  "message": "Tạo URL đăng nhập Facebook thành công",
+  "message": "Tạo URL đăng nhập thành công",
   "data": { "url": "https://www.facebook.com/v21.0/dialog/oauth?..." }
 }
 ```
 
-URL xin các scope: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
+URL Facebook xin scope: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
+URL Threads xin scope: `threads_basic`, `threads_content_publish`, `threads_manage_insights`.
 
-### Bước 2 — Callback từ Facebook
+### Bước 2 — Callback từ nền tảng
 
-`GET /channels/facebook/oauth/callback?code=...&state=...`
+`GET /channels/:platform/oauth/callback?code=...&state=...`
 
-- Công khai (không `requireAuth`); đây là URL đăng ký với Facebook (`FACEBOOK_REDIRECT_URI`).
+- Công khai (không `requireAuth`); đây là URL đăng ký với nền tảng (`FACEBOOK_REDIRECT_URI` / `THREADS_REDIRECT_URI`).
 - **Luôn redirect** về `CLIENT_URL/channels` kèm query, không trả JSON:
 
 | Tình huống | Redirect |
 | :--- | :--- |
-| Người dùng từ chối (`error=access_denied`) | `?fb=error&reason=access_denied` |
-| Lỗi OAuth khác | `?fb=error&reason=token_exchange_failed` |
-| Thiếu `state`/`code`, state không tồn tại hoặc đã dùng | `?fb=error&reason=invalid_state` |
-| Không lấy được Page nào | `?fb=error&reason=no_pages` |
-| Đổi token/lấy Page thất bại | `?fb=error&reason=token_exchange_failed` |
-| Thành công | `?fb=select&session=<sessionId>` |
+| Người dùng từ chối (`error=access_denied`) | `?platform=<platform>&connect_error=access_denied` |
+| Lỗi OAuth khác | `?platform=<platform>&connect_error=token_exchange_failed` |
+| Thiếu `state`/`code`, state không tồn tại hoặc đã dùng | `?platform=<platform>&connect_error=invalid_state` |
+| Không lấy được tài khoản nào | `?platform=<platform>&connect_error=no_accounts` |
+| Facebook thành công | `?connect=FACEBOOK&session=<sessionId>` |
+| Threads thành công | `?connected=THREADS` |
 
 - `state` được **dùng một lần** (`GETDEL`): request thứ hai với cùng state sẽ nhận `invalid_state`.
-- Xử lý khi thành công:
+- Facebook (multi-account):
   1. Đổi `code` → token ngắn hạn → token dài hạn (`fb_exchange_token`).
   2. Gọi `/me/accounts` (kèm `appsecret_proof`) lấy Page mà user quản lý; bỏ Page không có `access_token`.
-  3. Mã hoá từng Page token, lưu session Redis `fb:oauth:session:<sessionId>` (`{ userId, workspaceId, pages }`), **TTL 600 giây**; `sessionId` = 24 byte ngẫu nhiên (hex 48 ký tự).
-- Gọi Graph API có timeout 10 giây; lỗi mạng/Graph đều dẫn tới `token_exchange_failed`.
+  3. Mã hoá từng Page token, lưu session Redis (`{ userId, workspaceId, accounts }`), **TTL 600 giây**; `sessionId` = 24 byte ngẫu nhiên (hex 48 ký tự).
+- Threads (single-account): đổi `code` → long-lived token → lấy profile → upsert ngay vào `ChannelConnection` → redirect `?connected=THREADS`.
+- Gọi API nền tảng có timeout 10 giây; lỗi mạng/API đều dẫn tới `token_exchange_failed`.
 
-### Bước 3 — Lấy danh sách Page trong phiên
+### Bước 3 — Lấy danh sách tài khoản trong phiên (chỉ Facebook)
 
-`GET /channels/facebook/oauth/session/:sessionId`
+`GET /channels/:platform/oauth/session/:sessionId`
 
 - Yêu cầu `requireAuth` + `OWNER`.
 - `workspaceId` không nằm trong path — phải gửi qua header `x-workspace-id` (hoặc query `workspaceId`).
 - `sessionId` phải khớp regex 48 ký tự hex, nếu không → `422`.
 - Session không tồn tại/hết hạn/không thuộc đúng `userId` + `workspaceId` → `404` `"Phiên kết nối không tồn tại hoặc đã hết hạn"`.
-- Response `200` `"Lấy danh sách Page thành công"`:
+- Response `200` `"Lấy danh sách tài khoản thành công"`:
 
 ```json
 {
   "status": "success",
-  "message": "Lấy danh sách Page thành công",
+  "message": "Lấy danh sách tài khoản thành công",
   "data": {
-    "pages": [ { "id": "1234567890", "name": "Marka Demo Page", "avatar": "https://..." } ]
+    "accounts": [ { "externalAccountId": "1234567890", "name": "Marka Demo Page", "avatar": "https://..." } ]
   }
 }
 ```
 
 Không trả token.
 
-### Bước 4 — Lưu các Page đã chọn
+### Bước 4 — Lưu các tài khoản đã chọn (chỉ Facebook)
 
-`POST /channels/facebook/oauth/session/:sessionId/connect`
+`POST /channels/:platform/oauth/session/:sessionId/connect`
 
 - Yêu cầu `requireAuth` + `OWNER`; `workspaceId` qua header `x-workspace-id` (hoặc query).
 - Body:
 
 | Field | Ràng buộc |
 | :--- | :--- |
-| `pageIds` | mảng string, 1–50 phần tử, mỗi phần tử không rỗng |
+| `accountIds` | mảng string, 1–50 phần tử, mỗi phần tử không rỗng |
 
-- Page id không có trong session → `400` `"Page không hợp lệ trong phiên kết nối"`.
-- Không giải mã được token đã lưu → `400` `"Không đọc được token của Page. Vui lòng kết nối lại."`.
+- Account id không có trong session → `400` `"Tài khoản không hợp lệ trong phiên kết nối"`.
+- Không giải mã được token đã lưu → `400` `"Không đọc được token của tài khoản. Vui lòng kết nối lại."`.
 - Upsert theo `(workspaceId, FACEBOOK, externalAccountId)` trong một transaction:
   - Tạo mới với `type = REAL`, `status = ACTIVE`.
-  - Nếu Page đã từng kết nối: cập nhật `name`, `avatar`, token mới, `status = ACTIVE` (kết nối lại kênh đang `EXPIRED` sẽ kích hoạt lại).
-- Ghi audit `CHANNEL_CONNECTED` cho từng kênh (`metadata { pageId, name }`).
+  - Nếu tài khoản đã từng kết nối: cập nhật `name`, `avatar`, token mới, `status = ACTIVE` (kết nối lại kênh đang `EXPIRED` sẽ kích hoạt lại).
+- Ghi audit `CHANNEL_CONNECTED` cho từng kênh (`metadata { externalAccountId, name }`).
 - Xoá session sau khi lưu thành công.
-- Response `201` `"Kết nối Facebook thành công"`, `data = { channels: [...] }` (các kênh vừa upsert).
+- Response `201` `"Kết nối kênh thành công"`, `data = { channels: [...] }` (các kênh vừa upsert).
 
 > Token không được gửi lên Facebook để thu hồi khi ngắt kết nối; hệ thống chỉ xoá bản ghi cục bộ.
 
@@ -163,10 +165,11 @@ Không trả token.
 - Kênh không tồn tại hoặc thuộc workspace khác → `404` `"Kênh không tồn tại"`.
 - Trong một transaction:
   1. Chuyển các `ScheduledPost` của kênh đang `SCHEDULED` sang `CANCELLED`.
-  2. Xoá cứng bản ghi `ChannelConnection`.
-- Ghi audit `CHANNEL_DISCONNECTED` (`metadata { pageId, name }`).
+  2. Xoá mềm `ChannelConnection` (`deletedAt`), xoá `accessToken`, đặt `status = EXPIRED`.
+- Nếu còn lịch `PROCESSING` → `409` `"Kênh đang đăng bài, vui lòng thử lại sau"`.
+- Ghi audit `CHANNEL_DISCONNECTED` (`metadata { externalAccountId, name }`).
 - Response `200`: `{ "success": true }`.
-- Nếu kênh đã có lịch đang chờ, bước 1 chuyển chúng sang `CANCELLED` trước khi xoá kênh; trạng thái tổng của Post được tính lại.
+- Trạng thái tổng của Post được tính lại sau khi huỷ lịch.
 
 ---
 
@@ -176,14 +179,17 @@ Không trả token.
 | :--- | :--- |
 | `FACEBOOK_APP_ID` | `client_id` của OAuth |
 | `FACEBOOK_APP_SECRET` | đổi token + `appsecret_proof` |
-| `FACEBOOK_REDIRECT_URI` | callback; mặc định `http://localhost:5000/api/v1/channels/facebook/oauth/callback` |
-| `AES_SECRET_KEY` | mã hoá Page token (≥ 32 ký tự) |
+| `FACEBOOK_REDIRECT_URI` | callback Facebook; mặc định `http://localhost:5000/api/v1/channels/facebook/oauth/callback` |
+| `THREADS_APP_ID` / `THREADS_APP_SECRET` | OAuth Threads |
+| `THREADS_REDIRECT_URI` | callback Threads; mặc định `http://localhost:5000/api/v1/channels/threads/oauth/callback` |
+| `AES_SECRET_KEY` | mã hoá token kênh (≥ 32 ký tự) |
 | `CLIENT_URL` | đích redirect sau callback |
 | `REDIS_URL` | lưu state/session OAuth |
 
-- Graph API dùng phiên bản `v21.0`.
-- Page token chỉ tồn tại dạng mã hoá trong Redis (session, 10 phút) và trong DB.
+- Facebook Graph API dùng phiên bản `v21.0`; Threads dùng `graph.threads.com/v1.0`.
+- Token chỉ tồn tại dạng mã hoá trong Redis (session, 10 phút) và trong DB.
 - API danh sách kênh không trả `accessToken`.
+- Threads tự gia hạn token qua `channel-maintenance-queue`; Facebook chưa tự gia hạn.
 
 ---
 
@@ -192,10 +198,13 @@ Không trả token.
 | Method | Path | Xác thực | Vai trò | Ghi chú |
 | :--- | :--- | :--- | :--- | :--- |
 | GET | `/workspaces/:workspaceId/channels` | Bearer | Thành viên | Danh sách kênh |
-| GET | `/channels/facebook/oauth/url?workspaceId=` | Bearer | OWNER | Trả URL Facebook |
-| GET | `/channels/facebook/oauth/callback` | — | — | Facebook gọi về, redirect client |
-| GET | `/channels/facebook/oauth/session/:sessionId` | Bearer | OWNER | Danh sách Page trong phiên |
-| POST | `/channels/facebook/oauth/session/:sessionId/connect` | Bearer | OWNER | Lưu Page đã chọn |
+| GET | `/workspaces/:workspaceId/channels/:channelId` | Bearer | Thành viên | Chi tiết kênh + thống kê |
+| PATCH | `/workspaces/:workspaceId/channels/:channelId` | Bearer | Thành viên | Đổi nhãn nội bộ |
+| POST | `/workspaces/:workspaceId/channels/:channelId/refresh` | Bearer | Thành viên | Làm mới tên/avatar |
+| GET | `/channels/:platform/oauth/url?workspaceId=` | Bearer | OWNER | Trả URL OAuth |
+| GET | `/channels/:platform/oauth/callback` | — | — | Nền tảng gọi về, redirect client |
+| GET | `/channels/:platform/oauth/session/:sessionId` | Bearer | OWNER | Danh sách tài khoản trong phiên (Facebook) |
+| POST | `/channels/:platform/oauth/session/:sessionId/connect` | Bearer | OWNER | Lưu tài khoản đã chọn (Facebook) |
 | DELETE | `/channels/:channelId` | Bearer | OWNER | Ngắt kết nối |
 
 ---
@@ -204,9 +213,9 @@ Không trả token.
 
 | Mã | Message | Trường hợp |
 | :--- | :--- | :--- |
-| `400` | `Chưa cấu hình Facebook App. Vui lòng liên hệ quản trị viên.` | Thiếu env Facebook |
-| `400` | `Page không hợp lệ trong phiên kết nối` | `pageIds` không thuộc session |
-| `400` | `Không đọc được token của Page. Vui lòng kết nối lại.` | Giải mã token thất bại |
+| `400` | `Chưa cấu hình <nền tảng> App...` | Thiếu env Facebook/Threads |
+| `400` | `Tài khoản không hợp lệ trong phiên kết nối` | `accountIds` không thuộc session |
+| `400` | `Không đọc được token của tài khoản. Vui lòng kết nối lại.` | Giải mã token thất bại |
 | `403` | `Bạn không có quyền thực hiện hành động này trong Workspace` | Creator gọi API OWNER |
 | `404` | `Phiên kết nối không tồn tại hoặc đã hết hạn` | Session hết TTL/sai user/workspace |
 | `404` | `Kênh không tồn tại` | Sai id hoặc khác workspace |
@@ -227,19 +236,19 @@ Mọi thành viên workspace được đăng/lên lịch bài ở trạng thái 
 **Validate:**
 
 - Post tồn tại, chưa xoá, `APPROVED`.
-- Chọn 1–10 Page thuộc workspace, `FACEBOOK`, `REAL`, `ACTIVE`.
-- `scheduledAt` ≥ hiện tại + 1 phút, ≤ hiện tại + 1 năm.
-- Nội dung text không rỗng, ≤ 63.206 ký tự; tối đa 10 ảnh; chưa hỗ trợ video.
-- Mỗi bài/Page chỉ có một `ScheduledPost` (unique `postId, channelId`).
+- Chọn 1–10 kênh thuộc workspace, `REAL`, `ACTIVE`, provider hỗ trợ đăng bài.
+- `scheduledAt` ≥ hiện tại + 1 phút, ≤ hiện tại + 1 năm; bỏ trống = đăng ngay.
+- Nội dung text không rỗng, giới hạn theo provider: Facebook ≤ 63.206 ký tự/10 ảnh; Threads ≤ 500 ký tự/20 ảnh/5 link; chưa hỗ trợ video.
+- Mỗi bài/kênh chỉ có một `ScheduledPost` (unique `postId, channelId`).
 
 **Worker (`schedule-queue`):**
 
 - `scheduleWorker` đăng ký job scheduler `schedule-due` chạy mỗi 60 giây.
-- Mỗi lượt: recovery `PROCESSING` quá 10 phút → `FAILED`; claim các lịch `SCHEDULED` đến hạn; upload từng ảnh với `published=false`; gọi `/{page-id}/feed` với `message` + `attached_media`; lưu `externalPostId`, `publishedAt`.
-- Lỗi token 190 → Page `EXPIRED`, lịch `FAILED`, không retry.
+- Mỗi lượt: recovery `PROCESSING` quá 10 phút → `FAILED`; claim các lịch `SCHEDULED` đến hạn; gọi provider tương ứng (Facebook: upload ảnh + `/{page-id}/feed`; Threads: container + `threads_publish`); lưu `externalPostId`, `publishedAt`.
+- Lỗi token 190 → kênh `EXPIRED`, lịch `FAILED`, không retry.
 - Lỗi mạng/5xx/rate limit trước khi gửi feed → retry tối đa 3 lần (30s → 2 phút → 10 phút). Thời điểm thử lại lưu ở `retryAt`, giữ nguyên `scheduledAt` gốc.
 - Timeout sau khi đã gửi feed → `FAILED`, không tự retry để tránh đăng trùng.
-- Bài `FAILED`/`PUBLISHED` được đăng lại hoặc lên lịch trên Page chưa có lịch `SCHEDULED/PROCESSING/PUBLISHED` (thử lại Page lỗi, đăng thêm Page mới); chọn Page đã đăng/đang chờ → `409`.
+- Bài `FAILED`/`PUBLISHED` được đăng lại hoặc lên lịch trên kênh chưa có lịch `SCHEDULED/PROCESSING/PUBLISHED` (thử lại kênh lỗi, đăng thêm kênh mới); chọn kênh đã đăng/đang chờ → `409`.
 
 **Trạng thái Post:**
 
@@ -254,9 +263,9 @@ Mọi thành viên workspace được đăng/lên lịch bài ở trạng thái 
 
 ## 4.9. Chưa triển khai (Roadmap)
 
-1. **Kênh khác:** Instagram, TikTok, Zalo — kể cả chế độ giả lập (`ChannelType.SIMULATED`). Hiện không có endpoint nào tạo kênh ngoài Facebook.
+1. **Kênh khác:** Instagram, TikTok, Zalo — kể cả chế độ giả lập (`ChannelType.SIMULATED`). Hiện chỉ có Facebook/Threads.
 2. **Calendar nâng cao (UC14, UC37):** calendar tháng/tuần, kéo-thả đổi giờ, sửa lịch sau khi tạo.
-3. **Vòng đời token:** kiểm tra hạn token định kỳ, thông báo Owner, làm mới token tự động.
-4. **Uỷ quyền đăng bài:** dùng `WorkspaceMember.allowDirectPublish` nếu sau này muốn giới hạn Creator.
+3. **Vòng đời token:** tự làm mới token Facebook, thông báo Owner khi token sắp hết hạn.
+4. **Uỷ quyền đăng bài:** dùng `WorkspaceMember.allowDirectPublish` nếu sau này muốn giới hạn Creator (cột đang reserved, không trả API).
 5. **Bài đã đăng:** sửa/nhân bản/xoá bài `PUBLISHED`.
-6. **Video & Analytics:** đăng video, đồng bộ `PostMetric` từ Facebook.
+6. **Video:** đăng video; analytics đã có trong Dashboard.
