@@ -143,7 +143,6 @@ export const listMembers = async (workspaceId: string) => {
       email: member.user.email,
       avatar: member.user.avatar,
       role: member.role,
-      allowDirectPublish: member.allowDirectPublish,
       status: 'ACTIVE' as const,
       joinedAt: member.createdAt,
     })),

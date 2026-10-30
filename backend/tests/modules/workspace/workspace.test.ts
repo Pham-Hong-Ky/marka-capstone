@@ -103,6 +103,7 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.members).toHaveLength(1);
     expect(res.body.data.members[0].role).toBe('OWNER');
+    expect(res.body.data.members[0]).not.toHaveProperty('allowDirectPublish');
     expect(res.body.data.pendingInvites).toHaveLength(0);
   });
 

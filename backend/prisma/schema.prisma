@@ -213,6 +213,7 @@ model WorkspaceMember {
   workspaceId        String        @db.VarChar(36)
   userId             String        @db.VarChar(36)
   role               WorkspaceRole @default(CONTENT_CREATOR)
+  /// Reserved cho quyền đăng trực tiếp; chưa enforce và không trả ra API.
   allowDirectPublish Boolean       @default(false)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
