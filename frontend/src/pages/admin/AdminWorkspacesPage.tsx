@@ -101,15 +101,15 @@ export const AdminWorkspacesPage = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">Workspace</h2>
-        <p className="text-sm text-muted">
+        <h2 className="text-sm font-semibold text-foreground">Workspace</h2>
+        <p className="text-[13px] text-muted">
           Theo dõi danh sách workspace, gói dịch vụ và mức sử dụng credit trong hệ thống.
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-3">
         <TextField
           label="Tìm workspace"
           name="search"
@@ -141,7 +141,7 @@ export const AdminWorkspacesPage = () => {
         </label>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <DataTable
           columns={columns}
           rows={workspaces}

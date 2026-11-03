@@ -18,8 +18,8 @@ export const AI_IMAGE_STEPS = 8;
 export const AI_TEXT_MAX_OUTPUT_TOKENS = 4096;
 export const AI_TEXT_TEMPERATURE = 0.7;
 
-export const AI_BRAND_VOICE_EXAMPLE_LIMIT = 2;
-export const AI_BRAND_VOICE_EXAMPLE_MAX_LENGTH = 800;
+export const AI_BRAND_VOICE_EXAMPLE_LIMIT = 3;
+export const AI_BRAND_VOICE_EXAMPLE_MAX_LENGTH = 1200;
 
 export const isTextAiConfigured = (): boolean => Boolean(env.GEMINI_API_KEY);
 

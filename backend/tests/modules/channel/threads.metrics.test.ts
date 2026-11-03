@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { threadsProvider } from '../../../src/modules/channel/providers/threads.provider.js';
-import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/social-provider.js';
+import { threadsAdapter } from '../../../src/modules/channel/providers/threads/threads.adapter.js';
+import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/errors/social.errors.js';
 
 vi.hoisted(() => {
   process.env.THREADS_APP_ID = 'threads-app-id';
@@ -15,7 +15,7 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
-describe('ThreadsProvider.fetchMetrics', () => {
+describe('ThreadsAdapter.fetchMetrics', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -37,7 +37,7 @@ describe('ThreadsProvider.fetchMetrics', () => {
       )
     );
 
-    const metrics = await threadsProvider.fetchMetrics('threads-post-1', 'long-token');
+    const metrics = await threadsAdapter.fetchMetrics('threads-post-1', 'long-token');
 
     expect(metrics).toEqual({
       reactions: 42,
@@ -66,7 +66,7 @@ describe('ThreadsProvider.fetchMetrics', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    const metrics = await threadsProvider.fetchMetrics('threads-post-1', 'long-token');
+    const metrics = await threadsAdapter.fetchMetrics('threads-post-1', 'long-token');
 
     expect(metrics).toEqual({
       reactions: 5,
@@ -90,7 +90,7 @@ describe('ThreadsProvider.fetchMetrics', () => {
     );
 
     await expect(
-      threadsProvider.fetchMetrics('threads-post-1', 'long-token')
+      threadsAdapter.fetchMetrics('threads-post-1', 'long-token')
     ).rejects.toBeInstanceOf(SocialTokenExpiredError);
   });
 });

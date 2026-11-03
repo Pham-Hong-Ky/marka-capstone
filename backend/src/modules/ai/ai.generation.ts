@@ -4,6 +4,7 @@ import type {
   AiGenType,
   PostStatus,
   Prisma,
+  SocialPlatform,
   WorkspaceRole,
 } from '@prisma/client';
 import { NotFoundError } from '../../utils/errors/index.js';
@@ -167,7 +168,8 @@ export const createTextGeneration = async (
   tx: Prisma.TransactionClient,
   body: GenerateTextBody,
   context: StartGenerationContext,
-  brandVoice: unknown
+  brandVoice: unknown,
+  platforms: SocialPlatform[] = []
 ) => {
   if (body.postId) {
     await assertPostEditable(tx, body.postId, context);
@@ -177,6 +179,7 @@ export const createTextGeneration = async (
     topic: body.topic,
     instructions: body.instructions,
     brandVoice,
+    platforms,
   });
 
   return createPendingGeneration(tx, {

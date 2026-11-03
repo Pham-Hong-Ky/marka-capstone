@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import logger from '../../../src/utils/logger.js';
-import { facebookProvider } from '../../../src/modules/channel/providers/facebook.provider.js';
+import { facebookAdapter } from '../../../src/modules/channel/providers/facebook/facebook.adapter.js';
 import {
   SocialRateLimitError,
   SocialTransientError,
-} from '../../../src/modules/channel/providers/social-provider.js';
+} from '../../../src/modules/channel/providers/errors/social.errors.js';
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -18,14 +18,14 @@ const stubGraphError = (error: unknown, status: number) =>
 
 const capturedError = async (): Promise<Error> => {
   try {
-    await facebookProvider.fetchProfile('page-token');
+    await facebookAdapter.fetchProfile('page-token');
   } catch (error) {
     return error as Error;
   }
   throw new Error('Kỳ vọng fetchProfile ném lỗi');
 };
 
-describe('FacebookProvider — lỗi trả người dùng và log', () => {
+describe('FacebookAdapter — lỗi trả người dùng và log', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -48,10 +48,10 @@ describe('FacebookProvider — lỗi trả người dùng và log', () => {
   it('giữ message tiếng Việt riêng cho lỗi giới hạn tần suất', async () => {
     stubGraphError({ code: 4, message: 'Application request limit reached' }, 400);
 
-    await expect(facebookProvider.fetchProfile('page-token')).rejects.toBeInstanceOf(
+    await expect(facebookAdapter.fetchProfile('page-token')).rejects.toBeInstanceOf(
       SocialRateLimitError
     );
-    await expect(facebookProvider.fetchProfile('page-token')).rejects.toThrow(
+    await expect(facebookAdapter.fetchProfile('page-token')).rejects.toThrow(
       'Nền tảng đang giới hạn tần suất. Hệ thống sẽ thử lại sau.'
     );
   });
@@ -66,7 +66,7 @@ describe('FacebookProvider — lỗi trả người dùng và log', () => {
       )
     );
 
-    await expect(facebookProvider.fetchProfile(secret)).rejects.toBeInstanceOf(
+    await expect(facebookAdapter.fetchProfile(secret)).rejects.toBeInstanceOf(
       SocialTransientError
     );
 

@@ -32,6 +32,18 @@ export const createScheduleSchema = {
   body: createScheduleBodySchema,
 };
 
+export const rescheduleScheduleBodySchema = z.object({
+  scheduledAt: z.coerce.date().openapi({
+    example: '2026-10-24T09:00:00.000Z',
+    description: 'Thời điểm đăng mới',
+  }),
+});
+
+export const rescheduleScheduleSchema = {
+  params: scheduleIdParamSchema,
+  body: rescheduleScheduleBodySchema,
+};
+
 export const listSchedulesQuerySchema = z
   .object({
     status: z.nativeEnum(PublishStatus).optional(),
@@ -53,10 +65,13 @@ export const listSchedulesSchema = {
 export const scheduleIdSchema = { params: scheduleIdParamSchema };
 
 export type CreateScheduleBody = z.infer<typeof createScheduleBodySchema>;
+export type RescheduleScheduleBody = z.infer<typeof rescheduleScheduleBodySchema>;
 export type ListSchedulesQuery = z.infer<typeof listSchedulesQuerySchema>;
 
 export default {
   createScheduleSchema,
   listSchedulesSchema,
   scheduleIdSchema,
+  rescheduleScheduleSchema,
+  rescheduleScheduleBodySchema,
 };

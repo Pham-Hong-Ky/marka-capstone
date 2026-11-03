@@ -52,3 +52,15 @@ export const useSuspendUser = () => {
     },
   });
 };
+
+export const useSendTesterInvite = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => adminService.sendTesterInvite(userId),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.auditLogsRoot() });
+      toast.success(`Đã gửi email mời tester tới ${result.email}`);
+    },
+  });
+};

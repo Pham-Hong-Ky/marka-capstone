@@ -3,8 +3,8 @@ import request from 'supertest';
 import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
 import { encrypt } from '../../../src/utils/encryption.js';
-import { facebookProvider } from '../../../src/modules/channel/providers/facebook.provider.js';
-import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/social-provider.js';
+import { facebookAdapter } from '../../../src/modules/channel/providers/facebook/facebook.adapter.js';
+import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/errors/social.errors.js';
 
 const password = 'password123';
 const content = {
@@ -114,7 +114,7 @@ describe('Hồ sơ kênh — chi tiết, đổi tên nội bộ, làm mới từ
   });
 
   it('làm mới tên và avatar từ Facebook', async () => {
-    vi.spyOn(facebookProvider, 'fetchProfile').mockResolvedValue({
+    vi.spyOn(facebookAdapter, 'fetchProfile').mockResolvedValue({
       id: pageId,
       name: 'Page sau khi làm mới',
       avatar: 'https://platform-lookaside.fbsbx.com/avatar.png',
@@ -133,7 +133,7 @@ describe('Hồ sơ kênh — chi tiết, đổi tên nội bộ, làm mới từ
   });
 
   it('đánh dấu kênh hết hạn khi token bị thu hồi', async () => {
-    vi.spyOn(facebookProvider, 'fetchProfile').mockRejectedValue(new SocialTokenExpiredError());
+    vi.spyOn(facebookAdapter, 'fetchProfile').mockRejectedValue(new SocialTokenExpiredError());
 
     const res = await request(app)
       .post(`/api/v1/workspaces/${wsId}/channels/${channelId}/refresh`)

@@ -1,6 +1,6 @@
 # Project Overview — Marka
 
-> Nền tảng quản lý nội dung mạng xã hội cho marketer Việt Nam: soạn bài, duyệt bài theo workspace, quản lý Brand Voice và kết nối Facebook Page.
+> Nền tảng quản lý nội dung mạng xã hội cho marketer Việt Nam: soạn bài, duyệt bài theo workspace, quản lý Brand Voice và kết nối Facebook Page/Threads.
 >
 > **Tài liệu này phản ánh code hiện tại.** Trạng thái từng tính năng được ghi rõ: ✅ đã triển khai, 🟡 một phần, ⛔ chưa triển khai (Roadmap).
 
@@ -39,7 +39,7 @@ Quy tắc:
 
 - Vai trò gắn theo cặp `(user, workspace)`; một user có thể là Owner ở workspace A và Creator ở workspace B.
 - Không thể rời/xoá/hạ vai trò **Owner cuối cùng** của workspace.
-- `SYSTEM_ADMIN` không có quyền sửa nội dung qua UI admin vì chưa có admin API; nếu gọi API workspace hợp lệ thì được xử lý như Owner (theo middleware hiện tại).
+- `SYSTEM_ADMIN` dùng UI `/admin` để quản trị user/workspace/audit; UI này không sửa nội dung. Nếu gọi API workspace hợp lệ thì được xử lý như Owner (theo middleware hiện tại).
 
 ---
 
@@ -52,7 +52,7 @@ Quy tắc:
 - Đăng nhập Google qua `idToken` (chỉ nhận email đã xác minh).
 - Đăng xuất, làm mới access token.
 - Đổi mật khẩu; đăng xuất mọi thiết bị bằng `User.tokenVersion`.
-- Xem/cập nhật hồ sơ (tên, avatar URL).
+- Xem/cập nhật hồ sơ (tên, avatar URL, link Facebook/Threads).
 - Rate limit: 15 request/15 phút cho auth; 5 lần sai/15 phút cho login theo `IP:email`.
 - Refresh token nằm trong cookie HttpOnly; không lưu DB.
 
@@ -84,16 +84,16 @@ Quy tắc:
 ### 3.3.1. Trợ lý AI cho bài viết ✅
 
 - Panel “Trợ lý AI” trong editor bài viết; mọi thành viên workspace dùng được.
-- Sinh tiêu đề + nội dung từ chủ đề, tự động dùng Brand Voice; kết quả điền thẳng vào editor (khoá editor trong lúc chờ).
+- Sinh tiêu đề + nội dung từ chủ đề, tự động dùng Brand Voice; người dùng chọn kênh đăng bài để AI bám giới hạn ký tự/hashtag/emoji và văn phong từng kênh; kết quả điền thẳng vào editor (khoá editor trong lúc chờ).
 - Sinh 1 ảnh minh hoạ từ tiêu đề/nội dung/ghi chú; ảnh lưu Cloudinary và gắn vào bài với `source = AI_GENERATED`.
 - Bài mới chưa lưu: tự tạo nháp trong cùng transaction với trừ credit + tạo job.
 - Chạy nền qua `content-generation-queue`; frontend poll trạng thái 2 giây/lần.
 - Trừ **10 credit** cho nội dung, **20 credit** cho ảnh; hoàn credit nếu job thất bại hẳn.
 - Provider: Gemini (text), Cloudflare Workers AI Flux Schnell (ảnh).
 
-**Chưa có:** Viral Score, sinh lại theo góp ý, nhiều ảnh/lần, chọn tỉ lệ/style, lịch sử AI có UI, sweeper job kẹt.
+**Chưa có:** Viral Score, sinh lại theo góp ý, nhiều ảnh/lần, chọn tỉ lệ/style, lịch sử AI có UI.
 
-### 3.4. Kênh & Facebook OAuth ✅
+### 3.4. Kênh, Facebook & Threads ✅
 
 - Xem danh sách kênh đã kết nối (không trả token).
 - Kết nối Facebook Page thật qua OAuth redirect:
@@ -101,21 +101,24 @@ Quy tắc:
   - callback đổi code → long-lived token → danh sách Page;
   - mã hoá Page token bằng AES-256-GCM;
   - chọn Page để lưu vào `ChannelConnection`.
+- Kết nối Threads qua OAuth (single-account): đổi code → long-lived token → lưu tài khoản ngay, không có màn chọn Page.
+- Mã hoá token kênh bằng AES-256-GCM; Threads tự gia hạn token qua `channel-maintenance-queue`, Facebook chưa tự gia hạn.
 - Ngắt kết nối kênh; huỷ các `ScheduledPost` đang `SCHEDULED` của kênh.
 - Chỉ `OWNER` được kết nối/ngắt kênh.
-- Đăng ngay hoặc lên lịch bài `APPROVED` lên nhiều Facebook Page (tối đa 10 Page/lần).
-- Worker `schedule-queue` tự đăng đúng giờ: upload ảnh, gọi Graph API, lưu `externalPostId`, retry khi lỗi tạm thời.
-- Chỉnh sửa trạng thái từng Page, huỷ lịch đang chờ, xem danh sách ở trang `/schedule`.
+- Đăng ngay hoặc lên lịch bài `APPROVED` lên nhiều kênh: Facebook tối đa 10 ảnh, Threads tối đa 20 ảnh/500 ký tự.
+- Worker `schedule-queue` tự đăng đúng giờ: upload ảnh, gọi provider tương ứng, lưu `externalPostId`, retry khi lỗi tạm thời.
+- Chỉnh sửa trạng thái từng kênh, huỷ lịch đang chờ, đổi giờ đăng, xem danh sách ở trang `/schedule`; kéo-thả lịch sang ngày khác trên calendar.
 - Mọi thành viên workspace được đăng/lên lịch bài đã duyệt.
 
-**Chưa có:** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả, sửa giờ sau khi tạo, video, làm mới token tự động.
+**Chưa có:** Instagram/TikTok/Zalo (kể cả giả lập), kéo-thả theo khung giờ, video, làm mới token Facebook tự động.
 
 ### 3.5. Bài viết, media & duyệt bài ✅
 
 - Tạo bài nháp (`DRAFT`), nội dung JSON rich-text.
 - Danh sách bài viết có phân trang, tìm theo tiêu đề, lọc trạng thái/người tạo/khoảng ngày, lọc `taskStatus` và người nhận việc (`assigneeId=me`).
 - Xem chi tiết bài kèm media.
-- Giao việc (UC42/UC43): Owner giao/đổi người nhận + hạn chót; người nhận hoặc Owner cập nhật `taskStatus` (`TODO`/`IN_PROGRESS`/`DONE`/`CANCELLED`); notification + audit khi giao/đổi trạng thái.
+- Giao việc (UC42/UC43) + bảng công việc `/tasks`: Owner giao/đổi người nhận, hạn chót, ưu tiên; người nhận hoặc Owner cập nhật `taskStatus` (`TODO`/`IN_PROGRESS`/`DONE`/`CANCELLED`); notification + audit khi giao/đổi trạng thái. Giao việc từ bài viết và từ Kanban dùng chung một bản ghi `Task` nên luôn đồng bộ hai chiều.
+- Job nhắc hạn gửi `TASK_DUE_SOON` và `TASK_OVERDUE`, không gửi trùng khi chạy lại.
 - Sửa/xoá bài: `OWNER` sửa/xoá mọi bài; người tạo sửa/xoá bài của mình khi `DRAFT`/`REJECTED`. Xoá bài tự huỷ các `ScheduledPost` đang `SCHEDULED` và ghi audit `POST_DELETED`.
 - Upload ảnh JPG/PNG/WEBP ≤ 10MB qua Cloudinary; xoá mềm ảnh.
 - Ảnh AI tạo bởi trợ lý cũng là `MediaAsset` (`source = AI_GENERATED`) và hiển thị chung mục ảnh đính kèm.
@@ -124,7 +127,7 @@ Quy tắc:
 - Ghi notification in-app cho Owner (khi gửi duyệt) và tác giả (khi duyệt/từ chối).
 - Ghi audit log cho submit/approve/reject.
 
-**Chưa có:** lưu nháp tự động, template, campaign tag (cột có trong schema nhưng API chưa nhận), lịch sử phiên bản, bình luận, archive.
+**Chưa có:** lưu nháp tự động lên server (frontend chỉ lưu tạm localStorage), template, campaign tag (cột có trong schema nhưng API chưa nhận), lịch sử phiên bản, bình luận, archive.
 
 ### 3.6. Email ✅
 
@@ -138,7 +141,8 @@ Quy tắc:
 
 - Bảng `Notification` được ghi khi:
   - thành viên mới tham gia workspace (`MEMBER_JOINED`, gửi các Owner còn lại);
-  - bài được gửi duyệt / được duyệt / bị từ chối.
+  - bài được gửi duyệt / được duyệt / bị từ chối;
+  - công việc được giao, đổi trạng thái, sắp đến hạn hoặc quá hạn (`TASK_ASSIGNED`, `TASK_STATUS_CHANGED`, `TASK_DUE_SOON`, `TASK_OVERDUE`).
 - API hộp thư của chính người dùng: `GET /users/me/notifications` (phân trang, lọc `isRead`, `workspaceId`), `GET .../unread-count`, `PATCH .../:id/read`, `PATCH .../read-all`.
 - Chuông trên header hiển thị số chưa đọc, poll 30 giây, bấm thông báo mở đúng bài viết.
 
@@ -147,8 +151,8 @@ Quy tắc:
 - Audit log cho các hành động auth, workspace, member, Brand Voice, kênh, duyệt/giao việc bài, billing, quản trị user.
 - API đọc audit log: `GET /admin/audit-logs` (System Admin) và `GET /workspaces/:workspaceId/audit-logs` (Owner), có lọc actor/action/target/thời gian + phân trang.
 - `GET /health` kiểm tra PostgreSQL + Redis.
-- BullMQ có 3 queue (`content-generation-queue`, `schedule-queue`, `email-queue`); `scheduleWorker` đăng bài thật, `contentWorker` sinh AI thật, `email` vẫn là worker khung. Billing không dùng queue.
-- Soft delete bằng Prisma Client Extension cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset`.
+- BullMQ có 5 queue: `content-generation-queue`, `schedule-queue`, `analytics-queue`, `channel-maintenance-queue`, `task-reminder-queue`. Các worker tương ứng xử lý AI, đăng bài, đồng bộ metrics, gia hạn token kênh và nhắc hạn công việc. Billing không dùng queue.
+- Soft delete bằng Prisma Client Extension cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset`, `User`, `ChannelConnection`, `Task`.
 - Log Winston + requestId, morgan; helmet, CORS theo `CLIENT_URL`, rate limit, HTTPS ở production.
 
 ### 3.9. Nạp credit & PayOS ✅
@@ -170,23 +174,28 @@ Quy tắc:
 - `GET /admin/stats`: user (tổng/hoạt động/bị khoá/admin), workspace, bài theo trạng thái, kênh, đơn PAID + doanh thu 30 ngày.
 - `GET /admin/users`: tìm theo email/tên, lọc `systemRole`/`isSuspended`, phân trang; không trả `passwordHash`.
 - `PATCH /admin/users/:userId/suspend`: khoá/mở khoá, tăng `tokenVersion` để đá phiên, chặn tự khoá, ghi audit.
+- `POST /admin/users/:userId/tester-invite`: gửi email hướng dẫn tham gia Facebook Tester, ghi audit.
 - `GET /admin/workspaces`: tìm/lọc `plan`, `includeDeleted`, kèm số thành viên/bài.
 - `GET /admin/audit-logs` cho System Admin và `GET /workspaces/:workspaceId/audit-logs` cho Owner.
 
-**Chưa có:** frontend `/admin`, đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo.
+- Frontend `/admin`: tổng quan, người dùng, workspace, audit log; menu chỉ hiện với `SYSTEM_ADMIN`. Trang người dùng có liên kết Facebook/Threads và thao tác gửi email mời tester.
+
+**Chưa có:** đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo.
 
 ---
 
 ## 4. Chưa triển khai (Roadmap)
 
-Các phần dưới đây **không có** trong `backend/src/modules` hay `frontend/src/pages` (ngoài trang placeholder):
+Các phần dưới đây **không có** trong code hiện tại:
 
 | Nhóm | Nội dung | Dấu vết hiện có |
 | :--- | :--- | :--- |
-| Calendar nâng cao | Kéo-thả đổi giờ, sửa lịch sau khi tạo | Đăng ngay/lên lịch/huỷ lịch cơ bản đã có; calendar nâng cao là Roadmap |
-| Analytics | Đồng bộ metrics Facebook, biểu đồ | bảng `post_metrics`; chưa có service, không có n8n |
+| Calendar nâng cao | Kéo-thả theo khung giờ (đổi ngày và modal đổi giờ đã có) | Trang `/schedule` hỗ trợ kéo-thả sang ngày khác + nút Đổi lịch |
+| Kênh mở rộng | Instagram/TikTok/Zalo, đăng video | Adapter Facebook/Threads đã có |
+| AI nâng cao | Viral Score, sinh lại theo góp ý, nhiều ảnh/lần | Trợ lý AI text + 1 ảnh đã có |
+| Vận hành | Email queue, retention Notification/AuditLog/Order | Email đang gửi đồng bộ trong request |
 
-Frontend hiện có các trang placeholder: `/ai`, `/publishing`.
+Frontend không còn trang placeholder; `/ai` chuyển về editor, `/publishing` chuyển về `/schedule`.
 
 ---
 
@@ -197,10 +206,10 @@ Frontend hiện có các trang placeholder: `/ai`, `/publishing`.
 | Frontend | React 19, Vite, TypeScript, Tailwind CSS v4, React Router, React Query, Zustand, react-hook-form + Zod |
 | Backend | Node.js, TypeScript ESM, Express 4, Zod |
 | Database | PostgreSQL + Prisma 5 |
-| Cache/Queue | Redis + BullMQ (`scheduleWorker`, `contentWorker` thật; `email` khung; billing không dùng queue) |
+| Cache/Queue | Redis + BullMQ (5 queue: content, schedule, analytics, channel-maintenance, task-reminder) |
 | Email | Resend |
 | Ảnh | Cloudinary |
-| Facebook | Graph API v21.0, OAuth redirect |
+| Kênh | Facebook Graph API v21.0 + Threads API, OAuth redirect, provider registry |
 | Test | Vitest + Supertest (DB thật) |
 
 Luồng chuẩn: `route → middleware (auth/validate) → controller → service → repository → Prisma`.
@@ -214,7 +223,7 @@ Chi tiết: [`architecture.md`](./architecture.md), [`class-diagram.md`](./class
 - JWT access token ngắn hạn (mặc định 15 phút); refresh token 7 ngày trong cookie HttpOnly, `SameSite=None; Secure` ở production.
 - Thu hồi phiên bằng `tokenVersion` (logout, đổi mật khẩu, token cũ bị dùng lại).
 - Mật khẩu bcrypt; không trả `passwordHash` ra API.
-- Page token Facebook mã hoá AES-256-GCM.
+- Token Facebook/Threads mã hoá AES-256-GCM.
 - `requireWorkspaceRole` chặn truy cập chéo workspace và chặn lệch `x-workspace-id` với URL.
 - Rate limit toàn API + auth + login.
 - Helmet, CORS theo `CLIENT_URL`, HTTPS redirect ở production.
@@ -225,7 +234,7 @@ Chi tiết: [`architecture.md`](./architecture.md), [`class-diagram.md`](./class
 ## 7. Quy ước dữ liệu & vận hành
 
 - **UTC** toàn hệ thống; API trả ISO-8601.
-- **Soft delete** cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset`, tự lọc `deletedAt: null` ở tầng Prisma.
+- **Soft delete** cho `Workspace`, `Post`, `CreditPackage`, `MediaAsset`, `User`, `ChannelConnection`, `Task`; tự lọc `deletedAt: null` ở tầng Prisma.
 - **Response envelope**: `{ status, message, data?, meta? }`; lỗi 4xx = `fail`, 5xx = `error`.
 - **Phân trang**: dữ liệu trong `data`, thông tin trang trong `meta` (`page`, `limit`, `total`, `totalPages`).
 - **Worker**: `ENABLE_WORKERS=true` chạy cùng API; production có thể đặt `false` và chạy `npm run worker`.
@@ -239,7 +248,7 @@ Chi tiết: [`architecture.md`](./architecture.md), [`class-diagram.md`](./class
 | [`architecture.md`](./architecture.md) | Kiến trúc, middleware, auth, transaction, tích hợp ngoài |
 | [`api_documentation.md`](./api_documentation.md) | Toàn bộ endpoint thật, request/response/lỗi |
 | [`class-diagram.md`](./class-diagram.md) | Sơ đồ lớp theo module + hướng dẫn render |
-| [`database_design.md`](./database_design.md) | Thiết kế 15 bảng |
+| [`database_design.md`](./database_design.md) | Thiết kế 16 bảng |
 | [`database_spec.md`](./database_spec.md) | Đặc tả chi tiết cột/ràng buộc |
 | [`schema.dbml`](./schema.dbml) | DBML để render ERD |
 | [`function_layer_mapping.md`](./function_layer_mapping.md) | Sequence diagram theo UC đã code |

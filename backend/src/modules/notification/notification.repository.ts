@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/db.js';
 
 export const createNotification = async (data: {
@@ -65,24 +65,28 @@ export const markAllNotificationsRead = async (userId: string, workspaceId?: str
   });
 };
 
-export const hasTaskReminder = async (params: {
+export interface TaskReminderKey {
   userId: string;
   type: string;
   taskId: string;
-  dueAt: Date;
-}) => {
-  const count = await prisma.notification.count({
-    where: {
-      userId: params.userId,
-      type: params.type,
-      AND: [
-        { payload: { path: ['taskId'], equals: params.taskId } },
-        { payload: { path: ['dueAt'], equals: params.dueAt.toISOString() } },
-      ],
-    },
-  });
+  dueAt: string;
+}
 
-  return count > 0;
+// Một query cho cả lượt nhắc thay vì mỗi task một count (N+1).
+export const findTaskReminderKeys = async (params: {
+  userIds: string[];
+  taskIds: string[];
+  types: string[];
+}): Promise<TaskReminderKey[]> => {
+  if (params.userIds.length === 0 || params.taskIds.length === 0) return [];
+
+  return prisma.$queryRaw<TaskReminderKey[]>`
+    SELECT "userId", "type", payload->>'taskId' AS "taskId", payload->>'dueAt' AS "dueAt"
+    FROM "notifications"
+    WHERE "type" IN (${Prisma.join(params.types)})
+      AND "userId" IN (${Prisma.join(params.userIds)})
+      AND payload->>'taskId' IN (${Prisma.join(params.taskIds)})
+  `;
 };
 
 export default {
@@ -91,5 +95,5 @@ export default {
   countUnread,
   markNotificationRead,
   markAllNotificationsRead,
-  hasTaskReminder,
+  findTaskReminderKeys,
 };

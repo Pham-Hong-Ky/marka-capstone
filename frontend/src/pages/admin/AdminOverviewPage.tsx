@@ -1,8 +1,8 @@
 import AdminStatusBreakdown from '@/components/features/admin/AdminStatusBreakdown';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
+import MetricStrip from '@/components/ui/MetricStrip';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
-import StatCard from '@/components/ui/StatCard';
 import { useAdminStats } from '@/hooks/useAdmin';
 import { getErrorMessage } from '@/utils/error';
 import { formatNumber } from '@/utils/format';
@@ -43,35 +43,42 @@ export const AdminOverviewPage = () => {
   const { users, workspaces, posts, channels, billing } = data;
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Người dùng"
-          value={formatNumber(users.total)}
-          hint={`${formatNumber(users.active)} hoạt động · ${formatNumber(users.suspended)} bị khoá · ${formatNumber(users.createdLast30Days)} mới trong 30 ngày`}
-        />
-        <StatCard
-          label="Admin"
-          value={formatNumber(users.admins)}
-          hint="Có quyền quản trị hệ thống"
-        />
-        <StatCard
-          label="Workspace"
-          value={formatNumber(workspaces.total)}
-          hint={`${formatNumber(workspaces.createdLast30Days)} mới trong 30 ngày`}
-        />
-        <StatCard label="Bài viết" value={formatNumber(posts.total)} />
-      </div>
+    <div className="space-y-4">
+      <MetricStrip
+        items={[
+          {
+            label: 'Người dùng',
+            value: formatNumber(users.total),
+            hint: `${formatNumber(users.active)} hoạt động · ${formatNumber(users.suspended)} bị khoá · ${formatNumber(users.createdLast30Days)} mới trong 30 ngày`,
+          },
+          {
+            label: 'Admin',
+            value: formatNumber(users.admins),
+            hint: 'Có quyền quản trị hệ thống',
+          },
+          {
+            label: 'Workspace',
+            value: formatNumber(workspaces.total),
+            hint: `${formatNumber(workspaces.createdLast30Days)} mới trong 30 ngày`,
+          },
+          {
+            label: 'Bài viết',
+            value: formatNumber(posts.total),
+          },
+        ]}
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Kênh hoạt động" value={formatNumber(channels.ACTIVE)} />
-        <StatCard label="Kênh hết hạn" value={formatNumber(channels.EXPIRED)} />
-        <StatCard label="Đơn PAID 30 ngày" value={formatNumber(billing.paidOrdersLast30Days)} />
-        <StatCard
-          label="Doanh thu 30 ngày"
-          value={`${formatNumber(billing.revenueLast30Days)} đ`}
-        />
-      </div>
+      <MetricStrip
+        items={[
+          { label: 'Kênh hoạt động', value: formatNumber(channels.ACTIVE) },
+          { label: 'Kênh hết hạn', value: formatNumber(channels.EXPIRED) },
+          { label: 'Đơn PAID 30 ngày', value: formatNumber(billing.paidOrdersLast30Days) },
+          {
+            label: 'Doanh thu 30 ngày',
+            value: `${formatNumber(billing.revenueLast30Days)} đ`,
+          },
+        ]}
+      />
 
       <AdminStatusBreakdown byStatus={posts.byStatus} />
     </div>

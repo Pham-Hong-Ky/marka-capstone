@@ -109,45 +109,42 @@ export const PostAIImageGenerator = ({
   const inputsDisabled = disabled || isImageBusy;
 
   return (
-    <div className="space-y-2 border-t border-border pt-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-        <div className="sm:flex-1">
-          <TextField
-            label="Tạo ảnh bằng AI"
-            name="ai-image-prompt"
-            maxLength={500}
-            placeholder="Ghi chú tuỳ chọn, ví dụ: tối giản, ánh sáng tự nhiên"
-            value={imagePrompt}
-            disabled={inputsDisabled}
-            onChange={(event) => setImagePrompt(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') event.preventDefault();
-            }}
-          />
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleImage}
-          isLoading={isImageBusy}
-          disabled={inputsDisabled || hasPendingImages}
-        >
-          <Sparkles className="h-4 w-4 text-accent-text" aria-hidden="true" />
-          Tạo ảnh
-        </Button>
-      </div>
-      <p className="text-xs text-subtle">
+    <div className="space-y-2">
+      <TextField
+        label="Tạo ảnh bằng AI"
+        name="ai-image-prompt"
+        maxLength={500}
+        placeholder="Ghi chú tuỳ chọn, ví dụ: tối giản, ánh sáng tự nhiên"
+        value={imagePrompt}
+        disabled={inputsDisabled}
+        onChange={(event) => setImagePrompt(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.preventDefault();
+        }}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        onClick={handleImage}
+        isLoading={isImageBusy}
+        disabled={inputsDisabled || hasPendingImages}
+      >
+        <Sparkles className="h-4 w-4 text-accent-text" aria-hidden="true" />
+        Tạo ảnh
+      </Button>
+      <p className="text-[11px] text-subtle">
         {hasPendingImages
           ? 'Có ảnh đang chờ tải lên. Hãy lưu bài trước khi tạo ảnh AI.'
           : 'Dựa trên tiêu đề và nội dung đã lưu; bài mới sẽ được lưu nháp trước. 20 credit mỗi lần.'}
       </p>
       {isImageBusy ? (
-        <p role="status" className="text-xs text-muted">
+        <p role="status" className="text-[11px] text-muted">
           Đang tạo ảnh... Có thể mất vài giây.
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="text-[13px] text-danger">
           {error}
         </p>
       ) : null}

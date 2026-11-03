@@ -240,11 +240,14 @@ Yêu cầu `requireAuth`.
 | :--- | :--- |
 | `name` | 2–100 ký tự, tuỳ chọn |
 | `avatar` | URL hợp lệ hoặc `null` (xoá avatar), tuỳ chọn |
+| `facebookUrl` | URL `http`/`https` hoặc `null`, tối đa 2048 ký tự, tuỳ chọn |
+| `threadsUrl` | URL `http`/`https` hoặc `null`, tối đa 2048 ký tự, tuỳ chọn |
 
 - **Không có upload avatar**: `avatar` là URL do client cung cấp, không đi qua Cloudinary.
 - Cả hai field đều tuỳ chọn; body rỗng vẫn hợp lệ (không có ràng buộc "ít nhất một field").
 - Ghi audit `USER_UPDATE_PROFILE`.
-- Response `200` trả subset: `{ id, email, name, avatar, systemRole, emailVerified, updatedAt }` — **không kèm `workspaces`**.
+- Response `200` trả subset: `{ id, email, name, avatar, facebookUrl, threadsUrl, systemRole, emailVerified, updatedAt }` — **không kèm `workspaces`**.
+- `facebookUrl`/`threadsUrl` là liên kết công khai người dùng tự nhập (Admin dùng để liên hệ mời thử nghiệm); không phải token kênh.
 
 ---
 
@@ -336,7 +339,7 @@ Yêu cầu `requireAuth` + là thành viên (không giới hạn vai trò).
   "message": "Lấy danh sách thành viên thành công",
   "data": {
     "members": [
-      { "memberId": "uuid", "userId": "uuid", "name": "Nguyễn Văn A", "email": "user@marka.vn", "avatar": null, "role": "OWNER", "allowDirectPublish": true, "status": "ACTIVE", "joinedAt": "2026-10-20T12:00:00.000Z" }
+      { "memberId": "uuid", "userId": "uuid", "name": "Nguyễn Văn A", "email": "user@marka.vn", "avatar": null, "role": "OWNER", "status": "ACTIVE", "joinedAt": "2026-10-20T12:00:00.000Z" }
     ],
     "pendingInvites": [
       { "inviteId": "uuid", "email": "member@marka.vn", "role": "CONTENT_CREATOR", "status": "PENDING", "invitedAt": "2026-10-20T12:00:00.000Z", "expiresAt": "2026-10-27T12:00:00.000Z" }
@@ -344,6 +347,8 @@ Yêu cầu `requireAuth` + là thành viên (không giới hạn vai trò).
   }
 }
 ```
+
+`WorkspaceMember.allowDirectPublish` là cột reserved trong DB, **không có trong response** và chưa được dùng để phân quyền.
 
 - `members` sắp xếp theo ngày tham gia tăng dần; `status` luôn là `"ACTIVE"` (giá trị cố định, không lưu DB).
 - `pendingInvites` chỉ gồm lời mời `isUsed = false` và còn hạn, mới nhất trước.
@@ -484,7 +489,7 @@ Luồng chưa đăng nhập: frontend nhận `requiresRegistration` → chuyển
 | `MEMBER_JOINED` | Chấp nhận lời mời | `WorkspaceMember` |
 | `MEMBER_LEFT` / `MEMBER_REMOVED` / `MEMBER_ROLE_CHANGED` | Rời/xoá/đổi vai trò | `WorkspaceMember` |
 
-Chưa có endpoint đọc audit log (xem [07](./07-admin-analytics.md)).
+Đọc audit log qua `GET /admin/audit-logs` (SYSTEM_ADMIN) hoặc `GET /workspaces/:workspaceId/audit-logs` (OWNER) — xem [07](./07-admin-analytics.md).
 
 ---
 

@@ -71,6 +71,20 @@ describe('Task assignment & status (UC42, UC43)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ status });
 
+  const createPost = async (title = 'Bài viết đồng bộ') => {
+    const res = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ title, content: { type: 'doc', content: [] } });
+    return res.body.data;
+  };
+
+  const linkPost = async (taskId: string, postId: string | null) =>
+    request(app)
+      .patch(`/api/v1/workspaces/${wsId}/tasks/${taskId}/post`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ postId });
+
   const getBoard = async (token = ownerToken) =>
     request(app)
       .get(`/api/v1/workspaces/${wsId}/tasks/board`)
@@ -227,5 +241,24 @@ describe('Task assignment & status (UC42, UC43)', () => {
       where: { userId: creatorAId, type: 'TASK_STATUS_CHANGED' },
     });
     expect(notification).not.toBeNull();
+  });
+
+  it('gắn việc vào bài và đổi trạng thái → bài viết đồng bộ theo', async () => {
+    const post = await createPost();
+    const task = await createTask({ assigneeId: creatorAId });
+
+    const linked = await linkPost(task.id, post.id);
+    expect(linked.status).toBe(200);
+
+    let savedPost = await prisma.post.findUnique({ where: { id: post.id } });
+    expect(savedPost).toMatchObject({ assigneeId: creatorAId, taskStatus: 'TODO' });
+
+    await updateStatus(task.id, 'DONE', creatorAToken);
+    savedPost = await prisma.post.findUnique({ where: { id: post.id } });
+    expect(savedPost?.taskStatus).toBe('DONE');
+
+    await assign(task.id, null);
+    savedPost = await prisma.post.findUnique({ where: { id: post.id } });
+    expect(savedPost).toMatchObject({ assigneeId: null, taskStatus: 'TODO' });
   });
 });

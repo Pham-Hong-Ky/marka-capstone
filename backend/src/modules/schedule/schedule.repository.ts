@@ -161,8 +161,42 @@ export const listSchedulesAndCount = async (params: ListSchedulesParams) => {
 export const findScheduleInWorkspace = async (scheduleId: string, workspaceId: string) =>
   prisma.scheduledPost.findFirst({
     where: { id: scheduleId, channel: { workspaceId } },
-    select: { id: true, postId: true, status: true, post: { select: { createdById: true } } },
+    select: {
+      id: true,
+      postId: true,
+      status: true,
+      scheduledAt: true,
+      post: { select: { createdById: true } },
+    },
   });
+
+export const updateScheduleTime = async (
+  scheduleId: string,
+  workspaceId: string,
+  scheduledAt: Date
+) => {
+  const { count } = await prisma.scheduledPost.updateMany({
+    where: {
+      id: scheduleId,
+      channel: { workspaceId },
+      status: 'SCHEDULED',
+      scheduledAt: { not: null },
+    },
+    // Đổi lịch đưa lịch về trạng thái chờ đăng sạch, bỏ mốc retry cũ.
+    data: { scheduledAt, retryAt: null, errorMessage: null },
+  });
+
+  if (count === 0) return { outcome: 'not_reschedulable' as const };
+
+  const schedule = await prisma.scheduledPost.findFirst({
+    where: { id: scheduleId, channel: { workspaceId } },
+    select: SCHEDULE_PUBLIC_SELECT,
+  });
+
+  return schedule
+    ? { outcome: 'updated' as const, schedule }
+    : { outcome: 'not_found' as const };
+};
 
 export const cancelSchedule = async (scheduleId: string, workspaceId: string) =>
   prisma.$transaction(async (tx) => {
@@ -357,6 +391,7 @@ export default {
   createSchedulesForPost,
   listSchedulesAndCount,
   findScheduleInWorkspace,
+  updateScheduleTime,
   cancelSchedule,
   findDueScheduleIds,
   claimSchedule,

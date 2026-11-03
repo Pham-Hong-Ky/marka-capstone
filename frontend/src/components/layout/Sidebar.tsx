@@ -16,8 +16,8 @@ export const Sidebar = ({
   return (
     <aside
       className={cn(
-        'hidden shrink-0 flex-col border-r border-border bg-sidebar transition-[width] duration-200 lg:sticky lg:top-0 lg:h-screen lg:flex',
-        collapsed ? 'w-[72px]' : 'w-64'
+        'hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 lg:sticky lg:top-0 lg:h-screen lg:flex',
+        collapsed ? 'w-[68px]' : 'w-[236px]'
       )}
     >
       <SidebarContent

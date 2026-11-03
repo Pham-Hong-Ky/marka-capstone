@@ -4,6 +4,7 @@ import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
+import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
 import TaskAssignModal from '@/components/features/task/TaskAssignModal';
@@ -153,7 +154,7 @@ export const TasksPage = () => {
   const showUnassigned = canManage && !mine;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <PageContainer width="wide">
       <PageHeader
         title="Công việc"
         description="Theo dõi việc của nhóm theo 4 cột. P1 là ưu tiên cao nhất, P5 là thấp nhất."
@@ -191,7 +192,7 @@ export const TasksPage = () => {
       ) : null}
 
       {isLoading ? (
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: showUnassigned ? 4 : 3 }, (_, index) => (
             <SkeletonBlock key={index} className="h-64" />
           ))}
@@ -324,7 +325,7 @@ export const TasksPage = () => {
           );
         }}
       />
-    </div>
+    </PageContainer>
   );
 };
 

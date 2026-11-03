@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2 } from 'lucide-react';
@@ -52,6 +53,7 @@ export const BrandVoiceForm = ({
     register,
     control,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<BrandVoiceFormValues>({
     resolver: zodResolver(brandVoiceFormSchema),
@@ -59,19 +61,23 @@ export const BrandVoiceForm = ({
   });
   const { fields, append, remove } = useFieldArray({ control, name: 'fewShotExamples' });
 
+  useEffect(() => {
+    reset(toFormValues(brandVoice));
+  }, [brandVoice, reset]);
+
   const onSubmit = (values: BrandVoiceFormValues) =>
     updateBrandVoice.mutate({ workspaceId, payload: toPayload(values) });
 
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="space-y-6 rounded-2xl border border-border bg-surface p-6"
+      className="space-y-5 rounded-xl border border-border bg-surface p-5"
     >
       <fieldset disabled={!canEdit} className="space-y-6">
         <div className="space-y-4">
           <div>
-            <h2 className="text-base font-semibold text-foreground">Thông tin thương hiệu</h2>
-            <p className="mt-0.5 text-sm text-muted">
+            <h2 className="text-sm font-semibold text-foreground">Thông tin thương hiệu</h2>
+            <p className="mt-0.5 text-[13px] text-muted">
               Ngữ cảnh để AI viết đúng giọng của workspace.
             </p>
           </div>
@@ -102,8 +108,8 @@ export const BrandVoiceForm = ({
 
         <div className="space-y-4 border-t border-border pt-6">
           <div>
-            <h2 className="text-base font-semibold text-foreground">Từ khoá</h2>
-            <p className="mt-0.5 text-sm text-muted">
+            <h2 className="text-sm font-semibold text-foreground">Từ khoá</h2>
+            <p className="mt-0.5 text-[13px] text-muted">
               Phân tách các từ khoá bằng dấu phẩy, tối đa 30 từ khoá mỗi nhóm.
             </p>
           </div>
@@ -128,8 +134,8 @@ export const BrandVoiceForm = ({
         <div className="space-y-4 border-t border-border pt-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-foreground">Bài viết mẫu</h2>
-              <p className="mt-0.5 text-sm text-muted">
+              <h2 className="text-sm font-semibold text-foreground">Bài viết mẫu</h2>
+              <p className="mt-0.5 text-[13px] text-muted">
                 Tối đa {MAX_FEW_SHOT_EXAMPLES} bài tiêu biểu để AI bắt chước giọng điệu.
               </p>
             </div>
@@ -146,13 +152,13 @@ export const BrandVoiceForm = ({
           </div>
 
           {fields.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-muted">
+            <p className="rounded-lg border border-dashed border-border px-4 py-3 text-[13px] text-muted">
               Chưa có bài viết mẫu nào.
             </p>
           ) : null}
 
           {fields.map((field, index) => (
-            <div key={field.id} className="space-y-4 rounded-xl bg-surface-2 p-4">
+            <div key={field.id} className="space-y-4 rounded-lg bg-surface-2 p-4">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-medium text-foreground">Bài mẫu {index + 1}</span>
 
@@ -189,13 +195,13 @@ export const BrandVoiceForm = ({
       </fieldset>
 
       {canEdit ? (
-        <div className="flex justify-end border-t border-border pt-6">
+        <div className="flex justify-end border-t border-border pt-5">
           <Button type="submit" isLoading={updateBrandVoice.isPending}>
             Lưu Brand Voice
           </Button>
         </div>
       ) : (
-        <p className="border-t border-border pt-6 text-sm text-muted">
+        <p className="border-t border-border pt-5 text-[13px] text-muted">
           Chỉ Workspace Owner được chỉnh sửa Brand Voice.
         </p>
       )}

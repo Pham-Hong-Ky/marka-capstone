@@ -28,7 +28,7 @@ export const AuditLogFilters = ({
   onDateToChange,
   onClear,
 }: AuditLogFiltersProps) => (
-  <div className="space-y-3">
+  <div className="space-y-3 rounded-xl border border-border bg-surface p-3">
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <SelectField
         label="Hành động"

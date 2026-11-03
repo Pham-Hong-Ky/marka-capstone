@@ -1,3 +1,4 @@
+import { Wallet } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
 import { SkeletonList } from '@/components/ui/Skeleton';
@@ -41,7 +42,7 @@ export const CreditHistoryTable = ({
 
   if (isError) {
     return (
-      <p className="rounded-2xl border border-border bg-surface p-5 text-sm text-danger">
+      <p className="rounded-xl border border-border bg-surface p-5 text-[13px] text-danger">
         {errorMessage}
       </p>
     );
@@ -50,6 +51,7 @@ export const CreditHistoryTable = ({
   if (transactions.length === 0) {
     return (
       <EmptyState
+        icon={Wallet}
         title="Chưa có giao dịch credit."
         description="Lịch sử nạp credit và sử dụng AI sẽ hiển thị tại đây."
       />
@@ -71,13 +73,13 @@ export const CreditHistoryTable = ({
         <TBody>
           {transactions.map((transaction) => (
             <TR key={transaction.id} className="align-top">
-              <TD className="whitespace-nowrap text-muted">
+              <TD className="whitespace-nowrap text-[13px] text-muted">
                 {formatDateTime(transaction.createdAt)}
               </TD>
               <TD>
                 <span
                   className={cn(
-                    'rounded-full px-2.5 py-1 text-xs font-medium',
+                    'rounded-full px-2.5 py-1 text-[11px] font-medium',
                     transaction.type === 'INFLOW'
                       ? 'bg-success/10 text-success'
                       : 'bg-surface-2 text-muted'
@@ -98,10 +100,10 @@ export const CreditHistoryTable = ({
               <TD className="whitespace-nowrap tabular-nums text-foreground">
                 {formatNumber(transaction.balanceAfter)}
               </TD>
-              <TD className="text-muted">
+              <TD className="text-[13px] text-muted">
                 <p>{transaction.reason ?? '—'}</p>
                 {transaction.createdBy ? (
-                  <p className="mt-1 text-xs text-subtle">{transaction.createdBy.name}</p>
+                  <p className="mt-1 text-[11px] text-subtle">{transaction.createdBy.name}</p>
                 ) : null}
               </TD>
             </TR>

@@ -69,3 +69,11 @@ export interface CreateSchedulePayload {
 export interface CreateScheduleResult {
   schedules: ScheduleItem[];
 }
+
+export interface RescheduleSchedulePayload {
+  scheduledAt: string;
+}
+
+export interface RescheduleScheduleResult {
+  schedule: ScheduleItem;
+}

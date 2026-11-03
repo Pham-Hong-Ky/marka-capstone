@@ -19,7 +19,10 @@ export const getProfile = async (userId: string) => {
   return toAuthUser(user);
 };
 
-export const updateProfile = async (userId: string, data: { name?: string; avatar?: string | null }) => {
+export const updateProfile = async (
+  userId: string,
+  data: { name?: string; avatar?: string | null; facebookUrl?: string | null; threadsUrl?: string | null }
+) => {
   const updatedUser = await userRepository.updateUser(userId, data);
 
   await auditService.recordAuditLog({

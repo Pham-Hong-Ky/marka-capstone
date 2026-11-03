@@ -1,8 +1,8 @@
 # Thiết kế Cơ sở Dữ liệu — Hệ thống Marka
 
-> **Database:** PostgreSQL &nbsp;|&nbsp; **ORM:** Prisma &nbsp;|&nbsp; **Tổng số bảng:** 15
+> **Database:** PostgreSQL &nbsp;|&nbsp; **ORM:** Prisma &nbsp;|&nbsp; **Tổng số bảng:** 16
 >
-> **Trạng thái:** tài liệu mô tả đúng `backend/prisma/schema.prisma`. Schema có 15 bảng; API hiện dùng 14 bảng: `users`, `workspaces`, `workspace_members`, `workspace_invites`, `posts`, `media_assets`, `channel_connections`, `notifications`, `audit_logs`, `scheduled_posts`, `ai_generations`, `credit_transactions`, `credit_packages`, `orders`. Bảng `post_metrics` đã có trong schema nhưng **chưa có endpoint/service** (xem Roadmap).
+> **Trạng thái:** tài liệu mô tả đúng `backend/prisma/schema.prisma`. Schema có 16 bảng và API hiện dùng cả 16: `users`, `workspaces`, `workspace_members`, `workspace_invites`, `posts`, `tasks`, `media_assets`, `channel_connections`, `scheduled_posts`, `post_metrics`, `ai_generations`, `credit_transactions`, `credit_packages`, `orders`, `notifications`, `audit_logs`.
 
 ---
 
@@ -65,7 +65,7 @@
 | `workspaceId` | VARCHAR(36) | FK → workspaces | Workspace |
 | `userId` | VARCHAR(36) | FK → users | Thành viên |
 | `role` | ENUM | DEFAULT CONTENT_CREATOR | Vai trò: `OWNER`, `CONTENT_CREATOR` |
-| `allowDirectPublish` | BOOLEAN | DEFAULT false | Quyền đăng bài trực tiếp |
+| `allowDirectPublish` | BOOLEAN | DEFAULT false | Reserved cho quyền đăng trực tiếp; chưa enforce, không trả API |
 | `createdAt` | DATETIME | NOT NULL | Thời điểm tham gia |
 | `updatedAt` | DATETIME | NOT NULL | Thời điểm cập nhật |
 
@@ -128,6 +128,27 @@
 | `createdAt` | DATETIME | NOT NULL | Thời điểm tạo |
 
 > **Quan hệ:** `media_assets` N:1 `workspaces` (Cascade) và N:1 `posts` (SetNull, tùy chọn) — thư viện cấp Workspace, gắn bài viết là tùy chọn (D1).
+
+### Bảng `tasks`
+
+| Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---------|-------------|-----------|-------|
+| `id` | VARCHAR(36) | PK | Định danh công việc |
+| `workspaceId` | VARCHAR(36) | FK → workspaces, NOT NULL | Workspace chứa công việc |
+| `title` | VARCHAR(255) | NOT NULL | Tiêu đề công việc |
+| `description` | TEXT | NULL | Mô tả |
+| `status` | ENUM | DEFAULT TODO | `TODO`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
+| `priority` | INT | DEFAULT 3 | 1 = gấp nhất, 5 = thấp nhất |
+| `assigneeId` | VARCHAR(36) | FK → users, NULL | Người nhận việc |
+| `assignedById` | VARCHAR(36) | FK → users, NULL | Người giao việc |
+| `assignedAt` | DATETIME | NULL | Thời điểm giao |
+| `dueAt` | DATETIME | NULL | Hạn chót |
+| `postId` | VARCHAR(36) | FK → posts, UNIQUE, NULL | Bài viết gắn với việc (1-1) |
+| `createdById` | VARCHAR(36) | FK → users, NULL | Người tạo |
+| `deletedAt` | DATETIME | NULL | Xoá mềm |
+| `createdAt`, `updatedAt` | DATETIME | NOT NULL | Thời điểm tạo/cập nhật |
+
+> **Index:** `(workspaceId, status, assigneeId)`, `(workspaceId, dueAt, status)`.
 
 ---
 
@@ -334,6 +355,9 @@
 | 24 | `workspaces` | 1:N | `audit_logs` | SetNull |
 | 25 | `workspaces` | 1:N | `media_assets` | Cascade |
 | 26 | `scheduled_posts` | 1:1 | `post_metrics` | Cascade |
+| 27 | `workspaces` | 1:N | `tasks` | Cascade |
+| 28 | `users` | 1:N | `tasks` (assignee/assignedBy/createdBy) | SetNull |
+| 29 | `posts` | 1:1 | `tasks` (postId unique) | SetNull |
 
 > **Múi giờ (D19):** toàn hệ thống dùng **UTC** — DB `DateTime` lưu UTC, API ISO-8601 UTC, server/worker `TZ=UTC`, FE tự đổi sang giờ local.
 

@@ -731,6 +731,10 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
       where: { workspaceId: wsId, userId: creatorAId, type: 'TASK_ASSIGNED' },
     });
     expect(notifyCount).toBeGreaterThanOrEqual(1);
+
+    const task = await prisma.task.findUnique({ where: { postId: taskPostId } });
+    expect(task).toMatchObject({ assigneeId: creatorAId, status: 'TODO' });
+    expect(task?.dueAt?.toISOString()).toBe(dueAt);
   });
 
   it('UC42 — Giao việc cho người ngoài workspace trả 400', async () => {
@@ -770,6 +774,9 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
       where: { workspaceId: wsId, userId: ownerId, type: 'TASK_STATUS_CHANGED' },
     });
     expect(notifyCount).toBeGreaterThanOrEqual(1);
+
+    const task = await prisma.task.findUnique({ where: { postId: taskPostId } });
+    expect(task?.status).toBe('IN_PROGRESS');
   });
 
   it('UC43 — Owner cập nhật trạng thái việc của người khác (200)', async () => {
@@ -829,6 +836,9 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.body.data.assignedById).toBeNull();
     expect(res.body.data.assignedAt).toBeNull();
     expect(res.body.data.dueAt).toBeNull();
+
+    const task = await prisma.task.findUnique({ where: { postId: taskPostId } });
+    expect(task).toMatchObject({ assigneeId: null, status: 'TODO' });
   });
 
   it('UC43 — Cập nhật trạng thái bài chưa giao việc trả 409', async () => {

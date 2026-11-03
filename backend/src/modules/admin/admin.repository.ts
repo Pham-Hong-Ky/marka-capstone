@@ -6,6 +6,8 @@ const USER_PUBLIC_SELECT = {
   email: true,
   name: true,
   avatar: true,
+  facebookUrl: true,
+  threadsUrl: true,
   authProvider: true,
   systemRole: true,
   emailVerified: true,

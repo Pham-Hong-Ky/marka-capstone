@@ -112,15 +112,33 @@ class "scheduleProcessor" as scheduleProcessor {
   + registerScheduleScheduler() : Promise<void>
 }
 
-class "FacebookClient" as facebookClient {
-  + isTokenExpiredError(error) : boolean
-  + uploadPagePhoto(pageId, accessToken, imageUrl) : Promise<string>
-  + createPageFeedPost(pageId, accessToken, message, mediaIds) : Promise<string>
+class "ProviderRegistry" as providerRegistry {
+  + getProvider(platform) : SocialProvider
+}
+
+interface "SocialProvider" as socialProvider {
+  + capabilities : ProviderCapabilities
+  + publish(input) : Promise<string>
+}
+
+class "FacebookAdapter" as facebookAdapter {
+  + platform = FACEBOOK
+  + capabilities : ProviderCapabilities
+}
+
+class "ThreadsAdapter" as threadsAdapter {
+  + platform = THREADS
+  + capabilities : ProviderCapabilities
 }
 
 scheduleController ..> scheduleService
 scheduleService ..> scheduleRepository
-scheduleService ..> facebookClient
+scheduleService ..> providerRegistry
+providerRegistry ..> socialProvider
+providerRegistry ..> facebookAdapter
+providerRegistry ..> threadsAdapter
+facebookAdapter ..|> socialProvider
+threadsAdapter ..|> socialProvider
 scheduleProcessor ..> scheduleService
 
 scheduleRepository ..> ScheduledPost

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import AdminUserRowActions from '@/components/features/admin/AdminUserRowActions';
+import TesterInviteDialog from '@/components/features/admin/TesterInviteDialog';
 import UserSuspendDialog from '@/components/features/admin/UserSuspendDialog';
 import Alert from '@/components/ui/Alert';
 import Avatar from '@/components/ui/Avatar';
@@ -33,6 +35,7 @@ export const AdminUsersPage = () => {
   const [systemRole, setSystemRole] = useState<RoleFilter>('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [inviteUser, setInviteUser] = useState<AdminUser | null>(null);
 
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -58,24 +61,14 @@ export const AdminUsersPage = () => {
 
   const users = data?.users ?? [];
 
-  const renderAction = (user: AdminUser) => {
-    const isSelf = user.id === currentUserId;
-    const actionLabel = user.isSuspended ? 'Mở khoá' : 'Khoá';
-
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        className="min-h-11"
-        disabled={isSelf}
-        title={isSelf ? 'Không thể tự khoá tài khoản' : undefined}
-        aria-label={`${actionLabel} tài khoản ${user.name}`}
-        onClick={() => setSelectedUser(user)}
-      >
-        {actionLabel}
-      </Button>
-    );
-  };
+  const renderAction = (user: AdminUser) => (
+    <AdminUserRowActions
+      user={user}
+      isSelf={user.id === currentUserId}
+      onSendInvite={() => setInviteUser(user)}
+      onToggleSuspension={() => setSelectedUser(user)}
+    />
+  );
 
   const columns: DataTableColumn<AdminUser>[] = [
     {
@@ -90,6 +83,40 @@ export const AdminUsersPage = () => {
           </div>
         </div>
       ),
+    },
+    {
+      key: 'contact',
+      header: 'Liên hệ',
+      hideBelow: 'lg',
+      cell: (user) =>
+        user.facebookUrl || user.threadsUrl ? (
+          <div className="flex flex-col gap-1">
+            {user.facebookUrl ? (
+              <a
+                href={user.facebookUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Facebook của ${user.name}`}
+                className="text-xs font-medium text-accent-text hover:underline"
+              >
+                Facebook
+              </a>
+            ) : null}
+            {user.threadsUrl ? (
+              <a
+                href={user.threadsUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Threads của ${user.name}`}
+                className="text-xs font-medium text-accent-text hover:underline"
+              >
+                Threads
+              </a>
+            ) : null}
+          </div>
+        ) : (
+          <span className="text-subtle">—</span>
+        ),
     },
     {
       key: 'role',
@@ -133,15 +160,15 @@ export const AdminUsersPage = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">Người dùng</h2>
-        <p className="text-sm text-muted">
+        <h2 className="text-sm font-semibold text-foreground">Người dùng</h2>
+        <p className="text-[13px] text-muted">
           Tìm kiếm và quản lý trạng thái tài khoản người dùng trong hệ thống.
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-3">
         <TextField
           label="Tìm người dùng"
           name="search"
@@ -174,7 +201,7 @@ export const AdminUsersPage = () => {
         </SelectField>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <DataTable
           columns={columns}
           rows={users}
@@ -223,6 +250,12 @@ export const AdminUsersPage = () => {
           onClose={() => setSelectedUser(null)}
         />
       ) : null}
+
+      <TesterInviteDialog
+        key={inviteUser?.id ?? 'none'}
+        user={inviteUser}
+        onClose={() => setInviteUser(null)}
+      />
     </div>
   );
 };

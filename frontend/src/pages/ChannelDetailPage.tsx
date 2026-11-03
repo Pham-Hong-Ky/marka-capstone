@@ -10,6 +10,7 @@ import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
+import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
 import { useChannelDetail, useDisconnectChannel, useRefreshChannel } from '@/hooks/useChannels';
@@ -120,7 +121,7 @@ export const ChannelDetailPage = () => {
   const displayName = channel.label ?? channel.name;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <PageContainer width="default">
       <PageHeader
         title={displayName}
         description={channel.label ? channel.name : undefined}
@@ -154,23 +155,23 @@ export const ChannelDetailPage = () => {
         }
       />
 
-      <section className="flex flex-wrap items-start gap-4 rounded-2xl border border-border bg-surface p-6">
+      <section className="flex flex-wrap items-start gap-4 rounded-xl border border-border bg-surface p-5">
         <Avatar name={channel.name} src={channel.avatar} className="h-14 w-14" />
 
         <div className="min-w-0 flex-1 space-y-2">
           {channel.label ? (
-            <p className="truncate text-sm text-muted">{channel.name}</p>
+            <p className="truncate text-[13px] text-muted">{channel.name}</p>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <ChannelPlatformBadge platform={channel.platform} />
             <ChannelStatusBadge status={channel.status} />
           </div>
-          <p className="text-sm text-muted">Kết nối ngày {formatDate(channel.createdAt)}</p>
+          <p className="text-[13px] text-muted">Kết nối ngày {formatDate(channel.createdAt)}</p>
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">Hiệu quả kênh</h2>
+        <h2 className="text-sm font-semibold text-foreground">Hiệu quả kênh</h2>
         <ChannelStatsGrid stats={stats} showMetrics={meta.capabilities.metrics} />
       </section>
 
@@ -198,7 +199,7 @@ export const ChannelDetailPage = () => {
           })
         }
       />
-    </div>
+    </PageContainer>
   );
 };
 

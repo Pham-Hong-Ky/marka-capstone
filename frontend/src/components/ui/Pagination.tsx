@@ -23,7 +23,7 @@ const buildPageItems = (page: number, totalPages: number): PageItem[] => {
 };
 
 const pageButtonClasses =
-  'inline-flex h-11 min-w-11 items-center justify-center rounded-lg px-2 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40';
+  'inline-flex h-11 min-w-11 items-center justify-center rounded-lg px-2 text-[13px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40';
 
 export const Pagination = ({
   page,
@@ -49,7 +49,7 @@ export const Pagination = ({
   const items = buildPageItems(page, totalPages);
 
   return (
-    <div className="flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 text-[13px] text-muted sm:flex-row sm:items-center sm:justify-between">
       <span>
         Hiển thị {from}–{to} / {total} {itemLabel}
       </span>

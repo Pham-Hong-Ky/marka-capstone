@@ -3,6 +3,8 @@ import type { SystemRole } from '@/services/auth';
 export interface UpdateProfilePayload {
   name?: string;
   avatar?: string | null;
+  facebookUrl?: string | null;
+  threadsUrl?: string | null;
 }
 
 export interface UpdateProfileResult {
@@ -10,6 +12,8 @@ export interface UpdateProfileResult {
   email: string;
   name: string;
   avatar: string | null;
+  facebookUrl: string | null;
+  threadsUrl: string | null;
   systemRole: SystemRole;
   emailVerified: boolean;
   updatedAt: string;

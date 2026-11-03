@@ -5,7 +5,6 @@ import GuestRoute from '@/components/auth/GuestRoute';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
 import AdminLayout from '@/pages/admin/AdminLayout';
-import ComingSoonPage from '@/pages/ComingSoonPage';
 import RouteErrorPage from '@/pages/RouteErrorPage';
 import SettingsLayout from '@/pages/settings/SettingsLayout';
 
@@ -49,8 +48,8 @@ export const router = createBrowserRouter([
                 lazy: page(() => import('@/pages/ChannelDetailPage')),
               },
               { path: 'brand-voice', lazy: page(() => import('@/pages/BrandVoicePage')) },
-              { path: 'ai', element: <ComingSoonPage title="Trợ lý AI" /> },
-              { path: 'publishing', element: <ComingSoonPage title="Đăng bài đa kênh" /> },
+              { path: 'ai', element: <Navigate to="/posts/new" replace /> },
+              { path: 'publishing', element: <Navigate to="/schedule" replace /> },
               { path: 'billing', lazy: page(() => import('@/pages/BillingPage')) },
               {
                 path: 'admin',

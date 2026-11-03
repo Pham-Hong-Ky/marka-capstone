@@ -159,7 +159,7 @@ export const EditorToolbar = ({
   };
 
   return (
-    <div ref={toolbarRef} className="relative border-b border-border">
+    <div ref={toolbarRef} className="relative border-b border-border bg-surface-2/40">
       <div className="flex flex-nowrap items-center gap-0.5 overflow-x-auto p-1.5">
         <ToolbarButton
           label="Hoàn tác"
@@ -272,7 +272,7 @@ export const EditorToolbar = ({
               aria-label={color.name}
               title={color.name}
               onClick={() => applyColor(color.value)}
-              className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface transition hover:bg-surface-2"
+              className="grid h-11 w-11 place-items-center rounded-lg border border-border bg-surface transition hover:bg-surface-2"
             >
               <span
                 className="grid h-6 w-6 place-items-center rounded-full text-xs font-semibold"
@@ -294,7 +294,7 @@ export const EditorToolbar = ({
               aria-label={color.name}
               title={color.name}
               onClick={() => applyHighlight(color.value)}
-              className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface transition hover:bg-surface-2"
+              className="grid h-11 w-11 place-items-center rounded-lg border border-border bg-surface transition hover:bg-surface-2"
             >
               <span
                 className="h-6 w-6 rounded-full border border-border"

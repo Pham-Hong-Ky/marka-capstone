@@ -47,24 +47,29 @@ export const WorkspaceSwitcher = ({ collapsed = false }: { collapsed?: boolean }
         aria-label="Chuyển workspace"
         title={collapsed ? (activeWorkspace?.name ?? 'Chọn workspace') : undefined}
         className={cn(
-          'flex w-full items-center rounded-xl border border-accent/20 bg-accent/10 text-left transition hover:border-accent/60',
-          collapsed ? 'justify-center px-1 py-2' : 'gap-2.5 px-3 py-2.5'
+          'flex w-full items-center rounded-lg border border-sidebar-border bg-sidebar-hover text-left transition hover:border-sidebar-active/60',
+          collapsed ? 'justify-center px-1 py-2' : 'gap-2 px-2.5 py-2'
         )}
       >
-        <DefaultWorkspaceIcon className="h-10 w-10 shrink-0" />
+        <DefaultWorkspaceIcon className="h-9 w-9 shrink-0" />
 
         {collapsed ? null : (
           <>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-foreground">
+              <span className="block truncate text-[13px] font-semibold text-sidebar-foreground">
                 {activeWorkspace?.name ?? 'Chọn workspace'}
               </span>
               {activeWorkspace ? (
-                <span className="block truncate text-xs text-muted">{activeWorkspace.plan}</span>
+                <span className="block truncate text-[11px] text-sidebar-muted">
+                  {activeWorkspace.plan}
+                </span>
               ) : null}
             </span>
             <ChevronDown
-              className={cn('h-4 w-4 shrink-0 text-muted transition', open && 'rotate-180')}
+              className={cn(
+                'h-4 w-4 shrink-0 text-sidebar-muted transition',
+                open && 'rotate-180'
+              )}
             />
           </>
         )}

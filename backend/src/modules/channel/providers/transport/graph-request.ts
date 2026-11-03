@@ -1,5 +1,5 @@
-import logger from '../../../utils/logger.js';
-import { SocialTransientError } from './social-provider.js';
+import logger from '../../../../utils/logger.js';
+import { SocialTransientError } from '../errors/social.errors.js';
 
 export interface GraphResult<T> {
   ok: boolean;

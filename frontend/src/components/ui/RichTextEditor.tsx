@@ -100,7 +100,11 @@ export const RichTextEditor = ({
   return (
     <div
       className={cn(
-        editable && cn('rounded-lg border bg-surface', error ? 'border-danger' : 'border-border'),
+        editable &&
+          cn(
+            'rounded-lg border bg-surface transition focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20',
+            error ? 'border-danger' : 'border-border'
+          ),
         !editable && 'text-sm text-foreground',
         className
       )}

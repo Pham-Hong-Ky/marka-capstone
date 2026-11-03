@@ -27,7 +27,10 @@ import {
   inviteTokenSchema,
 } from '../modules/workspace/workspace.validation.js';
 import workspaceController from '../modules/workspace/workspace.controller.js';
-import { brandVoiceSchema } from '../modules/brandvoice/brandvoice.validation.js';
+import {
+  brandVoiceSchema,
+  brandVoiceInsightsSchema,
+} from '../modules/brandvoice/brandvoice.validation.js';
 import brandVoiceController from '../modules/brandvoice/brandvoice.controller.js';
 import {
   listChannelsSchema,
@@ -67,6 +70,7 @@ import {
   createScheduleSchema,
   listSchedulesSchema,
   scheduleIdSchema,
+  rescheduleScheduleSchema,
 } from '../modules/schedule/schedule.validation.js';
 import aiController from '../modules/ai/ai.controller.js';
 import {
@@ -98,6 +102,7 @@ import adminController from '../modules/admin/admin.controller.js';
 import {
   listUsersSchema,
   suspendUserSchema,
+  sendTesterInviteSchema,
   listWorkspacesSchema,
 } from '../modules/admin/admin.validation.js';
 import auditController from '../modules/audit/audit.controller.js';
@@ -167,6 +172,13 @@ router.patch(
   requireRoles('SYSTEM_ADMIN'),
   validate(suspendUserSchema),
   adminController.suspendUser
+);
+router.post(
+  '/admin/users/:userId/tester-invite',
+  requireAuth,
+  requireRoles('SYSTEM_ADMIN'),
+  validate(sendTesterInviteSchema),
+  adminController.sendTesterInvite
 );
 router.get(
   '/admin/workspaces',
@@ -263,6 +275,13 @@ router.put(
   validate(brandVoiceSchema),
   requireWorkspaceRole('OWNER'),
   brandVoiceController.updateBrandVoice
+);
+router.get(
+  '/workspaces/:workspaceId/brand-voice/insights',
+  requireAuth,
+  validate(brandVoiceInsightsSchema),
+  requireWorkspaceRole(),
+  brandVoiceController.getInsights
 );
 
 // Channels (UC27, UC28, UC29)
@@ -541,6 +560,13 @@ router.get(
   validate(listSchedulesSchema),
   requireWorkspaceRole(),
   scheduleController.listSchedules
+);
+router.patch(
+  '/workspaces/:workspaceId/schedules/:scheduleId',
+  requireAuth,
+  validate(rescheduleScheduleSchema),
+  requireWorkspaceRole(),
+  scheduleController.rescheduleSchedule
 );
 router.delete(
   '/workspaces/:workspaceId/schedules/:scheduleId',

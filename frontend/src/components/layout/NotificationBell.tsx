@@ -100,7 +100,7 @@ export const NotificationBell = ({ workspaceId }: { workspaceId?: string }) => {
           role="dialog"
           aria-label="Thông báo"
           tabIndex={-1}
-          className="absolute right-0 top-full z-40 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-surface shadow-xl outline-none"
+          className="absolute right-0 top-full z-40 mt-2 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-surface shadow-xl outline-none"
         >
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <p className="text-sm font-semibold text-foreground">Thông báo</p>

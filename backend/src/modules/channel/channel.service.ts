@@ -8,7 +8,7 @@ import { decryptOrNull, encrypt } from '../../utils/encryption.js';
 import auditService from '../audit/audit.service.js';
 import channelRepository, { type ChannelSummary } from './channel.repository.js';
 import { getProvider } from './providers/provider.registry.js';
-import { SocialTokenExpiredError } from './providers/social-provider.js';
+import { SocialTokenExpiredError } from './providers/errors/social.errors.js';
 import * as oauthStore from './channel.oauth-store.js';
 import type { OauthSession, OauthSessionAccount } from './channel.oauth-store.js';
 

@@ -28,19 +28,28 @@ export const runTaskReminders = async (
     taskRepository.findOverdueTasks(todayStart, workspaceId),
   ]);
 
+  const tasks = [...dueSoonTasks, ...overdueTasks];
+  const reminders = await notificationRepository.findTaskReminderKeys({
+    userIds: [
+      ...new Set(
+        tasks.map((task) => task.assigneeId).filter((id): id is string => Boolean(id))
+      ),
+    ],
+    taskIds: tasks.map((task) => task.id),
+    types: ['TASK_DUE_SOON', 'TASK_OVERDUE'],
+  });
+  const sentKeys = new Set(
+    reminders.map((item) => `${item.userId}|${item.type}|${item.taskId}|${item.dueAt}`)
+  );
+  const reminderKey = (task: (typeof tasks)[number], type: string) =>
+    `${task.assigneeId}|${type}|${task.id}|${task.dueAt?.toISOString()}`;
+
   let dueSoon = 0;
   let overdue = 0;
 
   for (const task of dueSoonTasks) {
     if (!task.assigneeId || !task.dueAt) continue;
-
-    const alreadySent = await notificationRepository.hasTaskReminder({
-      userId: task.assigneeId,
-      type: 'TASK_DUE_SOON',
-      taskId: task.id,
-      dueAt: task.dueAt,
-    });
-    if (alreadySent) continue;
+    if (sentKeys.has(reminderKey(task, 'TASK_DUE_SOON'))) continue;
 
     try {
       await taskNotification.notifyTaskDueSoon(task);
@@ -54,14 +63,7 @@ export const runTaskReminders = async (
 
   for (const task of overdueTasks) {
     if (!task.assigneeId || !task.dueAt) continue;
-
-    const alreadySent = await notificationRepository.hasTaskReminder({
-      userId: task.assigneeId,
-      type: 'TASK_OVERDUE',
-      taskId: task.id,
-      dueAt: task.dueAt,
-    });
-    if (alreadySent) continue;
+    if (sentKeys.has(reminderKey(task, 'TASK_OVERDUE'))) continue;
 
     try {
       await taskNotification.notifyTaskOverdue(task);

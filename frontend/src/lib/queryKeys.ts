@@ -4,6 +4,7 @@ import type {
   AdminWorkspacesQuery,
 } from '@/services/admin';
 import type { AnalyticsFilters } from '@/services/analytics';
+import type { BrandVoiceInsightsParams } from '@/services/brandvoice';
 import type { PostListParams } from '@/services/post';
 import type { ScheduleListParams } from '@/services/schedule';
 import type { TaskBoardParams } from '@/services/task';
@@ -51,6 +52,7 @@ export const queryKeys = {
     usersRoot: () => ['admin', 'users'] as const,
     workspaces: (query: AdminWorkspacesQuery) => ['admin', 'workspaces', query] as const,
     auditLogs: (query: AdminAuditLogsQuery) => ['admin', 'audit-logs', query] as const,
+    auditLogsRoot: () => ['admin', 'audit-logs'] as const,
   },
   analytics: {
     overview: (workspaceId: string | null, filters: AnalyticsFilters) =>
@@ -67,6 +69,8 @@ export const queryKeys = {
   },
   brandVoice: {
     detail: (workspaceId: string) => ['brand-voice', workspaceId] as const,
+    insights: (workspaceId: string, params: BrandVoiceInsightsParams) =>
+      ['brand-voice', workspaceId, 'insights', params] as const,
   },
   ai: {
     generation: (workspaceId: string, generationId: string) =>
