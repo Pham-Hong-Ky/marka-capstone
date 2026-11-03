@@ -50,6 +50,31 @@ export const brandVoiceBodySchema = z.object({
 
 export type BrandVoiceInput = z.infer<typeof brandVoiceBodySchema>;
 
+export const brandVoiceInsightsQuerySchema = z.object({
+  windowDays: z.coerce
+    .number()
+    .int('Số ngày phải là số nguyên')
+    .min(7, 'Cần ít nhất 7 ngày dữ liệu')
+    .max(365, 'Tối đa 365 ngày')
+    .default(90)
+    .openapi({ example: 90 }),
+  limit: z.coerce
+    .number()
+    .int('Số bài phải là số nguyên')
+    .min(1, 'Cần ít nhất 1 bài')
+    .max(10, 'Tối đa 10 bài')
+    .default(5)
+    .openapi({ example: 5 }),
+  channelId: z.string().uuid('Channel ID không hợp lệ').optional(),
+});
+
+export type BrandVoiceInsightsQuery = z.infer<typeof brandVoiceInsightsQuerySchema>;
+
 export const brandVoiceSchema = { body: brandVoiceBodySchema, params: workspaceIdParamSchema };
 
-export default { brandVoiceSchema };
+export const brandVoiceInsightsSchema = {
+  params: workspaceIdParamSchema,
+  query: brandVoiceInsightsQuerySchema,
+};
+
+export default { brandVoiceSchema, brandVoiceInsightsSchema };

@@ -119,6 +119,8 @@ describe('channel token refresh', () => {
 
   it('bỏ qua kênh Facebook', async () => {
     const channel = await createChannel('FACEBOOK', 'facebook-token');
+    // Không stub sẽ gọi Threads API thật cho các kênh của test khác đang chạy song song.
+    vi.stubGlobal('fetch', vi.fn(async () => skipOtherChannel()));
 
     await refreshChannelTokens();
 

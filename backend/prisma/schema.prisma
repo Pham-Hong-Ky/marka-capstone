@@ -137,6 +137,8 @@ model User {
   passwordHash      String?      @db.VarChar(255)
   name              String       @db.VarChar(255)
   avatar            String?      @db.VarChar(255)
+  facebookUrl       String?      @db.VarChar(2048)
+  threadsUrl        String?      @db.VarChar(2048)
   authProvider      AuthProvider @default(LOCAL)
   googleId          String?      @db.VarChar(255)
   emailVerified     Boolean      @default(false)
@@ -393,6 +395,7 @@ model ScheduledPost {
 
   @@unique([postId, channelId])
   @@index([status, scheduledAt])
+  @@index([status, publishedAt])
   @@index([channelId])
   @@index([postId])
   @@map("scheduled_posts")
@@ -530,6 +533,7 @@ model Notification {
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead, createdAt])
+  @@index([userId, type])
   @@map("notifications")
 }
 

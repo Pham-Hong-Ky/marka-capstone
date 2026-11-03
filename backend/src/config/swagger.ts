@@ -12,7 +12,10 @@ import {
   changeMemberRoleBodySchema,
   inviteTokenParamSchema,
 } from '../modules/workspace/workspace.validation.js';
-import { brandVoiceBodySchema } from '../modules/brandvoice/brandvoice.validation.js';
+import {
+  brandVoiceBodySchema,
+  brandVoiceInsightsQuerySchema,
+} from '../modules/brandvoice/brandvoice.validation.js';
 import { registerTaskPaths } from './openapi/task.paths.js';
 import {
   createPostBodySchema,
@@ -349,6 +352,21 @@ registry.registerPath({
     403: { description: 'Chỉ Workspace Owner được chỉnh sửa Brand Voice' },
     404: { description: 'Workspace không tồn tại' },
     422: { description: 'Dữ liệu không hợp lệ' },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/workspaces/{workspaceId}/brand-voice/insights',
+  tags: ['Workspace'],
+  summary: 'Phân tích top bài viết hiệu quả và gợi ý Brand Voice',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: workspaceIdParamSchema, query: brandVoiceInsightsQuerySchema },
+  responses: {
+    200: { description: 'Trả top bài, bài học và gợi ý Brand Voice' },
+    403: { description: 'Không phải thành viên workspace' },
+    404: { description: 'Workspace không tồn tại' },
+    422: { description: 'Query không hợp lệ' },
   },
 });
 

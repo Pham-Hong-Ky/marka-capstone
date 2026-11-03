@@ -3,6 +3,7 @@ import prisma, { basePrisma } from '../../../src/config/db.js';
 import { enqueue } from '../../../src/workers/queue-manager.js';
 import { QUEUE_NAMES } from '../../../src/workers/types.js';
 import {
+  BadRequestError,
   ConflictError,
   NotFoundError,
   PaymentRequiredError,
@@ -89,6 +90,9 @@ describe('AI service', () => {
     });
     await prisma.aiGeneration.deleteMany({ where: { workspaceId } });
     await prisma.creditTransaction.deleteMany({ where: { workspaceId } });
+    await prisma.channelConnection.deleteMany({
+      where: { workspaceId: { in: [workspaceId, otherWorkspaceId] } },
+    });
   });
 
   afterAll(async () => {
@@ -127,6 +131,84 @@ describe('AI service', () => {
     expect(enqueueMock).toHaveBeenCalledWith(QUEUE_NAMES.contentGeneration, 'ai:text', {
       generationId: result.generationId,
     });
+  });
+
+  it('workspace đã có kênh hoạt động mà không chọn kênh thì trả 400', async () => {
+    await prisma.channelConnection.create({
+      data: {
+        workspaceId,
+        platform: 'FACEBOOK',
+        type: 'REAL',
+        name: 'Page AI',
+        externalAccountId: `page-ai-${stamp}`,
+      },
+    });
+
+    await expect(
+      aiService.startTextGeneration({
+        workspaceId,
+        userId,
+        role: 'OWNER',
+        body: { topic: 'Chủ đề cần chọn kênh' },
+      })
+    ).rejects.toBeInstanceOf(BadRequestError);
+
+    expect(await prisma.aiGeneration.count({ where: { workspaceId } })).toBe(0);
+  });
+
+  it('chọn kênh của workspace khác thì trả 400', async () => {
+    await prisma.channelConnection.create({
+      data: {
+        workspaceId,
+        platform: 'FACEBOOK',
+        type: 'REAL',
+        name: 'Page AI',
+        externalAccountId: `page-ai-${stamp}`,
+      },
+    });
+    const otherChannel = await prisma.channelConnection.create({
+      data: {
+        workspaceId: otherWorkspaceId,
+        platform: 'THREADS',
+        type: 'REAL',
+        name: 'Threads khác',
+        externalAccountId: `threads-other-${stamp}`,
+      },
+    });
+
+    await expect(
+      aiService.startTextGeneration({
+        workspaceId,
+        userId,
+        role: 'OWNER',
+        body: { topic: 'Chủ đề chọn kênh khác', channelIds: [otherChannel.id] },
+      })
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('chọn kênh hợp lệ thì prompt bám giới hạn của kênh', async () => {
+    const channel = await prisma.channelConnection.create({
+      data: {
+        workspaceId,
+        platform: 'THREADS',
+        type: 'REAL',
+        name: 'Threads AI',
+        externalAccountId: `threads-ai-${stamp}`,
+      },
+    });
+
+    const result = await aiService.startTextGeneration({
+      workspaceId,
+      userId,
+      role: 'OWNER',
+      body: { topic: 'Chủ đề tối ưu cho Threads', channelIds: [channel.id] },
+    });
+
+    const generation = await prisma.aiGeneration.findUniqueOrThrow({
+      where: { id: result.generationId },
+    });
+    expect(generation.prompt).toContain('Kênh đăng bài: Threads');
+    expect(generation.prompt).toContain('tối đa 480 ký tự');
   });
 
   it('không đủ credit thì trả 402, không tạo generation', async () => {

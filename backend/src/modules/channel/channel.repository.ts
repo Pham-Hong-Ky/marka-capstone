@@ -26,6 +26,13 @@ export const findChannelsByWorkspace = async (workspaceId: string): Promise<Chan
     orderBy: { createdAt: 'desc' },
   });
 
+export const findActiveRealChannels = async (workspaceId: string) =>
+  prisma.channelConnection.findMany({
+    where: { workspaceId, type: 'REAL', status: 'ACTIVE', deletedAt: null },
+    select: { id: true, name: true, platform: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
 export interface UpsertChannelData {
   externalAccountId: string;
   name: string;
@@ -190,7 +197,7 @@ export const disconnectChannelAndCancelSchedules = async (
   const publishing = Symbol('publishing');
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const postIds = await prisma.$transaction(async (tx) => {
       // Huỷ lịch chờ trước, rồi mới kiểm tra PROCESSING. Nếu worker claim chen
       // giữa hai bước, count sẽ thấy PROCESSING và rollback toàn bộ.
       await tx.scheduledPost.updateMany({
@@ -214,11 +221,16 @@ export const disconnectChannelAndCancelSchedules = async (
         data: { deletedAt: new Date(), accessToken: null, status: 'EXPIRED' },
       });
 
-      for (const { postId } of affectedPosts) {
-        await recomputePostStatus(tx, postId);
-      }
-      return 'disconnected' as const;
+      return affectedPosts.map(({ postId }) => postId);
     });
+
+    // Tính lại trạng thái sau khi commit để transaction không bị quá hạn khi
+    // workspace có nhiều bài viết.
+    for (const postId of postIds) {
+      await recomputePostStatus(prisma, postId);
+    }
+
+    return 'disconnected' as const;
   } catch (error) {
     if (error === publishing) return 'publishing';
     throw error;
@@ -228,6 +240,7 @@ export const disconnectChannelAndCancelSchedules = async (
 export default {
   CHANNEL_PUBLIC_SELECT,
   findChannelsByWorkspace,
+  findActiveRealChannels,
   upsertChannels,
   findChannelInWorkspace,
   findChannelWithToken,

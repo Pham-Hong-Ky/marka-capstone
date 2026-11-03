@@ -9,6 +9,7 @@ import creditService from '../credit/credit.service.js';
 import postRepository from '../post/post.repository.js';
 import { isImageAiConfigured, isTextAiConfigured } from './ai.config.js';
 import { AiGenerationFinalizedError } from './ai.errors.js';
+import { resolveTargetPlatforms } from './ai.channels.js';
 import {
   assertPostAcceptsImages,
   createImageGeneration,
@@ -102,10 +103,11 @@ export const startTextGeneration = async ({
   }
 
   const brandVoice = await getBrandVoice(workspaceId);
+  const platforms = await resolveTargetPlatforms(workspaceId, body.channelIds);
   const context = { workspaceId, userId, role };
 
   const { generation, credit } = await withTransaction((tx) =>
-    createTextGeneration(tx, body, context, brandVoice)
+    createTextGeneration(tx, body, context, brandVoice, platforms)
   );
 
   await enqueueOrRefund(

@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
 import scheduleService from './schedule.service.js';
-import type { ListSchedulesQuery } from './schedule.validation.js';
+import type { ListSchedulesQuery, RescheduleScheduleBody } from './schedule.validation.js';
 
 export const createSchedules = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = getWorkspaceId(req);
@@ -53,8 +53,27 @@ export const cancelSchedule = catchAsync(async (req: Request, res: Response) => 
   });
 });
 
+export const rescheduleSchedule = catchAsync(async (req: Request, res: Response) => {
+  const workspaceId = getWorkspaceId(req);
+  const { scheduledAt } = req.body as RescheduleScheduleBody;
+  const schedule = await scheduleService.rescheduleSchedule(
+    workspaceId,
+    req.user!.id,
+    req.workspaceRole!,
+    req.params.scheduleId as string,
+    scheduledAt
+  );
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Đổi lịch đăng thành công',
+    data: { schedule },
+  });
+});
+
 export default {
   createSchedules,
   listSchedules,
   cancelSchedule,
+  rescheduleSchedule,
 };

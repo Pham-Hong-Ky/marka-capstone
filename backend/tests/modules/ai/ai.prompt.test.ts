@@ -90,7 +90,7 @@ describe('AI prompt helpers', () => {
       },
     });
 
-    expect(prompt.systemInstruction).toContain('Facebook');
+    expect(prompt.systemInstruction).toContain('mạng xã hội');
     expect(prompt.systemInstruction).toContain('250-400 từ');
     expect(prompt.systemInstruction).toContain('CTA');
     expect(prompt.systemInstruction).toContain('Tuyệt đối không dùng: giảm giá sốc');
@@ -100,6 +100,58 @@ describe('AI prompt helpers', () => {
     expect(prompt.userPrompt).toContain('Nhấn mạnh ưu đãi');
     expect(prompt.userPrompt).toContain('Viết bài hoàn chỉnh');
     expect(prompt.responseSchema).toBeTruthy();
+  });
+
+  it('buildTextPrompt dùng đủ 3 bài mẫu Brand Voice', () => {
+    const prompt = buildTextPrompt({
+      topic: 'Ra mắt sản phẩm mùa thu',
+      brandVoice: {
+        fewShotExamples: [
+          { title: 'Mẫu 1', content: 'Nội dung mẫu một' },
+          { title: 'Mẫu 2', content: 'Nội dung mẫu hai' },
+          { title: 'Mẫu 3', content: 'Nội dung mẫu ba' },
+        ],
+      },
+    });
+
+    expect(prompt.systemInstruction).toContain('Nội dung mẫu ba');
+  });
+
+  it('buildTextPrompt cắt mỗi bài mẫu tối đa 1200 ký tự', () => {
+    const content = `${'A'.repeat(1199)}B${'C'.repeat(300)}`;
+    const prompt = buildTextPrompt({
+      topic: 'Ra mắt sản phẩm mùa thu',
+      brandVoice: { fewShotExamples: [{ title: 'Mẫu dài', content }] },
+    });
+
+    expect(prompt.systemInstruction).toContain(`${'A'.repeat(1199)}B`);
+    expect(prompt.systemInstruction).not.toContain(`${'A'.repeat(1199)}B${'C'.repeat(10)}`);
+  });
+
+  it('buildTextPrompt hướng dẫn học phong cách thay vì sao chép bài mẫu', () => {
+    const prompt = buildTextPrompt({
+      topic: 'Ra mắt sản phẩm mùa thu',
+      brandVoice: {
+        fewShotExamples: [{ title: 'Mẫu', content: 'Nội dung mẫu đủ dài để phân tích.' }],
+      },
+    });
+
+    expect(prompt.systemInstruction).toContain('không sao chép nguyên văn');
+    expect(prompt.systemInstruction).toContain('cách mở bài');
+    expect(prompt.systemInstruction).toContain('nhịp câu');
+  });
+
+  it('buildTextPrompt nhắc dùng từ khoá tự nhiên và ưu tiên từ khoá cấm', () => {
+    const prompt = buildTextPrompt({
+      topic: 'Ra mắt sản phẩm mùa thu',
+      brandVoice: {
+        keywordsShouldUse: ['thanh lịch'],
+        keywordsAvoid: ['giảm giá sốc'],
+      },
+    });
+
+    expect(prompt.systemInstruction).toContain('không nhồi nhét');
+    expect(prompt.systemInstruction).toContain('ưu tiên từ khoá cấm');
   });
 
   it('buildTextPrompt bắt buộc tiếng Việt có dấu, emoji và hashtag cuối bài', () => {
@@ -117,6 +169,47 @@ describe('AI prompt helpers', () => {
 
     expect(prompt.systemInstruction).toContain('ít nhất 2 đoạn văn');
     expect(prompt.systemInstruction).toContain('không được biến cả bài thành danh sách');
+  });
+
+  it('buildTextPrompt tối ưu riêng cho Facebook khi chọn một kênh', () => {
+    const prompt = buildTextPrompt({
+      topic: 'Ra mắt bộ sưu tập mùa thu',
+      platforms: ['FACEBOOK'],
+    });
+
+    expect(prompt.systemInstruction).toContain('Kênh đăng bài: Facebook.');
+    expect(prompt.systemInstruction).toContain('tối đa 2200 ký tự');
+    expect(prompt.systemInstruction).toContain('3-5 hashtag');
+    expect(prompt.systemInstruction).not.toContain('250-400 từ');
+    expect(prompt.userPrompt).toContain('Kênh đăng bài: Facebook');
+  });
+
+  it('buildTextPrompt ép giới hạn ngắn gọn của Threads', () => {
+    const prompt = buildTextPrompt({
+      topic: 'Ra mắt bộ sưu tập mùa thu',
+      platforms: ['THREADS'],
+    });
+
+    expect(prompt.systemInstruction).toContain('Kênh đăng bài: Threads.');
+    expect(prompt.systemInstruction).toContain('tối đa 480 ký tự');
+    expect(prompt.systemInstruction).toContain('1-3 hashtag');
+    expect(prompt.systemInstruction).toContain('Không dùng heading');
+    expect(prompt.systemInstruction).toContain('tối đa 2 emoji');
+  });
+
+  it('buildTextPrompt chọn cả Facebook và Threads thì dùng ràng buộc chặt nhất', () => {
+    const prompt = buildTextPrompt({
+      topic: 'Ra mắt bộ sưu tập mùa thu',
+      platforms: ['FACEBOOK', 'THREADS'],
+    });
+
+    expect(prompt.systemInstruction).toContain('Kênh đăng bài: Facebook, Threads.');
+    expect(prompt.systemInstruction).toContain('đăng được trên tất cả kênh đã chọn');
+    expect(prompt.systemInstruction).toContain('tối đa 480 ký tự');
+    expect(prompt.systemInstruction).toContain('3 hashtag');
+    expect(prompt.systemInstruction).toContain('2 emoji');
+    expect(prompt.systemInstruction).toContain('Không dùng heading');
+    expect(prompt.systemInstruction).not.toContain('250-400 từ');
   });
 
   it('parseTextOutput từ chối block thiếu nội dung theo loại', () => {

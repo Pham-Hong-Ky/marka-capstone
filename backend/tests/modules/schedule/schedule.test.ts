@@ -3,11 +3,11 @@ import request from 'supertest';
 import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
 import { encrypt } from '../../../src/utils/encryption.js';
-import { facebookProvider } from '../../../src/modules/channel/providers/facebook.provider.js';
+import { facebookPublisher } from '../../../src/modules/channel/providers/facebook/facebook.publish.js';
 import {
   SocialTokenExpiredError,
   SocialTransientError,
-} from '../../../src/modules/channel/providers/social-provider.js';
+} from '../../../src/modules/channel/providers/errors/social.errors.js';
 import scheduleService, {
   PROCESSING_HEARTBEAT_MS,
 } from '../../../src/modules/schedule/schedule.service.js';
@@ -433,6 +433,131 @@ describe('Schedule — đăng bài Facebook', () => {
     expect(res.status).toBe(200);
   });
 
+  it('Đổi lịch đang chờ thành công và ghi audit', async () => {
+    const postId = await createPost();
+    const original = new Date(Date.now() + 60 * 60 * 1000);
+    const created = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${postId}/schedules`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send(schedulePayload([channelAId], original.toISOString()));
+    const scheduleId = created.body.data.schedules[0].id;
+
+    const next = new Date(Date.now() + 3 * 60 * 60 * 1000);
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/schedules/${scheduleId}`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send({ scheduledAt: next.toISOString() });
+
+    expect(res.status).toBe(200);
+    expect(new Date(res.body.data.schedule.scheduledAt).getTime()).toBe(next.getTime());
+
+    const saved = await prisma.scheduledPost.findUnique({ where: { id: scheduleId } });
+    expect(saved?.scheduledAt?.getTime()).toBe(next.getTime());
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'SCHEDULE_UPDATED', targetId: scheduleId },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(audit?.actorId).toBe(creatorId);
+    expect(audit?.metadata).toMatchObject({
+      postId,
+      previousScheduledAt: original.toISOString(),
+      scheduledAt: next.toISOString(),
+    });
+  });
+
+  it('Không cho người ngoài workspace đổi lịch', async () => {
+    const postId = await createPost();
+    const created = await request(app)
+      .post(`/api/v1/workspaces/${wsId}/posts/${postId}/schedules`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send(schedulePayload([channelAId], new Date(Date.now() + 60 * 60 * 1000).toISOString()));
+
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/schedules/${created.body.data.schedules[0].id}`)
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .send({ scheduledAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('Chỉ đổi được lịch đang chờ đăng', async () => {
+    const postId = await createPost();
+    const scheduledAt = new Date(Date.now() + 60 * 60 * 1000);
+    const cancelled = await prisma.scheduledPost.create({
+      data: { postId, channelId: channelAId, scheduledAt, status: 'CANCELLED' },
+    });
+    const processing = await prisma.scheduledPost.create({
+      data: { postId, channelId: channelBId, scheduledAt, status: 'PROCESSING' },
+    });
+
+    const cancelledRes = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/schedules/${cancelled.id}`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send({ scheduledAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() });
+    const processingRes = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/schedules/${processing.id}`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send({ scheduledAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() });
+
+    expect(cancelledRes.status).toBe(409);
+    expect(processingRes.status).toBe(409);
+  });
+
+  it('Từ chối đổi lịch đăng ngay và thời gian không hợp lệ', async () => {
+    const postId = await createPost();
+    const immediate = await prisma.scheduledPost.create({
+      data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
+    });
+    const scheduled = await prisma.scheduledPost.create({
+      data: {
+        postId,
+        channelId: channelBId,
+        scheduledAt: new Date(Date.now() + 60 * 60 * 1000),
+        status: 'SCHEDULED',
+      },
+    });
+
+    const immediateRes = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/schedules/${immediate.id}`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send({ scheduledAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() });
+    const pastRes = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/schedules/${scheduled.id}`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send({ scheduledAt: new Date(Date.now() + 10_000).toISOString() });
+
+    expect(immediateRes.status).toBe(409);
+    expect(pastRes.status).toBe(400);
+  });
+
+  it('Creator không đổi được lịch bài của người khác', async () => {
+    const post = await prisma.post.create({
+      data: {
+        workspaceId: wsId,
+        title: `Bài Owner đổi lịch ${Date.now()}`,
+        content,
+        status: 'SCHEDULED',
+        createdById: ownerId,
+      },
+    });
+    const schedule = await prisma.scheduledPost.create({
+      data: {
+        postId: post.id,
+        channelId: channelAId,
+        scheduledAt: new Date(Date.now() + 60 * 60 * 1000),
+        status: 'SCHEDULED',
+      },
+    });
+
+    const res = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/schedules/${schedule.id}`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send({ scheduledAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() });
+
+    expect(res.status).toBe(403);
+  });
+
   it('Worker đăng thành công nhiều ảnh và lưu externalPostId', async () => {
     const postId = await createPost('APPROVED', ['IMAGE', 'IMAGE']);
     const schedule = await prisma.scheduledPost.create({
@@ -445,11 +570,11 @@ describe('Schedule — đăng bài Facebook', () => {
     });
 
     const uploadSpy = vi
-      .spyOn(facebookProvider, 'uploadPagePhoto')
+      .spyOn(facebookPublisher, 'uploadPagePhoto')
       .mockResolvedValueOnce('photo-1')
       .mockResolvedValueOnce('photo-2');
     const feedSpy = vi
-      .spyOn(facebookProvider, 'createPageFeedPost')
+      .spyOn(facebookPublisher, 'createPageFeedPost')
       .mockResolvedValue('page_post_1');
 
     const result = await scheduleService.publishSchedule(schedule.id);
@@ -478,9 +603,9 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
     });
 
-    const uploadSpy = vi.spyOn(facebookProvider, 'uploadPagePhoto');
+    const uploadSpy = vi.spyOn(facebookPublisher, 'uploadPagePhoto');
     const feedSpy = vi
-      .spyOn(facebookProvider, 'createPageFeedPost')
+      .spyOn(facebookPublisher, 'createPageFeedPost')
       .mockResolvedValue('page_post_no_image');
 
     const result = await scheduleService.publishSchedule(schedule.id);
@@ -502,7 +627,7 @@ describe('Schedule — đăng bài Facebook', () => {
       },
     });
 
-    vi.spyOn(facebookProvider, 'uploadPagePhoto').mockRejectedValue(
+    vi.spyOn(facebookPublisher, 'uploadPagePhoto').mockRejectedValue(
       new SocialTransientError('vẫn lỗi mạng')
     );
 
@@ -558,7 +683,7 @@ describe('Schedule — đăng bài Facebook', () => {
     });
     await prisma.post.update({ where: { id: postId }, data: { deletedAt: new Date() } });
 
-    const feedSpy = vi.spyOn(facebookProvider, 'createPageFeedPost');
+    const feedSpy = vi.spyOn(facebookPublisher, 'createPageFeedPost');
 
     const result = await scheduleService.publishSchedule(schedule.id);
 
@@ -574,7 +699,7 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
     });
 
-    vi.spyOn(facebookProvider, 'uploadPagePhoto').mockRejectedValue(new SocialTokenExpiredError());
+    vi.spyOn(facebookPublisher, 'uploadPagePhoto').mockRejectedValue(new SocialTokenExpiredError());
 
     const result = await scheduleService.publishSchedule(schedule.id);
 
@@ -593,7 +718,7 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt, status: 'SCHEDULED' },
     });
 
-    vi.spyOn(facebookProvider, 'uploadPagePhoto').mockRejectedValue(
+    vi.spyOn(facebookPublisher, 'uploadPagePhoto').mockRejectedValue(
       new SocialTransientError('mất mạng')
     );
 
@@ -619,7 +744,7 @@ describe('Schedule — đăng bài Facebook', () => {
       },
     });
 
-    const publish = vi.spyOn(facebookProvider, 'createPageFeedPost');
+    const publish = vi.spyOn(facebookPublisher, 'createPageFeedPost');
 
     await scheduleService.processDueSchedules();
 
@@ -634,8 +759,8 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
     });
 
-    vi.spyOn(facebookProvider, 'uploadPagePhoto').mockResolvedValue('photo-1');
-    vi.spyOn(facebookProvider, 'createPageFeedPost').mockRejectedValue(
+    vi.spyOn(facebookPublisher, 'uploadPagePhoto').mockResolvedValue('photo-1');
+    vi.spyOn(facebookPublisher, 'createPageFeedPost').mockRejectedValue(
       new SocialTransientError('timeout')
     );
 
@@ -658,7 +783,7 @@ describe('Schedule — đăng bài Facebook', () => {
       },
     });
 
-    vi.spyOn(facebookProvider, 'createPageFeedPost').mockResolvedValue('page_post_due');
+    vi.spyOn(facebookPublisher, 'createPageFeedPost').mockResolvedValue('page_post_due');
 
     const result = await scheduleService.processDueSchedules();
 
@@ -699,7 +824,7 @@ describe('Schedule — đăng bài Facebook', () => {
       },
     });
 
-    const feedSpy = vi.spyOn(facebookProvider, 'createPageFeedPost');
+    const feedSpy = vi.spyOn(facebookPublisher, 'createPageFeedPost');
 
     const result = await scheduleService.publishSchedule(schedule.id);
 
@@ -713,8 +838,8 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
     });
 
-    const uploadSpy = vi.spyOn(facebookProvider, 'uploadPagePhoto').mockResolvedValue('photo-1');
-    vi.spyOn(facebookProvider, 'createPageFeedPost').mockResolvedValue('page_post_1');
+    const uploadSpy = vi.spyOn(facebookPublisher, 'uploadPagePhoto').mockResolvedValue('photo-1');
+    vi.spyOn(facebookPublisher, 'createPageFeedPost').mockResolvedValue('page_post_1');
 
     await scheduleService.publishSchedule(schedule.id);
     const second = await scheduleService.publishSchedule(schedule.id);
@@ -836,7 +961,7 @@ describe('Schedule — đăng bài Facebook', () => {
       data: { postId, channelId: channelAId, scheduledAt: null, status: 'SCHEDULED' },
     });
 
-    vi.spyOn(facebookProvider, 'createPageFeedPost').mockRejectedValue(
+    vi.spyOn(facebookPublisher, 'createPageFeedPost').mockRejectedValue(
       new BadRequestError('Mã xác thực Facebook không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.')
     );
 
@@ -855,7 +980,7 @@ describe('Schedule — đăng bài Facebook', () => {
 
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     try {
-      vi.spyOn(facebookProvider, 'createPageFeedPost').mockImplementation(async () => {
+      vi.spyOn(facebookPublisher, 'createPageFeedPost').mockImplementation(async () => {
         // Giả lập đã xử lý 20 phút, rồi tới nhịp heartbeat.
         await prisma.scheduledPost.update({
           where: { id: schedule.id },

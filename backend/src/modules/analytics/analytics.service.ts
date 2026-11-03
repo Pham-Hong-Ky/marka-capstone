@@ -2,7 +2,7 @@ import { getErrorMessage } from '../../utils/errorMessage.js';
 import logger from '../../utils/logger.js';
 import { decryptOrNull } from '../../utils/encryption.js';
 import { getProvider } from '../channel/providers/provider.registry.js';
-import { SocialTokenExpiredError } from '../channel/providers/social-provider.js';
+import { SocialTokenExpiredError } from '../channel/providers/errors/social.errors.js';
 import renderContentToPlainText from '../schedule/schedule.content.js';
 import analyticsRepository from './analytics.repository.js';
 import {

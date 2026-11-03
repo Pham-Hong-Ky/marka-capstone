@@ -4,6 +4,23 @@ import { personNameSchema, strongPasswordSchema } from '../../utils/validation/c
 
 extendZodWithOpenApi(z);
 
+const isHttpUrl = (value: string): boolean => {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const socialUrlSchema = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(2048, `Link ${label} tối đa 2048 ký tự`)
+    .url(`Link ${label} không hợp lệ`)
+    .refine(isHttpUrl, `Link ${label} chỉ hỗ trợ http hoặc https`);
+
 export const updateProfileBodySchema = z.object({
   name: personNameSchema.optional().openapi({ example: 'Nguyễn Văn B' }),
 
@@ -13,6 +30,16 @@ export const updateProfileBodySchema = z.object({
     .nullable()
     .optional()
     .openapi({ example: 'https://example.com/avatar.jpg' }),
+
+  facebookUrl: socialUrlSchema('Facebook')
+    .nullable()
+    .optional()
+    .openapi({ example: 'https://facebook.com/nguyenvana' }),
+
+  threadsUrl: socialUrlSchema('Threads')
+    .nullable()
+    .optional()
+    .openapi({ example: 'https://www.threads.net/@nguyenvana' }),
 });
 
 export const changePasswordBodySchema = z.object({

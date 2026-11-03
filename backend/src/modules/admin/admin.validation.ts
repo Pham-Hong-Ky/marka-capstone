@@ -37,6 +37,7 @@ export const listWorkspacesQuerySchema = z.object({
 
 export const listUsersSchema = { query: listUsersQuerySchema };
 export const suspendUserSchema = { params: userIdParamSchema, body: suspendUserBodySchema };
+export const sendTesterInviteSchema = { params: userIdParamSchema };
 export const listWorkspacesSchema = { query: listWorkspacesQuerySchema };
 
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
@@ -46,6 +47,7 @@ export type ListWorkspacesQuery = z.infer<typeof listWorkspacesQuerySchema>;
 export default {
   listUsersSchema,
   suspendUserSchema,
+  sendTesterInviteSchema,
   listWorkspacesSchema,
   listUsersQuerySchema,
   userIdParamSchema,

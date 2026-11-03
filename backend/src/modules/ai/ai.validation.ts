@@ -32,6 +32,12 @@ export const generateTextBodySchema = z.object({
     .max(500, 'Yêu cầu thêm tối đa 500 ký tự')
     .optional(),
   postId: z.string().uuid('Post ID không hợp lệ').optional(),
+  channelIds: z
+    .array(z.string().uuid('Channel ID không hợp lệ'))
+    .min(1, 'Chọn ít nhất một kênh')
+    .max(10, 'Chọn tối đa 10 kênh')
+    .optional()
+    .openapi({ example: ['3f0c1c1e-7a4b-4c36-9b9c-9f4f0b2d7d10'] }),
 });
 
 export const generateImageBodySchema = z.union([
