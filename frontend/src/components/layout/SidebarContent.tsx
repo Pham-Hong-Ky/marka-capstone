@@ -1,5 +1,7 @@
+import { Fragment } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import BrandLogo from '@/components/shared/BrandLogo';
 import Button from '@/components/ui/Button';
 import { buttonClasses } from '@/components/ui/button.styles';
 import WorkspaceSwitcher from '@/components/features/workspace/WorkspaceSwitcher';
@@ -44,18 +46,26 @@ export const SidebarContent = ({
 
   return (
     <>
-      <div className={cn('flex gap-1 p-3', isCollapsed ? 'flex-col items-center' : 'items-center')}>
-        <WorkspaceSwitcher collapsed={isCollapsed} />
+      <div
+        className={cn(
+          'flex gap-2 p-3',
+          isCollapsed ? 'flex-col items-center' : 'items-center'
+        )}
+      >
+        <BrandLogo className="h-8 w-8 rounded-lg" />
+        {isCollapsed ? null : (
+          <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">Marka</span>
+        )}
 
         {variant === 'desktop' ? (
           <Button
             type="button"
-            variant="ghost"
+            variant="sidebar"
             aria-label={toggleLabel}
             aria-expanded={!isCollapsed}
             title={toggleLabel}
             onClick={onToggleCollapse}
-            className="h-11 w-11 shrink-0 px-0"
+            className={cn('h-11 w-11 shrink-0 px-0', !isCollapsed && 'ml-auto')}
           >
             {isCollapsed ? (
               <PanelLeftOpen className="h-5 w-5" />
@@ -66,53 +76,67 @@ export const SidebarContent = ({
         ) : null}
       </div>
 
+      <div className="px-3 pb-3">
+        <WorkspaceSwitcher collapsed={isCollapsed} />
+      </div>
+
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {variant === 'mobile' ? (
           <Link
             to="/posts/new"
             onClick={onNavigate}
-            className={buttonClasses('primary', 'min-h-11 w-full')}
+            className={buttonClasses('primary', 'mb-2 min-h-11 w-full')}
           >
             Tạo bài viết
           </Link>
+        ) : null}
+
+        {!isCollapsed ? (
+          <p className="px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-sidebar-subtle">
+            Không gian làm việc
+          </p>
         ) : null}
 
         {navItems.map(({ label, to, icon: Icon }) => {
           const active = isItemActive(pathname, to);
 
           return (
-            <Link
-              key={to}
-              to={to}
-              onClick={onNavigate}
-              aria-current={active ? 'page' : undefined}
-              aria-label={isCollapsed ? label : undefined}
-              title={isCollapsed ? label : undefined}
-              className={cn(
-                'flex min-h-11 items-center rounded-lg text-sm font-medium transition',
-                isCollapsed ? 'justify-center px-0' : 'gap-3 px-3 py-2',
-                active
-                  ? 'bg-accent/10 text-accent-text'
-                  : 'text-muted hover:bg-surface-2 hover:text-foreground'
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {isCollapsed ? null : label}
-            </Link>
+            <Fragment key={to}>
+              {to === ADMIN_NAV_ITEM.to ? (
+                <div className="my-2 border-t border-sidebar-border" />
+              ) : null}
+              <Link
+                to={to}
+                onClick={onNavigate}
+                aria-current={active ? 'page' : undefined}
+                aria-label={isCollapsed ? label : undefined}
+                title={isCollapsed ? label : undefined}
+                className={cn(
+                  'flex min-h-11 items-center rounded-lg text-[13px] font-medium transition',
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3 py-2',
+                  active
+                    ? 'bg-sidebar-active text-sidebar-active-foreground'
+                    : 'text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground'
+                )}
+              >
+                <Icon className="h-[17px] w-[17px] shrink-0" />
+                {isCollapsed ? null : label}
+              </Link>
+            </Fragment>
           );
         })}
       </nav>
 
-      <div className="space-y-3 border-t border-border p-3">
+      <div className="space-y-3 border-t border-sidebar-border p-3">
         {!isCollapsed && workspace ? (
           <Link
             to="/billing"
             aria-label="Mở trang Gói & Credit"
-            className="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-active"
           >
             <CreditUsageCard
               remainingCredit={workspace.remainingCredit}
-              className="transition hover:border-accent"
+              className="transition hover:border-sidebar-active/60"
             />
           </Link>
         ) : null}

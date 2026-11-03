@@ -4,6 +4,8 @@ import type { ApiResponse } from '@/types';
 import type {
   CreateSchedulePayload,
   CreateScheduleResult,
+  RescheduleSchedulePayload,
+  RescheduleScheduleResult,
   ScheduleListMeta,
   ScheduleListParams,
   ScheduleListResult,
@@ -37,8 +39,21 @@ export const cancelSchedule = async (workspaceId: string, scheduleId: string): P
   await httpClient.delete(`/workspaces/${workspaceId}/schedules/${scheduleId}`);
 };
 
+export const rescheduleSchedule = async (
+  workspaceId: string,
+  scheduleId: string,
+  payload: RescheduleSchedulePayload
+): Promise<RescheduleScheduleResult> =>
+  unwrap(
+    await httpClient.patch<ApiResponse<RescheduleScheduleResult>>(
+      `/workspaces/${workspaceId}/schedules/${scheduleId}`,
+      payload
+    )
+  );
+
 export default {
   createSchedules,
   listSchedules,
   cancelSchedule,
+  rescheduleSchedule,
 };

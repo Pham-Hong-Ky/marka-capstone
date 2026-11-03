@@ -9,12 +9,14 @@ import PostStatusBadge from './PostStatusBadge';
 import PostPreviewModal from './PostPreviewModal';
 import PostScheduleList from './PostScheduleList';
 import PublishScheduleModal from '@/components/features/schedule/PublishScheduleModal';
+import RescheduleScheduleModal from '@/components/features/schedule/RescheduleScheduleModal';
 import {
   canManagePost,
   canModifyPost,
   PUBLISHABLE_POST_STATUSES,
   type PostDetail,
 } from '@/services/post';
+import type { ScheduleItem } from '@/services/schedule';
 import { usePost, useReviewPost, useSubmitPost } from '@/hooks/usePost';
 import { getErrorMessage } from '@/utils/error';
 import type { WorkspaceRole } from '@/services/auth';
@@ -50,6 +52,7 @@ export const PostDetailModal = ({
   const reviewPost = useReviewPost();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [publishMode, setPublishMode] = useState<'now' | 'schedule' | null>(null);
+  const [scheduleToReschedule, setScheduleToReschedule] = useState<ScheduleItem | null>(null);
 
   const canEdit = Boolean(post && canModifyPost(post, currentUserId, role));
   const canReview = post?.status === 'PENDING' && role === 'OWNER';
@@ -59,6 +62,13 @@ export const PostDetailModal = ({
       canManagePost(post, currentUserId, role)
   );
   const schedules = post?.schedules ?? [];
+  const canReschedule = (schedule: ScheduleItem) =>
+    Boolean(
+      post &&
+        schedule.status === 'SCHEDULED' &&
+        schedule.scheduledAt &&
+        canManagePost(post, currentUserId, role)
+    );
 
   return (
     <Modal
@@ -165,7 +175,11 @@ export const PostDetailModal = ({
             <RichTextEditor value={post.content as JSONContent} editable={false} />
           </div>
 
-          <PostScheduleList schedules={schedules} />
+          <PostScheduleList
+            schedules={schedules}
+            canReschedule={canReschedule}
+            onReschedule={setScheduleToReschedule}
+          />
 
           <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
             <Eye className="h-4 w-4" />
@@ -188,6 +202,15 @@ export const PostDetailModal = ({
           post={post}
           onClose={() => setPublishMode(null)}
           onScheduled={() => setPublishMode(null)}
+        />
+      ) : null}
+
+      {post ? (
+        <RescheduleScheduleModal
+          open={Boolean(scheduleToReschedule)}
+          workspaceId={workspaceId}
+          schedule={scheduleToReschedule}
+          onClose={() => setScheduleToReschedule(null)}
         />
       ) : null}
     </Modal>

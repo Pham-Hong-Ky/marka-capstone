@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronsUpDown, LogOut } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronsUpDown, LogOut, UserRound } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import { WORKSPACE_ROLE_LABELS } from '@/services/workspace';
 import type { WorkspaceRole } from '@/services/auth';
@@ -50,7 +51,7 @@ export const UserMenu = ({
         aria-label="Tài khoản"
         title={collapsed ? name : undefined}
         className={cn(
-          'flex min-h-11 w-full items-center rounded-lg py-1.5 text-left transition hover:bg-surface-2',
+          'flex min-h-11 w-full items-center rounded-lg py-1.5 text-left transition hover:bg-sidebar-hover',
           collapsed ? 'justify-center px-0' : 'gap-2.5 px-2'
         )}
       >
@@ -59,14 +60,16 @@ export const UserMenu = ({
         {collapsed ? null : (
           <>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-foreground">{name}</span>
+              <span className="block truncate text-[13px] font-medium text-sidebar-foreground">
+                {name}
+              </span>
               {role ? (
-                <span className="block truncate text-xs text-muted">
+                <span className="block truncate text-[11px] text-sidebar-muted">
                   {WORKSPACE_ROLE_LABELS[role]}
                 </span>
               ) : null}
             </span>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted" />
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-sidebar-muted" />
           </>
         )}
       </button>
@@ -82,6 +85,16 @@ export const UserMenu = ({
             menuPosition
           )}
         >
+          <Link
+            to="/settings/account"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-foreground transition hover:bg-surface-2 focus:bg-surface-2 focus:outline-none"
+          >
+            <UserRound className="h-4 w-4 text-muted" />
+            Trang cá nhân
+          </Link>
+
           <button
             type="button"
             role="menuitem"

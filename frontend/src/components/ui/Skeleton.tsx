@@ -1,14 +1,14 @@
 import { cn } from '@/utils/cn';
 
 export const Skeleton = ({ className }: { className?: string }) => (
-  <div aria-hidden="true" className={cn('animate-pulse rounded-lg bg-surface-2', className)} />
+  <div aria-hidden="true" className={cn('animate-pulse rounded-md bg-surface-2', className)} />
 );
 
 export const SkeletonList = ({ rows = 3, className }: { rows?: number; className?: string }) => (
   <div
     role="status"
     aria-label="Đang tải"
-    className={cn('divide-y divide-border rounded-2xl border border-border bg-surface', className)}
+    className={cn('divide-y divide-border rounded-xl border border-border bg-surface', className)}
   >
     {Array.from({ length: rows }, (_, index) => (
       <div key={index} className="flex items-center gap-4 px-5 py-4">

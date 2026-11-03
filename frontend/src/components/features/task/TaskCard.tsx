@@ -10,7 +10,7 @@ import { formatDateTime } from '@/utils/format';
 import TaskPriorityBadge from './TaskPriorityBadge';
 
 const cardClasses =
-  'w-full rounded-xl border border-border bg-surface p-3 text-left transition hover:border-accent/40 hover:bg-surface-2';
+  'w-full rounded-lg border border-border bg-surface p-3 text-left transition hover:border-accent/40 hover:bg-surface-2';
 
 const STATUS_OPTIONS: Array<{ status: TaskStatus; label: string }> = [
   { status: 'TODO', label: 'Cần làm' },
@@ -103,15 +103,15 @@ export const TaskCard = ({
   const summary = (
     <>
       <span className="flex items-start justify-between gap-2">
-        <span className="line-clamp-2 text-sm font-medium text-foreground">{task.title}</span>
+        <span className="line-clamp-2 text-[13px] font-medium text-foreground">{task.title}</span>
         <TaskPriorityBadge priority={task.priority} />
       </span>
 
       <span className="mt-2 flex flex-wrap items-center gap-2">
         {task.post ? <Badge variant="neutral">Bài viết</Badge> : null}
-        {overdue ? <span className="text-xs font-medium text-danger">Quá hạn</span> : null}
+        {overdue ? <span className="text-[11px] font-medium text-danger">Quá hạn</span> : null}
         {task.dueAt ? (
-          <span className="text-xs text-muted">Hạn: {formatDateTime(task.dueAt)}</span>
+          <span className="text-[11px] text-muted">Hạn: {formatDateTime(task.dueAt)}</span>
         ) : null}
       </span>
     </>
@@ -148,10 +148,10 @@ export const TaskCard = ({
               src={task.assignee.avatar}
               className="h-6 w-6 text-[10px]"
             />
-            <span className="truncate text-xs text-muted">{task.assignee.name}</span>
+            <span className="truncate text-[11px] text-muted">{task.assignee.name}</span>
           </>
         ) : (
-          <span className="text-xs text-subtle">Chưa giao</span>
+          <span className="text-[11px] text-subtle">Chưa giao</span>
         )}
 
         {onStatusChange ? (

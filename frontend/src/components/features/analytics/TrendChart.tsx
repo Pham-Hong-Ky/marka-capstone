@@ -58,14 +58,14 @@ export const TrendChart = ({
   );
 
   return (
-    <section className={cn('rounded-2xl border border-border bg-surface p-5', className)}>
+    <section className={cn('rounded-xl border border-border bg-surface p-4', className)}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-base font-semibold text-foreground">Chỉ số</h2>
-        <p className="text-xs text-muted">Số bài đăng và tương tác theo ngày</p>
+        <h2 className="text-sm font-semibold text-foreground">Hiệu suất nội dung</h2>
+        <p className="text-[11px] text-muted">Số bài đăng và tương tác theo ngày</p>
       </div>
 
-      <div className="mt-4">
-        <ResponsiveContainer width="100%" height={280}>
+      <div className="mt-3">
+        <ResponsiveContainer width="100%" height={240}>
           <ComposedChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
@@ -74,7 +74,7 @@ export const TrendChart = ({
               tickLine={false}
               axisLine={false}
               minTickGap={16}
-              tick={{ fill: 'var(--muted)', fontSize: 12 }}
+              tick={{ fill: 'var(--muted)', fontSize: 11 }}
             />
             <YAxis
               yAxisId="posts"
@@ -84,7 +84,7 @@ export const TrendChart = ({
               tickFormatter={formatAxisTick}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: 'var(--muted)', fontSize: 12 }}
+              tick={{ fill: 'var(--muted)', fontSize: 11 }}
             />
             <YAxis
               yAxisId="engagement"
@@ -95,7 +95,7 @@ export const TrendChart = ({
               tickFormatter={formatAxisTick}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: 'var(--muted)', fontSize: 12 }}
+              tick={{ fill: 'var(--muted)', fontSize: 11 }}
             />
             <Tooltip
               cursor={{ stroke: 'var(--border)' }}
@@ -107,16 +107,16 @@ export const TrendChart = ({
               contentStyle={{
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
-                borderRadius: 12,
+                borderRadius: 8,
                 color: 'var(--foreground)',
-                fontSize: 12,
+                fontSize: 11,
               }}
               labelStyle={{ color: 'var(--muted)' }}
               itemStyle={{ color: 'var(--foreground)' }}
             />
             <Legend
               formatter={(value) => LEGEND_LABELS[value] ?? value}
-              wrapperStyle={{ color: 'var(--muted)', fontSize: 12, paddingTop: 8 }}
+              wrapperStyle={{ color: 'var(--muted)', fontSize: 11, paddingTop: 4 }}
             />
             <Area
               yAxisId="posts"
@@ -125,7 +125,7 @@ export const TrendChart = ({
               name="posts"
               stroke="var(--accent)"
               fill="var(--accent)"
-              fillOpacity={0.15}
+              fillOpacity={0.12}
               strokeWidth={2}
             />
             <Line

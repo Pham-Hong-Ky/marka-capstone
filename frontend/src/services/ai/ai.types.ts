@@ -33,6 +33,7 @@ export interface StartTextPayload {
   topic: string;
   instructions?: string;
   postId?: string;
+  channelIds?: string[];
 }
 
 export interface StartImagePayload {

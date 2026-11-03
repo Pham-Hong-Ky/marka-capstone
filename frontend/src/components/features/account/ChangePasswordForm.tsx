@@ -24,10 +24,10 @@ export const ChangePasswordForm = () => {
   );
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-6">
+    <section className="rounded-xl border border-border bg-surface p-5">
       <h2 className="text-sm font-semibold text-foreground">Đổi mật khẩu</h2>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <form onSubmit={onSubmit} className="mt-5 space-y-4">
         <TextField
           label="Mật khẩu hiện tại"
           type="password"

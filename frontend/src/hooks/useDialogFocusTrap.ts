@@ -3,6 +3,11 @@ import { useEffect, useRef, type RefObject } from 'react';
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Modal lồng nhau: chỉ dialog trên cùng xử lý Escape và khoá scroll.
+const dialogStack: symbol[] = [];
+let bodyLockCount = 0;
+let bodyOverflowBeforeLock = '';
+
 interface DialogFocusTrapOptions {
   initialFocusRef?: RefObject<HTMLElement | null>;
 }
@@ -19,12 +24,17 @@ export const useDialogFocusTrap = (
   useEffect(() => {
     if (!open) return;
 
+    const token = Symbol('dialog');
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
+    dialogStack.push(token);
+    if (bodyLockCount === 0) bodyOverflowBeforeLock = document.body.style.overflow;
+    bodyLockCount += 1;
     document.body.style.overflow = 'hidden';
     (initialFocusRef?.current ?? containerRef.current)?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (dialogStack[dialogStack.length - 1] !== token) return;
+
       if (event.key === 'Escape') {
         onCloseRef.current();
         return;
@@ -56,7 +66,10 @@ export const useDialogFocusTrap = (
 
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      const index = dialogStack.lastIndexOf(token);
+      if (index >= 0) dialogStack.splice(index, 1);
+      bodyLockCount = Math.max(0, bodyLockCount - 1);
+      if (bodyLockCount === 0) document.body.style.overflow = bodyOverflowBeforeLock;
       if (previouslyFocused?.isConnected) previouslyFocused.focus();
     };
   }, [containerRef, initialFocusRef, open]);

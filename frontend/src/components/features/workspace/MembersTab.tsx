@@ -42,7 +42,7 @@ export const MembersTab = () => {
   }
 
   if (isError) {
-    return <p className="text-sm text-danger">{getErrorMessage(error)}</p>;
+    return <p className="text-[13px] text-danger">{getErrorMessage(error)}</p>;
   }
 
   const members = data?.members ?? [];
@@ -65,11 +65,11 @@ export const MembersTab = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Thành viên</h2>
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-1 text-[11px] text-muted">
             {members.length} thành viên
             {pendingInvites.length > 0 ? `, ${pendingInvites.length} lời mời chờ` : ''}
           </p>

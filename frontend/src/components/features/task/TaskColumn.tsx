@@ -53,14 +53,14 @@ export const TaskColumn = ({
       }}
       aria-label={`Cột ${title}`}
       className={cn(
-        'flex min-h-64 flex-col rounded-2xl border border-border bg-surface-2/40 p-3 transition',
+        'flex min-h-64 flex-col rounded-xl border border-border bg-surface-2/40 p-2.5 transition',
         isOver && 'border-accent bg-accent/5'
       )}
     >
-      <header className="mb-3 flex items-center justify-between gap-2 px-1">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <header className="mb-2.5 flex items-center justify-between gap-2 px-1">
+        <h2 className="text-[13px] font-semibold text-foreground">{title}</h2>
         <div className="flex items-center gap-1">
-          <span className="text-xs text-muted">{count}</span>
+          <span className="rounded-md bg-surface px-1.5 py-0.5 text-[11px] text-muted">{count}</span>
           {onCreate ? (
             <button
               type="button"
@@ -76,7 +76,7 @@ export const TaskColumn = ({
 
       <div className="flex flex-1 flex-col gap-2">
         {tasks.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted">
+          <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[12px] text-muted">
             Chưa có việc
           </p>
         ) : (
@@ -93,7 +93,7 @@ export const TaskColumn = ({
           ))
         )}
         {count > tasks.length ? (
-          <p className="px-1 pt-1 text-xs text-muted">
+          <p className="px-1 pt-1 text-[11px] text-muted">
             Chỉ hiển thị {tasks.length}/{count} việc.
           </p>
         ) : null}

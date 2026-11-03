@@ -1,3 +1,4 @@
+import { FileText } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
@@ -30,6 +31,7 @@ export const PostList = ({
   if (posts.length === 0) {
     return (
       <EmptyState
+        icon={FileText}
         title="Chưa có bài viết nào."
         description="Bấm “Tạo bài viết” để bắt đầu soạn nội dung."
       />
@@ -38,7 +40,7 @@ export const PostList = ({
 
   return (
     <div className="space-y-4">
-      <Table className="min-w-[640px]">
+      <Table className="min-w-[720px]">
         <THead>
           <TR>
             <TH scope="col">Tiêu đề</TH>
@@ -57,7 +59,7 @@ export const PostList = ({
         <TBody>
           {posts.map((post) => (
             <TR key={post.id}>
-              <TD className="max-w-xs truncate font-medium text-foreground" title={post.title}>
+              <TD className="max-w-xs truncate text-[13px] font-medium text-foreground" title={post.title}>
                 {post.title}
               </TD>
               <TD className="hidden md:table-cell">
@@ -67,7 +69,7 @@ export const PostList = ({
                     src={post.createdBy?.avatar}
                     className="h-7 w-7"
                   />
-                  <span className="max-w-40 truncate text-foreground">
+                  <span className="max-w-40 truncate text-[13px] text-foreground">
                     {post.createdBy?.name ?? 'Không xác định'}
                   </span>
                 </div>
@@ -75,7 +77,7 @@ export const PostList = ({
               <TD className="whitespace-nowrap">
                 <PostStatusBadge status={post.status} />
               </TD>
-              <TD className="hidden whitespace-nowrap text-muted sm:table-cell">
+              <TD className="hidden whitespace-nowrap text-[13px] text-muted sm:table-cell">
                 {formatDate(post.updatedAt)}
               </TD>
               <TD className="px-2 py-2 text-right">

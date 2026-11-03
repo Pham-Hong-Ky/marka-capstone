@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
 import TabNav, { type TabNavItem } from '@/components/ui/TabNav';
 
@@ -10,7 +11,7 @@ const ADMIN_TABS: TabNavItem[] = [
 ];
 
 export const AdminLayout = () => (
-  <div className="mx-auto max-w-6xl space-y-6">
+  <PageContainer width="wide">
     <PageHeader
       title="Quản trị hệ thống"
       description="Theo dõi và quản lý toàn bộ người dùng, workspace và hoạt động hệ thống."
@@ -19,7 +20,7 @@ export const AdminLayout = () => (
     <TabNav ariaLabel="Quản trị" items={ADMIN_TABS} />
 
     <Outlet />
-  </div>
+  </PageContainer>
 );
 
 export default AdminLayout;

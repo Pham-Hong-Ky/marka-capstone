@@ -20,6 +20,8 @@ export interface AdminUser {
   email: string;
   name: string;
   avatar: string | null;
+  facebookUrl: string | null;
+  threadsUrl: string | null;
   authProvider: string;
   systemRole: 'SYSTEM_ADMIN' | 'USER';
   emailVerified: boolean;
