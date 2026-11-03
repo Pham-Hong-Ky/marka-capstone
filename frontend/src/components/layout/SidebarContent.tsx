@@ -91,12 +91,6 @@ export const SidebarContent = ({
           </Link>
         ) : null}
 
-        {!isCollapsed ? (
-          <p className="px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-sidebar-subtle">
-            Không gian làm việc
-          </p>
-        ) : null}
-
         {navItems.map(({ label, to, icon: Icon }) => {
           const active = isItemActive(pathname, to);
 

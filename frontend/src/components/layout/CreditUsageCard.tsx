@@ -15,7 +15,6 @@ export const CreditUsageCard = ({
         {formatNumber(remainingCredit)}
       </span>
     </div>
-    <p className="mt-2 text-[11px] text-sidebar-subtle">Nạp thêm khi cần dùng AI.</p>
   </div>
 );
 
