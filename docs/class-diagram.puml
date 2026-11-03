@@ -422,12 +422,14 @@ interface "SocialProvider" as socialProvider {
   + refreshToken(accessToken) : string
 }
 
-class "FacebookProvider" as facebookProvider {
+class "FacebookAdapter" as facebookAdapter {
   + platform = FACEBOOK
+  + capabilities : ProviderCapabilities
 }
 
-class "ThreadsProvider" as threadsProvider {
+class "ThreadsAdapter" as threadsAdapter {
   + platform = THREADS
+  + capabilities : ProviderCapabilities
 }
 
 class "providerRegistry" as providerRegistry {
@@ -752,10 +754,10 @@ channelService ..> channelRepository
 channelService ..> providerRegistry
 channelService ..> oauthStore
 channelService ..> channelTokenRefresh
-facebookProvider ..|> socialProvider
-threadsProvider ..|> socialProvider
-providerRegistry ..> facebookProvider
-providerRegistry ..> threadsProvider
+facebookAdapter ..|> socialProvider
+threadsAdapter ..|> socialProvider
+providerRegistry ..> facebookAdapter
+providerRegistry ..> threadsAdapter
 
 postController ..> postService
 postService ..> postRepository

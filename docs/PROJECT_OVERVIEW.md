@@ -52,7 +52,7 @@ Quy tắc:
 - Đăng nhập Google qua `idToken` (chỉ nhận email đã xác minh).
 - Đăng xuất, làm mới access token.
 - Đổi mật khẩu; đăng xuất mọi thiết bị bằng `User.tokenVersion`.
-- Xem/cập nhật hồ sơ (tên, avatar URL).
+- Xem/cập nhật hồ sơ (tên, avatar URL, link Facebook/Threads).
 - Rate limit: 15 request/15 phút cho auth; 5 lần sai/15 phút cho login theo `IP:email`.
 - Refresh token nằm trong cookie HttpOnly; không lưu DB.
 
@@ -84,7 +84,7 @@ Quy tắc:
 ### 3.3.1. Trợ lý AI cho bài viết ✅
 
 - Panel “Trợ lý AI” trong editor bài viết; mọi thành viên workspace dùng được.
-- Sinh tiêu đề + nội dung từ chủ đề, tự động dùng Brand Voice; kết quả điền thẳng vào editor (khoá editor trong lúc chờ).
+- Sinh tiêu đề + nội dung từ chủ đề, tự động dùng Brand Voice; người dùng chọn kênh đăng bài để AI bám giới hạn ký tự/hashtag/emoji và văn phong từng kênh; kết quả điền thẳng vào editor (khoá editor trong lúc chờ).
 - Sinh 1 ảnh minh hoạ từ tiêu đề/nội dung/ghi chú; ảnh lưu Cloudinary và gắn vào bài với `source = AI_GENERATED`.
 - Bài mới chưa lưu: tự tạo nháp trong cùng transaction với trừ credit + tạo job.
 - Chạy nền qua `content-generation-queue`; frontend poll trạng thái 2 giây/lần.
@@ -107,17 +107,17 @@ Quy tắc:
 - Chỉ `OWNER` được kết nối/ngắt kênh.
 - Đăng ngay hoặc lên lịch bài `APPROVED` lên nhiều kênh: Facebook tối đa 10 ảnh, Threads tối đa 20 ảnh/500 ký tự.
 - Worker `schedule-queue` tự đăng đúng giờ: upload ảnh, gọi provider tương ứng, lưu `externalPostId`, retry khi lỗi tạm thời.
-- Chỉnh sửa trạng thái từng kênh, huỷ lịch đang chờ, xem danh sách ở trang `/schedule`.
+- Chỉnh sửa trạng thái từng kênh, huỷ lịch đang chờ, đổi giờ đăng, xem danh sách ở trang `/schedule`; kéo-thả lịch sang ngày khác trên calendar.
 - Mọi thành viên workspace được đăng/lên lịch bài đã duyệt.
 
-**Chưa có:** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả, sửa giờ sau khi tạo, video, làm mới token Facebook tự động.
+**Chưa có:** Instagram/TikTok/Zalo (kể cả giả lập), kéo-thả theo khung giờ, video, làm mới token Facebook tự động.
 
 ### 3.5. Bài viết, media & duyệt bài ✅
 
 - Tạo bài nháp (`DRAFT`), nội dung JSON rich-text.
 - Danh sách bài viết có phân trang, tìm theo tiêu đề, lọc trạng thái/người tạo/khoảng ngày, lọc `taskStatus` và người nhận việc (`assigneeId=me`).
 - Xem chi tiết bài kèm media.
-- Giao việc (UC42/UC43) + bảng công việc `/tasks`: Owner giao/đổi người nhận, hạn chót, ưu tiên; người nhận hoặc Owner cập nhật `taskStatus` (`TODO`/`IN_PROGRESS`/`DONE`/`CANCELLED`); notification + audit khi giao/đổi trạng thái.
+- Giao việc (UC42/UC43) + bảng công việc `/tasks`: Owner giao/đổi người nhận, hạn chót, ưu tiên; người nhận hoặc Owner cập nhật `taskStatus` (`TODO`/`IN_PROGRESS`/`DONE`/`CANCELLED`); notification + audit khi giao/đổi trạng thái. Giao việc từ bài viết và từ Kanban dùng chung một bản ghi `Task` nên luôn đồng bộ hai chiều.
 - Job nhắc hạn gửi `TASK_DUE_SOON` và `TASK_OVERDUE`, không gửi trùng khi chạy lại.
 - Sửa/xoá bài: `OWNER` sửa/xoá mọi bài; người tạo sửa/xoá bài của mình khi `DRAFT`/`REJECTED`. Xoá bài tự huỷ các `ScheduledPost` đang `SCHEDULED` và ghi audit `POST_DELETED`.
 - Upload ảnh JPG/PNG/WEBP ≤ 10MB qua Cloudinary; xoá mềm ảnh.
@@ -174,10 +174,11 @@ Quy tắc:
 - `GET /admin/stats`: user (tổng/hoạt động/bị khoá/admin), workspace, bài theo trạng thái, kênh, đơn PAID + doanh thu 30 ngày.
 - `GET /admin/users`: tìm theo email/tên, lọc `systemRole`/`isSuspended`, phân trang; không trả `passwordHash`.
 - `PATCH /admin/users/:userId/suspend`: khoá/mở khoá, tăng `tokenVersion` để đá phiên, chặn tự khoá, ghi audit.
+- `POST /admin/users/:userId/tester-invite`: gửi email hướng dẫn tham gia Facebook Tester, ghi audit.
 - `GET /admin/workspaces`: tìm/lọc `plan`, `includeDeleted`, kèm số thành viên/bài.
 - `GET /admin/audit-logs` cho System Admin và `GET /workspaces/:workspaceId/audit-logs` cho Owner.
 
-- Frontend `/admin`: tổng quan, người dùng, workspace, audit log; menu chỉ hiện với `SYSTEM_ADMIN`.
+- Frontend `/admin`: tổng quan, người dùng, workspace, audit log; menu chỉ hiện với `SYSTEM_ADMIN`. Trang người dùng có liên kết Facebook/Threads và thao tác gửi email mời tester.
 
 **Chưa có:** đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo.
 
@@ -189,7 +190,7 @@ Các phần dưới đây **không có** trong code hiện tại:
 
 | Nhóm | Nội dung | Dấu vết hiện có |
 | :--- | :--- | :--- |
-| Calendar nâng cao | Kéo-thả đổi giờ, sửa lịch sau khi tạo | Đăng ngay/lên lịch/huỷ lịch cơ bản đã có |
+| Calendar nâng cao | Kéo-thả theo khung giờ (đổi ngày và modal đổi giờ đã có) | Trang `/schedule` hỗ trợ kéo-thả sang ngày khác + nút Đổi lịch |
 | Kênh mở rộng | Instagram/TikTok/Zalo, đăng video | Adapter Facebook/Threads đã có |
 | AI nâng cao | Viral Score, sinh lại theo góp ý, nhiều ảnh/lần | Trợ lý AI text + 1 ảnh đã có |
 | Vận hành | Email queue, retention Notification/AuditLog/Order | Email đang gửi đồng bộ trong request |

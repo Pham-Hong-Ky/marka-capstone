@@ -71,29 +71,32 @@ class "channelRepository" as channelRepository {
   + disconnectChannelAndCancelSchedules(channelId)
 }
 
+interface "SocialProvider" as socialProvider {
+  <<port>>
+  + platform : SocialPlatform
+  + capabilities : ProviderCapabilities
+  + isConfigured() : boolean
+  + buildAuthorizationUrl(state) : string
+  + exchangeCodeForAccounts(code) : Promise<SocialAccount[]>
+  + fetchProfile(accessToken) : Promise<SocialProfile>
+  + publish(input) : Promise<string>
+  + fetchMetrics(externalPostId, accessToken) : Promise<ProviderMetrics>
+  + refreshToken?(accessToken) : Promise<string>
+}
+
+class "FacebookAdapter" as facebookAdapter {
+  + platform = FACEBOOK
+  + capabilities : ProviderCapabilities
+}
+
+class "ThreadsAdapter" as threadsAdapter {
+  + platform = THREADS
+  + capabilities : ProviderCapabilities
+}
+
 class "ProviderRegistry" as providerRegistry {
   + getProvider(platform) : SocialProvider
   + listProviders() : SocialProvider[]
-}
-
-class "FacebookProvider" as facebookProvider {
-  + exchangeCodeForAccounts(code) : Promise<SocialAccount[]>
-  + publish(input) : Promise<string>
-  + fetchMetrics(...)
-  + refreshProfile(...)
-  + supportsPublish : true
-  + supportsMetrics : true
-  + supportsTokenRefresh : false
-}
-
-class "ThreadsProvider" as threadsProvider {
-  + exchangeCodeForAccounts(code) : Promise<SocialAccount[]>
-  + publish(input) : Promise<string>
-  + fetchMetrics(...)
-  + refreshToken(token) : Promise<string>
-  + supportsPublish : true
-  + supportsMetrics : true
-  + supportsTokenRefresh : true
 }
 
 class "oauthStore" as oauthStore {
@@ -109,7 +112,10 @@ channelService ..> channelRepository
 channelService ..> providerRegistry
 channelService ..> oauthStore
 channelRepository ..> ChannelConnection
-providerRegistry --> facebookProvider
-providerRegistry --> threadsProvider
+providerRegistry ..> socialProvider
+providerRegistry --> facebookAdapter
+providerRegistry --> threadsAdapter
+facebookAdapter ..|> socialProvider
+threadsAdapter ..|> socialProvider
 
 @enduml

@@ -2335,11 +2335,11 @@ Không dùng tài liệu này để suy ra API đã tồn tại.
   regenerate, nhiều ảnh/lần và lịch sử AI UI.
 - **Billing/PayOS:** đã có module `billing`, route `/billing`, `/billing/transactions`,
   `/billing/orders`, webhook `/webhooks/payos`. Chỉ nạp credit một lần; không có queue/cron billing.
-- **Admin panel:** đã có `/admin/*` (stats, users, workspaces, audit logs) và frontend `/admin`.
+- **Admin panel:** đã có `/admin/*` (stats, users, workspaces, audit logs, mời Facebook Tester) và frontend `/admin`.
   Còn đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo.
 - **Lịch đăng bài và publish:** đã có module `schedule` + `scheduleWorker` (`schedule-queue`).
-  API tạo lịch/đăng ngay, danh sách lịch và huỷ lịch; worker gọi provider Facebook/Threads và retry.
-  Calendar kéo-thả/sửa giờ sau khi tạo vẫn là Roadmap.
+  API tạo lịch/đăng ngay, danh sách lịch, đổi giờ và huỷ lịch; worker gọi provider Facebook/Threads và retry.
+  Kéo-thả theo khung giờ vẫn là Roadmap (hiện đổi ngày bằng kéo-thả và đổi giờ bằng modal).
 - **Analytics:** đã có module + `analyticsWorker`, endpoint overview/suggestions/sync; hiển thị
   trong Dashboard `/`. Còn snapshot theo thời gian, top bài/chi tiết bài, xử lý rate limit.
 - **Thông báo:** API đọc hộp thư (`/users/me/notifications`) và chuông frontend đã có.

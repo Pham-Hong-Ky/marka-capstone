@@ -240,11 +240,14 @@ Yêu cầu `requireAuth`.
 | :--- | :--- |
 | `name` | 2–100 ký tự, tuỳ chọn |
 | `avatar` | URL hợp lệ hoặc `null` (xoá avatar), tuỳ chọn |
+| `facebookUrl` | URL `http`/`https` hoặc `null`, tối đa 2048 ký tự, tuỳ chọn |
+| `threadsUrl` | URL `http`/`https` hoặc `null`, tối đa 2048 ký tự, tuỳ chọn |
 
 - **Không có upload avatar**: `avatar` là URL do client cung cấp, không đi qua Cloudinary.
 - Cả hai field đều tuỳ chọn; body rỗng vẫn hợp lệ (không có ràng buộc "ít nhất một field").
 - Ghi audit `USER_UPDATE_PROFILE`.
-- Response `200` trả subset: `{ id, email, name, avatar, systemRole, emailVerified, updatedAt }` — **không kèm `workspaces`**.
+- Response `200` trả subset: `{ id, email, name, avatar, facebookUrl, threadsUrl, systemRole, emailVerified, updatedAt }` — **không kèm `workspaces`**.
+- `facebookUrl`/`threadsUrl` là liên kết công khai người dùng tự nhập (Admin dùng để liên hệ mời thử nghiệm); không phải token kênh.
 
 ---
 

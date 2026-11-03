@@ -122,15 +122,27 @@ class "ProviderRegistry" as providerRegistry {
   + getProvider(platform) : SocialProvider
 }
 
-class "SocialProvider" as socialProvider {
+interface "SocialProvider" as socialProvider {
   + capabilities : ProviderCapabilities
-  + fetchMetrics(input) : Promise<ProviderMetrics>
+  + fetchMetrics(externalPostId, accessToken) : Promise<ProviderMetrics>
+}
+
+class "FacebookAdapter" as facebookAdapter {
+  + platform = FACEBOOK
+}
+
+class "ThreadsAdapter" as threadsAdapter {
+  + platform = THREADS
 }
 
 analyticsController ..> analyticsService
 analyticsService ..> analyticsRepository
 analyticsService ..> providerRegistry
 providerRegistry ..> socialProvider
+providerRegistry ..> facebookAdapter
+providerRegistry ..> threadsAdapter
+facebookAdapter ..|> socialProvider
+threadsAdapter ..|> socialProvider
 analyticsProcessor ..> analyticsService
 
 analyticsRepository ..> ScheduledPost

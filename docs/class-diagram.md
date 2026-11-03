@@ -16,13 +16,15 @@
 | `GoogleOAuth2Client` | `modules/auth/google-oauth.client.ts` |
 | `MailerClient` | `utils/mailer.client.ts` (Resend) |
 | `CloudinaryClient` | `utils/cloudinary.client.ts` |
-| `ProviderRegistry` | `modules/channel/providers/provider.registry.ts` (Facebook/Threads) |
+| `ProviderRegistry` | `modules/channel/providers/provider.registry.ts` (chọn `FacebookAdapter` / `ThreadsAdapter`) |
 | `PayOSClient` | `modules/billing/billing.payos.ts` (`@payos/node`) |
 | `GeminiClient` | `modules/ai/ai.providers.ts` (Gemini API) |
 | `CloudflareImageClient` | `modules/ai/ai.providers.ts` (Cloudflare Workers AI) |
 | `BullMQ` | thư viện `bullmq` |
 
 `oauthStore` không phải client mà là module Redis lưu state/session OAuth của Facebook/Threads (`modules/channel/channel.oauth-store.ts`).
+
+Nhóm provider theo **Adapter pattern** (`modules/channel/providers/`): port `SocialProvider` (`port/social-provider.port.ts`), hai adapter `FacebookAdapter` / `ThreadsAdapter` (`facebook/*.adapter.ts`, `threads/*.adapter.ts`) và `ProviderRegistry` chọn adapter theo platform. Chi tiết cài đặt từng nền tảng không vẽ trong sơ đồ lớp.
 
 - Không đưa vào sơ đồ: DTO, validation schema, mapper, middleware, utils JWT/password/cookie, config, enum.
 - `auditService`/`auditRepository` (ghi `AuditLog`) là tác dụng phụ cross-cutting của nhiều service, **không vẽ**; `health` cũng không vẽ. `Notification` có sơ đồ riêng (12), nhưng `createNotification` được gọi từ module khác nên không vẽ mũi tên từ mọi service.
@@ -36,7 +38,7 @@
 | 1 | Auth & User | [`diagrams/01-auth-user.puml`](./diagrams/01-auth-user.puml) | [`diagrams/01-auth-user.png`](./diagrams/01-auth-user.png) |
 | 2 | Workspace & Member | [`diagrams/02-workspace.puml`](./diagrams/02-workspace.puml) | [`diagrams/02-workspace.png`](./diagrams/02-workspace.png) |
 | 3 | Brand Voice | [`diagrams/03-brandvoice.puml`](./diagrams/03-brandvoice.puml) | [`diagrams/03-brandvoice.png`](./diagrams/03-brandvoice.png) |
-| 4 | Channel & Facebook OAuth | [`diagrams/04-channel.puml`](./diagrams/04-channel.puml) | [`diagrams/04-channel.png`](./diagrams/04-channel.png) |
+| 4 | Channel & Provider Adapter (Facebook/Threads) | [`diagrams/04-channel.puml`](./diagrams/04-channel.puml) | [`diagrams/04-channel.png`](./diagrams/04-channel.png) |
 | 5 | Post, Media & Approval | [`diagrams/05-post.puml`](./diagrams/05-post.puml) | [`diagrams/05-post.png`](./diagrams/05-post.png) |
 | 6 | Queue & Worker (BullMQ) | [`diagrams/06-system.puml`](./diagrams/06-system.puml) | [`diagrams/06-system.png`](./diagrams/06-system.png) |
 | 7 | Schedule & Publish | [`diagrams/07-schedule.puml`](./diagrams/07-schedule.puml) | [`diagrams/07-schedule.png`](./diagrams/07-schedule.png) |
@@ -94,7 +96,9 @@ Sơ đồ 0 gộp **lớp nghiệp vụ + 16 bảng entity** trong cùng một �
 ### Channel
 
 - OAuth dùng `state` và `session` lưu Redis 600 giây (`oauthStore`); token kênh mã hoá AES-256-GCM.
-- `ProviderRegistry` chọn `FacebookProvider` hoặc `ThreadsProvider`; Facebook gọi Graph API v21.0, Threads gọi `graph.threads.com/v1.0`.
+- `ProviderRegistry` chọn `FacebookAdapter` hoặc `ThreadsAdapter` theo `platform`; hai adapter implement port `SocialProvider` nên `channel`/`schedule`/`analytics` không biết chi tiết API từng nền tảng.
+- Chi tiết nền tảng nằm trong adapter: Facebook dùng `facebook.oauth` + `facebook.publish` + `facebook.metrics`, Threads dùng `threads.oauth` + `threads.publish` + `threads.metrics`; cả hai gọi HTTP qua `facebook.graph` / `threads.graph` → `transport/graph-request`.
+- Facebook gọi Graph API v21.0, Threads gọi `graph.threads.com/v1.0`; mã lỗi của từng nền tảng được map về `SocialTokenExpiredError` / `SocialRateLimitError` / `SocialTransientError` dùng chung.
 - Facebook dùng multi-account + session chọn Page; Threads single-account, upsert ngay sau callback.
 - `connectAccounts` upsert theo `(workspaceId, platform, externalAccountId)`.
 - `disconnectChannel` chuyển `ScheduledPost` đang `SCHEDULED` sang `CANCELLED`, rồi xoá mềm kênh (`deletedAt`, `accessToken = null`, `status = EXPIRED`) để giữ lịch sử bài đã đăng và `PostMetric`.

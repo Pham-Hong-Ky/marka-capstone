@@ -242,6 +242,8 @@ Yêu cầu `requireAuth`.
 | :--- | :--- | :--- |
 | `name` | string? | 2–100 ký tự |
 | `avatar` | string \| null? | URL hợp lệ |
+| `facebookUrl` | string \| null? | URL `http`/`https`, tối đa 2048 ký tự |
+| `threadsUrl` | string \| null? | URL `http`/`https`, tối đa 2048 ký tự |
 
 **Response 200**
 
@@ -254,6 +256,8 @@ Yêu cầu `requireAuth`.
     "email": "user@marka.vn",
     "name": "Nguyễn Văn B",
     "avatar": "https://example.com/avatar.jpg",
+    "facebookUrl": "https://facebook.com/nguyenvanb",
+    "threadsUrl": "https://www.threads.net/@nguyenvanb",
     "systemRole": "USER",
     "emailVerified": false,
     "updatedAt": "2026-10-20T12:00:00.000Z"
@@ -754,6 +758,23 @@ Yêu cầu `requireAuth` + là thành viên. Query: `status` (`SCHEDULED|PROCESS
 
 **Response 200**: `data.schedules[]` + `meta { page, limit, total, totalPages }`. Không trả `accessToken`.
 
+### `PATCH /workspaces/:workspaceId/schedules/:scheduleId`
+
+Yêu cầu `requireAuth` + là thành viên; `CONTENT_CREATOR` chỉ đổi lịch bài do mình tạo, `OWNER` đổi được mọi bài.
+
+**Body**
+
+```json
+{ "scheduledAt": "2026-10-25T09:00:00.000Z" }
+```
+
+- Chỉ đổi được lịch `SCHEDULED` và có `scheduledAt`; lịch đăng ngay (`scheduledAt = null`) hoặc lịch `PROCESSING`/`CANCELLED` trả `409`.
+- Thời điểm mới phải ≥ hiện tại + 1 phút và ≤ 1 năm.
+
+**Xử lý**: cập nhật `scheduledAt`, xoá `retryAt`/`errorMessage` cũ, audit `SCHEDULE_UPDATED`. Worker `schedule-due` tự nhặt theo giờ mới, không cần đổi queue.
+
+**Response 200**: `{ "status": "success", "message": "Đổi lịch đăng thành công", "data": { "schedule": { ... } } }`
+
 ### `DELETE /workspaces/:workspaceId/schedules/:scheduleId`
 
 Yêu cầu `requireAuth` + là thành viên. Chỉ huỷ được lịch `SCHEDULED`; lịch `PROCESSING` trả `409`.
@@ -982,13 +1003,15 @@ Enqueue sinh nội dung bằng Gemini. Trừ **10 credit** ngay khi enqueue.
 {
   "topic": "Ra mắt bộ sưu tập áo thu đông cho nữ văn phòng",
   "instructions": "Nhấn mạnh chất liệu, giọng thân thiện",
-  "postId": "uuid (tuỳ chọn)"
+  "postId": "uuid (tuỳ chọn)",
+  "channelIds": ["uuid-page-1", "uuid-threads-1"]
 }
 ```
 
 - `topic`: 5–1000 ký tự, bắt buộc.
 - `instructions`: ≤ 500 ký tự, tuỳ chọn.
 - `postId`: nếu có, bài phải thuộc workspace, đang `DRAFT`/`REJECTED` và user có quyền sửa.
+- `channelIds`: 1–10 UUID, tuỳ chọn. Kênh phải thuộc workspace, `REAL`, `ACTIVE` và provider hỗ trợ đăng bài. Nếu workspace đã có kênh đăng được thì bắt buộc chọn ít nhất một kênh; AI viết một bài dùng được trên mọi kênh đã chọn (giới hạn ký tự/hashtag/emoji lấy theo kênh chặt nhất).
 
 **Response 202**
 
@@ -1164,7 +1187,7 @@ Mọi endpoint `/admin/*` yêu cầu `requireAuth` + `requireRoles('SYSTEM_ADMIN
 
 **Query**: `page`, `limit` (≤ 50), `search` (email/tên), `systemRole` (`SYSTEM_ADMIN`/`USER`), `isSuspended` (`true`/`false`).
 
-**Response 200**: `data.users[]` gồm `id`, `email`, `name`, `avatar`, `authProvider`, `systemRole`, `emailVerified`, `isSuspended`, `workspaceCount`, `createdAt`; **không trả `passwordHash`**.
+**Response 200**: `data.users[]` gồm `id`, `email`, `name`, `avatar`, `facebookUrl`, `threadsUrl`, `authProvider`, `systemRole`, `emailVerified`, `isSuspended`, `workspaceCount`, `createdAt`; **không trả `passwordHash`**.
 
 ### `PATCH /admin/users/:userId/suspend`
 
@@ -1178,6 +1201,24 @@ Mọi endpoint `/admin/*` yêu cầu `requireAuth` + `requireRoles('SYSTEM_ADMIN
 - Tăng `tokenVersion` để đá mọi phiên cũ, kể cả khi mở khoá.
 - Không cho tự khoá chính mình → `400`; user không tồn tại → `404`.
 - Audit `ADMIN_USER_SUSPENDED` / `ADMIN_USER_REACTIVATED` (kèm `reason`).
+
+### `POST /admin/users/:userId/tester-invite`
+
+Gửi email hướng dẫn người dùng chấp nhận lời mời làm **Facebook Tester** cho ứng dụng Marka.
+
+- Không có body; `userId` phải tồn tại → ngược lại `404`.
+- Thiếu cấu hình Resend hoặc gửi email thất bại → `502`.
+- Audit `ADMIN_TESTER_INVITE_SENT` với `metadata.email`.
+
+**Response 200**
+
+```json
+{
+  "status": "success",
+  "message": "Đã gửi email mời Facebook Tester",
+  "data": { "email": "user@marka.vn" }
+}
+```
 
 ### `GET /admin/workspaces`
 
@@ -1306,6 +1347,7 @@ Trả `202` `{ queued: true }`; chống xếp trùng job theo workspace.
 | GET | `/workspaces/:workspaceId/ai/generations/:generationId` | Bearer | Thành viên |
 | POST | `/workspaces/:workspaceId/posts/:postId/schedules` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/schedules` | Bearer | Thành viên |
+| PATCH | `/workspaces/:workspaceId/schedules/:scheduleId` | Bearer | Thành viên (quyền sửa bài) |
 | DELETE | `/workspaces/:workspaceId/schedules/:scheduleId` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/analytics/overview` | Bearer | Thành viên |
 | GET | `/workspaces/:workspaceId/analytics/suggestions` | Bearer | Thành viên |
@@ -1319,9 +1361,10 @@ Trả `202` `{ queued: true }`; chống xếp trùng job theo workspace.
 | GET | `/admin/stats` | Bearer | SYSTEM_ADMIN |
 | GET | `/admin/users` | Bearer | SYSTEM_ADMIN |
 | PATCH | `/admin/users/:userId/suspend` | Bearer | SYSTEM_ADMIN |
+| POST | `/admin/users/:userId/tester-invite` | Bearer | SYSTEM_ADMIN |
 | GET | `/admin/workspaces` | Bearer | SYSTEM_ADMIN |
 | GET | `/admin/audit-logs` | Bearer | SYSTEM_ADMIN |
 | GET | `/workspaces/:workspaceId/audit-logs` | Bearer | OWNER |
 
-**Không có trong code** (đừng gọi): calendar kéo-thả, đăng Instagram/TikTok/Zalo, video, Viral Score/regenerate.
+**Không có trong code** (đừng gọi): kéo-thả theo khung giờ, đăng Instagram/TikTok/Zalo, video, Viral Score/regenerate.
 **Thông báo:** API hộp thư trong ứng dụng đã có (`/users/me/notifications`); UC38 (đẩy thông báo realtime) vẫn ngoài phạm vi.

@@ -2,8 +2,8 @@
 
 Đồ án capstone (DATN). Monorepo gồm `backend` (Express + Prisma + BullMQ) và `frontend` (React + Vite).
 
-**Phạm vi đã triển khai:** xác thực (email/password + Google), workspace & thành viên, Brand Voice, trợ lý AI trong editor (Gemini sinh nội dung, Cloudflare sinh ảnh, trừ/hoàn credit, BullMQ + polling), kết nối Facebook Page + Threads qua OAuth, bài viết + media + luồng duyệt bài, giao việc & bảng công việc, đăng ngay/lên lịch bài lên nhiều kênh bằng BullMQ, analytics workspace (trong Dashboard), nạp credit qua PayOS, thông báo in-app, quản trị hệ thống, audit log, health check.
-**Roadmap (chưa code):** Viral Score/regenerate, calendar kéo-thả/sửa giờ, Instagram/TikTok/Zalo, video, email queue/retention — xem [`docs/PROJECT_OVERVIEW.md`](./docs/PROJECT_OVERVIEW.md).
+**Phạm vi đã triển khai:** xác thực (email/password + Google), workspace & thành viên, Brand Voice, trợ lý AI trong editor (Gemini sinh nội dung theo kênh, Cloudflare sinh ảnh, trừ/hoàn credit, BullMQ + polling), kết nối Facebook Page + Threads qua OAuth, bài viết + media + luồng duyệt bài, giao việc & bảng công việc, đăng ngay/lên lịch/đổi giờ đăng bài lên nhiều kênh bằng BullMQ, analytics workspace (trong Dashboard), nạp credit qua PayOS, thông báo in-app, quản trị hệ thống, audit log, health check.
+**Roadmap (chưa code):** Viral Score/regenerate, calendar kéo-thả theo khung giờ, Instagram/TikTok/Zalo, video, email queue/retention — xem [`docs/PROJECT_OVERVIEW.md`](./docs/PROJECT_OVERVIEW.md).
 
 > Tài liệu đầy đủ nằm trong [`docs/`](./docs). **Không dùng Docker** — chạy trực tiếp trên PostgreSQL + Redis local hoặc cloud free tier.
 
@@ -45,7 +45,7 @@ npm run worker
 ```
 
 - API: <http://localhost:5000/api/v1>
-- Swagger: <http://localhost:5000/api-docs>
+- Swagger: <http://localhost:5000/api-docs> (một phần endpoint; tài liệu đầy đủ tại [`docs/api_documentation.md`](./docs/api_documentation.md))
 - Health: <http://localhost:5000/api/v1/health>
 
 ### Biến môi trường quan trọng
@@ -60,13 +60,14 @@ npm run worker
 | `ENABLE_WORKERS` | `true` để chạy worker BullMQ kèm API (dev và Render free); `false` nếu chạy worker riêng bằng `npm run worker` |
 | `APP_BASE_URL` | URL frontend, dùng khi tạo link trong email |
 | `CLIENT_URL` | Origin được phép CORS |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Đăng nhập Google qua `idToken`; thiếu thì nút Google báo lỗi cấu hình |
 | `GEMINI_API_KEY` / `GEMINI_MODEL` | Gemini sinh nội dung; model mặc định `gemini-flash-lite-latest` |
 | `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_IMAGE_MODEL` | Cloudflare Workers AI sinh ảnh; model mặc định `@cf/black-forest-labs/flux-1-schnell` |
 | `FACEBOOK_REDIRECT_URI` | Callback OAuth, phải khớp **Valid OAuth Redirect URI** của Facebook App |
 | `THREADS_APP_ID` / `THREADS_APP_SECRET` / `THREADS_REDIRECT_URI` | Cấu hình Threads OAuth; thiếu thì nút kết nối Threads báo lỗi cấu hình |
 | `PAYOS_CLIENT_ID` / `PAYOS_API_KEY` / `PAYOS_CHECKSUM_KEY` | Cấu hình PayOS; thiếu thì API tạo đơn trả `503` |
 
-Các key 3rd party (`GEMINI_*`, `CLOUDFLARE_*`, `CLOUDINARY_*`, `PAYOS_*`, `FACEBOOK_*`, `THREADS_*`) là **tuỳ chọn** — để trống vẫn chạy phần lõi; riêng tính năng AI cần key Gemini/Cloudflare, billing cần PayOS.
+Các key 3rd party (`GOOGLE_*`, `GEMINI_*`, `CLOUDFLARE_*`, `CLOUDINARY_*`, `PAYOS_*`, `FACEBOOK_*`, `THREADS_*`, `RESEND_*`) là **tuỳ chọn** — để trống vẫn chạy phần lõi; riêng tính năng AI cần key Gemini/Cloudflare, billing cần PayOS, email cần Resend.
 
 ---
 

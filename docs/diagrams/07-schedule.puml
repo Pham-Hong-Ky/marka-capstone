@@ -116,16 +116,29 @@ class "ProviderRegistry" as providerRegistry {
   + getProvider(platform) : SocialProvider
 }
 
-class "SocialProvider" as socialProvider {
+interface "SocialProvider" as socialProvider {
   + capabilities : ProviderCapabilities
   + publish(input) : Promise<string>
-  + checkContent(input) : void
+}
+
+class "FacebookAdapter" as facebookAdapter {
+  + platform = FACEBOOK
+  + capabilities : ProviderCapabilities
+}
+
+class "ThreadsAdapter" as threadsAdapter {
+  + platform = THREADS
+  + capabilities : ProviderCapabilities
 }
 
 scheduleController ..> scheduleService
 scheduleService ..> scheduleRepository
 scheduleService ..> providerRegistry
 providerRegistry ..> socialProvider
+providerRegistry ..> facebookAdapter
+providerRegistry ..> threadsAdapter
+facebookAdapter ..|> socialProvider
+threadsAdapter ..|> socialProvider
 scheduleProcessor ..> scheduleService
 
 scheduleRepository ..> ScheduledPost

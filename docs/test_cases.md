@@ -2,28 +2,28 @@
 
 > Tài liệu lập từ **test tự động có thật** trong repo, không phải từ đề xuất tính năng.
 > Nguồn đối chiếu: `backend/tests/**/*.test.ts`, `backend/src/routes/index.ts`, `docs/api_documentation.md`.
-> Cập nhật: 2026-10-30. Tổng: **424 test case** trong **46 file**.
+> Cập nhật: 2026-11-03. Tổng: **444 test case** trong **47 file**.
 
 ## 1. Bảng tổng hợp
 
 | # | Module / nhóm | Số test | File test |
 |---|---------------|---------|-----------|
 | 1 | Auth, RBAC, refresh/logout (UC01–UC04, UC34) | 16 | `backend/tests/modules/auth/*.test.ts` |
-| 2 | User — hồ sơ, mật khẩu, xoá tài khoản (UC05, UC33) | 11 | `backend/tests/modules/user/*.test.ts` |
+| 2 | User — hồ sơ, mật khẩu, xoá tài khoản (UC05, UC33) | 16 | `backend/tests/modules/user/*.test.ts` |
 | 3 | Workspace, thành viên, lời mời (UC17–UC24, UC35, UC36) | 27 | `backend/tests/modules/workspace/*.test.ts` |
 | 4 | Brand Voice (UC25–UC27) | 12 | `backend/tests/modules/brandvoice/brandvoice.test.ts` |
 | 5 | Channel, Facebook/Threads OAuth & hồ sơ kênh (UC28–UC30) | 65 | `backend/tests/modules/channel/*.test.ts` |
 | 6 | Post, media, gửi duyệt & duyệt bài (UC06, UC08–UC12, UC15) | 67 | `backend/tests/modules/post/post.test.ts` |
-| 7 | AI service, processor, provider, prompt, route + credit | 54 | `backend/tests/modules/ai/*.test.ts`, `backend/tests/modules/credit/*.test.ts` |
-| 8 | Schedule đăng bài đa kênh | 41 | `backend/tests/modules/schedule/*.test.ts` |
+| 7 | AI service, processor, provider, prompt, route + credit | 60 | `backend/tests/modules/ai/*.test.ts`, `backend/tests/modules/credit/*.test.ts` |
+| 8 | Schedule đăng bài đa kênh | 46 | `backend/tests/modules/schedule/*.test.ts` |
 | 9 | Nạp credit, PayOS (UC31, UC40, UC41) | 12 | `backend/tests/modules/billing/billing.test.ts` |
 | 10 | Health check | 4 | `backend/tests/modules/health/*.test.ts` |
-| 11 | Admin & audit log (UC32) | 16 | `backend/tests/modules/admin/admin.test.ts` |
+| 11 | Admin & audit log (UC32) | 19 | `backend/tests/modules/admin/admin.test.ts` |
 | 12 | Analytics & gợi ý (UC39) | 41 | `backend/tests/modules/analytics/*.test.ts` |
-| 13 | Task board, giao việc, nhắc hạn (UC42, UC43) | 37 | `backend/tests/modules/task/*.test.ts` |
+| 13 | Task board, giao việc, nhắc hạn (UC42, UC43) | 38 | `backend/tests/modules/task/*.test.ts` |
 | 14 | Notification in-app | 11 | `backend/tests/modules/notification/notification.test.ts` |
 | 15 | Hạ tầng: queue, Redis, HTTPS, Swagger, email, timeout, error | 10 | `backend/tests/{workers,config,middlewares,templates,utils}/*.test.ts` |
-| **Tổng** | | **424** | **46 file** |
+| **Tổng** | | **444** | **47 file** |
 
 Ghi chú:
 
@@ -378,7 +378,7 @@ Các hành vi **đã có trong code** nhưng **không có test tự động** t�
 - Thông báo khi Owner tự gửi duyệt bài của chính mình.
 
 ### 12.7. Schedule & đăng bài
-- File `schedule.test.ts` (17 test) + `schedule.content.test.ts` (6 test): tạo lịch nhiều Page, đăng ngay, validate trạng thái/quyền/Page/ảnh/video/giờ hẹn, huỷ lịch, worker đăng thành công nhiều ảnh, token hết hạn, retry, timeout sau feed, recovery, chống đăng trùng, post detail kèm schedules.
+- File `schedule.test.ts` (40 test) + `schedule.content.test.ts` (6 test): tạo lịch nhiều Page, đăng ngay, validate trạng thái/quyền/Page/ảnh/video/giờ hẹn, đổi giờ lịch, huỷ lịch, worker đăng thành công nhiều ảnh, token hết hạn, retry, timeout sau feed, recovery, chống đăng trùng, post detail kèm schedules.
 - Chưa test job scheduler `schedule-due` chạy thật trong BullMQ; service `processDueSchedules` được test trực tiếp.
 
 ### 12.8. Hạ tầng & cấu hình
@@ -392,10 +392,10 @@ Các hành vi **đã có trong code** nhưng **không có test tự động** t�
 
 ## 13. Phạm vi chưa triển khai
 
-Các phần sau **không có endpoint/module tương ứng** trong `backend/src/routes/index.ts`, nên không có test:
+Các phần nâng cao sau **chưa có endpoint/module tương ứng** trong `backend/src/routes/index.ts`; phần cơ bản đã có ghi chú:
 
-- **Calendar nâng cao (UC14):** kéo-thả đổi giờ, sửa lịch sau khi tạo — chưa có API/UI.
-- **Analytics / `PostMetric` (UC39)** — không có API.
+- **Calendar nâng cao (UC14):** kéo-thả theo khung giờ — đổi ngày và modal đổi giờ đã có API/UI.
+- **Analytics nâng cao (UC39):** snapshot chỉ số theo thời gian, làm mới từng bài, top bài/chi tiết bài — API overview/suggestions/sync đã có.
 
 **Đã bổ sung test:** admin/audit (UC32) trong `admin.test.ts`; giao việc/trạng thái (UC42/UC43) trong `post.test.ts`; hộp thư thông báo trong `notification.test.ts`.
 

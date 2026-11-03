@@ -23,6 +23,7 @@
   - `GET /admin/stats`: user, workspace, bài theo trạng thái, kênh, đơn PAID + doanh thu 30 ngày.
   - `GET /admin/users`: tìm/lọc `systemRole`, `isSuspended`, phân trang; không trả `passwordHash`.
   - `PATCH /admin/users/:userId/suspend`: khoá/mở khoá + tăng `tokenVersion`, chặn tự khoá, ghi audit.
+  - `POST /admin/users/:userId/tester-invite`: gửi email hướng dẫn tham gia Facebook Tester, ghi audit `ADMIN_TESTER_INVITE_SENT`.
   - `GET /admin/workspaces`: tìm/lọc `plan`, `includeDeleted`, kèm số thành viên/bài.
   - `GET /admin/audit-logs`: lọc actor/action/target/thời gian/workspace, phân trang.
 - `requireRoles(...)` đã được route `/admin/*` sử dụng.
@@ -34,7 +35,7 @@
 
 - Route `/admin` bọc `AdminRoute` (chặn nếu `systemRole !== 'SYSTEM_ADMIN'`); mục menu quản trị chỉ hiện với System Admin (`SidebarContent`).
 - `/admin` — tổng quan: user (tổng/hoạt động/bị khoá/admin/mới 30 ngày), workspace, bài theo trạng thái, kênh, đơn `PAID` + doanh thu 30 ngày từ `GET /admin/stats`.
-- `/admin/users` — tìm kiếm, lọc `systemRole`/`isSuspended`, phân trang; khoá/mở khoá qua `PATCH /admin/users/:userId/suspend` (nút tự khoá bị vô hiệu hoá).
+- `/admin/users` — tìm kiếm, lọc `systemRole`/`isSuspended`, phân trang; khoá/mở khoá qua `PATCH /admin/users/:userId/suspend` (nút tự khoá bị vô hiệu hoá); hiển thị link Facebook/Threads và gửi email mời Facebook Tester.
 - `/admin/workspaces` — tìm kiếm, lọc `plan`, `includeDeleted`, phân trang; **chỉ đọc** (không xoá/khôi phục).
 - `/admin/audit-logs` — lọc theo action/target/khoảng ngày, phân trang, xem chi tiết metadata.
 - **Chưa có UI audit log theo workspace** (Owner vẫn phải gọi API `GET /workspaces/:workspaceId/audit-logs`).
@@ -49,7 +50,7 @@
 | Brand Voice | `BRAND_VOICE_UPDATED` |
 | Kênh | `CHANNEL_CONNECTED`, `CHANNEL_DISCONNECTED` |
 | Bài viết | `POST_SUBMITTED`, `POST_APPROVED`, `POST_REJECTED`, `POST_DELETED`, `POST_ASSIGNED`, `TASK_STATUS_CHANGED` |
-| Quản trị | `ADMIN_USER_SUSPENDED`, `ADMIN_USER_REACTIVATED` |
+| Quản trị | `ADMIN_USER_SUSPENDED`, `ADMIN_USER_REACTIVATED`, `ADMIN_TESTER_INVITE_SENT` |
 | Thanh toán | `BILLING_ORDER_CREATED`, `BILLING_ORDER_CANCELLED`, `BILLING_CREDIT_TOP_UP` |
 
 Không có audit cho tạo/sửa bài, media, đăng nhập thất bại.

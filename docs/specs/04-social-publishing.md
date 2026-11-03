@@ -2,10 +2,10 @@
 
 > [Quay lại Mục lục](README.md)
 >
-> **Phạm vi:** phần đã có trong code: xem kênh đã kết nối, kết nối **Facebook Page + Threads thật** qua OAuth, ngắt kết nối kênh, đăng ngay/lên lịch bài đã duyệt lên nhiều kênh.
+> **Phạm vi:** phần đã có trong code: xem kênh đã kết nối, kết nối **Facebook Page + Threads thật** qua OAuth, ngắt kết nối kênh, đăng ngay/lên lịch/đổi giờ bài đã duyệt lên nhiều kênh.
 > Mã nguồn: `backend/src/modules/channel/`, `backend/src/modules/schedule/`, `utils/encryption.ts`, `config/redis.ts`, `workers/`.
 >
-> **Không có trong code:** Instagram/TikTok/Zalo (kể cả giả lập), calendar kéo-thả, sửa giờ sau khi tạo, video, tự làm mới token Facebook. Các mục này ở Roadmap cuối file.
+> **Không có trong code:** Instagram/TikTok/Zalo (kể cả giả lập), kéo-thả theo khung giờ, video, tự làm mới token Facebook. Các mục này ở Roadmap cuối file.
 
 ---
 
@@ -225,12 +225,13 @@ Không trả token.
 
 ## 4.8. Lịch đăng & đăng bài (UC13, UC14, UC16, UC37)
 
-Mọi thành viên workspace được đăng/lên lịch bài ở trạng thái `APPROVED`.
+Mọi thành viên workspace được đăng/lên lịch/đổi giờ bài ở trạng thái `APPROVED`; Creator chỉ thao tác trên bài do mình tạo, Owner thao tác mọi bài.
 
 | Method | Path | Mô tả |
 | :--- | :--- | :--- |
 | POST | `/workspaces/:workspaceId/posts/:postId/schedules` | Body `{ channelIds: string[], scheduledAt?: ISO }`; bỏ `scheduledAt` = đăng ngay |
 | GET | `/workspaces/:workspaceId/schedules?status=&from=&to=&page=&limit=` | Danh sách lịch cho trang `/schedule` |
+| PATCH | `/workspaces/:workspaceId/schedules/:scheduleId` | Đổi giờ lịch `SCHEDULED`; Creator chỉ sửa bài mình, Owner sửa mọi bài |
 | DELETE | `/workspaces/:workspaceId/schedules/:scheduleId` | Huỷ lịch đang `SCHEDULED` |
 
 **Validate:**
@@ -238,8 +239,15 @@ Mọi thành viên workspace được đăng/lên lịch bài ở trạng thái 
 - Post tồn tại, chưa xoá, `APPROVED`.
 - Chọn 1–10 kênh thuộc workspace, `REAL`, `ACTIVE`, provider hỗ trợ đăng bài.
 - `scheduledAt` ≥ hiện tại + 1 phút, ≤ hiện tại + 1 năm; bỏ trống = đăng ngay.
+- Đổi giờ chỉ áp dụng cho lịch `SCHEDULED` có `scheduledAt`; lịch đăng ngay/PROCESSING/CANCELLED trả `409`.
 - Nội dung text không rỗng, giới hạn theo provider: Facebook ≤ 63.206 ký tự/10 ảnh; Threads ≤ 500 ký tự/20 ảnh/5 link; chưa hỗ trợ video.
 - Mỗi bài/kênh chỉ có một `ScheduledPost` (unique `postId, channelId`).
+
+**UI `/schedule`:**
+
+- Kéo-thả chip lịch sang ngày khác để đổi ngày, giữ nguyên giờ hiện tại.
+- Nút “Đổi lịch” mở modal chọn ngày/giờ chính xác; modal cũng có trong chi tiết bài viết.
+- Chỉ hiện với người có quyền sửa bài và lịch đang `SCHEDULED`.
 
 **Worker (`schedule-queue`):**
 
@@ -264,7 +272,7 @@ Mọi thành viên workspace được đăng/lên lịch bài ở trạng thái 
 ## 4.9. Chưa triển khai (Roadmap)
 
 1. **Kênh khác:** Instagram, TikTok, Zalo — kể cả chế độ giả lập (`ChannelType.SIMULATED`). Hiện chỉ có Facebook/Threads.
-2. **Calendar nâng cao (UC14, UC37):** calendar tháng/tuần, kéo-thả đổi giờ, sửa lịch sau khi tạo.
+2. **Calendar nâng cao (UC14, UC37):** chế độ tuần, kéo-thả theo khung giờ (hiện đổi ngày bằng kéo-thả và đổi giờ bằng modal).
 3. **Vòng đời token:** tự làm mới token Facebook, thông báo Owner khi token sắp hết hạn.
 4. **Uỷ quyền đăng bài:** dùng `WorkspaceMember.allowDirectPublish` nếu sau này muốn giới hạn Creator (cột đang reserved, không trả API).
 5. **Bài đã đăng:** sửa/nhân bản/xoá bài `PUBLISHED`.

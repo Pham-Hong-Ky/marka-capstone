@@ -325,13 +325,14 @@ Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đ
   - Bài chưa giao việc → `409`; không phải người nhận/Owner → `403`.
   - Notification `TASK_STATUS_CHANGED` cho Owner và tác giả bài (trừ người thao tác), audit `TASK_STATUS_CHANGED`.
 - **Lọc danh sách**: `GET .../posts?assigneeId=me` (việc của tôi) hoặc uuid, kết hợp `taskStatus`.
+- **Đồng bộ với bảng `Task`**: giao việc từ bài sẽ upsert một `Task` gắn `postId` (một bài tối đa một việc); đổi trạng thái từ phía bài cập nhật luôn `Task.status`. Ngược lại, giao/đổi trạng thái/đổi hạn trên Kanban cập nhật `assigneeId`, `dueAt`, `taskStatus` của bài liên kết. Huỷ/gỡ liên kết hoặc xoá việc sẽ bỏ giao việc trên bài.
 
 ---
 
 ## 2.11. Chưa triển khai (Roadmap)
 
 - **Thư viện media cấp workspace**: `MediaAsset.postId` nullable, upload độc lập, tag, quota, lọc/tìm kiếm, video/thumbnail. Hiện chỉ có ảnh gắn bài.
-- **Calendar nâng cao**: kéo-thả đổi giờ, sửa lịch sau khi tạo — đăng ngay/lên lịch/huỷ lịch cơ bản đã có trong [04](./04-social-publishing.md).
-- Nâng cấp giao việc: board Kanban, độ ưu tiên, nhắc hạn qua email.
+- **Calendar nâng cao**: kéo-thả theo khung giờ — đổi ngày, đổi giờ chính xác và huỷ lịch đã có trong [04](./04-social-publishing.md).
+- Giao việc nâng cao: nhắc hạn qua email (board Kanban và nhắc hạn in-app đã có).
 - Lịch sử phiên bản bài viết, bình luận/góp ý theo bài, xuất CSV/Excel, lọc theo `campaignTag`, khôi phục bài đã xoá mềm.
 - Xoá cứng / xoá asset Cloudinary khi xoá media hoặc bài.

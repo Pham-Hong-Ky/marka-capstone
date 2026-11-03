@@ -70,14 +70,15 @@ Quan hệ: `PostMetric.scheduledPost → ScheduledPost` (Cascade); `ScheduledPos
 - Xử lý rate limit chi tiết: gặp lỗi Graph API chỉ ghi `syncError` và thử lại ở lần đồng bộ sau, không backoff riêng.
 - Snapshot chỉ số theo thời gian (hiện chỉ giữ số liệu mới nhất trong `PostMetric`).
 - Endpoint nội bộ cho n8n/cron; lịch đồng bộ chạy bằng job lặp BullMQ.
-- Danh sách top bài và trang chi tiết từng bài (UI hiện chỉ có số liệu tổng hợp, biểu đồ và bộ lọc kênh/nhãn).
+- Trang chi tiết chỉ số từng bài. Top bài hiệu quả đã có trong **Brand Voice Insights**
+  (`GET /workspaces/:workspaceId/brand-voice/insights`), nhưng Dashboard chưa có danh sách top bài riêng.
 
 ---
 
 ## 8.5. Roadmap
 
 1. **Làm mới thủ công từng bài:** endpoint refresh cho 1 bài, có rate limit riêng.
-2. **Top bài & chi tiết bài:** danh sách bài hiệu quả nhất, trang chi tiết chỉ số một bài.
+2. **Chi tiết bài:** top bài đã có trong Brand Voice Insights; còn thiếu trang chi tiết chỉ số một bài.
 3. **Snapshot theo thời gian:** bảng snapshot để vẽ xu hướng dài hạn (hiện chỉ có số liệu mới nhất).
 4. **Xử lý lỗi nâng cao:** backoff/retry riêng khi gặp rate limit Graph API.
 5. **n8n (nếu dùng):** chỉ dùng để kích hoạt đồng bộ metrics qua endpoint nội bộ có API key; **không** dùng n8n để đăng bài.
