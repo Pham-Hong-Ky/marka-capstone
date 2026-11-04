@@ -10,7 +10,7 @@
 
 | UC | Chức năng | Tác nhân |
 | :--- | :--- | :--- |
-| **UC39** | Xem tổng quan hiệu quả của workspace | Creator, Owner |
+| **UC38** | Xem tổng quan hiệu quả của workspace | Creator, Owner |
 
 Chỉ số dự kiến: **reactions, comments, shares** cho bài đăng trên Facebook Page/Threads thật. `reach`/`impressions` chỉ hiển thị khi nền tảng trả về (phụ thuộc Insights).
 

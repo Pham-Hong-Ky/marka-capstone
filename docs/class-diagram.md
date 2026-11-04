@@ -179,7 +179,7 @@ Sơ đồ 0 gộp **lớp nghiệp vụ + 16 bảng entity** trong cùng một �
 
 - `health` **không vẽ** vì quá nhỏ. `auditService`/`auditRepository` không vẽ vì là cross-cutting; riêng bảng `AuditLog` vẫn có trong sơ đồ tổng quan.
 - `analytics/n8n` chưa có trong code (chỉ có analytics nội bộ).
-- UC38 (thông báo realtime) chưa có; API đọc hộp thư đã có ở sơ đồ 12.
+- UC37 (hộp thư thông báo in-app) đã có; realtime (WebSocket/SSE) chưa có.
 - Toàn bộ module nghiệp vụ còn lại của backend đều đã có sơ đồ lớp.
 
 ## 6. Render lại sơ đồ

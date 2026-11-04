@@ -2,7 +2,7 @@
 
 > [Quay lại Mục lục](README.md)
 >
-> **Phạm vi:** phần đã có trong code: gửi email qua Resend (mời workspace, bài gửi duyệt, kết quả duyệt) và ghi notification in-app.
+> **Phạm vi:** phần đã có trong code: gửi email qua Resend (mời workspace, bài gửi duyệt, kết quả duyệt) và ghi notification in-app (UC37).
 > Mã nguồn: `backend/src/utils/mailer.client.ts`, `backend/src/templates/`, `modules/workspace/workspace.service.ts`, `modules/post/post.notification.ts`.
 >
 > **Không có trong code:** email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`.
@@ -87,7 +87,7 @@ Không có email thông báo khi lời mời được chấp nhận, bị thu h�
 
 ---
 
-## 5.4. Notification in-app
+## 5.4. Notification in-app (UC37)
 
 Bảng `notifications` (`Notification`): `id`, `userId`, `workspaceId?`, `type`, `payload` (JSON), `isRead` (mặc định `false`), `createdAt`.
 
@@ -108,7 +108,7 @@ Bảng `notifications` (`Notification`): `id`, `userId`, `workspaceId?`, `type`,
 - Không có notification cho: mời thành viên, xoá thành viên, đổi vai trò, cập nhật workspace, kết nối/ngắt kênh, sửa/xoá bài.
 - Không có email nào cho `MEMBER_JOINED`.
 
-### Hộp thư thông báo (bổ sung ngoài UC38)
+### Hộp thư thông báo (UC37)
 
 - `GET /users/me/notifications`: danh sách của chính người gọi, phân trang (`page`, `limit` ≤ 50), lọc `isRead`, `workspaceId` (phải là thành viên).
 - `GET /users/me/notifications/unread-count`: số chưa đọc; nhận `workspaceId?`.

@@ -1367,4 +1367,4 @@ Trả `202` `{ queued: true }`; chống xếp trùng job theo workspace.
 | GET | `/workspaces/:workspaceId/audit-logs` | Bearer | OWNER |
 
 **Không có trong code** (đừng gọi): kéo-thả theo khung giờ, đăng Instagram/TikTok/Zalo, video, Viral Score/regenerate.
-**Thông báo:** API hộp thư trong ứng dụng đã có (`/users/me/notifications`); UC38 (đẩy thông báo realtime) vẫn ngoài phạm vi.
+**Thông báo:** API hộp thư trong ứng dụng đã có (`/users/me/notifications`) — UC37 (hộp thư in-app) đã triển khai; đẩy thông báo realtime vẫn ngoài phạm vi.

@@ -223,9 +223,9 @@ Không trả token.
 
 ---
 
-## 4.8. Lịch đăng & đăng bài (UC13, UC14, UC16, UC37)
+## 4.8. Lịch đăng & đăng bài (UC13, UC14, UC16, UC36)
 
-Mọi thành viên workspace được đăng/lên lịch/đổi giờ bài ở trạng thái `APPROVED`; Creator chỉ thao tác trên bài do mình tạo, Owner thao tác mọi bài.
+Mọi thành viên workspace được đăng/lên lịch/đổi giờ bài ở trạng thái `APPROVED` (hoặc `FAILED`/`PUBLISHED` khi đăng lại); Creator chỉ thao tác trên bài do mình tạo, Owner thao tác mọi bài.
 
 | Method | Path | Mô tả |
 | :--- | :--- | :--- |
@@ -272,7 +272,7 @@ Mọi thành viên workspace được đăng/lên lịch/đổi giờ bài ở t
 ## 4.9. Chưa triển khai (Roadmap)
 
 1. **Kênh khác:** Instagram, TikTok, Zalo — kể cả chế độ giả lập (`ChannelType.SIMULATED`). Hiện chỉ có Facebook/Threads.
-2. **Calendar nâng cao (UC14, UC37):** chế độ tuần, kéo-thả theo khung giờ (hiện đổi ngày bằng kéo-thả và đổi giờ bằng modal).
+2. **Calendar nâng cao (UC14, UC36):** chế độ tuần, kéo-thả theo khung giờ (hiện đổi ngày bằng kéo-thả và đổi giờ bằng modal).
 3. **Vòng đời token:** tự làm mới token Facebook, thông báo Owner khi token sắp hết hạn.
 4. **Uỷ quyền đăng bài:** dùng `WorkspaceMember.allowDirectPublish` nếu sau này muốn giới hạn Creator (cột đang reserved, không trả API).
 5. **Bài đã đăng:** sửa/nhân bản/xoá bài `PUBLISHED`.

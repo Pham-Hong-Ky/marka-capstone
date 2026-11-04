@@ -8,20 +8,20 @@
 
 | # | Module / nhóm | Số test | File test |
 |---|---------------|---------|-----------|
-| 1 | Auth, RBAC, refresh/logout (UC01–UC04, UC34) | 16 | `backend/tests/modules/auth/*.test.ts` |
+| 1 | Auth, RBAC, refresh/logout (UC01–UC04) | 16 | `backend/tests/modules/auth/*.test.ts` |
 | 2 | User — hồ sơ, mật khẩu, xoá tài khoản (UC05, UC33) | 16 | `backend/tests/modules/user/*.test.ts` |
-| 3 | Workspace, thành viên, lời mời (UC17–UC24, UC35, UC36) | 27 | `backend/tests/modules/workspace/*.test.ts` |
+| 3 | Workspace, thành viên, lời mời (UC17–UC24, UC34, UC35) | 27 | `backend/tests/modules/workspace/*.test.ts` |
 | 4 | Brand Voice (UC25–UC27) | 12 | `backend/tests/modules/brandvoice/brandvoice.test.ts` |
 | 5 | Channel, Facebook/Threads OAuth & hồ sơ kênh (UC28–UC30) | 65 | `backend/tests/modules/channel/*.test.ts` |
 | 6 | Post, media, gửi duyệt & duyệt bài (UC06, UC08–UC12, UC15) | 67 | `backend/tests/modules/post/post.test.ts` |
 | 7 | AI service, processor, provider, prompt, route + credit | 60 | `backend/tests/modules/ai/*.test.ts`, `backend/tests/modules/credit/*.test.ts` |
 | 8 | Schedule đăng bài đa kênh | 46 | `backend/tests/modules/schedule/*.test.ts` |
-| 9 | Nạp credit, PayOS (UC31, UC40, UC41) | 12 | `backend/tests/modules/billing/billing.test.ts` |
+| 9 | Nạp credit, PayOS (UC31, UC39, UC40) | 12 | `backend/tests/modules/billing/billing.test.ts` |
 | 10 | Health check | 4 | `backend/tests/modules/health/*.test.ts` |
 | 11 | Admin & audit log (UC32) | 19 | `backend/tests/modules/admin/admin.test.ts` |
-| 12 | Analytics & gợi ý (UC39) | 41 | `backend/tests/modules/analytics/*.test.ts` |
-| 13 | Task board, giao việc, nhắc hạn (UC42, UC43) | 38 | `backend/tests/modules/task/*.test.ts` |
-| 14 | Notification in-app | 11 | `backend/tests/modules/notification/notification.test.ts` |
+| 12 | Analytics & gợi ý (UC38) | 41 | `backend/tests/modules/analytics/*.test.ts` |
+| 13 | Task board, giao việc, nhắc hạn (UC41, UC42) | 38 | `backend/tests/modules/task/*.test.ts` |
+| 14 | Notification in-app (UC37) | 11 | `backend/tests/modules/notification/notification.test.ts` |
 | 15 | Hạ tầng: queue, Redis, HTTPS, Swagger, email, timeout, error | 10 | `backend/tests/{workers,config,middlewares,templates,utils}/*.test.ts` |
 | **Tổng** | | **444** | **47 file** |
 
@@ -58,7 +58,7 @@ Ghi chú:
 | A08 | Cho phép OWNER truy cập tài nguyên của Workspace với header x-workspace-id | App test `GET /test/workspace/owner` | Bearer token + `x-workspace-id` = workspace của mình | 200; message `Owner access granted` | `auth.test.ts` |
 | A09 | Từ chối nếu người dùng là OWNER nhưng API yêu cầu role CONTENT_CREATOR riêng | App test `GET /test/workspace/creator` | Bearer token OWNER + `x-workspace-id` | 403 | `auth.test.ts` |
 
-### 2.3. Refresh token & đăng xuất (UC34, UC04)
+### 2.3. Refresh token & đăng xuất (UC04)
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
@@ -99,11 +99,11 @@ Ghi chú:
 
 | Mã | Tên test case (theo `it(...)`) | Endpoint / hàm | Input chính | Kết quả mong đợi | File |
 |----|-------------------------------|----------------|-------------|------------------|------|
-| W01 | UC35 — Đăng ký owner và tạo workspace mặc định | `POST /api/v1/auth/register` | owner mới | 201; `workspaces[0].role = OWNER` | `workspace.test.ts` |
+| W01 | UC01 — Đăng ký owner và tạo workspace mặc định | `POST /api/v1/auth/register` | owner mới | 201; `workspaces[0].role = OWNER` | `workspace.test.ts` |
 | W02 | UC17 — Tạo workspace mới thành công (201) | `POST /api/v1/workspaces` | `{ name: "WS Test <stamp>" }` | 201; `data.name` đúng; `data.role = OWNER` | `workspace.test.ts` |
 | W03 | UC17 — Báo lỗi 409 khi tạo trùng tên workspace | `POST /api/v1/workspaces` | trùng `name` với W02 | 409; `status = "fail"` | `workspace.test.ts` |
 | W04 | UC17 — Báo lỗi 422 khi tên không hợp lệ | `POST /api/v1/workspaces` | `{ name: "x" }` | 422 | `workspace.test.ts` |
-| W05 | UC35 — Danh sách workspace chứa workspace vừa tạo | `GET /api/v1/workspaces` | Bearer owner | 200; danh sách chứa cả workspace mặc định và workspace vừa tạo | `workspace.test.ts` |
+| W05 | UC34 — Danh sách workspace chứa workspace vừa tạo | `GET /api/v1/workspaces` | Bearer owner | 200; danh sách chứa cả workspace mặc định và workspace vừa tạo | `workspace.test.ts` |
 | W06 | UC18 — Cập nhật tên workspace thành công (200) | `PATCH /api/v1/workspaces/:workspaceId` | `{ name: "<tên> Updated" }` | 200; `data.name` là tên mới | `workspace.test.ts` |
 | W07 | UC20 — Xem thành viên: ban đầu chỉ có Owner | `GET /api/v1/workspaces/:workspaceId/members` | Bearer owner | 200; 1 member role `OWNER`; `pendingInvites` rỗng | `workspace.test.ts` |
 | W08 | UC21 — Mời thành viên thành công, trả invite token (201) | `POST /api/v1/workspaces/:workspaceId/invites` | `{ email, role: "CONTENT_CREATOR" }` | 201; `invite.email` đúng; `inviteUrl` chứa `/invites/` | `workspace.test.ts` |
@@ -114,8 +114,8 @@ Ghi chú:
 | W13 | UC22 — Dùng lại token đã dùng báo lỗi 409 | `GET /api/v1/invites/:token` | token đã chấp nhận | 409 | `workspace.test.ts` |
 | W14 | UC20 — Sau khi tham gia có 2 thành viên | `GET .../members` | Bearer owner | 200; 2 member; có role `CONTENT_CREATOR` | `workspace.test.ts` |
 | W15 | RBAC — Content Creator không được cập nhật workspace (403) | `PATCH /api/v1/workspaces/:workspaceId` | Bearer CONTENT_CREATOR, `{ name: "Hack name" }` | 403 | `workspace.test.ts` |
-| W16 | UC36 — Owner đổi vai trò member thành OWNER (200) | `PATCH .../members/:memberId` | `{ role: "OWNER" }` | 200; `data.role = OWNER` | `workspace.test.ts` |
-| W17 | UC36 — Không thể hạ Owner duy nhất (409) | `PATCH .../members/:memberId` | workspace chỉ có 1 owner, `{ role: "CONTENT_CREATOR" }` | 409 | `workspace.test.ts` |
+| W16 | UC35 — Owner đổi vai trò member thành OWNER (200) | `PATCH .../members/:memberId` | `{ role: "OWNER" }` | 200; `data.role = OWNER` | `workspace.test.ts` |
+| W17 | UC35 — Không thể hạ Owner duy nhất (409) | `PATCH .../members/:memberId` | workspace chỉ có 1 owner, `{ role: "CONTENT_CREATOR" }` | 409 | `workspace.test.ts` |
 | W18 | UC24 — Owner xóa thành viên (200) | `DELETE .../members/:memberId` | memberId của CONTENT_CREATOR | 200; `data.removedMemberId` đúng | `workspace.test.ts` |
 | W19 | UC23 — Owner duy nhất không thể rời workspace (409) | `DELETE .../members/me` | Bearer sole owner | 409 | `workspace.test.ts` |
 | W20 | UC19 — Xóa mềm workspace và ẩn khỏi danh sách (200) | `DELETE /api/v1/workspaces/:workspaceId` + `GET /workspaces` | Bearer owner | 200; workspace không còn trong danh sách | `workspace.test.ts` |
@@ -395,8 +395,8 @@ Các hành vi **đã có trong code** nhưng **không có test tự động** t�
 Các phần nâng cao sau **chưa có endpoint/module tương ứng** trong `backend/src/routes/index.ts`; phần cơ bản đã có ghi chú:
 
 - **Calendar nâng cao (UC14):** kéo-thả theo khung giờ — đổi ngày và modal đổi giờ đã có API/UI.
-- **Analytics nâng cao (UC39):** snapshot chỉ số theo thời gian, làm mới từng bài, top bài/chi tiết bài — API overview/suggestions/sync đã có.
+- **Analytics nâng cao (UC38):** snapshot chỉ số theo thời gian, làm mới từng bài, top bài/chi tiết bài — API overview/suggestions/sync đã có.
 
-**Đã bổ sung test:** admin/audit (UC32) trong `admin.test.ts`; giao việc/trạng thái (UC42/UC43) trong `post.test.ts`; hộp thư thông báo trong `notification.test.ts`.
+**Đã bổ sung test:** admin/audit (UC32) trong `admin.test.ts`; giao việc/trạng thái (UC41/UC42) trong `post.test.ts`; hộp thư thông báo trong `notification.test.ts`.
 
-**UC38 (thông báo realtime) vẫn ngoài phạm vi**, nhưng API đọc hộp thư thông báo đã có.
+**UC37 (hộp thư thông báo in-app) đã có test trong `notification.test.ts`**; realtime (WebSocket/SSE) vẫn ngoài phạm vi.

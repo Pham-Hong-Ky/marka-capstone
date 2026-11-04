@@ -117,7 +117,7 @@ Quy tắc:
 - Tạo bài nháp (`DRAFT`), nội dung JSON rich-text.
 - Danh sách bài viết có phân trang, tìm theo tiêu đề, lọc trạng thái/người tạo/khoảng ngày, lọc `taskStatus` và người nhận việc (`assigneeId=me`).
 - Xem chi tiết bài kèm media.
-- Giao việc (UC42/UC43) + bảng công việc `/tasks`: Owner giao/đổi người nhận, hạn chót, ưu tiên; người nhận hoặc Owner cập nhật `taskStatus` (`TODO`/`IN_PROGRESS`/`DONE`/`CANCELLED`); notification + audit khi giao/đổi trạng thái. Giao việc từ bài viết và từ Kanban dùng chung một bản ghi `Task` nên luôn đồng bộ hai chiều.
+- Giao việc (UC41/UC42) + bảng công việc `/tasks`: Owner giao/đổi người nhận, hạn chót, ưu tiên; người nhận hoặc Owner cập nhật `taskStatus` (`TODO`/`IN_PROGRESS`/`DONE`/`CANCELLED`); notification + audit khi giao/đổi trạng thái. Giao việc từ bài viết và từ Kanban dùng chung một bản ghi `Task` nên luôn đồng bộ hai chiều.
 - Job nhắc hạn gửi `TASK_DUE_SOON` và `TASK_OVERDUE`, không gửi trùng khi chạy lại.
 - Sửa/xoá bài: `OWNER` sửa/xoá mọi bài; người tạo sửa/xoá bài của mình khi `DRAFT`/`REJECTED`. Xoá bài tự huỷ các `ScheduledPost` đang `SCHEDULED` và ghi audit `POST_DELETED`.
 - Upload ảnh JPG/PNG/WEBP ≤ 10MB qua Cloudinary; xoá mềm ảnh.

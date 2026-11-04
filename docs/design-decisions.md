@@ -33,7 +33,7 @@
 | **D17 — Ranh giới transaction** | Service sở hữu transaction nhiều bước; repository được tự mở transaction cho thao tác atomic. | ✅ | Ví dụ: `createUserWithDefaultWorkspace`, `createWorkspaceWithOwner`, `acceptInviteAsMember`, `deleteChannelAndCancelSchedules`, `startTextGeneration`/`startImageGeneration` (credit + post + generation), `failGeneration` (FAILED + refund). |
 | **D18 — Xoá mềm** | `Workspace`, `Post`, `CreditPackage`, `MediaAsset`, `User`, `ChannelConnection`, `Task`; Prisma extension tự lọc `deletedAt: null`. | ✅ | `config/prismaExtensions.ts`; đọc bản ghi đã xoá cần `basePrisma`. |
 | **D19 — Timezone** | UTC toàn hệ thống; API ISO-8601 UTC. | ✅ (quy ước) | Code dùng `Date`/ISO; không có xử lý timezone riêng ở service. |
-| **D20 — Realtime** | MVP dùng notification in-app + polling; WebSocket/SSE để sau. | 🟡 | Chỉ ghi bảng `Notification`; **UC38 (API đọc) đã bỏ khỏi phạm vi**; chưa có polling/WebSocket. `socket.io` có trong dependencies nhưng không được dùng. |
+| **D20 — Realtime** | MVP dùng notification in-app + polling; WebSocket/SSE để sau. | 🟡 | Chỉ ghi bảng `Notification`; **UC37 (hộp thư in-app) đã triển khai**; frontend poll 30 giây, chưa có WebSocket/SSE. `socket.io` có trong dependencies nhưng không được dùng. |
 | **D21 — n8n** | Không dùng n8n cho đăng bài; publish chạy bằng BullMQ worker. n8n (nếu có) chỉ dành cho analytics. | ✅ (đăng bài) | `schedule-queue` + `schedule.processor.ts`; không có code n8n. |
 | **D22 — Trạng thái job AI** | `AiGeneration` là nguồn trạng thái (`PENDING/PROCESSING/SUCCESS/FAILED`); frontend poll 2 giây; credit trừ khi enqueue, hoàn khi thất bại hẳn trong cùng transaction. | ✅ | `ai.service.ts`, `ai.processor.ts`, `workers/index.ts`; `GET /ai/generations/:id` không dùng `aiLimiter`. |
 
@@ -44,15 +44,16 @@ Xem bảng đầy đủ và trạng thái từng UC tại [`specs/README.md`](./
 | Dải | Nội dung | Trạng thái |
 | :--- | :--- | :--- |
 | UC01, UC02, UC03 | Register, Login, Google OAuth | ✅ |
-| UC04, UC05, UC33, UC34 | Logout, Đổi mật khẩu, Cập nhật hồ sơ, Refresh token | ✅ |
+| UC04, UC05, UC33 | Logout, Đổi mật khẩu, Cập nhật hồ sơ | ✅ |
 | UC06, UC08–UC12, UC15 | Bài viết, media, gửi duyệt, duyệt/từ chối | ✅ (Owner xoá mọi trạng thái; Creator chỉ `DRAFT`/`REJECTED`) |
 | UC07, UC13, UC14, UC16 | AI, lên lịch/đăng bài Facebook + Threads | ✅ (AI còn thiếu Viral Score/regenerate) |
-| UC17–UC24, UC35, UC36 | Workspace & thành viên | ✅ |
+| UC17–UC24, UC34, UC35 | Workspace & thành viên | ✅ |
 | UC25–UC30 | Brand Voice, kênh (Facebook + Threads) | 🟡 (Instagram/TikTok/Zalo chưa có) |
-| UC31, UC40, UC41 | Nạp credit, PayOS, lịch sử credit | ✅ |
+| UC31, UC39, UC40 | Nạp credit, PayOS, lịch sử credit | ✅ |
 | UC32a/b | Admin | ✅ backend + frontend `/admin`: dashboard, user, workspace, audit log |
-| UC39 | Post Analytics (hiệu quả workspace) | ✅ (Dashboard `/`) |
-| UC42–UC43 | Giao việc | ✅ (`assigneeId`, `dueAt`, `taskStatus`, `priority`, task board, nhắc hạn) |
+| UC37 | Thông báo in-app | ✅ (hộp thư + polling 30 giây; chưa realtime) |
+| UC38 | Post Analytics (hiệu quả workspace) | ✅ (Dashboard `/`) |
+| UC41–UC42 | Giao việc | ✅ (`assigneeId`, `dueAt`, `taskStatus`, `priority`, task board, nhắc hạn) |
 
 ## D. Việc còn lại
 

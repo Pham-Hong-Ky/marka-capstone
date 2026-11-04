@@ -17,8 +17,8 @@
 | :-: | :--- | :--- |
 | [0](#0-quy-ước-đọc-sơ-đồ) | Quy ước đọc sơ đồ | middleware, mã lỗi, audit |
 | [1](#1-health) | Health | `GET /health` |
-| [2](#2-auth-và-tài-khoản) | Auth và tài khoản | UC01, UC02, UC03, UC04, UC05, UC33, UC34, `GET /users/me` |
-| [3](#3-workspace-và-thành-viên) | Workspace và thành viên | UC17, UC35, UC18, UC19, UC20, UC21, UC22, UC23, UC24, UC36 |
+| [2](#2-auth-và-tài-khoản) | Auth và tài khoản | UC01, UC02, UC03, UC04, UC05, UC33, `GET /users/me` |
+| [3](#3-workspace-và-thành-viên) | Workspace và thành viên | UC17, UC34, UC18, UC19, UC20, UC21, UC22, UC23, UC24, UC35 |
 | [4](#4-brand-voice) | Brand Voice | UC25, UC26, UC27 |
 | [5](#5-channel-và-facebook-oauth) | Channel và Facebook OAuth | UC28, UC29 (4 bước), UC30 |
 | [6](#6-post-và-media) | Post và Media | UC06, UC08, UC09, UC10, UC11 (kèm media) |
@@ -534,7 +534,7 @@ sequenceDiagram
 Body cho phép `name` (2–100 ký tự) và `avatar` (URL hợp lệ hoặc `null`); không bắt buộc
 phải có field nào.
 
-### UC34. Làm mới token (`POST /auth/refresh-token`)
+### Làm mới token (`POST /auth/refresh-token`)
 
 ```mermaid
 sequenceDiagram
@@ -648,7 +648,7 @@ sequenceDiagram
 Route chỉ yêu cầu đăng nhập, không giới hạn số workspace. Tên chỉ được kiểm tra trùng trong
 phạm vi các workspace mà user là `OWNER`.
 
-### UC35. Danh sách workspace (`GET /workspaces`)
+### UC34. Danh sách workspace (`GET /workspaces`)
 
 ```mermaid
 sequenceDiagram
@@ -1140,7 +1140,7 @@ sequenceDiagram
 
 Owner có thể tự xoá chính mình nếu còn Owner khác; code không chặn `actorId = targetUserId`.
 
-### UC36. Đổi vai trò thành viên (`PATCH /workspaces/:workspaceId/members/:memberId`)
+### UC35. Đổi vai trò thành viên (`PATCH /workspaces/:workspaceId/members/:memberId`)
 
 ```mermaid
 sequenceDiagram
@@ -2284,9 +2284,9 @@ Bảng dùng để tra nhanh lớp xử lý của từng endpoint. Tên đầy �
 | UC05 | `PATCH /users/me/password` | `requireAuth`, `validate(changePasswordSchema)` | `userController.changePassword` | `userService.changePassword` | `findUserById`, `updateUser`, `incrementTokenVersion` | `USER_CHANGE_PASSWORD` |
 | — | `GET /users/me` | `requireAuth` | `userController.getMe` | `userService.getProfile` | `userRepository.findUserById` | Không audit |
 | UC33 | `PATCH /users/me` | `requireAuth`, `validate(updateProfileSchema)` | `userController.updateProfile` | `userService.updateProfile` | `userRepository.updateUser` | `USER_UPDATE_PROFILE` |
-| UC34 | `POST /auth/refresh-token` | `validate(refreshTokenSchema)` | `authController.refreshToken` | `authService.refreshToken` | `userRepository.findUserById` | Cấp lại cặp token, set cookie mới |
+| — | `POST /auth/refresh-token` | `validate(refreshTokenSchema)` | `authController.refreshToken` | `authService.refreshToken` | `userRepository.findUserById` | Cấp lại cặp token, set cookie mới |
 | UC17 | `POST /workspaces` | `requireAuth`, `validate(createWorkspaceSchema)` | `workspaceController.createWorkspace` | `workspaceService.createWorkspace` | `findWorkspaceByNameAndOwner`, `createWorkspaceWithOwner` | `WORKSPACE_CREATE` |
-| UC35 | `GET /workspaces` | `requireAuth` | `workspaceController.listWorkspaces` | `workspaceService.listMyWorkspaces` | `findWorkspacesByUserId` | Không audit |
+| UC34 | `GET /workspaces` | `requireAuth` | `workspaceController.listWorkspaces` | `workspaceService.listMyWorkspaces` | `findWorkspacesByUserId` | Không audit |
 | UC18 | `PATCH /workspaces/:workspaceId` | `requireAuth`, `validate(updateWorkspaceSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.updateWorkspace` | `workspaceService.updateWorkspace` | `findWorkspaceById`, `updateWorkspace` | `WORKSPACE_UPDATE` |
 | UC19 | `DELETE /workspaces/:workspaceId` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.deleteWorkspace` | `workspaceService.deleteWorkspace` | `findWorkspaceById`, `softDeleteWorkspace` | `WORKSPACE_DELETE`; xoá mềm |
 | UC20 | `GET /workspaces/:workspaceId/members` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `workspaceController.listMembers` | `workspaceService.listMembers` | `findWorkspaceById`, `findMembersByWorkspace`, `findPendingInvitesByWorkspace` | Không audit |
@@ -2294,7 +2294,7 @@ Bảng dùng để tra nhanh lớp xử lý của từng endpoint. Tên đầy �
 | UC22 | `GET /invites/:token` | `optionalAuth`, `validate(inviteTokenSchema)` | `workspaceController.acceptInvite` | `workspaceService.acceptInvite` | `findInviteByToken`, `findMember`, `markInviteUsed`, `acceptInviteAsMember`, `findOwnerIds`, `createNotification` | `MEMBER_JOINED`; notification Owner |
 | UC23 | `DELETE /workspaces/:workspaceId/members/me` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `workspaceController.leaveWorkspace` | `workspaceService.leaveWorkspace` | `findMember`, `countOwners`, `deleteMember` | `MEMBER_LEFT` |
 | UC24 | `DELETE /workspaces/:workspaceId/members/:memberId` | `requireAuth`, `validate(memberActionSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.removeMember` | `workspaceService.removeMember` | `findMember`, `countOwners`, `deleteMember` | `MEMBER_REMOVED`; `memberId` là userId |
-| UC36 | `PATCH /workspaces/:workspaceId/members/:memberId` | `requireAuth`, `validate(changeMemberRoleSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.changeMemberRole` | `workspaceService.changeMemberRole` | `findMember`, `countOwners`, `updateMemberRole` | `MEMBER_ROLE_CHANGED`; đổi cùng role thì bỏ qua |
+| UC35 | `PATCH /workspaces/:workspaceId/members/:memberId` | `requireAuth`, `validate(changeMemberRoleSchema)`, `requireWorkspaceRole('OWNER')` | `workspaceController.changeMemberRole` | `workspaceService.changeMemberRole` | `findMember`, `countOwners`, `updateMemberRole` | `MEMBER_ROLE_CHANGED`; đổi cùng role thì bỏ qua |
 | UC27 | `GET /workspaces/:workspaceId/brand-voice` | `requireAuth`, `validate(workspaceOnlySchema)`, `requireWorkspaceRole()` | `brandVoiceController.getBrandVoice` | `brandVoiceService.getBrandVoice` | `brandVoiceRepository.getWorkspaceBrandVoice` | Không audit |
 | UC25, UC26 | `PUT /workspaces/:workspaceId/brand-voice` | `requireAuth`, `validate(brandVoiceSchema)`, `requireWorkspaceRole('OWNER')` | `brandVoiceController.updateBrandVoice` | `brandVoiceService.updateBrandVoice` | `findWorkspaceById`, `updateWorkspaceBrandVoice` | `BRAND_VOICE_UPDATED`; dedupe keyword |
 | UC28 | `GET /workspaces/:workspaceId/channels` | `requireAuth`, `validate(listChannelsSchema)`, `requireWorkspaceRole()` | `channelController.listChannels` | `channelService.listChannels` | `findChannelsByWorkspace` | Không trả `accessToken` |
@@ -2342,8 +2342,8 @@ Không dùng tài liệu này để suy ra API đã tồn tại.
   Kéo-thả theo khung giờ vẫn là Roadmap (hiện đổi ngày bằng kéo-thả và đổi giờ bằng modal).
 - **Analytics:** đã có module + `analyticsWorker`, endpoint overview/suggestions/sync; hiển thị
   trong Dashboard `/`. Còn snapshot theo thời gian, top bài/chi tiết bài, xử lý rate limit.
-- **Thông báo:** API đọc hộp thư (`/users/me/notifications`) và chuông frontend đã có.
-  Chưa có WebSocket/SSE; UC38 (thông báo realtime) vẫn ngoài phạm vi.
-- **UC42/UC43 (giao việc cho thành viên):** đã có giao việc, task board Kanban, priority,
+- **Thông báo:** API đọc hộp thư (`/users/me/notifications`) và chuông frontend đã có (UC37).
+  Chưa có WebSocket/SSE; realtime vẫn ngoài phạm vi.
+- **UC41/UC42 (giao việc cho thành viên):** đã có giao việc, task board Kanban, priority,
   nhắc hạn in-app và endpoint CRUD task; còn nhắc hạn qua email.
 - **Kênh:** mới hỗ trợ Facebook + Threads; còn Instagram/TikTok/Zalo, video và tự refresh token Facebook.
