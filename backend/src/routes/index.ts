@@ -116,14 +116,14 @@ const router = Router();
 // Health
 router.get('/health', healthController.checkHealth);
 
-// Auth (UC01, UC02, Google OAuth, UC03, UC33)
+// Auth (UC01, UC02, Google OAuth, UC03)
 router.post('/auth/register', authLimiter, validate(registerSchema), authController.register);
 router.post('/auth/login', loginLimiter, validate(loginSchema), authController.login);
 router.post('/auth/google', authLimiter, validate(googleLoginSchema), authController.googleLogin);
 router.post('/auth/logout', requireAuth, authController.logout);
 router.post('/auth/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
 
-// User (UC04, UC32)
+// User (UC04, UC33)
 router.get('/users/me', requireAuth, userController.getMe);
 router.patch('/users/me', requireAuth, validate(updateProfileSchema), userController.updateProfile);
 router.post('/users/me/avatar', requireAuth, uploadAvatar, userController.uploadAvatar);
@@ -202,7 +202,7 @@ router.get(
   auditController.listWorkspaceAuditLogs
 );
 
-// Workspace (UC16–UC23, UC35, UC36)
+// Workspace (UC16–UC23, UC34, UC35)
 router.post('/workspaces', requireAuth, validate(createWorkspaceSchema), workspaceController.createWorkspace);
 router.get('/workspaces', requireAuth, workspaceController.listWorkspaces);
 
@@ -221,7 +221,7 @@ router.delete(
   workspaceController.deleteWorkspace
 );
 
-// Members (UC19, UC22, UC23, UC36)
+// Members (UC19, UC22, UC23, UC35)
 router.get(
   '/workspaces/:workspaceId/members',
   requireAuth,
@@ -349,7 +349,7 @@ router.post(
   channelController.refreshChannel
 );
 
-// Billing — gói credit & PayOS (UC31, UC40, UC41)
+// Billing — gói credit & PayOS (UC31, UC39, UC40)
 router.get(
   '/workspaces/:workspaceId/billing',
   requireAuth,
@@ -386,7 +386,7 @@ router.post(
   billingController.cancelOrder
 );
 
-// Posts (UC05, UC07, UC08, UC09, UC10, UC37)
+// Posts (UC05, UC07, UC08, UC09, UC10, UC36)
 router.post(
   '/workspaces/:workspaceId/posts',
   requireAuth,
@@ -454,7 +454,7 @@ router.patch(
   postController.reviewPost
 );
 
-// Giao việc & trạng thái công việc (UC42, UC43)
+// Giao việc & trạng thái công việc (UC41, UC42)
 router.patch(
   '/workspaces/:workspaceId/posts/:postId/assign',
   requireAuth,
@@ -470,7 +470,7 @@ router.patch(
   postController.updateTaskStatus
 );
 
-// Công việc — bảng Kanban (UC42, UC43)
+// Công việc — bảng Kanban (UC41, UC42)
 router.get(
   '/workspaces/:workspaceId/tasks/board',
   requireAuth,
@@ -546,7 +546,7 @@ router.get(
   aiController.getGeneration
 );
 
-// Schedule — đăng ngay / lên lịch lên Facebook Page (UC13, UC14, UC16, UC37)
+// Schedule — đăng ngay / lên lịch lên Facebook Page (UC13, UC14, UC16, UC36)
 router.post(
   '/workspaces/:workspaceId/posts/:postId/schedules',
   requireAuth,

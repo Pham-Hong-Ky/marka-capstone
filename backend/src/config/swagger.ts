@@ -126,7 +126,7 @@ registry.registerPath({
   method: 'post',
   path: '/auth/refresh-token',
   tags: ['Auth'],
-  summary: 'Làm mới Access Token (UC33)',
+  summary: 'Làm mới Access Token',
   request: {
     body: {
       content: {
@@ -157,7 +157,7 @@ registry.registerPath({
   method: 'patch',
   path: '/users/me',
   tags: ['User'],
-  summary: 'Cập nhật hồ sơ cá nhân (UC32)',
+  summary: 'Cập nhật hồ sơ cá nhân (UC33)',
   security: [{ [bearerAuth.name]: [] }],
   request: {
     body: {
@@ -211,7 +211,7 @@ registry.registerPath({
   method: 'get',
   path: '/workspaces',
   tags: ['Workspace'],
-  summary: 'Danh sách workspace của người dùng (UC35)',
+  summary: 'Danh sách workspace của người dùng (UC34)',
   security: [{ [bearerAuth.name]: [] }],
   responses: { 200: { description: 'Thành công' } },
 });
@@ -297,7 +297,7 @@ registry.registerPath({
   method: 'patch',
   path: '/workspaces/{workspaceId}/members/{memberId}',
   tags: ['Workspace'],
-  summary: 'Đổi vai trò thành viên (UC36)',
+  summary: 'Đổi vai trò thành viên (UC35)',
   security: [{ [bearerAuth.name]: [] }],
   request: {
     params: memberIdParamSchema,
@@ -370,7 +370,7 @@ registry.registerPath({
   },
 });
 
-// 7. Posts (UC05, UC07, UC08, UC09, UC10, UC37)
+// 7. Posts (UC05, UC07, UC08, UC09, UC10, UC36)
 const postMediaUploadBodySchema = z.object({
   file: z.any().openapi({ type: 'string', format: 'binary', description: 'Ảnh JPG/PNG/WEBP, tối đa 10MB' }),
 });
@@ -458,7 +458,7 @@ registry.registerPath({
   method: 'post',
   path: '/workspaces/{workspaceId}/posts/{postId}/media',
   tags: ['Post'],
-  summary: 'Tải ảnh lên cho bài viết (UC37)',
+  summary: 'Tải ảnh lên cho bài viết (UC36)',
   security: [{ [bearerAuth.name]: [] }],
   request: {
     params: postIdParamSchema,

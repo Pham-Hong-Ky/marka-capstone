@@ -5,7 +5,7 @@ import prisma from '../../../src/config/db.js';
 
 const password = 'password123';
 
-describe('Task assignment & status (UC42, UC43)', () => {
+describe('Task assignment & status (UC41, UC42)', () => {
   const stamp = Date.now();
   const owner = { email: `test_task_assign_owner_${stamp}@marka.vn`, name: 'Owner Assign' };
   const creatorA = {

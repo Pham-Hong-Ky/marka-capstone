@@ -6,7 +6,7 @@ import taskRepository from '../../../src/modules/task/task.repository.js';
 
 const password = 'password123';
 
-describe('Task board (UC42, UC43)', () => {
+describe('Task board (UC41, UC42)', () => {
   const stamp = Date.now();
   const owner = { email: `test_task_owner_${stamp}@marka.vn`, name: 'Owner Task' };
   const creatorA = { email: `test_task_creator_a_${stamp}@marka.vn`, name: 'Creator Task A' };
