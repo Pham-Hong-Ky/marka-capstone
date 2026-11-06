@@ -1,4 +1,4 @@
-import env from '../../config/env.js';
+import env from '../../../config/env.js';
 
 export const AI_TEXT_COST = 10;
 export const AI_IMAGE_COST = 20;
@@ -36,3 +36,4 @@ export default {
   getGeminiModel,
   getImageModel,
 };
+

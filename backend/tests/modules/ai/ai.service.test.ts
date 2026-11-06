@@ -9,12 +9,12 @@ import {
   PaymentRequiredError,
   ServiceUnavailableError,
 } from '../../../src/utils/errors/index.js';
-import * as aiConfig from '../../../src/modules/ai/ai.config.js';
+import * as aiConfig from '../../../src/modules/ai/providers/ai.config.js';
 import aiService from '../../../src/modules/ai/ai.service.js';
 
-vi.mock('../../../src/modules/ai/ai.config.js', async (importOriginal) => {
+vi.mock('../../../src/modules/ai/providers/ai.config.js', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('../../../src/modules/ai/ai.config.js')>();
+    await importOriginal<typeof import('../../../src/modules/ai/providers/ai.config.js')>();
   return {
     ...actual,
     isTextAiConfigured: vi.fn(() => true),

@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { AiProviderConfigError } from './ai.errors.js';
+import { AiProviderConfigError } from '../providers/ai.errors.js';
 
 export const parseStoredPayload = <T>(payload: string, schema: z.ZodType<T>): T => {
   try {
@@ -10,3 +10,4 @@ export const parseStoredPayload = <T>(payload: string, schema: z.ZodType<T>): T 
 };
 
 export default { parseStoredPayload };
+

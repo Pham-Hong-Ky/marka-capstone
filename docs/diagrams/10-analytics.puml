@@ -139,8 +139,8 @@ analyticsController ..> analyticsService
 analyticsService ..> analyticsRepository
 analyticsService ..> providerRegistry
 providerRegistry ..> socialProvider
-providerRegistry ..> facebookAdapter
-providerRegistry ..> threadsAdapter
+providerRegistry --> facebookAdapter
+providerRegistry --> threadsAdapter
 facebookAdapter ..|> socialProvider
 threadsAdapter ..|> socialProvider
 analyticsProcessor ..> analyticsService

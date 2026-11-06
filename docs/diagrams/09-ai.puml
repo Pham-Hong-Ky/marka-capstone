@@ -85,6 +85,7 @@ class "aiService" as aiService {
   + startTextGeneration(params)
   + startImageGeneration(params)
   + getGeneration(params)
+  + recoverStaleGenerations(now)
   + markProcessing(generationId)
   + completeTextGeneration(generationId, response)
   + completeImageGeneration(params)
@@ -113,6 +114,7 @@ class "aiProcessor" as aiProcessor {
   - runImageGeneration(generation)
   + executeAiGeneration(generationId, attempt) : Promise<void>
   + processContentJob(job) : Promise<{ success: boolean }>
+  + registerAiRecoveryScheduler() : Promise<void>
   + buildAiFailureMessage(type, error) : string
 }
 

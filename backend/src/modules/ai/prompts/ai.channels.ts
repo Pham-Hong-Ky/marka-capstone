@@ -1,7 +1,7 @@
 import type { SocialPlatform } from '@prisma/client';
-import { BadRequestError } from '../../utils/errors/index.js';
-import channelRepository from '../channel/channel.repository.js';
-import { getProvider } from '../channel/providers/provider.registry.js';
+import { BadRequestError } from '../../../utils/errors/index.js';
+import channelRepository from '../../channel/channel.repository.js';
+import { getProvider } from '../../channel/providers/provider.registry.js';
 
 const isPublishable = (channel: { platform: SocialPlatform }): boolean => {
   try {
@@ -41,3 +41,4 @@ export const resolveTargetPlatforms = async (
 };
 
 export default { resolveTargetPlatforms };
+

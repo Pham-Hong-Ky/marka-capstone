@@ -19,10 +19,10 @@ import {
   AI_TEXT_PROVIDER,
   getGeminiModel,
   getImageModel,
-} from './ai.config.js';
-import { AiPostNotEditableError } from './ai.errors.js';
-import { serializeImageSource, type ImageSourcePayload } from './ai.image-prompt.js';
-import { buildTextPrompt, contentToPlainText, serializeTextPrompt } from './ai.prompt.js';
+} from './providers/ai.config.js';
+import { AiPostNotEditableError } from './providers/ai.errors.js';
+import { serializeImageSource, type ImageSourcePayload } from './prompts/ai.image-prompt.js';
+import { buildTextPrompt, contentToPlainText, serializeTextPrompt } from './prompts/ai.prompt.js';
 import aiRepository from './ai.repository.js';
 import type { GenerateImageBody, GenerateTextBody } from './ai.validation.js';
 

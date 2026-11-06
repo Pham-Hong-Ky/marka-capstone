@@ -7,9 +7,9 @@ import { enqueue } from '../../workers/queue-manager.js';
 import { QUEUE_NAMES } from '../../workers/types.js';
 import creditService from '../credit/credit.service.js';
 import postRepository from '../post/post.repository.js';
-import { isImageAiConfigured, isTextAiConfigured } from './ai.config.js';
-import { AiGenerationFinalizedError } from './ai.errors.js';
-import { resolveTargetPlatforms } from './ai.channels.js';
+import { isImageAiConfigured, isTextAiConfigured } from './providers/ai.config.js';
+import { AiGenerationFinalizedError } from './providers/ai.errors.js';
+import { resolveTargetPlatforms } from './prompts/ai.channels.js';
 import {
   assertPostAcceptsImages,
   createImageGeneration,

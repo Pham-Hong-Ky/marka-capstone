@@ -3,13 +3,13 @@ import { UnrecoverableError } from 'bullmq';
 import prisma from '../../../src/config/db.js';
 import { enqueue } from '../../../src/workers/queue-manager.js';
 import { cloudinaryClient } from '../../../src/utils/cloudinary.client.js';
-import { cloudflareImageClient, geminiClient } from '../../../src/modules/ai/ai.providers.js';
+import { cloudflareImageClient, geminiClient } from '../../../src/modules/ai/providers/ai.providers.js';
 import aiService from '../../../src/modules/ai/ai.service.js';
 import { buildAiFailureMessage, executeAiGeneration } from '../../../src/modules/ai/ai.processor.js';
 
-vi.mock('../../../src/modules/ai/ai.config.js', async (importOriginal) => {
+vi.mock('../../../src/modules/ai/providers/ai.config.js', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('../../../src/modules/ai/ai.config.js')>();
+    await importOriginal<typeof import('../../../src/modules/ai/providers/ai.config.js')>();
   return {
     ...actual,
     isTextAiConfigured: () => true,
@@ -23,7 +23,7 @@ vi.mock('../../../src/workers/queue-manager.js', () => ({
   enqueue: vi.fn(),
 }));
 
-vi.mock('../../../src/modules/ai/ai.providers.js', () => ({
+vi.mock('../../../src/modules/ai/providers/ai.providers.js', () => ({
   geminiClient: { generateJson: vi.fn() },
   cloudflareImageClient: { generateImage: vi.fn() },
 }));

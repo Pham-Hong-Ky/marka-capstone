@@ -756,8 +756,8 @@ channelService ..> oauthStore
 channelService ..> channelTokenRefresh
 facebookAdapter ..|> socialProvider
 threadsAdapter ..|> socialProvider
-providerRegistry ..> facebookAdapter
-providerRegistry ..> threadsAdapter
+providerRegistry --> facebookAdapter
+providerRegistry --> threadsAdapter
 
 postController ..> postService
 postService ..> postRepository

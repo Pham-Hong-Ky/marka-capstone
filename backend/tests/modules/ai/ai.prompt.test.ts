@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { AiProviderConfigError } from '../../../src/modules/ai/ai.errors.js';
+import { AiProviderConfigError } from '../../../src/modules/ai/providers/ai.errors.js';
 import {
   buildImageArtPrompt,
   buildImagePrompt,
   parseImageArtOutput,
   parseImageSourcePayload,
   serializeImageSource,
-} from '../../../src/modules/ai/ai.image-prompt.js';
+} from '../../../src/modules/ai/prompts/ai.image-prompt.js';
 import {
   buildTextPrompt,
   contentToPlainText,
@@ -14,7 +14,7 @@ import {
   parseTextPromptPayload,
   serializeTextPrompt,
   toTiptapDoc,
-} from '../../../src/modules/ai/ai.prompt.js';
+} from '../../../src/modules/ai/prompts/ai.prompt.js';
 
 describe('AI prompt helpers', () => {
   it('parseTextOutput từ chối output thiếu title', () => {

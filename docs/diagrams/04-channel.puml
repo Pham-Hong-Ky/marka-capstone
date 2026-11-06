@@ -99,18 +99,9 @@ class "ProviderRegistry" as providerRegistry {
   + listProviders() : SocialProvider[]
 }
 
-class "oauthStore" as oauthStore {
-  + saveOauthState(state, { userId, workspaceId, platform }) : Promise<void>
-  + consumeOauthState(state) : Promise<OauthState | null>
-  + saveOauthSession(sessionId, session) : Promise<void>
-  + getOauthSession(sessionId) : Promise<OauthSession | null>
-  + deleteOauthSession(sessionId) : Promise<void>
-}
-
 channelController ..> channelService
 channelService ..> channelRepository
 channelService ..> providerRegistry
-channelService ..> oauthStore
 channelRepository ..> ChannelConnection
 providerRegistry ..> socialProvider
 providerRegistry --> facebookAdapter

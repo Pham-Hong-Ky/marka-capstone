@@ -1,4 +1,4 @@
-import { AppError } from '../../utils/errors/index.js';
+import { AppError } from '../../../utils/errors/index.js';
 
 export class AiProviderError extends Error {
   constructor(
@@ -53,3 +53,4 @@ export default {
   AiPostNotEditableError,
   AiGenerationFinalizedError,
 };
+

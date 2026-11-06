@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AiContentPolicyError, AiOutputError, AiProviderError } from '../../../src/modules/ai/ai.errors.js';
-import { cloudflareImageClient, geminiClient } from '../../../src/modules/ai/ai.providers.js';
+import { AiContentPolicyError, AiOutputError, AiProviderError } from '../../../src/modules/ai/providers/ai.errors.js';
+import { cloudflareImageClient, geminiClient } from '../../../src/modules/ai/providers/ai.providers.js';
 
 // Key giả để test không phụ thuộc .env của máy chạy (CI không có key thật).
 vi.mock('../../../src/config/env.js', async (importOriginal) => {

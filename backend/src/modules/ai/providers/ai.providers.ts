@@ -1,4 +1,4 @@
-import env from '../../config/env.js';
+import env from '../../../config/env.js';
 import {
   AI_FETCH_TIMEOUT_MS,
   AI_IMAGE_STEPS,
@@ -214,3 +214,4 @@ export default {
   geminiClient,
   cloudflareImageClient,
 };
+

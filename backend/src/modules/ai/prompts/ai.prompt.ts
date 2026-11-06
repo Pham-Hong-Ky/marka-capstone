@@ -3,8 +3,8 @@ import type { SocialPlatform } from '@prisma/client';
 import {
   AI_BRAND_VOICE_EXAMPLE_LIMIT,
   AI_BRAND_VOICE_EXAMPLE_MAX_LENGTH,
-} from './ai.config.js';
-import { AiOutputError } from './ai.errors.js';
+} from '../providers/ai.config.js';
+import { AiOutputError } from '../providers/ai.errors.js';
 import { parseStoredPayload } from './ai.payload.js';
 
 export interface BrandVoice {
