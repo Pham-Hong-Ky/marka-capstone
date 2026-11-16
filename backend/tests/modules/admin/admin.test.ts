@@ -262,6 +262,44 @@ describe('Admin module — quản trị hệ thống & audit log (UC32)', () => 
     expect(audit?.metadata).toMatchObject({ email: creator.email });
   });
 
+  it('POST /admin/users/:id/tester-invite — mặc định là Facebook, audit ghi platform', async () => {
+    const res = await request(app)
+      .post(`/api/v1/admin/users/${creatorId}/tester-invite`)
+      .set(auth(adminToken));
+
+    expect(res.status).toBe(200);
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'ADMIN_TESTER_INVITE_SENT', targetId: creatorId },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(audit?.metadata).toMatchObject({ platform: 'FACEBOOK' });
+  });
+
+  it('POST /admin/users/:id/tester-invite — mời Threads Tester và ghi audit', async () => {
+    const res = await request(app)
+      .post(`/api/v1/admin/users/${creatorId}/tester-invite`)
+      .set(auth(adminToken))
+      .send({ platform: 'THREADS' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toContain('Threads');
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'ADMIN_TESTER_INVITE_SENT', targetId: creatorId },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(audit?.metadata).toMatchObject({ email: creator.email, platform: 'THREADS' });
+  });
+
+  it('POST /admin/users/:id/tester-invite — platform không hợp lệ trả 422', async () => {
+    const res = await request(app)
+      .post(`/api/v1/admin/users/${creatorId}/tester-invite`)
+      .set(auth(adminToken))
+      .send({ platform: 'TIKTOK' });
+
+    expect(res.status).toBe(422);
+  });
+
   it('GET /admin/workspaces — trả số thành viên/bài viết', async () => {
     const res = await request(app)
       .get(`/api/v1/admin/workspaces?search=${encodeURIComponent(owner.name)}`)

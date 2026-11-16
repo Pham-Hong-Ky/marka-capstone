@@ -3,7 +3,8 @@ export const CHANNEL_CONNECT_ERROR_MESSAGES: Record<string, string> = {
   invalid_state: 'Phiên kết nối đã hết hạn. Vui lòng thử lại.',
   no_accounts:
     'Tài khoản của bạn chưa có Page nào để kết nối. Hãy tạo Page hoặc nhờ quản trị viên Page cấp quyền, rồi thử lại.',
-  token_exchange_failed: 'Không thể xác thực với nền tảng. Vui lòng thử lại.',
+  token_exchange_failed:
+    'Kết nối thất bại. Tài khoản của bạn có thể chưa được thêm làm Tester, hãy liên hệ quản trị viên rồi thử lại.',
   not_configured: 'Hệ thống chưa cấu hình nền tảng này.',
 };
 

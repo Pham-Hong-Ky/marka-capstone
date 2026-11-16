@@ -1,6 +1,6 @@
 import { buildPaginationMeta } from '../../utils/pagination.js';
 import { mailerClient } from '../../utils/mailer.client.js';
-import { buildTesterInviteEmail } from '../../templates/testerInviteEmail.js';
+import { buildTesterInviteEmail, type TesterInvitePlatform } from '../../templates/testerInviteEmail.js';
 import adminRepository from './admin.repository.js';
 import auditService from '../audit/audit.service.js';
 import type { ListUsersQuery, ListWorkspacesQuery, SuspendUserBody } from './admin.validation.js';
@@ -69,7 +69,8 @@ export const setUserSuspension = async (
 
 export const sendTesterInvite = async (
   actor: { id: string; name: string },
-  targetUserId: string
+  targetUserId: string,
+  platform: TesterInvitePlatform
 ) => {
   const target = await adminRepository.findUserForAdmin(targetUserId);
   if (!target) {
@@ -79,6 +80,7 @@ export const sendTesterInvite = async (
   const { subject, html } = buildTesterInviteEmail({
     actorName: actor.name,
     userEmail: target.email,
+    platform,
   });
   const emailSent = await mailerClient.sendEmail({ to: target.email, subject, html });
   if (!emailSent) {
@@ -90,7 +92,7 @@ export const sendTesterInvite = async (
     action: 'ADMIN_TESTER_INVITE_SENT',
     targetType: 'User',
     targetId: targetUserId,
-    metadata: { email: target.email },
+    metadata: { email: target.email, platform },
   });
 
   return { email: target.email };

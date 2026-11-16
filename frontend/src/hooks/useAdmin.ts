@@ -5,6 +5,7 @@ import {
   type AdminAuditLogsQuery,
   type AdminUsersQuery,
   type AdminWorkspacesQuery,
+  type TesterInvitePlatform,
 } from '@/services/admin';
 import { queryKeys } from '@/lib/queryKeys';
 
@@ -57,7 +58,8 @@ export const useSendTesterInvite = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (userId: string) => adminService.sendTesterInvite(userId),
+    mutationFn: ({ userId, platform }: { userId: string; platform: TesterInvitePlatform }) =>
+      adminService.sendTesterInvite(userId, platform),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.auditLogsRoot() });
       toast.success(`Đã gửi email mời tester tới ${result.email}`);
