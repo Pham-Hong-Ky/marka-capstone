@@ -183,9 +183,9 @@ describe('Channel (UC27, UC28, UC29)', () => {
     expect(res.headers.location).toContain('connect_error=invalid_state');
   });
 
-  it('UC28 — State dùng lại lần hai bị từ chối', async () => {
+  it('UC28 — Callback bị gọi lặp trả cùng kết quả, không xử lý lại', async () => {
     const state = await createOauthState();
-    mockFacebook();
+    const fetchMock = mockFacebook();
 
     const first = await request(app).get(
       `/api/v1/channels/FACEBOOK/oauth/callback?code=x&state=${state}`
@@ -195,7 +195,8 @@ describe('Channel (UC27, UC28, UC29)', () => {
     );
 
     expect(first.headers.location).toContain('connect=FACEBOOK');
-    expect(second.headers.location).toContain('connect_error=invalid_state');
+    expect(second.headers.location).toBe(first.headers.location);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('UC28 — Người dùng từ chối cấp quyền được báo lỗi', async () => {
