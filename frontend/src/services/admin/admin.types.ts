@@ -97,3 +97,5 @@ export interface AdminAuditLogsQuery {
   dateFrom?: string;
   dateTo?: string;
 }
+
+export type TesterInvitePlatform = 'FACEBOOK' | 'THREADS';

@@ -3,6 +3,7 @@ import adminService from './admin.service.js';
 import type {
   ListUsersQuery,
   ListWorkspacesQuery,
+  SendTesterInviteBody,
   SuspendUserBody,
 } from './admin.validation.js';
 import ApiResponse from '../../utils/ApiResponse.js';
@@ -47,14 +48,16 @@ export const suspendUser = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const sendTesterInvite = catchAsync(async (req: Request, res: Response) => {
+  const { platform } = req.body as SendTesterInviteBody;
   const result = await adminService.sendTesterInvite(
     { id: req.user!.id, name: req.user!.name },
-    req.params.userId as string
+    req.params.userId as string,
+    platform
   );
 
   return ApiResponse.success(res, {
     statusCode: 200,
-    message: 'Đã gửi email mời Facebook Tester',
+    message: `Đã gửi email mời ${platform === 'THREADS' ? 'Threads' : 'Facebook'} Tester`,
     data: result,
   });
 });

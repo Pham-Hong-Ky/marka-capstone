@@ -10,6 +10,7 @@ import type {
   AdminUser,
   AdminUsersQuery,
   AdminUsersResponse,
+  TesterInvitePlatform,
   AdminWorkspace,
   AdminWorkspacesQuery,
   AdminWorkspacesResponse,
@@ -45,10 +46,14 @@ export const suspendUser = async (
     await httpClient.patch<ApiResponse<AdminUser>>(`/admin/users/${userId}/suspend`, payload)
   );
 
-export const sendTesterInvite = async (userId: string): Promise<{ email: string }> =>
+export const sendTesterInvite = async (
+  userId: string,
+  platform: TesterInvitePlatform
+): Promise<{ email: string }> =>
   unwrap(
     await httpClient.post<ApiResponse<{ email: string }>>(
-      `/admin/users/${userId}/tester-invite`
+      `/admin/users/${userId}/tester-invite`,
+      { platform }
     )
   );
 

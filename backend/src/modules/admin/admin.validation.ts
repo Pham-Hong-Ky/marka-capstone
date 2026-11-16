@@ -24,6 +24,15 @@ export const suspendUserBodySchema = z.object({
   reason: z.string().trim().max(255, 'Lý do tối đa 255 ký tự').optional(),
 });
 
+export const sendTesterInviteBodySchema = z
+  .object({
+    platform: z
+      .enum(['FACEBOOK', 'THREADS'], { message: 'Nền tảng không hợp lệ' })
+      .default('FACEBOOK')
+      .openapi({ example: 'THREADS' }),
+  })
+  .default({});
+
 export const listWorkspacesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(100000).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
@@ -37,11 +46,15 @@ export const listWorkspacesQuerySchema = z.object({
 
 export const listUsersSchema = { query: listUsersQuerySchema };
 export const suspendUserSchema = { params: userIdParamSchema, body: suspendUserBodySchema };
-export const sendTesterInviteSchema = { params: userIdParamSchema };
+export const sendTesterInviteSchema = {
+  params: userIdParamSchema,
+  body: sendTesterInviteBodySchema,
+};
 export const listWorkspacesSchema = { query: listWorkspacesQuerySchema };
 
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type SuspendUserBody = z.infer<typeof suspendUserBodySchema>;
+export type SendTesterInviteBody = z.infer<typeof sendTesterInviteBodySchema>;
 export type ListWorkspacesQuery = z.infer<typeof listWorkspacesQuerySchema>;
 
 export default {
@@ -52,5 +65,6 @@ export default {
   listUsersQuerySchema,
   userIdParamSchema,
   suspendUserBodySchema,
+  sendTesterInviteBodySchema,
   listWorkspacesQuerySchema,
 };

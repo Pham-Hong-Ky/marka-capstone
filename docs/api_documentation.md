@@ -1204,11 +1204,13 @@ Mọi endpoint `/admin/*` yêu cầu `requireAuth` + `requireRoles('SYSTEM_ADMIN
 
 ### `POST /admin/users/:userId/tester-invite`
 
-Gửi email hướng dẫn người dùng chấp nhận lời mời làm **Facebook Tester** cho ứng dụng Marka.
+Gửi email hướng dẫn người dùng chấp nhận lời mời làm **Facebook Tester** hoặc **Threads Tester** cho ứng dụng Marka.
 
-- Không có body; `userId` phải tồn tại → ngược lại `404`.
+- Body tuỳ chọn: `platform` = `FACEBOOK` (mặc định) | `THREADS`; giá trị khác → `422`.
+- Meta không thêm tester qua API: admin phải thêm tester ở App Dashboard trước (Facebook theo email, Threads theo username).
+- `userId` phải tồn tại → ngược lại `404`.
 - Thiếu cấu hình Resend hoặc gửi email thất bại → `502`.
-- Audit `ADMIN_TESTER_INVITE_SENT` với `metadata.email`.
+- Audit `ADMIN_TESTER_INVITE_SENT` với `metadata.email` và `metadata.platform`.
 
 **Response 200**
 
