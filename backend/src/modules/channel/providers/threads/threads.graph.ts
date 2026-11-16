@@ -57,7 +57,7 @@ const throwThreadsError = (status: number, body: ThreadsErrorBody | null): never
   logger.warn(
     `Threads API lỗi [status: ${status}, code: ${error?.code ?? 'N/A'}, type: ${
       error?.type ?? body?.error_type ?? 'N/A'
-    }]`
+    }, message: ${message || 'N/A'}]`
   );
 
   if (

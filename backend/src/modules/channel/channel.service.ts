@@ -10,7 +10,7 @@ import channelRepository, { type ChannelSummary } from './channel.repository.js'
 import { getProvider } from './providers/provider.registry.js';
 import { SocialTokenExpiredError } from './providers/errors/social.errors.js';
 import * as oauthStore from './channel.oauth-store.js';
-import type { OauthSession, OauthSessionAccount } from './channel.oauth-store.js';
+import type { OauthSession, OauthSessionAccount, OauthState } from './channel.oauth-store.js';
 
 interface OauthCallbackQuery {
   code?: string;
@@ -122,6 +122,9 @@ export const handleOauthCallback = async (
     return errorRedirect(platform, 'invalid_state');
   }
 
+  const cachedRedirect = await oauthStore.getOauthResult(query.state);
+  if (cachedRedirect) return cachedRedirect;
+
   const state = await oauthStore.consumeOauthState(query.state);
   if (!state) {
     logger.warn(`OAuth ${platformLabel(platform)}: không tìm thấy state trong Redis (hết hạn hoặc đã dùng)`);
@@ -132,9 +135,21 @@ export const handleOauthCallback = async (
     return errorRedirect(platform, 'invalid_state');
   }
 
+  const redirectUrl = await completeOauthConnect(platform, query.code, state);
+  await oauthStore.saveOauthResult(query.state, redirectUrl).catch((error: unknown) => {
+    logger.warn(`Không lưu được kết quả OAuth để chống gọi lặp: ${getErrorMessage(error)}`);
+  });
+  return redirectUrl;
+};
+
+const completeOauthConnect = async (
+  platform: SocialPlatform,
+  code: string,
+  state: OauthState
+): Promise<string> => {
   try {
     const provider = getProvider(platform);
-    const accounts = await provider.exchangeCodeForAccounts(query.code);
+    const accounts = await provider.exchangeCodeForAccounts(code);
 
     if (accounts.length === 0) {
       return errorRedirect(platform, 'no_accounts');

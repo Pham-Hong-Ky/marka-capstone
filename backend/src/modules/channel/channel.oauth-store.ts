@@ -6,7 +6,10 @@ import { ServiceUnavailableError } from '../../utils/errors/index.js';
 
 const STATE_PREFIX = 'channel:oauth:state:';
 const SESSION_PREFIX = 'channel:oauth:session:';
+const RESULT_PREFIX = 'channel:oauth:result:';
 const TTL_SECONDS = 600;
+// Trình duyệt/proxy có thể gọi lặp callback; giữ kết quả ngắn hạn để lần gọi sau không báo lỗi nhầm.
+const RESULT_TTL_SECONDS = 60;
 
 export interface OauthState {
   userId: string;
@@ -30,6 +33,7 @@ export interface OauthSession {
 
 const stateKey = (state: string) => `${STATE_PREFIX}${state}`;
 const sessionKey = (sessionId: string) => `${SESSION_PREFIX}${sessionId}`;
+const resultKey = (state: string) => `${RESULT_PREFIX}${state}`;
 
 // Redis có thể chỉ còn đọc (hết hạn mức, quyền hạn, mất kết nối tạm thời).
 // Trả 503 để người dùng biết là sự cố tạm thời, thay vì 500 "lỗi hệ thống".
@@ -62,6 +66,13 @@ export const consumeOauthState = async (state: string): Promise<OauthState | nul
   }
 };
 
+export const saveOauthResult = async (state: string, redirectUrl: string): Promise<void> => {
+  await runRedis('lưu kết quả', () => redis.setex(resultKey(state), RESULT_TTL_SECONDS, redirectUrl));
+};
+
+export const getOauthResult = async (state: string): Promise<string | null> =>
+  runRedis('đọc kết quả', () => redis.get(resultKey(state)));
+
 export const saveOauthSession = async (sessionId: string, data: OauthSession): Promise<void> => {
   await runRedis('lưu session', () =>
     redis.setex(sessionKey(sessionId), TTL_SECONDS, JSON.stringify(data))
@@ -88,6 +99,8 @@ export const deleteOauthSession = async (sessionId: string): Promise<void> => {
 export default {
   saveOauthState,
   consumeOauthState,
+  saveOauthResult,
+  getOauthResult,
   saveOauthSession,
   getOauthSession,
   deleteOauthSession,
