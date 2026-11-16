@@ -45,6 +45,13 @@ export const suspendUser = async (
     await httpClient.patch<ApiResponse<AdminUser>>(`/admin/users/${userId}/suspend`, payload)
   );
 
+export const sendTesterInvite = async (userId: string): Promise<{ email: string }> =>
+  unwrap(
+    await httpClient.post<ApiResponse<{ email: string }>>(
+      `/admin/users/${userId}/tester-invite`
+    )
+  );
+
 export const listWorkspaces = async (
   query: AdminWorkspacesQuery
 ): Promise<AdminWorkspacesResponse> => {
@@ -88,6 +95,7 @@ export default {
   getStats,
   listUsers,
   suspendUser,
+  sendTesterInvite,
   listWorkspaces,
   listAuditLogs,
 };

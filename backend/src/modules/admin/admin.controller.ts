@@ -46,6 +46,19 @@ export const suspendUser = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+export const sendTesterInvite = catchAsync(async (req: Request, res: Response) => {
+  const result = await adminService.sendTesterInvite(
+    { id: req.user!.id, name: req.user!.name },
+    req.params.userId as string
+  );
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Đã gửi email mời Facebook Tester',
+    data: result,
+  });
+});
+
 export const listWorkspaces = catchAsync(async (req: Request, res: Response) => {
   const { workspaces, meta } = await adminService.listWorkspaces(
     req.query as unknown as ListWorkspacesQuery
@@ -63,5 +76,6 @@ export default {
   getStats,
   listUsers,
   suspendUser,
+  sendTesterInvite,
   listWorkspaces,
 };

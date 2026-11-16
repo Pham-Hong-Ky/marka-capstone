@@ -1,12 +1,12 @@
 import type { SocialPlatform } from '@prisma/client';
 import { BadRequestError } from '../../../utils/errors/index.js';
-import { facebookProvider } from './facebook.provider.js';
-import { threadsProvider } from './threads.provider.js';
-import type { SocialProvider } from './social-provider.js';
+import { facebookAdapter } from './facebook/facebook.adapter.js';
+import { threadsAdapter } from './threads/threads.adapter.js';
+import type { SocialProvider } from './port/social-provider.port.js';
 
 const providers: Partial<Record<SocialPlatform, SocialProvider>> = {
-  FACEBOOK: facebookProvider,
-  THREADS: threadsProvider,
+  FACEBOOK: facebookAdapter,
+  THREADS: threadsAdapter,
 };
 
 export const getProvider = (platform: SocialPlatform): SocialProvider => {

@@ -13,22 +13,22 @@ export const PackageCard = ({
   isBusy: boolean;
   onBuy: (creditPackage: CreditPackage) => void;
 }) => (
-  <div className="flex flex-col rounded-2xl border border-border bg-surface p-6">
-    <h3 className="text-base font-semibold text-foreground">{creditPackage.name}</h3>
+  <div className="flex flex-col rounded-xl border border-border bg-surface p-5">
+    <h3 className="text-sm font-semibold text-foreground">{creditPackage.name}</h3>
 
-    <p className="mt-4 text-2xl font-semibold text-foreground">
+    <p className="mt-3 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
       {formatNumber(creditPackage.price)}đ
     </p>
-    <p className="mt-2 text-sm text-muted">
+    <p className="mt-1 text-[13px] text-muted">
       +{formatNumber(creditPackage.creditAmount)} credit
     </p>
-    <p className="mt-1 text-xs text-subtle">
+    <p className="mt-1 text-[11px] text-subtle">
       {creditPackage.description ?? 'Credit dùng cho trợ lý AI và sinh ảnh.'}
     </p>
 
     <Button
       type="button"
-      className="mt-6 w-full"
+      className="mt-4 w-full"
       disabled={isBusy}
       isLoading={isPurchasing}
       onClick={() => onBuy(creditPackage)}

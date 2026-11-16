@@ -32,6 +32,14 @@ const notifySafely = async (action: () => Promise<void>) => {
   }
 };
 
+const syncPostSafely = async (postId: string, data: Prisma.PostUncheckedUpdateInput) => {
+  try {
+    await postRepository.updateAssignmentFields(postId, data);
+  } catch (error) {
+    logger.warn(`Không đồng bộ được việc giao cho bài ${postId}: ${getErrorMessage(error)}`);
+  }
+};
+
 const assertDueAtValid = (dueAt?: Date | null, currentDueAt?: Date | null) => {
   if (!dueAt) return;
 
@@ -141,6 +149,7 @@ export const assignTask = async (
   body: AssignTaskBody
 ) => {
   const task = await getTaskOrThrow(taskId, workspaceId);
+  const postId = task.post?.id ?? null;
   const { assigneeId } = body;
 
   if (assigneeId) {
@@ -154,6 +163,16 @@ export const assignTask = async (
     dueAt: assigneeId ? task.dueAt : null,
     status: assigneeId ? undefined : 'TODO',
   });
+
+  if (postId) {
+    await syncPostSafely(postId, {
+      assigneeId,
+      assignedById: updated.assignedById,
+      assignedAt: updated.assignedAt,
+      dueAt: updated.dueAt,
+      taskStatus: updated.status,
+    });
+  }
 
   if (assigneeId) {
     await notifySafely(() =>
@@ -189,6 +208,7 @@ export const updateTaskStatus = async (
   body: UpdateTaskStatusBody
 ) => {
   const task = await getTaskOrThrow(taskId, workspaceId);
+  const postId = task.post?.id ?? null;
 
   if (!task.assignee) {
     throw new ConflictError('Công việc chưa được giao cho ai');
@@ -199,6 +219,10 @@ export const updateTaskStatus = async (
   }
 
   const updated = await taskRepository.updateTaskStatus(taskId, body.status);
+
+  if (postId) {
+    await syncPostSafely(postId, { taskStatus: updated.status });
+  }
 
   await notifySafely(() =>
     taskNotification.notifyTaskStatusChanged({
@@ -240,6 +264,10 @@ export const updateTask = async (
     priority: body.priority,
   });
 
+  if (task.post && body.dueAt !== undefined) {
+    await syncPostSafely(task.post.id, { dueAt: updated.dueAt });
+  }
+
   await auditService.recordAuditLog({
     workspaceId,
     actorId,
@@ -270,10 +298,20 @@ export const linkTaskPost = async (
   body: LinkTaskPostBody
 ) => {
   const task = await getTaskOrThrow(taskId, workspaceId);
+  const linkedPostId = task.post?.id ?? null;
   assertCanManageTask(role, task, userId);
 
   if (body.postId === null) {
     const updated = await taskRepository.linkTaskPost(taskId, null);
+    if (linkedPostId) {
+      await syncPostSafely(linkedPostId, {
+        assigneeId: null,
+        assignedById: null,
+        assignedAt: null,
+        dueAt: null,
+        taskStatus: 'TODO',
+      });
+    }
     await auditService.recordAuditLog({
       workspaceId,
       actorId: userId,
@@ -300,6 +338,13 @@ export const linkTaskPost = async (
 
   try {
     const updated = await taskRepository.linkTaskPost(taskId, body.postId);
+    await syncPostSafely(body.postId, {
+      assigneeId: updated.assignee?.id ?? null,
+      assignedById: updated.assignedById,
+      assignedAt: updated.assignedAt,
+      dueAt: updated.dueAt,
+      taskStatus: updated.status,
+    });
     await auditService.recordAuditLog({
       workspaceId,
       actorId: userId,
@@ -319,8 +364,19 @@ export const linkTaskPost = async (
 
 export const deleteTask = async (workspaceId: string, actorId: string, taskId: string) => {
   const task = await getTaskOrThrow(taskId, workspaceId);
+  const postId = task.post?.id ?? null;
 
   await taskRepository.softDeleteTask(taskId);
+
+  if (postId) {
+    await syncPostSafely(postId, {
+      assigneeId: null,
+      assignedById: null,
+      assignedAt: null,
+      dueAt: null,
+      taskStatus: 'TODO',
+    });
+  }
 
   await auditService.recordAuditLog({
     workspaceId,

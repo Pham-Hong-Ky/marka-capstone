@@ -2,15 +2,23 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --background: #f8fafc;
+:root,
+.theme-light {
+  --background: #f4f5f7;
   --surface: #ffffff;
-  --surface-2: #f1f5f9;
-  --foreground: #0f172a;
-  --muted: #64748b;
-  --subtle: #94a3b8;
-  --border: #e2e8f0;
-  --sidebar: #ffffff;
+  --surface-2: #f1f3f7;
+  --foreground: #111827;
+  --muted: #6b7280;
+  --subtle: #64748b;
+  --border: #e3e6ec;
+  --sidebar: #0e1116;
+  --sidebar-foreground: #e5e7eb;
+  --sidebar-muted: #9aa4b5;
+  --sidebar-subtle: #7c879c;
+  --sidebar-border: #232833;
+  --sidebar-hover: #171b24;
+  --sidebar-active: #6366f1;
+  --sidebar-active-foreground: #ffffff;
   --accent: #4f46e5;
   --accent-hover: #4338ca;
   --accent-text: #4338ca;
@@ -20,14 +28,21 @@
 }
 
 .dark {
-  --background: #0b0c10;
-  --surface: #11131c;
+  --background: #0b0d12;
+  --surface: #11141c;
   --surface-2: #0e1017;
   --foreground: #f3f4f6;
   --muted: #94a3b8;
-  --subtle: #64748b;
+  --subtle: #94a3b8;
   --border: #1e293b;
-  --sidebar: #0e1017;
+  --sidebar: #080a0f;
+  --sidebar-foreground: #e5e7eb;
+  --sidebar-muted: #94a3b8;
+  --sidebar-subtle: #7c879c;
+  --sidebar-border: #1b202b;
+  --sidebar-hover: #141822;
+  --sidebar-active: #6366f1;
+  --sidebar-active-foreground: #ffffff;
   --accent: #6366f1;
   --accent-hover: #818cf8;
   --accent-text: #a5b4fc;
@@ -45,6 +60,13 @@
   --color-subtle: var(--subtle);
   --color-border: var(--border);
   --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-subtle: var(--sidebar-subtle);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-text: var(--accent-text);
@@ -57,10 +79,15 @@
 @layer base {
   body {
     margin: 0;
+    min-width: 320px;
     font-family: var(--font-sans);
     background-color: var(--background);
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
   }
 }
 
@@ -70,8 +97,8 @@
   }
 
   .marka-editor--editable {
-    min-height: 14rem;
-    padding: 0.75rem 1rem;
+    min-height: 16rem;
+    padding: 0.875rem 1rem;
   }
 
   .marka-editor > * + * {

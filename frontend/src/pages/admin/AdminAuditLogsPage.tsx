@@ -153,10 +153,10 @@ export const AdminAuditLogsPage = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">Audit log</h2>
-        <p className="text-sm text-muted">
+        <h2 className="text-sm font-semibold text-foreground">Audit log</h2>
+        <p className="text-[13px] text-muted">
           Theo dõi lịch sử thao tác của người dùng và hệ thống trên toàn bộ workspace.
         </p>
       </div>
@@ -179,7 +179,7 @@ export const AdminAuditLogsPage = () => {
           Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.
         </Alert>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <DataTable
             columns={columns}
             rows={auditLogs}

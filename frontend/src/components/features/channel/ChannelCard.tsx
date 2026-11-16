@@ -20,25 +20,25 @@ export const ChannelCard = ({
   onReconnect: (channel: ChannelConnection) => void;
   onDisconnect: (channel: ChannelConnection) => void;
 }) => (
-  <article className="flex flex-col rounded-2xl border border-border bg-surface p-5">
-    <div className="flex items-start gap-4">
-      <Avatar name={channel.name} src={channel.avatar} className="h-12 w-12" />
+  <article className="flex flex-col rounded-xl border border-border bg-surface p-4">
+    <div className="flex items-start gap-3">
+      <Avatar name={channel.name} src={channel.avatar} className="h-10 w-10" />
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-semibold text-foreground">
+          <h3 className="truncate text-[13px] font-semibold text-foreground">
             {channel.label ?? channel.name}
           </h3>
           <ChannelPlatformBadge platform={channel.platform} />
           <ChannelStatusBadge status={channel.status} />
         </div>
 
-        <p className="mt-1 text-xs text-muted">Kết nối ngày {formatDate(channel.createdAt)}</p>
+        <p className="mt-1 text-[11px] text-muted">Kết nối ngày {formatDate(channel.createdAt)}</p>
 
         <Link
           to={`/channels/${channel.id}`}
           aria-label={`Xem chi tiết ${channel.label ?? channel.name}`}
-          className="mt-2 inline-flex min-h-11 items-center text-sm text-accent-text hover:underline"
+          className="mt-2 inline-flex min-h-11 items-center text-[13px] text-accent-text hover:underline"
         >
           Xem chi tiết
         </Link>
@@ -46,7 +46,7 @@ export const ChannelCard = ({
     </div>
 
     {canManage ? (
-      <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
         <Button
           type="button"
           variant="outline"

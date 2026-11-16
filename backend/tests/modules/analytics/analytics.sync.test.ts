@@ -3,9 +3,9 @@ import request from 'supertest';
 import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
 import { encrypt } from '../../../src/utils/encryption.js';
-import { facebookProvider } from '../../../src/modules/channel/providers/facebook.provider.js';
-import { threadsProvider } from '../../../src/modules/channel/providers/threads.provider.js';
-import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/social-provider.js';
+import { facebookAdapter } from '../../../src/modules/channel/providers/facebook/facebook.adapter.js';
+import { threadsAdapter } from '../../../src/modules/channel/providers/threads/threads.adapter.js';
+import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/errors/social.errors.js';
 import analyticsService from '../../../src/modules/analytics/analytics.service.js';
 
 const password = 'password123';
@@ -69,7 +69,7 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
 
   it('lưu số liệu lấy được từ Facebook vào PostMetric', async () => {
     const schedule = await createPublishedSchedule();
-    vi.spyOn(facebookProvider, 'fetchMetrics').mockResolvedValue({
+    vi.spyOn(facebookAdapter, 'fetchMetrics').mockResolvedValue({
       reactions: 12,
       comments: 3,
       shares: 2,
@@ -97,7 +97,7 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
         fetchedAt: new Date(),
       },
     });
-    const spy = vi.spyOn(facebookProvider, 'fetchMetrics').mockResolvedValue({
+    const spy = vi.spyOn(facebookAdapter, 'fetchMetrics').mockResolvedValue({
       reactions: 99,
       comments: 0,
       shares: 0,
@@ -126,7 +126,7 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
       },
     });
     const schedule = await createPublishedSchedule(new Date(), threadsChannel.id);
-    vi.spyOn(threadsProvider, 'fetchMetrics').mockResolvedValue({
+    vi.spyOn(threadsAdapter, 'fetchMetrics').mockResolvedValue({
       reactions: 20,
       comments: 4,
       shares: 3,
@@ -153,7 +153,7 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
 
   it('đánh dấu kênh hết hạn khi token bị thu hồi', async () => {
     const schedule = await createPublishedSchedule();
-    vi.spyOn(facebookProvider, 'fetchMetrics').mockRejectedValue(new SocialTokenExpiredError());
+    vi.spyOn(facebookAdapter, 'fetchMetrics').mockRejectedValue(new SocialTokenExpiredError());
 
     const result = await analyticsService.syncMetrics({ workspaceId: wsId });
 
@@ -241,7 +241,7 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
         data: { deletedAt: new Date() },
       });
 
-      const spy = vi.spyOn(facebookProvider, 'fetchMetrics');
+      const spy = vi.spyOn(facebookAdapter, 'fetchMetrics');
       const result = await analyticsService.syncMetrics({ workspaceId: ws.id });
 
       expect(result.total).toBe(0);

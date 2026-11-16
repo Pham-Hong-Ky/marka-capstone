@@ -1,9 +1,11 @@
 import Avatar from '@/components/ui/Avatar';
+import type { ReactNode } from 'react';
 
 export interface SelectableAccount {
   id: string;
   name: string;
   avatar?: string | null;
+  meta?: ReactNode;
 }
 
 export const SelectableAccountList = ({
@@ -31,6 +33,7 @@ export const SelectableAccountList = ({
         />
         <Avatar name={account.name} src={account.avatar} className="h-9 w-9" />
         <span className="min-w-0 flex-1 truncate text-sm text-foreground">{account.name}</span>
+        {account.meta ? <span className="shrink-0">{account.meta}</span> : null}
       </label>
     ))}
   </div>

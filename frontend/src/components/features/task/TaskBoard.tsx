@@ -4,6 +4,7 @@ import type {
   TaskItem,
   TaskStatus,
 } from '@/services/task';
+import { cn } from '@/utils/cn';
 import TaskColumn from './TaskColumn';
 
 export const TaskBoard = ({
@@ -23,7 +24,12 @@ export const TaskBoard = ({
   onStatusChange?: (task: TaskItem, status: TaskStatus) => void;
   onDropTask?: (taskId: string, column: TaskColumnName) => void;
 }) => (
-  <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+  <div
+    className={cn(
+      'grid items-start gap-3 lg:grid-cols-2',
+      showUnassigned ? 'xl:grid-cols-4' : 'xl:grid-cols-3'
+    )}
+  >
     {showUnassigned ? (
       <TaskColumn
         column="unassigned"

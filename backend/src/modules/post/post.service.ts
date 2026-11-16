@@ -8,6 +8,7 @@ import { canTransition } from './post.status.js';
 import type { AssignPostBody, ListPostsQuery } from './post.validation.js';
 import auditService from '../audit/audit.service.js';
 import workspaceService from '../workspace/workspace.service.js';
+import taskRepository from '../task/task.repository.js';
 import { cloudinaryClient } from '../../utils/cloudinary.client.js';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../utils/errors/index.js';
 
@@ -292,17 +293,42 @@ export const assignPost = async (
 ) => {
   const post = await getPost(workspaceId, postId);
   const assigned = Boolean(data.assigneeId);
+  const assignedAt = assigned ? new Date() : null;
+  const dueAt = assigned ? data.dueAt ?? null : null;
 
   if (data.assigneeId) {
     await assertAssigneeIsMember(workspaceId, data.assigneeId);
   }
 
+  if (assigned && data.dueAt) {
+    const now = Date.now();
+    if (data.dueAt.getTime() < now) {
+      throw new BadRequestError('Hạn chót không được ở quá khứ');
+    }
+    if (data.dueAt.getTime() > now + 365 * 24 * 60 * 60 * 1000) {
+      throw new BadRequestError('Hạn chót tối đa 1 năm kể từ hiện tại');
+    }
+  }
+
   await postRepository.assignPost(postId, {
     assigneeId: data.assigneeId,
     assignedById: assigned ? actorId : null,
-    assignedAt: assigned ? new Date() : null,
-    dueAt: assigned ? data.dueAt ?? null : null,
+    assignedAt,
+    dueAt,
     taskStatus: assigned ? undefined : 'TODO',
+  });
+
+  // Đồng bộ sang bảng Task để việc giao từ bài viết cũng hiện trên Kanban.
+  await taskRepository.upsertTaskForPost({
+    workspaceId,
+    postId,
+    title: post.title,
+    createdById: actorId,
+    assigneeId: data.assigneeId,
+    assignedById: assigned ? actorId : null,
+    assignedAt,
+    dueAt,
+    ...(assigned ? {} : { status: 'TODO' }),
   });
 
   if (data.assigneeId) {
@@ -352,6 +378,7 @@ export const updateTaskStatus = async (
   }
 
   await postRepository.updateTaskStatus(postId, taskStatus);
+  await taskRepository.updateTaskStatusForPost(postId, taskStatus);
 
   await notifySafely(() =>
     postNotification.notifyTaskStatusChanged({

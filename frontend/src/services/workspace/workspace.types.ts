@@ -19,7 +19,6 @@ export interface WorkspaceMember {
   email: string;
   avatar: string | null;
   role: WorkspaceRole;
-  allowDirectPublish: boolean;
   status: 'ACTIVE';
   joinedAt: string;
 }

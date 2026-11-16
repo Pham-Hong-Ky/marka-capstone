@@ -1,8 +1,10 @@
 import { buildPaginationMeta } from '../../utils/pagination.js';
+import { mailerClient } from '../../utils/mailer.client.js';
+import { buildTesterInviteEmail } from '../../templates/testerInviteEmail.js';
 import adminRepository from './admin.repository.js';
 import auditService from '../audit/audit.service.js';
 import type { ListUsersQuery, ListWorkspacesQuery, SuspendUserBody } from './admin.validation.js';
-import { BadRequestError, NotFoundError } from '../../utils/errors/index.js';
+import { BadGatewayError, BadRequestError, NotFoundError } from '../../utils/errors/index.js';
 
 type AdminUser = Awaited<ReturnType<typeof adminRepository.listUsersAndCount>>[0][number];
 type AdminWorkspace = Awaited<
@@ -65,6 +67,35 @@ export const setUserSuspension = async (
   return mapUser(updated);
 };
 
+export const sendTesterInvite = async (
+  actor: { id: string; name: string },
+  targetUserId: string
+) => {
+  const target = await adminRepository.findUserForAdmin(targetUserId);
+  if (!target) {
+    throw new NotFoundError('Người dùng không tồn tại');
+  }
+
+  const { subject, html } = buildTesterInviteEmail({
+    actorName: actor.name,
+    userEmail: target.email,
+  });
+  const emailSent = await mailerClient.sendEmail({ to: target.email, subject, html });
+  if (!emailSent) {
+    throw new BadGatewayError('Gửi email mời tester thất bại. Vui lòng thử lại.');
+  }
+
+  await auditService.recordAuditLog({
+    actorId: actor.id,
+    action: 'ADMIN_TESTER_INVITE_SENT',
+    targetType: 'User',
+    targetId: targetUserId,
+    metadata: { email: target.email },
+  });
+
+  return { email: target.email };
+};
+
 export const listWorkspaces = async (query: ListWorkspacesQuery) => {
   const [workspaces, total] = await adminRepository.listWorkspacesAndCount({
     search: query.search,
@@ -84,5 +115,6 @@ export default {
   getStats,
   listUsers,
   setUserSuspension,
+  sendTesterInvite,
   listWorkspaces,
 };

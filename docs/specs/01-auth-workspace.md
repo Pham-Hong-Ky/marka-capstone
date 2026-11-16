@@ -2,7 +2,7 @@
 
 > [Quay lại Mục lục](README.md)
 >
-> **Phạm vi:** toàn bộ phần đã có trong code: đăng ký, đăng nhập (email/mật khẩu + Google), logout, refresh token, hồ sơ cá nhân, đổi mật khẩu, workspace, thành viên, lời mời.
+> **Phạm vi:** toàn bộ phần đã có trong code: đăng ký, đăng nhập (email/mật khẩu + Google), logout, logout-all, refresh token, hồ sơ cá nhân (gồm upload avatar, xoá tài khoản), đổi mật khẩu, workspace, thành viên, lời mời.
 > Mã nguồn: `backend/src/modules/auth`, `modules/user`, `modules/workspace`, `middlewares/auth.ts`, `utils/jwt.ts`, `utils/cookies.ts`, `utils/password.ts`.
 
 ---
@@ -149,9 +149,13 @@ Cùng cấu trúc `POST /auth/login`, message `"Đăng nhập Google thành côn
 - Xử lý: tăng `User.tokenVersion` lên 1 → mọi access/refresh token cũ mất hiệu lực; xoá cookie `refreshToken`; ghi audit `USER_LOGOUT`.
 - Response `200` `"Đăng xuất thành công"` (không có `data`).
 
+`POST /users/me/logout-all` — đăng xuất khỏi **mọi thiết bị**: tăng `User.tokenVersion`, xoá cookie refresh, ghi audit `USER_LOGOUT_ALL`; dùng cho nút "Đăng xuất khỏi tất cả thiết bị".
+
 ---
 
-## 1.5. Refresh token (UC34)
+## 1.5. Refresh token
+
+Cơ chế duy trì phiên, không phải use case nghiệp vụ.
 
 `POST /auth/refresh-token` — không cần access token.
 
@@ -240,11 +244,27 @@ Yêu cầu `requireAuth`.
 | :--- | :--- |
 | `name` | 2–100 ký tự, tuỳ chọn |
 | `avatar` | URL hợp lệ hoặc `null` (xoá avatar), tuỳ chọn |
+| `facebookUrl` | URL `http`/`https` hoặc `null`, tối đa 2048 ký tự, tuỳ chọn |
+| `threadsUrl` | URL `http`/`https` hoặc `null`, tối đa 2048 ký tự, tuỳ chọn |
 
-- **Không có upload avatar**: `avatar` là URL do client cung cấp, không đi qua Cloudinary.
-- Cả hai field đều tuỳ chọn; body rỗng vẫn hợp lệ (không có ràng buộc "ít nhất một field").
+- **Avatar:** `PATCH /users/me` nhận `avatar` là URL hoặc `null` (đặt/xoá thủ công); upload ảnh thật qua `POST /users/me/avatar` (xem bên dưới).
+- Các field đều tuỳ chọn; body rỗng vẫn hợp lệ (không có ràng buộc "ít nhất một field").
 - Ghi audit `USER_UPDATE_PROFILE`.
-- Response `200` trả subset: `{ id, email, name, avatar, systemRole, emailVerified, updatedAt }` — **không kèm `workspaces`**.
+- Response `200` trả subset: `{ id, email, name, avatar, facebookUrl, threadsUrl, systemRole, emailVerified, updatedAt }` — **không kèm `workspaces`**.
+- `facebookUrl`/`threadsUrl` là liên kết công khai người dùng tự nhập (Admin dùng để liên hệ mời thử nghiệm); không phải token kênh.
+
+### `POST /users/me/avatar`
+
+- `multipart/form-data`, field `file`; chỉ nhận JPG/PNG/WEBP, tối đa **2 MB**.
+- Upload Cloudinary, cập nhật `User.avatar`, ghi audit `USER_UPDATE_PROFILE`.
+- Response `200` trả user subset như `PATCH /users/me`.
+
+### `DELETE /users/me`
+
+- Body: `{ password?: string, confirm: "XOA" }`; tài khoản có mật khẩu phải nhập đúng mật khẩu.
+- Không xoá được nếu là **Owner duy nhất** của workspace → `409`.
+- Xoá mềm `User` (`deletedAt`), tăng `tokenVersion`, xoá cookie refresh, ghi audit `USER_DELETE`.
+- Response `200` `{ success: true }`.
 
 ---
 
@@ -271,7 +291,7 @@ Không kiểm tra `newPassword` khác `oldPassword`, không có OTP/email xác n
 
 ---
 
-## 1.9. Workspace (UC17, UC18, UC19, UC35)
+## 1.9. Workspace (UC17, UC18, UC19, UC34)
 
 ### `POST /workspaces` (UC17)
 
@@ -286,7 +306,7 @@ Yêu cầu `requireAuth`.
 - Ghi audit `WORKSPACE_CREATE`.
 - Response `201` trả `WorkspaceSummary`: `{ id, name, plan, role, remainingCredit, monthlyQuota }`.
 
-### `GET /workspaces` (UC35)
+### `GET /workspaces` (UC34)
 
 Yêu cầu `requireAuth`. Trả các workspace user là thành viên, **bỏ qua workspace đã xoá mềm**, sắp xếp theo ngày tham gia tăng dần.
 
@@ -324,7 +344,7 @@ Yêu cầu `requireAuth` + `OWNER`.
 
 ---
 
-## 1.10. Thành viên workspace (UC20, UC23, UC24, UC36)
+## 1.10. Thành viên workspace (UC20, UC23, UC24, UC35)
 
 ### `GET /workspaces/:workspaceId/members` (UC20)
 
@@ -336,7 +356,7 @@ Yêu cầu `requireAuth` + là thành viên (không giới hạn vai trò).
   "message": "Lấy danh sách thành viên thành công",
   "data": {
     "members": [
-      { "memberId": "uuid", "userId": "uuid", "name": "Nguyễn Văn A", "email": "user@marka.vn", "avatar": null, "role": "OWNER", "allowDirectPublish": true, "status": "ACTIVE", "joinedAt": "2026-10-20T12:00:00.000Z" }
+      { "memberId": "uuid", "userId": "uuid", "name": "Nguyễn Văn A", "email": "user@marka.vn", "avatar": null, "role": "OWNER", "status": "ACTIVE", "joinedAt": "2026-10-20T12:00:00.000Z" }
     ],
     "pendingInvites": [
       { "inviteId": "uuid", "email": "member@marka.vn", "role": "CONTENT_CREATOR", "status": "PENDING", "invitedAt": "2026-10-20T12:00:00.000Z", "expiresAt": "2026-10-27T12:00:00.000Z" }
@@ -344,6 +364,8 @@ Yêu cầu `requireAuth` + là thành viên (không giới hạn vai trò).
   }
 }
 ```
+
+`WorkspaceMember.allowDirectPublish` là cột reserved trong DB, **không có trong response** và chưa được dùng để phân quyền.
 
 - `members` sắp xếp theo ngày tham gia tăng dần; `status` luôn là `"ACTIVE"` (giá trị cố định, không lưu DB).
 - `pendingInvites` chỉ gồm lời mời `isUsed = false` và còn hạn, mới nhất trước.
@@ -366,7 +388,7 @@ Yêu cầu `requireAuth` + `OWNER`; `:memberId` là **userId**.
 - Xoá membership, ghi audit `MEMBER_REMOVED`; response `200` `{ "removedMemberId": "<userId>" }`.
 - **Không** chặn Owner tự xoá chính mình nếu còn Owner khác.
 
-### `PATCH /workspaces/:workspaceId/members/:memberId` (UC36)
+### `PATCH /workspaces/:workspaceId/members/:memberId` (UC35)
 
 Yêu cầu `requireAuth` + `OWNER`; `:memberId` là **userId**.
 
@@ -453,9 +475,12 @@ Luồng chưa đăng nhập: frontend nhận `requiresRegistration` → chuyển
 | POST | `/auth/login` | — | — |
 | POST | `/auth/google` | — | — |
 | POST | `/auth/logout` | Bearer | User |
+| POST | `/users/me/logout-all` | Bearer | User |
 | POST | `/auth/refresh-token` | Cookie/body | — |
 | GET | `/users/me` | Bearer | User |
 | PATCH | `/users/me` | Bearer | User |
+| POST | `/users/me/avatar` | Bearer | User |
+| DELETE | `/users/me` | Bearer | User |
 | PATCH | `/users/me/password` | Bearer | User |
 | POST | `/workspaces` | Bearer | User |
 | GET | `/workspaces` | Bearer | User |
@@ -477,22 +502,23 @@ Luồng chưa đăng nhập: frontend nhận `requiresRegistration` → chuyển
 | `USER_REGISTER` | Đăng ký local | `User` |
 | `USER_LOGIN` / `USER_GOOGLE_LOGIN` | Đăng nhập | `User` |
 | `USER_LOGOUT` | Logout | `User` |
-| `USER_UPDATE_PROFILE` | Cập nhật hồ sơ | `User` |
+| `USER_LOGOUT_ALL` | Đăng xuất mọi thiết bị | `User` |
+| `USER_UPDATE_PROFILE` | Cập nhật hồ sơ / upload avatar | `User` |
 | `USER_CHANGE_PASSWORD` | Đổi mật khẩu | `User` |
+| `USER_DELETE` | Xoá tài khoản | `User` |
 | `WORKSPACE_CREATE` / `WORKSPACE_UPDATE` / `WORKSPACE_DELETE` | Thao tác workspace | `Workspace` |
 | `MEMBER_INVITED` | Gửi/gửi lại lời mời | `WorkspaceInvite` |
 | `MEMBER_JOINED` | Chấp nhận lời mời | `WorkspaceMember` |
 | `MEMBER_LEFT` / `MEMBER_REMOVED` / `MEMBER_ROLE_CHANGED` | Rời/xoá/đổi vai trò | `WorkspaceMember` |
 
-Chưa có endpoint đọc audit log (xem [07](./07-admin-analytics.md)).
+Đọc audit log qua `GET /admin/audit-logs` (SYSTEM_ADMIN) hoặc `GET /workspaces/:workspaceId/audit-logs` (OWNER) — xem [07](./07-admin-analytics.md).
 
 ---
 
 ## 1.14. Chưa triển khai (Roadmap)
 
 - Quên mật khẩu / đặt lại mật khẩu qua email.
-- Upload avatar người dùng (hiện chỉ nhận URL).
-- Đổi email (cần OTP), xoá tài khoản.
-- Quản trị user: khoá/mở khoá (`isSuspended` có trong schema nhưng không có API), đổi `systemRole`.
+- Đổi email (cần OTP).
+- Quản trị user: đổi `systemRole` (khoá/mở khoá đã có trong [07](./07-admin-analytics.md)).
 - Refresh token rotation & phát hiện reuse theo từng phiên.
 - 2FA, đăng nhập mạng xã hội khác ngoài Google.

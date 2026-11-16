@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { threadsProvider } from '../../../src/modules/channel/providers/threads.provider.js';
-import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/social-provider.js';
+import { threadsAdapter } from '../../../src/modules/channel/providers/threads/threads.adapter.js';
+import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/errors/social.errors.js';
 
 vi.hoisted(() => {
   process.env.THREADS_APP_ID = 'threads-app-id';
@@ -27,7 +27,7 @@ type FetchCall = {
   method: string;
 };
 
-describe('ThreadsProvider.publish', () => {
+describe('ThreadsAdapter.publish', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -47,7 +47,7 @@ describe('ThreadsProvider.publish', () => {
       })
     );
 
-    const id = await threadsProvider.publish(baseInput);
+    const id = await threadsAdapter.publish(baseInput);
 
     expect(id).toBe('threads-post-1');
     expect(calls[0].form.get('media_type')).toBe('TEXT');
@@ -71,7 +71,7 @@ describe('ThreadsProvider.publish', () => {
       })
     );
 
-    const id = await threadsProvider.publish({
+    const id = await threadsAdapter.publish({
       ...baseInput,
       imageUrls: ['https://example.com/a.jpg'],
     });
@@ -103,7 +103,7 @@ describe('ThreadsProvider.publish', () => {
       })
     );
 
-    const id = await threadsProvider.publish({
+    const id = await threadsAdapter.publish({
       ...baseInput,
       imageUrls: ['https://example.com/a.jpg', 'https://example.com/b.jpg'],
     });
@@ -115,13 +115,13 @@ describe('ThreadsProvider.publish', () => {
 
   it('báo lỗi khi text vượt 500 ký tự', async () => {
     await expect(
-      threadsProvider.publish({ ...baseInput, text: 'a'.repeat(501) })
+      threadsAdapter.publish({ ...baseInput, text: 'a'.repeat(501) })
     ).rejects.toThrow('500 ký tự');
   });
 
   it('báo lỗi khi quá 20 ảnh', async () => {
     await expect(
-      threadsProvider.publish({
+      threadsAdapter.publish({
         ...baseInput,
         imageUrls: Array.from({ length: 21 }, (_, index) => `https://example.com/${index}.jpg`),
       })
@@ -131,7 +131,7 @@ describe('ThreadsProvider.publish', () => {
   it('báo lỗi khi có hơn 5 liên kết', async () => {
     const text = Array.from({ length: 6 }, (_, index) => `https://example.com/${index}`).join(' ');
 
-    await expect(threadsProvider.publish({ ...baseInput, text })).rejects.toThrow(
+    await expect(threadsAdapter.publish({ ...baseInput, text })).rejects.toThrow(
       'tối đa 5 liên kết'
     );
   });
@@ -152,7 +152,7 @@ describe('ThreadsProvider.publish', () => {
     );
 
     let called = 0;
-    await threadsProvider.publish({
+    await threadsAdapter.publish({
       ...baseInput,
       onRemoteStart: () => {
         called += 1;
@@ -172,7 +172,7 @@ describe('ThreadsProvider.publish', () => {
       )
     );
 
-    await expect(threadsProvider.publish(baseInput)).rejects.toBeInstanceOf(
+    await expect(threadsAdapter.publish(baseInput)).rejects.toBeInstanceOf(
       SocialTokenExpiredError
     );
   });

@@ -9,11 +9,11 @@ import { decryptOrNull } from '../../utils/encryption.js';
 import auditService from '../audit/audit.service.js';
 import channelService from '../channel/channel.service.js';
 import { getProvider } from '../channel/providers/provider.registry.js';
+import type { SocialProvider } from '../channel/providers/port/social-provider.port.js';
 import {
   SocialTokenExpiredError,
   SocialTransientError,
-  type SocialProvider,
-} from '../channel/providers/social-provider.js';
+} from '../channel/providers/errors/social.errors.js';
 import scheduleRepository, { type ScheduleSummary } from './schedule.repository.js';
 import { PUBLISHABLE_POST_STATUSES } from '../post/post.status.js';
 import { assertCanModify } from '../post/post.service.js';
@@ -281,6 +281,55 @@ export const cancelSchedule = async (
   return { success: true };
 };
 
+export const rescheduleSchedule = async (
+  workspaceId: string,
+  userId: string,
+  role: WorkspaceRole,
+  scheduleId: string,
+  scheduledAt: Date
+): Promise<ScheduleSummary> => {
+  const schedule = await scheduleRepository.findScheduleInWorkspace(scheduleId, workspaceId);
+  if (!schedule) {
+    throw new NotFoundError('Lịch đăng không tồn tại');
+  }
+  assertCanModify(schedule.post, userId, role);
+  if (schedule.status !== 'SCHEDULED') {
+    throw new ConflictError('Chỉ có thể đổi lịch đang chờ đăng');
+  }
+  if (!schedule.scheduledAt) {
+    throw new ConflictError('Lịch đăng ngay không thể đổi giờ');
+  }
+
+  const nextScheduledAt = resolveScheduledAt(scheduledAt)!;
+
+  const result = await scheduleRepository.updateScheduleTime(
+    scheduleId,
+    workspaceId,
+    nextScheduledAt
+  );
+  if (result.outcome === 'not_reschedulable') {
+    throw new ConflictError('Lịch đăng đã bắt đầu xử lý, không thể đổi lịch');
+  }
+  if (result.outcome === 'not_found') {
+    throw new NotFoundError('Lịch đăng không tồn tại');
+  }
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId: userId,
+    action: 'SCHEDULE_UPDATED',
+    targetType: 'ScheduledPost',
+    targetId: scheduleId,
+    metadata: {
+      postId: schedule.postId,
+      previousScheduledAt: schedule.scheduledAt.toISOString(),
+      scheduledAt: nextScheduledAt.toISOString(),
+    },
+  });
+
+  return result.schedule;
+};
+
 const markChannelExpired = async (channelId: string): Promise<void> => {
   await channelService.markChannelExpired(channelId);
 };
@@ -475,6 +524,7 @@ export default {
   createSchedules,
   listSchedules,
   cancelSchedule,
+  rescheduleSchedule,
   publishSchedule,
   processDueSchedules,
 };

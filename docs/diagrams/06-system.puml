@@ -22,13 +22,13 @@ class "workerStart" as workerStart {
 }
 
 class "workers" as workers {
-  - createProcessor(label)
-  - attachLifecycle(worker, label)
   - createWorker(queueName, label)
+  - attachLifecycle(worker, label)
   + contentWorker : Worker
   + scheduleWorker : Worker
   + analyticsWorker : Worker
-  + emailWorker : Worker
+  + channelWorker : Worker
+  + taskReminderWorker : Worker
   + closeWorkers() : Promise<void>
 }
 
@@ -37,7 +37,8 @@ class "queues" as queues {
   + contentGenerationQueue : Queue
   + scheduleQueue : Queue
   + analyticsQueue : Queue
-  + emailQueue : Queue
+  + channelMaintenanceQueue : Queue
+  + taskReminderQueue : Queue
   + queues : Record<QueueName, Queue>
 }
 

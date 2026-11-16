@@ -14,9 +14,9 @@ export const SessionSecurityCard = () => {
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-6">
+    <section className="rounded-xl border border-border bg-surface p-5">
       <h2 className="text-sm font-semibold text-foreground">Phiên đăng nhập</h2>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-[11px] text-muted">
         Đăng xuất khỏi tất cả thiết bị. Bạn sẽ cần đăng nhập lại.
       </p>
 
@@ -26,7 +26,7 @@ export const SessionSecurityCard = () => {
         </div>
       ) : null}
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-5 flex justify-end">
         <Button
           type="button"
           variant="outline"

@@ -61,3 +61,17 @@ export const useCancelSchedule = (workspaceId: string | null) => {
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 };
+
+export const useRescheduleSchedule = (workspaceId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ scheduleId, scheduledAt }: { scheduleId: string; scheduledAt: string }) =>
+      scheduleService.rescheduleSchedule(workspaceId as string, scheduleId, { scheduledAt }),
+    onSuccess: () => {
+      if (workspaceId) invalidateScheduleData(queryClient, workspaceId);
+      toast.success('Đổi lịch đăng thành công');
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+};

@@ -4,28 +4,28 @@ import { UnrecoverableError, type Job } from 'bullmq';
 import logger from '../../utils/logger.js';
 import { contentGenerationQueue } from '../../workers/queues.js';
 import { cloudinaryClient } from '../../utils/cloudinary.client.js';
-import { getGeminiModel } from './ai.config.js';
+import { getGeminiModel } from './providers/ai.config.js';
 import {
   AiContentPolicyError,
   AiOutputError,
   AiPostNotEditableError,
   AiProviderConfigError,
   AiProviderError,
-} from './ai.errors.js';
+} from './providers/ai.errors.js';
 import {
   buildImageArtPrompt,
   buildImagePrompt,
   parseImageArtOutput,
   parseImageSourcePayload,
   type ImageSourcePayload,
-} from './ai.image-prompt.js';
+} from './prompts/ai.image-prompt.js';
 import {
   aiTextResponseSchema,
   parseTextOutput,
   parseTextPromptPayload,
   toTiptapDoc,
-} from './ai.prompt.js';
-import { cloudflareImageClient, geminiClient } from './ai.providers.js';
+} from './prompts/ai.prompt.js';
+import { cloudflareImageClient, geminiClient } from './providers/ai.providers.js';
 import { assertPostAcceptsImages } from './ai.generation.js';
 import aiRepository from './ai.repository.js';
 import aiService from './ai.service.js';

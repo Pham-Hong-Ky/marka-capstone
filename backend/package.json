@@ -15,7 +15,8 @@
     "prisma:migrate": "prisma migrate dev",
     "lint": "oxlint",
     "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:setup": "tsx scripts/test-db-setup.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.0.0",
@@ -33,14 +34,10 @@
     "google-auth-library": "^10.9.1",
     "helmet": "^7.1.0",
     "ioredis": "^6.0.0",
-    "isomorphic-dompurify": "^3.19.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "multer": "^2.2.0",
-    "openai": "^6.49.0",
     "resend": "^6.32.0",
-    "socket.io": "^4.8.3",
-    "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^14.0.2",
     "winston": "^3.19.0",
@@ -58,7 +55,6 @@
     "@types/node": "^26.6.2",
     "@types/supertest": "^7.2.1",
     "@types/swagger-ui-express": "^4.1.8",
-    "nodemon": "^3.1.0",
     "oxlint": "^1.75.0",
     "prisma": "^5.12.1",
     "supertest": "^7.0.0",

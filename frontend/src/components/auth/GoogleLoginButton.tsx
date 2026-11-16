@@ -3,7 +3,7 @@ import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 
-const MAX_WIDTH = 400;
+const MAX_WIDTH = 384;
 
 export const GoogleLoginButton = ({ onSuccess }: { onSuccess: (idToken: string) => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,7 +32,11 @@ export const GoogleLoginButton = ({ onSuccess }: { onSuccess: (idToken: string) 
 
   // GIS render nút trong iframe lớn hơn nút; ép color-scheme sáng để iframe không vẽ nền trắng ở dark mode
   return (
-    <div ref={containerRef} className="flex w-full justify-center" style={{ colorScheme: 'light' }}>
+    <div
+      ref={containerRef}
+      className="flex w-full max-w-full justify-center overflow-hidden"
+      style={{ colorScheme: 'light' }}
+    >
       {width > 0 && (
         <GoogleLogin
           onSuccess={handleSuccess}

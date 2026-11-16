@@ -4,7 +4,7 @@ import ProfileForm from '@/components/features/account/ProfileForm';
 import SessionSecurityCard from '@/components/features/account/SessionSecurityCard';
 
 export const AccountTab = () => (
-  <div className="space-y-6">
+  <div className="space-y-4">
     <ProfileForm />
     <ChangePasswordForm />
     <SessionSecurityCard />

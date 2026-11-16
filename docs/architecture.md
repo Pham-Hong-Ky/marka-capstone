@@ -18,7 +18,7 @@ Marka là ứng dụng web quản lý nội dung mạng xã hội theo workspace
 | UI | Tailwind CSS v4, React Router, React Query, Zustand, react-hook-form + Zod | `frontend/src` |
 | Email | Resend | `backend/src/utils/mailer.client.ts` |
 | Lưu ảnh | Cloudinary | `backend/src/utils/cloudinary.client.ts` |
-| Facebook | Facebook Graph API v21.0 (OAuth) | `backend/src/modules/channel/facebook.client.ts` |
+| Kênh | Facebook Graph API v21.0 + Threads API (OAuth) | `backend/src/modules/channel/providers/` |
 
 Luồng request một chiều:
 
@@ -30,7 +30,7 @@ graph LR
     C --> S[Service]
     S --> P[Repository]
     P --> DB[(PostgreSQL)]
-    S -.-> X[Resend / Cloudinary / Facebook Graph API]
+    S -.-> X[Resend / Cloudinary / Facebook Graph API / Threads API]
     S -.-> AU[AuditLog]
     S -.-> N[Notification]
     C -->|ApiResponse| FE
@@ -193,12 +193,15 @@ Lỗi:
 
 ### 6.2. Xoá mềm
 
-`config/prismaExtensions.ts` thêm `deletedAt: null` cho mọi thao tác đọc (`findFirst`, `findFirstOrThrow`, `findMany`, `findUnique`, `findUniqueOrThrow`, `count`, `aggregate`, `groupBy`) trên 4 model:
+`config/prismaExtensions.ts` thêm `deletedAt: null` cho mọi thao tác đọc (`findFirst`, `findFirstOrThrow`, `findMany`, `findUnique`, `findUniqueOrThrow`, `count`, `aggregate`, `groupBy`) trên 7 model:
 
 - `Workspace`
 - `Post`
 - `CreditPackage`
 - `MediaAsset`
+- `User`
+- `ChannelConnection`
+- `Task`
 
 Bản ghi đã xoá chỉ đọc được bằng `basePrisma` (export từ `config/db.ts`). API hiện chưa có endpoint khôi phục.
 
@@ -207,20 +210,22 @@ Bản ghi đã xoá chỉ đọc được bằng `basePrisma` (export từ `conf
 ## 7. Tác vụ nền (BullMQ)
 
 - `config/redis.ts` tạo 2 kết nối ioredis: `queueConnection` (cho BullMQ) và `cacheConnection` (health check + OAuth state/session).
-- `workers/queues.ts` tạo 3 queue với `defaultJobOptions`: `attempts: 3`, backoff exponential 2s, giữ job completed 1 giờ / failed 24 giờ:
+- `workers/queues.ts` tạo 5 queue với `defaultJobOptions`: `attempts: 3`, backoff exponential 2s, giữ job completed 1 giờ / failed 24 giờ:
 
 | Queue | Tên |
 | :--- | :--- |
 | content generation | `content-generation-queue` |
 | schedule | `schedule-queue` |
-| email | `email-queue` |
+| analytics | `analytics-queue` |
+| channel maintenance | `channel-maintenance-queue` |
+| task reminder | `task-reminder-queue` |
 
 - `workers/queue-manager.ts` cung cấp `enqueue`, `getJobStatus`, `cancelJob`, `retryJob`, `pauseQueue`, `resumeQueue`, `getQueueStats`, `closeQueues`.
-- `workers/index.ts` tạo `contentWorker`, `scheduleWorker`, `emailWorker`.
+- `workers/index.ts` tạo `contentWorker`, `scheduleWorker`, `analyticsWorker`, `channelWorker`, `taskReminderWorker`.
 - `scheduleWorker` dùng processor thật: job `schedule-due` chạy mỗi 60 giây (đăng ký bằng `upsertJobScheduler`), job `schedule-one` xử lý đăng ngay.
-- `contentWorker` dùng `processContentJob`: job `ai:text` gọi Gemini, job `ai:image` gọi Cloudflare Flux → Cloudinary → tạo `MediaAsset`. Khi job thất bại hẳn, listener hoàn credit và set `AiGeneration.FAILED`.
+- `contentWorker` dùng `processContentJob`: job `ai:text` gọi Gemini, job `ai:image` gọi Cloudflare Flux → Cloudinary → tạo `MediaAsset`. Khi job thất bại hẳn, listener hoàn credit và set `AiGeneration.FAILED`; scheduler `ai-recovery` dọn generation treo.
+- `analyticsWorker` đồng bộ `PostMetric` từ Facebook/Threads; `channelWorker` gia hạn token Threads; `taskReminderWorker` gửi nhắc hạn công việc.
 - Billing không dùng queue/worker; tạo order/webhook/polling xử lý đồng bộ trong request.
-- `emailWorker` vẫn là processor mẫu.
 - `ENABLE_WORKERS=true` (mặc định) → `server.ts` import `workers/start.ts` và chạy worker cùng process API. Production có thể đặt `false` và chạy `npm run worker` (`worker-server.ts`) riêng. Scheduler và AI job chỉ hoạt động khi worker chạy và backend không ngủ.
 - Ở môi trường test, BullMQ dùng prefix `marka-test` (production dùng prefix mặc định `bull`) để worker production không nhặt job của test.
 
@@ -230,26 +235,34 @@ Bản ghi đã xoá chỉ đọc được bằng `basePrisma` (export từ `conf
 
 ### 8.1. Facebook Page (OAuth)
 
-1. `GET /channels/facebook/oauth/url?workspaceId=...` (OWNER) sinh `state` 32 byte, lưu Redis 600 giây cùng `{ userId, workspaceId }`, trả URL Facebook.
-2. Người dùng đồng ý → Facebook redirect về `GET /channels/facebook/oauth/callback`.
-3. Backend đổi `code` → token ngắn → long-lived token, gọi `/me/accounts` lấy Page, mã hoá Page token bằng AES-256-GCM, lưu session Redis 600 giây, redirect về `CLIENT_URL/channels?fb=select&session=...`.
-4. `GET /channels/facebook/oauth/session/:sessionId` trả danh sách Page (không kèm token).
-5. `POST /channels/facebook/oauth/session/:sessionId/connect` lưu các Page đã chọn vào `ChannelConnection` (upsert theo `workspaceId + FACEBOOK + externalAccountId`).
+1. `GET /channels/FACEBOOK/oauth/url?workspaceId=...` (OWNER) sinh `state` 32 byte, lưu Redis 600 giây cùng `{ userId, workspaceId }`, trả URL Facebook.
+2. Người dùng đồng ý → Facebook redirect về `GET /channels/FACEBOOK/oauth/callback`.
+3. Backend đổi `code` → token ngắn → long-lived token, gọi `/me/accounts` lấy Page, mã hoá Page token bằng AES-256-GCM, lưu session Redis 600 giây, redirect về `CLIENT_URL/channels?connect=FACEBOOK&session=...`.
+4. `GET /channels/FACEBOOK/oauth/session/:sessionId` trả danh sách Page (không kèm token).
+5. `POST /channels/FACEBOOK/oauth/session/:sessionId/connect` lưu các Page đã chọn vào `ChannelConnection` (upsert theo `workspaceId + FACEBOOK + externalAccountId`).
 6. `DELETE /channels/:channelId` xoá kênh và chuyển các `ScheduledPost` đang `SCHEDULED` sang `CANCELLED`.
 
-### 8.2. Đăng bài Facebook
+### 8.2. Threads (OAuth)
 
-1. `POST /workspaces/:workspaceId/posts/:postId/schedules` tạo một `ScheduledPost` cho mỗi Page được chọn; bài chuyển `APPROVED → SCHEDULED`.
+1. `GET /channels/threads/oauth/url?workspaceId=...` (OWNER) sinh `state`, lưu Redis 600 giây cùng `{ userId, workspaceId, platform }`.
+2. Callback đổi `code` → short-lived token → long-lived token, lấy profile Threads, mã hoá token AES-256-GCM.
+3. Threads là `single-account`: backend upsert ngay vào `ChannelConnection`, không có màn chọn Page; sau đó redirect về `CLIENT_URL/channels`.
+4. `channel-maintenance-queue` chạy định kỳ, gọi `refresh_access_token`; token bị thu hồi → đánh dấu kênh `EXPIRED`.
+5. Worker đăng bài tạo container (`media_type=TEXT/IMAGE/CAROUSEL`), poll trạng thái `FINISHED`, rồi gọi `threads_publish`.
+
+Scope xin: `threads_basic`, `threads_content_publish`, `threads_manage_insights`.
+Biến môi trường: `THREADS_APP_ID`, `THREADS_APP_SECRET`, `THREADS_REDIRECT_URI`.
+
+### 8.3. Đăng bài đa kênh
+
+1. `POST /workspaces/:workspaceId/posts/:postId/schedules` tạo một `ScheduledPost` cho mỗi kênh được chọn; bài chuyển `APPROVED → SCHEDULED`.
 2. Nếu không có `scheduledAt`, backend enqueue job `schedule-one`; nếu có, scheduler `schedule-due` sẽ nhặt khi đến hạn.
-3. Worker claim `SCHEDULED → PROCESSING`, giải mã Page token, upload từng ảnh với `published=false`, rồi gọi `/{page-id}/feed` với `message` + `attached_media`.
+3. Worker claim `SCHEDULED → PROCESSING`, giải mã token kênh, gọi provider tương ứng (Facebook: upload ảnh + `/{page-id}/feed`; Threads: container + `threads_publish`).
 4. Lưu `externalPostId`, `publishedAt`, chuyển lịch sang `PUBLISHED` và tính lại trạng thái tổng của Post.
-5. Lỗi token 190 → Page `EXPIRED`; lỗi tạm thời trước khi gửi feed → retry tối đa 3 lần; timeout sau khi gửi feed → `FAILED` để tránh đăng trùng.
+5. Lỗi token 190 → kênh `EXPIRED`; lỗi tạm thời trước khi gửi → retry tối đa 3 lần; timeout sau khi gửi → `FAILED` để tránh đăng trùng.
 6. `DELETE /workspaces/:workspaceId/schedules/:scheduleId` huỷ lịch đang `SCHEDULED`.
 
-Scope xin: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
-Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIRECT_URI`.
-
-### 8.2. Email (Resend)
+### 8.4. Email (Resend)
 
 - `mailerClient.sendEmail` bỏ qua và trả `true` khi `NODE_ENV=test`.
 - Nếu thiếu `RESEND_API_KEY`: log cảnh báo và trả `false`.
@@ -257,7 +270,7 @@ Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIR
 - `workspaceInviteEmail` dùng trong `inviteMember`; `postReviewEmail` dùng trong `post.notification.ts` (email cho Owner khi có bài chờ duyệt, email cho tác giả khi duyệt/từ chối).
 - `inviteMember` chỉ lưu lời mời sau khi gửi email thành công; nếu gửi lỗi → 502.
 
-### 8.3. Ảnh (Cloudinary)
+### 8.5. Ảnh (Cloudinary)
 
 - Multer giữ file trong memory; service gọi `cloudinaryClient.uploadImageBuffer(buffer, folder)`.
 - Nếu chưa cấu hình Cloudinary → 400 `"Chưa cấu hình Cloudinary để tải ảnh lên"`.
@@ -265,7 +278,7 @@ Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIR
 - Media bài viết lưu `MediaAsset` với `type=IMAGE`, `source=UPLOADED`.
 - Ảnh AI lưu cùng cây thư mục với hậu tố `/ai`, `source=AI_GENERATED`, `mimeType=image/jpeg`.
 
-### 8.4. AI (Gemini & Cloudflare Workers AI)
+### 8.6. AI (Gemini & Cloudflare Workers AI)
 
 - Text: gọi REST `POST /v1beta/models/{GEMINI_MODEL}:generateContent` với
   `responseMimeType=application/json` + `responseSchema`; mặc định `gemini-flash-lite-latest`.
@@ -286,9 +299,10 @@ Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIR
 - **Notification**: bảng `Notification` được ghi khi:
   - thành viên mới tham gia workspace (gửi cho các Owner còn lại, type `MEMBER_JOINED`);
   - bài được gửi duyệt (type `POST_SUBMITTED`, gửi các Owner);
-  - bài được duyệt/từ chối (type `POST_APPROVED`/`POST_REJECTED`, gửi tác giả).
+  - bài được duyệt/từ chối (type `POST_APPROVED`/`POST_REJECTED`, gửi tác giả);
+  - công việc được giao/đổi trạng thái/sắp đến hạn/quá hạn (`TASK_ASSIGNED`, `TASK_STATUS_CHANGED`, `TASK_DUE_SOON`, `TASK_OVERDUE`).
 - **Email bài viết**: `post.notification.ts` gửi email cho Owner khi có bài chờ duyệt và cho tác giả khi bài được duyệt/từ chối, dùng template trong `templates/postReviewEmail.ts`.
-- API hiện **chưa có endpoint đọc danh sách** thông báo.
+- API hộp thư: `GET /users/me/notifications`, `GET .../unread-count`, `PATCH .../:id/read`, `PATCH .../read-all`.
 - **Log**: Winston; development log màu + text, production log JSON; morgan ghi access log qua `morganStream`.
 - **Health**: `GET /health` trả uptime, trạng thái DB (`SELECT 1`), Redis (`PING`), RSS, timestamp, version. Endpoint công khai, không yêu cầu auth.
 
@@ -300,10 +314,11 @@ Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIR
 - Định tuyến: `frontend/src/router/index.tsx`, lazy-load từng trang.
 - Trang đã có:
   - `/login`, `/register`, `/invites/:token`
-  - `/` (dashboard), `/posts`, `/posts/new`, `/posts/:postId/edit`
-  - `/channels`, `/brand-voice`
-  - `/settings/appearance`, `/settings/workspace`, `/settings/members`
-- Trang **placeholder** dùng `ComingSoonPage`: `/ai`, `/publishing`. `/billing` đã là trang Credit & Nạp.
+  - `/` (dashboard + analytics), `/posts`, `/posts/new`, `/posts/:postId/edit`, `/tasks`
+  - `/schedule`, `/channels`, `/channels/:channelId`, `/brand-voice`, `/billing`
+  - `/settings/account`, `/settings/appearance`, `/settings/workspace`, `/settings/members`
+  - `/admin`, `/admin/users`, `/admin/workspaces`, `/admin/audit-logs`
+- `/ai` redirect về editor bài viết (trợ lý AI nằm trong editor), `/publishing` redirect về `/schedule`; không còn trang placeholder.
 - HTTP: `services/httpClient.ts` (axios + interceptor refresh token), mỗi feature có `services/<feature>/*.api.ts`.
 - Server state: React Query; global state: Zustand (`auth`, `theme`, `ui`); form: react-hook-form + Zod.
 - Env đọc qua `config/env.ts`.
@@ -315,9 +330,9 @@ Biến môi trường: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIR
 Các mục dưới đây **chưa được triển khai**; tài liệu chi tiết tương ứng đã được gộp vào `docs/specs/README.md` (mục Roadmap) và không còn sơ đồ lớp riêng.
 
 - Viral Score, 1-Click Fix, sinh lại/viết tiếp, nhiều ảnh/lần.
-- Calendar nâng cao, đăng bài đa kênh (Instagram/TikTok/Zalo), video, làm mới token Facebook tự động.
-- Post Analytics, `PostMetric`, n8n.
-- Admin nâng cao: đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo; frontend `/admin`.
-- Email nhắc hạn gói/hết credit/lịch đăng.
-- Nâng cấp giao việc: Kanban, độ ưu tiên, nhắc hạn (bản cơ bản UC42/UC43 đã có).
+- Calendar nâng cao, mở rộng kênh (Instagram/TikTok/Zalo), video, làm mới token Facebook tự động.
+- Post Analytics nâng cao: snapshot theo thời gian, top bài/chi tiết bài, xử lý rate limit; n8n không dùng.
+- Admin nâng cao: đổi `systemRole`, xoá/khôi phục workspace, xuất báo cáo.
+- Email nhắc hạn gói/hết credit/lịch đăng, email queue.
+- Nâng cấp giao việc: nhắc hạn qua email (Kanban, độ ưu tiên, nhắc hạn in-app đã có).
 - 2FA, quên mật khẩu.

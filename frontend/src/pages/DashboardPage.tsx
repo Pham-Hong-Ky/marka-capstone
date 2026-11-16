@@ -1,17 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Share2 } from 'lucide-react';
 import AnalyticsFilterBar from '@/components/features/analytics/AnalyticsFilterBar';
 import BestTimesCard from '@/components/features/analytics/BestTimesCard';
 import ContentTipsCard from '@/components/features/analytics/ContentTipsCard';
 import CoverageAlert from '@/components/features/analytics/CoverageAlert';
-import TrendChart from '@/components/features/analytics/TrendChart';
+import ChannelPlatformBadge from '@/components/features/channel/ChannelPlatformBadge';
+import ChannelStatusBadge from '@/components/features/channel/ChannelStatusBadge';
 import Alert from '@/components/ui/Alert';
+import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import EmptyState from '@/components/ui/EmptyState';
+import MetricStrip from '@/components/ui/MetricStrip';
+import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
-import { SkeletonBlock } from '@/components/ui/Skeleton';
-import StatCard from '@/components/ui/StatCard';
+import { Skeleton, SkeletonBlock } from '@/components/ui/Skeleton';
+import { buttonClasses } from '@/components/ui/button.styles';
 import { useAnalyticsOverview, useAnalyticsSuggestions } from '@/hooks/useAnalytics';
 import { useAnalyticsSync } from '@/hooks/useAnalyticsSync';
 import { useChannels } from '@/hooks/useChannels';
@@ -22,8 +27,12 @@ import {
   type AnalyticsFilters,
   type AnalyticsRange,
 } from '@/services/analytics';
+import type { ChannelConnection } from '@/services/channel';
 import { getErrorMessage } from '@/utils/error';
 import { formatNumber } from '@/utils/format';
+
+// Tách recharts (~400KB) khỏi bundle trang mặc định.
+const TrendChart = lazy(() => import('@/components/features/analytics/TrendChart'));
 
 const parseRange = (value: string | null): AnalyticsRange =>
   ANALYTICS_RANGES.find((range) => range === value) ?? '7d';
@@ -47,7 +56,7 @@ const readFilters = (params: URLSearchParams): AnalyticsFilters => {
 const isCustomRangeInvalid = (filters: AnalyticsFilters): boolean =>
   filters.range === 'custom' && (!filters.from || !filters.to || filters.to < filters.from);
 
-const writeFilters =(filters: AnalyticsFilters): URLSearchParams => {
+const writeFilters = (filters: AnalyticsFilters): URLSearchParams => {
   const params = new URLSearchParams({ range: filters.range });
 
   if (filters.range === 'custom') {
@@ -60,13 +69,99 @@ const writeFilters =(filters: AnalyticsFilters): URLSearchParams => {
   return params;
 };
 
+const ChannelOverview = ({
+  channels,
+  isLoading,
+  isError,
+  onRetry,
+}: {
+  channels: ChannelConnection[];
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+}) => (
+  <Card className="flex flex-col">
+    <CardHeader
+      title="Kênh đã kết nối"
+      description="Trạng thái kết nối hiện tại"
+      action={
+        <Link to="/channels" className="text-[11px] font-semibold text-accent-text hover:underline">
+          Quản lý
+        </Link>
+      }
+    />
+
+    <CardBody className="flex-1">
+      {isError ? (
+        <div className="space-y-2">
+          <p className="text-[13px] text-danger">Không tải được danh sách kênh.</p>
+          <Button type="button" variant="outline" className="min-h-11" onClick={onRetry}>
+            Thử lại
+          </Button>
+        </div>
+      ) : isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }, (_, index) => (
+            <div key={index} className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-2.5 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : channels.length === 0 ? (
+        <EmptyState
+          icon={Share2}
+          title="Chưa có kênh nào"
+          description="Kết nối kênh để bắt đầu đăng bài và theo dõi hiệu quả."
+          action={
+            <Link to="/channels" className={buttonClasses('outline', 'min-h-11')}>
+              Kết nối kênh
+            </Link>
+          }
+          className="border-0 px-0 py-8"
+        />
+      ) : (
+        <div className="divide-y divide-border">
+          {channels.map((channel) => (
+            <div key={channel.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+              <Avatar
+                name={channel.label ?? channel.name}
+                src={channel.avatar}
+                className="h-8 w-8"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-medium text-foreground">
+                  {channel.label ?? channel.name}
+                </p>
+                <p className="truncate text-[11px] text-muted">{channel.name}</p>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <ChannelPlatformBadge platform={channel.platform} />
+                <ChannelStatusBadge status={channel.status} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </CardBody>
+  </Card>
+);
+
 export const DashboardPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
 
   const posts = usePosts(workspaceId, { page: 1, limit: 1 });
-  const { data: channelsData } = useChannels(workspaceId);
+  const {
+    data: channelsData,
+    isLoading: channelsLoading,
+    isError: channelsError,
+    refetch: refetchChannels,
+  } = useChannels(workspaceId);
   const channels = channelsData?.channels ?? [];
 
   const filters = useMemo(() => readFilters(searchParams), [searchParams]);
@@ -155,8 +250,31 @@ export const DashboardPage = () => {
 
   const showSuggestions = !isCustomInvalid && !overview.isError && (coverage?.publishedPosts ?? 0) > 0;
 
+  const metrics = [
+    {
+      label: 'Bài viết',
+      value: posts.data ? formatNumber(posts.data.meta.total) : '—',
+    },
+    {
+      label: 'Kênh đã kết nối',
+      value: channelsData ? formatNumber(channels.length) : '—',
+    },
+    {
+      label: 'Tương tác',
+      value: hasSyncedMetrics && engagement !== null ? formatNumber(engagement) : '—',
+    },
+    {
+      label: 'Lượt tiếp cận',
+      value: hasSyncedMetrics && reach !== null ? formatNumber(reach) : '—',
+    },
+    {
+      label: 'Credit còn lại',
+      value: formatNumber(activeWorkspace?.remainingCredit ?? 0),
+    },
+  ];
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <PageContainer width="wide">
       <PageHeader
         title="Tổng quan"
         description="Theo dõi hiệu quả nội dung và tương tác trên các kênh đã kết nối."
@@ -198,44 +316,37 @@ export const DashboardPage = () => {
         </Alert>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Bài viết" value={posts.data ? formatNumber(posts.data.meta.total) : '—'} />
-        <StatCard
-          label="Kênh đã kết nối"
-          value={channelsData ? formatNumber(channels.length) : '—'}
-        />
-        <StatCard
-          label="Tương tác"
-          value={hasSyncedMetrics && engagement !== null ? formatNumber(engagement) : '—'}
-        />
-        <StatCard
-          label="Lượt tiếp cận"
-          value={hasSyncedMetrics && reach !== null ? formatNumber(reach) : '—'}
-        />
-        <StatCard
-          label="Credit còn lại"
-          value={formatNumber(activeWorkspace?.remainingCredit ?? 0)}
-        />
-      </div>
+      <MetricStrip items={metrics} />
 
       {!isCustomInvalid && !overview.isError ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {overview.isLoading && !overview.data ? <SkeletonBlock /> : null}
 
           {overview.data ? (
             <>
               <CoverageAlert coverage={overview.data.coverage} />
-              <TrendChart series={overview.data.series} />
+
+              <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
+                <Suspense fallback={<SkeletonBlock className="h-72" />}>
+                  <TrendChart series={overview.data.series} />
+                </Suspense>
+                <ChannelOverview
+                  channels={channels}
+                  isLoading={channelsLoading}
+                  isError={channelsError}
+                  onRetry={() => void refetchChannels()}
+                />
+              </div>
 
               {overview.data.coverage.publishedPosts === 0 ? (
-                <p className="text-sm text-muted">
+                <p className="text-[13px] text-muted">
                   Chưa có bài viết nào được đăng trong khoảng thời gian này.{' '}
                   <Link to="/schedule" className="text-accent-text hover:underline">
                     Xem lịch xuất bản
                   </Link>
                 </p>
               ) : overview.data.coverage.syncedPosts === 0 ? (
-                <p className="text-sm text-muted">
+                <p className="text-[13px] text-muted">
                   Chưa có số liệu từ kênh. Bấm <span className="font-medium">Đồng bộ số liệu</span>{' '}
                   để lấy dữ liệu mới nhất.
                 </p>
@@ -246,7 +357,7 @@ export const DashboardPage = () => {
       ) : null}
 
       {showSuggestions ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {suggestions.isFetching && !suggestions.data ? <SkeletonBlock /> : null}
 
           {suggestions.isError ? (
@@ -269,14 +380,14 @@ export const DashboardPage = () => {
           ) : null}
 
           {suggestions.data ? (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-3 lg:grid-cols-2">
               <BestTimesCard suggestions={suggestions.data} />
               <ContentTipsCard suggestions={suggestions.data} />
             </div>
           ) : null}
         </div>
       ) : null}
-    </div>
+    </PageContainer>
   );
 };
 

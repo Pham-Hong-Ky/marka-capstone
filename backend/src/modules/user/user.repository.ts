@@ -22,6 +22,8 @@ const WITH_WORKSPACES = {
 export interface UpdateUserData {
   name?: string;
   avatar?: string | null;
+  facebookUrl?: string | null;
+  threadsUrl?: string | null;
   passwordHash?: string;
   emailVerified?: boolean;
   isSuspended?: boolean;
@@ -36,6 +38,8 @@ export const findUserById = async (userId: string, tx?: Prisma.TransactionClient
       email: true,
       name: true,
       avatar: true,
+      facebookUrl: true,
+      threadsUrl: true,
       passwordHash: true,
       systemRole: true,
       tokenVersion: true,
@@ -106,6 +110,8 @@ export const updateUser = async (userId: string, data: UpdateUserData) => {
       email: true,
       name: true,
       avatar: true,
+      facebookUrl: true,
+      threadsUrl: true,
       systemRole: true,
       emailVerified: true,
       updatedAt: true,

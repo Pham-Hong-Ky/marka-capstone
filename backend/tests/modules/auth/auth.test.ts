@@ -173,7 +173,7 @@ describe('Kiểm thử Module Authentication & Phân quyền (RBAC)', () => {
     });
   });
 
-  describe('UC33 — Làm mới token qua Cookie (POST /api/v1/auth/refresh-token)', () => {
+  describe('Làm mới token qua Cookie (POST /api/v1/auth/refresh-token)', () => {
     it('Báo lỗi 401 nếu refresh token không hợp lệ', async () => {
       const res = await request(app)
         .post('/api/v1/auth/refresh-token')

@@ -15,8 +15,8 @@ const slotKey = (slot: BestTimeSlot): string =>
   `${slot.weekday ?? 'all'}-${slot.startHour}-${slot.endHour}`;
 
 export const BestTimesCard = ({ suggestions }: { suggestions: AnalyticsSuggestions }) => (
-  <section className="rounded-2xl border border-border bg-surface p-5">
-    <h2 className="text-base font-semibold text-foreground">Khung giờ tốt</h2>
+  <section className="rounded-xl border border-border bg-surface p-4">
+    <h2 className="text-sm font-semibold text-foreground">Khung giờ tốt</h2>
 
     {suggestions.usedFallback ? (
       <Alert variant="info" className="mt-4">
@@ -31,7 +31,7 @@ export const BestTimesCard = ({ suggestions }: { suggestions: AnalyticsSuggestio
         {suggestions.bestTimes.map((slot) => (
           <li
             key={slotKey(slot)}
-            className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm first:pt-0 last:pb-0"
+            className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-[13px] first:pt-0 last:pb-0"
           >
             <div>
               <p className="font-medium text-foreground">{formatWeekday(slot.weekday)}</p>
@@ -48,7 +48,7 @@ export const BestTimesCard = ({ suggestions }: { suggestions: AnalyticsSuggestio
       </ul>
     )}
 
-    <p className="mt-4 text-xs text-muted">
+    <p className="mt-3 text-[11px] text-muted">
       Dựa trên {formatNumber(suggestions.sampleSize)} bài trong {suggestions.windowDays} ngày.
     </p>
   </section>

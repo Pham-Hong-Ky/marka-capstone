@@ -22,8 +22,8 @@ export const ContentTipsCard = ({ suggestions }: { suggestions: AnalyticsSuggest
   );
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-5">
-      <h2 className="text-base font-semibold text-foreground">Gợi ý nội dung</h2>
+    <section className="rounded-xl border border-border bg-surface p-4">
+      <h2 className="text-sm font-semibold text-foreground">Gợi ý nội dung</h2>
 
       {tips.length === 0 ? (
         <EmptyState title="Chưa có gợi ý cho các bài nháp." className="mt-4 px-4 py-8" />
@@ -33,15 +33,15 @@ export const ContentTipsCard = ({ suggestions }: { suggestions: AnalyticsSuggest
             const meta = SEVERITY_META[tip.severity];
 
             return (
-              <li key={`${tip.postId}-${tip.rule}`} className="py-3 first:pt-0 last:pb-0">
+              <li key={`${tip.postId}-${tip.rule}`} className="py-2.5 first:pt-0 last:pb-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={meta.variant}>{meta.label}</Badge>
-                  <p className="text-sm font-medium text-foreground">{tip.postTitle}</p>
+                  <p className="text-[13px] font-medium text-foreground">{tip.postTitle}</p>
                 </div>
-                <p className="mt-1 text-sm text-muted">{tip.message}</p>
+                <p className="mt-1 text-[13px] text-muted">{tip.message}</p>
                 <Link
                   to={`/posts/${tip.postId}/edit`}
-                  className="inline-flex min-h-11 items-center text-sm font-medium text-accent-text hover:underline"
+                  className="inline-flex min-h-11 items-center text-[13px] font-medium text-accent-text hover:underline"
                 >
                   Sửa bài
                 </Link>

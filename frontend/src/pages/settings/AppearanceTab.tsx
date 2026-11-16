@@ -20,14 +20,43 @@ const THEME_OPTIONS: ThemeOption[] = [
   },
 ];
 
+const ThemePreview = ({ theme }: { theme: Theme }) => {
+  const screen = (dark: boolean) => (
+    <div
+      className={cn(
+        'flex h-20 overflow-hidden rounded-md border border-border bg-background',
+        dark ? 'dark' : 'theme-light'
+      )}
+    >
+      <div className="w-6 bg-sidebar" />
+      <div className="flex-1 space-y-1.5 p-1.5">
+        <div className="h-1.5 w-1/2 rounded bg-surface-2" />
+        <div className="h-4 rounded bg-surface" />
+        <div className="h-1.5 w-2/3 rounded bg-surface-2" />
+      </div>
+    </div>
+  );
+
+  if (theme === 'system') {
+    return (
+      <div className="grid grid-cols-2 gap-1">
+        {screen(false)}
+        {screen(true)}
+      </div>
+    );
+  }
+
+  return screen(theme === 'dark');
+};
+
 export const AppearanceTab = () => {
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-6">
+    <section className="rounded-xl border border-border bg-surface p-5">
       <h2 className="text-sm font-semibold text-foreground">Giao diện</h2>
-      <p className="mt-1 text-xs text-muted">Chọn theme bạn muốn sử dụng.</p>
+      <p className="mt-1 text-[11px] text-muted">Chọn theme bạn muốn sử dụng.</p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {THEME_OPTIONS.map(({ value, label, description, icon: Icon }) => {
@@ -40,15 +69,18 @@ export const AppearanceTab = () => {
               onClick={() => setTheme(value)}
               aria-pressed={isActive}
               className={cn(
-                'flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition',
+                'flex flex-col gap-2 rounded-xl border p-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                 isActive
-                  ? 'border-accent bg-accent/10'
-                  : 'border-border bg-surface-2 hover:border-accent/60'
+                  ? 'border-accent bg-accent/5'
+                  : 'border-border bg-surface hover:border-accent/60'
               )}
             >
-              <Icon className={cn('h-5 w-5', isActive ? 'text-accent-text' : 'text-muted')} />
-              <span className="text-sm font-medium text-foreground">{label}</span>
-              <span className="text-xs text-muted">{description}</span>
+              <ThemePreview theme={value} />
+              <span className="flex items-center gap-2 text-[13px] font-medium text-foreground">
+                <Icon className={cn('h-4 w-4', isActive ? 'text-accent-text' : 'text-muted')} />
+                {label}
+              </span>
+              <span className="text-[11px] text-muted">{description}</span>
             </button>
           );
         })}

@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
 import TabNav, { type TabNavItem } from '@/components/ui/TabNav';
 
@@ -10,16 +11,28 @@ const SETTINGS_TABS: TabNavItem[] = [
 ];
 
 export const SettingsLayout = () => (
-  <div className="mx-auto max-w-4xl space-y-6">
+  <PageContainer width="default">
     <PageHeader
       title="Cài đặt"
       description="Quản lý tài khoản, giao diện, workspace và thành viên."
     />
 
-    <TabNav ariaLabel="Cài đặt" items={SETTINGS_TABS} />
+    <div className="lg:hidden">
+      <TabNav ariaLabel="Cài đặt" items={SETTINGS_TABS} />
+    </div>
 
-    <Outlet />
-  </div>
+    <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
+      <aside className="hidden lg:block">
+        <div className="sticky top-20">
+          <TabNav ariaLabel="Cài đặt" items={SETTINGS_TABS} orientation="vertical" />
+        </div>
+      </aside>
+
+      <div className="min-w-0">
+        <Outlet />
+      </div>
+    </div>
+  </PageContainer>
 );
 
 export default SettingsLayout;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import SelectField from '@/components/ui/SelectField';
@@ -9,6 +10,7 @@ import {
   type AnalyticsRange,
 } from '@/services/analytics';
 import type { ChannelConnection } from '@/services/channel';
+import { cn } from '@/utils/cn';
 
 const INVALID_RANGE_MESSAGE = 'Khoảng thời gian không hợp lệ.';
 const RANGE_ERROR_ID = 'analytics-range-error';
@@ -66,58 +68,71 @@ export const AnalyticsFilterBar = ({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-3">
-        <SelectField
-          id="analytics-range"
-          name="range"
-          label="Khoảng thời gian"
-          className="min-h-11"
-          value={draftRange}
-          onChange={(event) => changeRange(event.target.value as AnalyticsRange)}
-        >
-          {ANALYTICS_RANGE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </SelectField>
+    <div className="rounded-xl border border-border bg-surface p-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-0">
+          <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-muted">
+            Khoảng thời gian
+          </span>
+          <div
+            role="group"
+            aria-label="Khoảng thời gian"
+            className="flex flex-wrap gap-1 rounded-lg bg-surface-2 p-1"
+          >
+            {ANALYTICS_RANGE_OPTIONS.map((option) => {
+              const active = draftRange === option.value;
 
-        <SelectField
-          id="analytics-channel"
-          name="channelId"
-          label="Kênh"
-          className="min-h-11"
-          value={filters.channelId ?? ''}
-          onChange={(event) =>
-            onChange({ ...filters, channelId: event.target.value || undefined })
-          }
-        >
-          <option value="">Tất cả kênh</option>
-          {channels.map((channel) => (
-            <option key={channel.id} value={channel.id}>
-              {channel.label ?? channel.name}
-            </option>
-          ))}
-        </SelectField>
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => changeRange(option.value)}
+                  className={cn(
+                    'min-h-11 rounded-md px-2.5 text-[12px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                    active
+                      ? 'bg-surface text-foreground shadow-sm'
+                      : 'text-muted hover:text-foreground'
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="w-full sm:w-52">
+          <SelectField
+            id="analytics-channel"
+            name="channelId"
+            label="Kênh"
+            className="min-h-11"
+            value={filters.channelId ?? ''}
+            onChange={(event) =>
+              onChange({ ...filters, channelId: event.target.value || undefined })
+            }
+          >
+            <option value="">Tất cả kênh</option>
+            {channels.map((channel) => (
+              <option key={channel.id} value={channel.id}>
+                {channel.label ?? channel.name}
+              </option>
+            ))}
+          </SelectField>
+        </div>
 
         {hasSecondaryFilters ? (
-          <div className="flex items-end">
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-11 w-full md:w-auto"
-              onClick={resetFilters}
-            >
-              Xoá lọc
-            </Button>
-          </div>
+          <Button type="button" variant="ghost" className="min-h-11" onClick={resetFilters}>
+            <RotateCcw className="h-4 w-4" />
+            Xoá lọc
+          </Button>
         ) : null}
       </div>
 
       {draftRange === 'custom' ? (
-        <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
+        <div className="mt-3 border-t border-border pt-3">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             <TextField
               id="analytics-from"
               name="from"
@@ -146,20 +161,18 @@ export const AnalyticsFilterBar = ({
                 setError(null);
               }}
             />
-            <div className="flex items-end">
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-11 w-full sm:w-auto"
-                onClick={applyCustomRange}
-              >
-                Áp dụng
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:w-auto"
+              onClick={applyCustomRange}
+            >
+              Áp dụng
+            </Button>
           </div>
 
           {error ? (
-            <div id={RANGE_ERROR_ID}>
+            <div id={RANGE_ERROR_ID} className="mt-3">
               <Alert variant="danger">{error}</Alert>
             </div>
           ) : null}

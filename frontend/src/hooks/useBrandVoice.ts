@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { brandVoiceService, type BrandVoice } from '@/services/brandvoice';
+import {
+  brandVoiceService,
+  type BrandVoice,
+  type BrandVoiceInsightsParams,
+} from '@/services/brandvoice';
 import { queryKeys } from '@/lib/queryKeys';
 import { getErrorMessage } from '@/utils/error';
 
@@ -8,6 +12,16 @@ export const useBrandVoice = (workspaceId: string | null) =>
   useQuery({
     queryKey: queryKeys.brandVoice.detail(workspaceId ?? ''),
     queryFn: () => brandVoiceService.getBrandVoice(workspaceId as string),
+    enabled: Boolean(workspaceId),
+  });
+
+export const useBrandVoiceInsights = (
+  workspaceId: string | null,
+  params: BrandVoiceInsightsParams = {}
+) =>
+  useQuery({
+    queryKey: queryKeys.brandVoice.insights(workspaceId ?? '', params),
+    queryFn: () => brandVoiceService.getInsights(workspaceId as string, params),
     enabled: Boolean(workspaceId),
   });
 

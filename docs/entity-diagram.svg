@@ -1,322 +1,345 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="1740" viewBox="0 0 1640 1740" font-family="Segoe UI, Arial, sans-serif">
-<rect width="1640" height="1740" fill="#ffffff"/>
-<text x="820" y="34" text-anchor="middle" font-size="22" font-weight="bold" fill="#12395e">Marka — Sơ đồ thực thể (Entity Class Diagram)</text>
-<path d="M 485 580 L 485 243" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="478" y="411.5" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="478" y="411.5" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 360 620 L 325 620 L 325 403 L 290 403" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="342.5" y="615" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="307.5" y="398" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 485 869 L 485 1240" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="478" y="1054.5" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="478" y="1054.5" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 610 760 L 655 760 L 655 1390 L 680 1390" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="632.5" y="755" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="667.5" y="1385" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 360 720 L 290 720" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="325" y="715" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="325" y="715" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 610 780 L 650 780 L 650 1040 L 680 1040" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="630" y="775" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="665" y="1035" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 610 650 L 680 650" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="645" y="645" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="645" y="645" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 610 840 L 650 840 L 650 900 L 970 900 L 970 1020 L 1000 1020" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="630" y="835" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="985" y="1015" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 610 620 L 640 620 L 640 540 L 1300 540 L 1300 656 L 1320 656" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="625" y="615" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="1310" y="651" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 610 600 L 640 600 L 640 80 L 980 80 L 980 180 L 1000 180" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="625" y="595" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="990" y="175" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 1000 660 L 970 660 L 970 72 L 510 72 L 510 90" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="985" y="655" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="503" y="81" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 1000 700 L 955 700 L 955 85 L 165 85 L 165 310" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="977.5" y="695" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="158" y="197.5" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 1000 810 L 970 810 L 970 1640 L 485 1640 L 485 1529" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="985" y="805" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="478" y="1584.5" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 1000 790 L 955 790 L 955 1390 L 930 1390" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="977.5" y="785" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="942.5" y="1385" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 1125 835 L 1125 940" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="1118" y="887.5" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="1118" y="887.5" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 1000 760 L 945 760 L 945 1020 L 930 1020" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="972.5" y="755" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="937.5" y="1015" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 1000 680 L 930 680" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="965" y="675" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="965" y="675" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 1250 660 L 1320 660" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="1285" y="655" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="1285" y="655" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 1180 580 L 1180 277" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="1173" y="428.5" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="1173" y="428.5" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 610 1460 L 680 1460" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="645" y="1455" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="645" y="1455" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 360 1310 L 325 1310 L 325 1180 L 290 1180" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="342.5" y="1305" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="307.5" y="1175" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 610 1310 L 665 1310 L 665 1260 L 970 1260 L 970 1100 L 1000 1100" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="637.5" y="1305" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="985" y="1095" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 165 841 L 165 1060" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="158" y="950.5" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="158" y="950.5" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 290 1260 L 320 1260 L 320 1615 L 970 1615 L 970 1360 L 1000 1360" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="305" y="1255" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="985" y="1355" font-size="12" font-weight="bold" fill="#B03A2E">n</text>
-<path d="M 805 294 L 805 580" fill="none" stroke="#2C3E50" stroke-width="1.1"/>
-<text x="798" y="437" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<text x="798" y="437" font-size="12" font-weight="bold" fill="#B03A2E">1</text>
-<rect x="360" y="90" width="250" height="153" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 360 116 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="360" y="90" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="360" y="110" width="250" height="6" fill="#5B9BD5"/>
-<text x="485" y="108" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">WorkspaceMember</text>
-<text x="368" y="130" font-size="11" fill="#0B2239">+id : string</text>
-<text x="368" y="147" font-size="11" fill="#0B2239">+workspaceId : string</text>
-<text x="368" y="164" font-size="11" fill="#0B2239">+userId : string</text>
-<text x="368" y="181" font-size="11" fill="#0B2239">+role : string</text>
-<text x="368" y="198" font-size="11" fill="#0B2239">+allowDirectPublish : boolean</text>
-<text x="368" y="215" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<text x="368" y="232" font-size="11" fill="#0B2239">+updatedAt : DateTime</text>
-<rect x="40" y="310" width="250" height="187" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 40 336 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="40" y="310" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="40" y="330" width="250" height="6" fill="#5B9BD5"/>
-<text x="165" y="328" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">WorkspaceInvite</text>
-<text x="48" y="350" font-size="11" fill="#0B2239">+id : string</text>
-<text x="48" y="367" font-size="11" fill="#0B2239">+email : string</text>
-<text x="48" y="384" font-size="11" fill="#0B2239">+workspaceId : string</text>
-<text x="48" y="401" font-size="11" fill="#0B2239">+role : string</text>
-<text x="48" y="418" font-size="11" fill="#0B2239">+token : string</text>
-<text x="48" y="435" font-size="11" fill="#0B2239">+isUsed : boolean</text>
-<text x="48" y="452" font-size="11" fill="#0B2239">+expiresAt : DateTime</text>
-<text x="48" y="469" font-size="11" fill="#0B2239">+invitedById : string?</text>
-<text x="48" y="486" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<rect x="680" y="90" width="250" height="204" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 680 116 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="680" y="90" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="680" y="110" width="250" height="6" fill="#5B9BD5"/>
-<text x="805" y="108" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">CreditPackage</text>
-<text x="688" y="130" font-size="11" fill="#0B2239">+id : string</text>
-<text x="688" y="147" font-size="11" fill="#0B2239">+name : string</text>
-<text x="688" y="164" font-size="11" fill="#0B2239">+description : string?</text>
-<text x="688" y="181" font-size="11" fill="#0B2239">+creditAmount : int</text>
-<text x="688" y="198" font-size="11" fill="#0B2239">+price : int</text>
-<text x="688" y="215" font-size="11" fill="#0B2239">+sortOrder : int</text>
-<text x="688" y="232" font-size="11" fill="#0B2239">+isActive : boolean</text>
-<text x="688" y="249" font-size="11" fill="#0B2239">+deletedAt : DateTime?</text>
-<text x="688" y="266" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<text x="688" y="283" font-size="11" fill="#0B2239">+updatedAt : DateTime</text>
-<rect x="1000" y="90" width="250" height="187" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 1000 116 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="1000" y="90" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="1000" y="110" width="250" height="6" fill="#5B9BD5"/>
-<text x="1125" y="108" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">AuditLog</text>
-<text x="1008" y="130" font-size="11" fill="#0B2239">+id : string</text>
-<text x="1008" y="147" font-size="11" fill="#0B2239">+workspaceId : string?</text>
-<text x="1008" y="164" font-size="11" fill="#0B2239">+actorId : string?</text>
-<text x="1008" y="181" font-size="11" fill="#0B2239">+action : string</text>
-<text x="1008" y="198" font-size="11" fill="#0B2239">+targetType : string</text>
-<text x="1008" y="215" font-size="11" fill="#0B2239">+targetId : string?</text>
-<text x="1008" y="232" font-size="11" fill="#0B2239">+reason : string?</text>
-<text x="1008" y="249" font-size="11" fill="#0B2239">+metadata : json</text>
-<text x="1008" y="266" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<rect x="360" y="580" width="250" height="289" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 360 606 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="360" y="580" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="360" y="600" width="250" height="6" fill="#5B9BD5"/>
-<text x="485" y="598" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">Workspace</text>
-<text x="368" y="620" font-size="11" fill="#0B2239">+id : string</text>
-<text x="368" y="637" font-size="11" fill="#0B2239">+name : string</text>
-<text x="368" y="671" font-size="11" fill="#0B2239">+plan : string</text>
-<text x="368" y="688" font-size="11" fill="#0B2239">+remainingCredit : int</text>
-<text x="368" y="705" font-size="11" fill="#0B2239">+monthlyQuota : int</text>
-<text x="368" y="722" font-size="11" fill="#0B2239">+planExpiresAt : DateTime?</text>
-<text x="368" y="739" font-size="11" fill="#0B2239">+billingCycleStart : DateTime?</text>
-<text x="368" y="756" font-size="11" fill="#0B2239">+nextResetAt : DateTime?</text>
-<text x="368" y="773" font-size="11" fill="#0B2239">+planExpiryWarningSentAt : DateTime?</text>
-<text x="368" y="790" font-size="11" fill="#0B2239">+creditWarningSentAt : DateTime?</text>
-<text x="368" y="807" font-size="11" fill="#0B2239">+brandVoice : json</text>
-<text x="368" y="824" font-size="11" fill="#0B2239">+deletedAt : DateTime?</text>
-<text x="368" y="841" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<text x="368" y="858" font-size="11" fill="#0B2239">+updatedAt : DateTime</text>
-<rect x="40" y="620" width="250" height="221" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 40 646 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="40" y="620" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="40" y="640" width="250" height="6" fill="#5B9BD5"/>
-<text x="165" y="638" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">ChannelConnection</text>
-<text x="48" y="660" font-size="11" fill="#0B2239">+id : string</text>
-<text x="48" y="677" font-size="11" fill="#0B2239">+workspaceId : string</text>
-<text x="48" y="694" font-size="11" fill="#0B2239">+platform : string</text>
-<text x="48" y="711" font-size="11" fill="#0B2239">+type : string</text>
-<text x="48" y="728" font-size="11" fill="#0B2239">+name : string</text>
-<text x="48" y="745" font-size="11" fill="#0B2239">+avatar : string?</text>
-<text x="48" y="762" font-size="11" fill="#0B2239">+externalAccountId : string</text>
-<text x="48" y="779" font-size="11" fill="#0B2239">+accessToken : string?</text>
-<text x="48" y="796" font-size="11" fill="#0B2239">+status : string</text>
-<text x="48" y="813" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<text x="48" y="830" font-size="11" fill="#0B2239">+updatedAt : DateTime</text>
-<rect x="680" y="580" width="250" height="255" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 680 606 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="680" y="580" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="680" y="600" width="250" height="6" fill="#5B9BD5"/>
-<text x="805" y="598" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">Order</text>
-<text x="688" y="620" font-size="11" fill="#0B2239">+id : string</text>
-<text x="688" y="637" font-size="11" fill="#0B2239">+orderCode : string</text>
-<text x="688" y="654" font-size="11" fill="#0B2239">+workspaceId : string</text>
-<text x="688" y="671" font-size="11" fill="#0B2239">+packageId : string?</text>
-<text x="688" y="688" font-size="11" fill="#0B2239">+amount : int</text>
-<text x="688" y="705" font-size="11" fill="#0B2239">+creditAmount : int?</text>
-<text x="688" y="722" font-size="11" fill="#0B2239">+targetPlan : string?</text>
-<text x="688" y="739" font-size="11" fill="#0B2239">+payosTransId : string?</text>
-<text x="688" y="756" font-size="11" fill="#0B2239">+paidAt : DateTime?</text>
-<text x="688" y="773" font-size="11" fill="#0B2239">+status : string</text>
-<text x="688" y="790" font-size="11" fill="#0B2239">+createdById : string?</text>
-<text x="688" y="807" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<text x="688" y="824" font-size="11" fill="#0B2239">+updatedAt : DateTime</text>
-<rect x="1000" y="580" width="250" height="255" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 1000 606 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="1000" y="580" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="1000" y="600" width="250" height="6" fill="#5B9BD5"/>
-<text x="1125" y="598" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">User</text>
-<text x="1008" y="620" font-size="11" fill="#0B2239">+id : string</text>
-<text x="1008" y="637" font-size="11" fill="#0B2239">+email : string</text>
-<text x="1008" y="654" font-size="11" fill="#0B2239">+passwordHash : string?</text>
-<text x="1008" y="671" font-size="11" fill="#0B2239">+name : string</text>
-<text x="1008" y="688" font-size="11" fill="#0B2239">+avatar : string?</text>
-<text x="1008" y="705" font-size="11" fill="#0B2239">+authProvider : string</text>
-<text x="1008" y="722" font-size="11" fill="#0B2239">+googleId : string?</text>
-<text x="1008" y="739" font-size="11" fill="#0B2239">+emailVerified : boolean</text>
-<text x="1008" y="756" font-size="11" fill="#0B2239">+systemRole : string</text>
-<text x="1008" y="773" font-size="11" fill="#0B2239">+tokenVersion : int</text>
-<text x="1008" y="790" font-size="11" fill="#0B2239">+isSuspended : boolean</text>
-<text x="1008" y="807" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<text x="1008" y="824" font-size="11" fill="#0B2239">+updatedAt : DateTime</text>
-<rect x="1320" y="580" width="250" height="153" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 1320 606 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="1320" y="580" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="1320" y="600" width="250" height="6" fill="#5B9BD5"/>
-<text x="1445" y="598" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">Notification</text>
-<text x="1328" y="620" font-size="11" fill="#0B2239">+id : string</text>
-<text x="1328" y="637" font-size="11" fill="#0B2239">+userId : string</text>
-<text x="1328" y="654" font-size="11" fill="#0B2239">+workspaceId : string?</text>
-<text x="1328" y="671" font-size="11" fill="#0B2239">+type : string</text>
-<text x="1328" y="688" font-size="11" fill="#0B2239">+payload : json</text>
-<text x="1328" y="705" font-size="11" fill="#0B2239">+isRead : boolean</text>
-<text x="1328" y="722" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<rect x="680" y="940" width="250" height="204" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 680 966 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="680" y="940" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="680" y="960" width="250" height="6" fill="#5B9BD5"/>
-<text x="805" y="958" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">CreditTransaction</text>
-<text x="688" y="980" font-size="11" fill="#0B2239">+id : string</text>
-<text x="688" y="997" font-size="11" fill="#0B2239">+workspaceId : string</text>
-<text x="688" y="1014" font-size="11" fill="#0B2239">+type : string</text>
-<text x="688" y="1031" font-size="11" fill="#0B2239">+action : string</text>
-<text x="688" y="1048" font-size="11" fill="#0B2239">+amount : int</text>
-<text x="688" y="1065" font-size="11" fill="#0B2239">+balanceBefore : int</text>
-<text x="688" y="1082" font-size="11" fill="#0B2239">+balanceAfter : int</text>
-<text x="688" y="1099" font-size="11" fill="#0B2239">+reason : string?</text>
-<text x="688" y="1116" font-size="11" fill="#0B2239">+createdById : string?</text>
-<text x="688" y="1133" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<rect x="1000" y="940" width="250" height="238" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 1000 966 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="1000" y="940" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="1000" y="960" width="250" height="6" fill="#5B9BD5"/>
-<text x="1125" y="958" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">AiGeneration</text>
-<text x="1008" y="980" font-size="11" fill="#0B2239">+id : string</text>
-<text x="1008" y="997" font-size="11" fill="#0B2239">+workspaceId : string</text>
-<text x="1008" y="1014" font-size="11" fill="#0B2239">+userId : string?</text>
-<text x="1008" y="1031" font-size="11" fill="#0B2239">+postId : string?</text>
-<text x="1008" y="1048" font-size="11" fill="#0B2239">+type : string</text>
-<text x="1008" y="1065" font-size="11" fill="#0B2239">+provider : string</text>
-<text x="1008" y="1082" font-size="11" fill="#0B2239">+model : string</text>
-<text x="1008" y="1099" font-size="11" fill="#0B2239">+status : string</text>
-<text x="1008" y="1116" font-size="11" fill="#0B2239">+prompt : string</text>
-<text x="1008" y="1133" font-size="11" fill="#0B2239">+response : string</text>
-<text x="1008" y="1150" font-size="11" fill="#0B2239">+creditCost : int</text>
-<text x="1008" y="1167" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<rect x="40" y="1060" width="250" height="238" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 40 1086 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="40" y="1060" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="40" y="1080" width="250" height="6" fill="#5B9BD5"/>
-<text x="165" y="1078" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">ScheduledPost</text>
-<text x="48" y="1100" font-size="11" fill="#0B2239">+id : string</text>
-<text x="48" y="1117" font-size="11" fill="#0B2239">+postId : string</text>
-<text x="48" y="1134" font-size="11" fill="#0B2239">+channelId : string</text>
-<text x="48" y="1151" font-size="11" fill="#0B2239">+customContent : json</text>
-<text x="48" y="1168" font-size="11" fill="#0B2239">+scheduledAt : DateTime?</text>
-<text x="48" y="1185" font-size="11" fill="#0B2239">+status : string</text>
-<text x="48" y="1202" font-size="11" fill="#0B2239">+externalPostId : string?</text>
-<text x="48" y="1219" font-size="11" fill="#0B2239">+errorMessage : string?</text>
-<text x="48" y="1236" font-size="11" fill="#0B2239">+retryCount : int</text>
-<text x="48" y="1253" font-size="11" fill="#0B2239">+reminderSentAt : DateTime?</text>
-<text x="48" y="1270" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<text x="48" y="1287" font-size="11" fill="#0B2239">+updatedAt : DateTime</text>
-<rect x="360" y="1240" width="250" height="289" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 360 1266 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="360" y="1240" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="360" y="1260" width="250" height="6" fill="#5B9BD5"/>
-<text x="485" y="1258" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">Post</text>
-<text x="368" y="1280" font-size="11" fill="#0B2239">+id : string</text>
-<text x="368" y="1297" font-size="11" fill="#0B2239">+workspaceId : string</text>
-<text x="368" y="1314" font-size="11" fill="#0B2239">+title : string</text>
-<text x="368" y="1331" font-size="11" fill="#0B2239">+content : json</text>
-<text x="368" y="1348" font-size="11" fill="#0B2239">+status : string</text>
-<text x="368" y="1365" font-size="11" fill="#0B2239">+campaignTag : string?</text>
-<text x="368" y="1382" font-size="11" fill="#0B2239">+rejectReason : string?</text>
-<text x="368" y="1399" font-size="11" fill="#0B2239">+submittedById : string?</text>
-<text x="368" y="1416" font-size="11" fill="#0B2239">+createdById : string?</text>
-<text x="368" y="1433" font-size="11" fill="#0B2239">+submittedAt : DateTime?</text>
-<text x="368" y="1450" font-size="11" fill="#0B2239">+reviewedById : string?</text>
-<text x="368" y="1467" font-size="11" fill="#0B2239">+reviewedAt : DateTime?</text>
-<text x="368" y="1484" font-size="11" fill="#0B2239">+deletedAt : DateTime?</text>
-<text x="368" y="1501" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<text x="368" y="1518" font-size="11" fill="#0B2239">+updatedAt : DateTime</text>
-<rect x="680" y="1310" width="250" height="255" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 680 1336 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="680" y="1310" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="680" y="1330" width="250" height="6" fill="#5B9BD5"/>
-<text x="805" y="1328" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">MediaAsset</text>
-<text x="688" y="1350" font-size="11" fill="#0B2239">+id : string</text>
-<text x="688" y="1367" font-size="11" fill="#0B2239">+workspaceId : string</text>
-<text x="688" y="1384" font-size="11" fill="#0B2239">+postId : string?</text>
-<text x="688" y="1401" font-size="11" fill="#0B2239">+url : string</text>
-<text x="688" y="1418" font-size="11" fill="#0B2239">+type : string</text>
-<text x="688" y="1435" font-size="11" fill="#0B2239">+mimeType : string?</text>
-<text x="688" y="1452" font-size="11" fill="#0B2239">+thumbnailUrl : string?</text>
-<text x="688" y="1469" font-size="11" fill="#0B2239">+size : int</text>
-<text x="688" y="1486" font-size="11" fill="#0B2239">+tags : string?</text>
-<text x="688" y="1503" font-size="11" fill="#0B2239">+source : string</text>
-<text x="688" y="1520" font-size="11" fill="#0B2239">+createdById : string?</text>
-<text x="688" y="1537" font-size="11" fill="#0B2239">+deletedAt : DateTime?</text>
-<text x="688" y="1554" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<rect x="1000" y="1310" width="250" height="255" rx="6" fill="#DEEBF7" stroke="#2E75B6" stroke-width="1.4"/>
-<path d="M 1000 1336 h 250" stroke="#2E75B6" stroke-width="1.4"/>
-<rect x="1000" y="1310" width="250" height="26" rx="6" fill="#5B9BD5"/>
-<rect x="1000" y="1330" width="250" height="6" fill="#5B9BD5"/>
-<text x="1125" y="1328" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">PostMetric</text>
-<text x="1008" y="1350" font-size="11" fill="#0B2239">+id : string</text>
-<text x="1008" y="1367" font-size="11" fill="#0B2239">+scheduledPostId : string</text>
-<text x="1008" y="1384" font-size="11" fill="#0B2239">+reactions : int</text>
-<text x="1008" y="1401" font-size="11" fill="#0B2239">+reactionsDetail : json</text>
-<text x="1008" y="1418" font-size="11" fill="#0B2239">+comments : int</text>
-<text x="1008" y="1435" font-size="11" fill="#0B2239">+shares : int</text>
-<text x="1008" y="1452" font-size="11" fill="#0B2239">+reach : int?</text>
-<text x="1008" y="1469" font-size="11" fill="#0B2239">+impressions : int?</text>
-<text x="1008" y="1486" font-size="11" fill="#0B2239">+permalinkUrl : string?</text>
-<text x="1008" y="1503" font-size="11" fill="#0B2239">+syncError : string?</text>
-<text x="1008" y="1520" font-size="11" fill="#0B2239">+fetchedAt : DateTime?</text>
-<text x="1008" y="1537" font-size="11" fill="#0B2239">+createdAt : DateTime</text>
-<text x="1008" y="1554" font-size="11" fill="#0B2239">+updatedAt : DateTime</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1750" height="2050" viewBox="0 0 1750 2050" font-family="Segoe UI, -apple-system, BlinkMacSystemFont, Arial, sans-serif">
+<rect width="1750" height="2050" fill="#ffffff"/>
+<text x="875" y="32" text-anchor="middle" font-size="20" font-weight="bold" fill="#0f172a">Marka Platform — Sơ đồ Thực thể Cơ sở Dữ liệu (Entity Relationship Diagram - 16 Bảng)</text>
+<path d="M 350 640 L 480 640" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="358" y="632" font-size="12" font-weight="bold" fill="#000000">n</text>
+<text x="468" y="632" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 210 870 L 210 1080" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="218" y="890" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="218" y="1068" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 210 1386 L 210 1560" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="218" y="1406" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="218" y="1548" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 350 1120 L 480 1120" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="358" y="1112" font-size="12" font-weight="bold" fill="#000000">n</text>
+<text x="468" y="1112" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 520 600 L 520 540 L 430 540 L 430 140 L 480 140" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="528" y="585" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="465" y="132" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 620 600 L 620 478" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="628" y="585" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="628" y="498" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 760 140 L 1260 140 L 1260 640 L 1340 640" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="768" y="132" font-size="12" font-weight="bold" fill="#000000">n</text>
+<text x="1325" y="632" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 760 350 L 800 350 L 800 200 L 1240 200 L 1240 660 L 1340 660" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="768" y="342" font-size="12" font-weight="bold" fill="#000000">n</text>
+<text x="1325" y="652" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 1030 476 L 1030 600" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="1038" y="496" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="1038" y="588" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 760 680 L 890 680" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="768" y="672" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="878" y="672" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 1170 680 L 1340 680" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="1178" y="672" font-size="12" font-weight="bold" fill="#000000">n</text>
+<text x="1325" y="672" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 760 760 L 830 760 L 830 1120 L 890 1120" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="768" y="752" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="878" y="1112" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 1170 1120 L 1260 1120 L 1260 760 L 1340 760" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="1178" y="1112" font-size="12" font-weight="bold" fill="#000000">n</text>
+<text x="1325" y="752" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 620 888 L 620 1040" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="628" y="908" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="628" y="1028" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 620 1436 L 620 1560" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="628" y="1456" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="628" y="1548" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 480 820 L 410 820 L 410 1620 L 480 1620" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="465" y="812" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="465" y="1612" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 760 1620 L 830 1620 L 830 1500 L 1280 1500 L 1280 860 L 1340 860" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="768" y="1612" font-size="12" font-weight="bold" fill="#000000">n</text>
+<text x="1325" y="852" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 760 1360 L 830 1360 L 830 1620 L 890 1620" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="768" y="1352" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="878" y="1612" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 760 840 L 850 840 L 850 1680 L 890 1680" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="768" y="832" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="878" y="1672" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 760 1220 L 810 1220 L 810 1480 L 1240 1480 L 1240 1620 L 1340 1620" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="768" y="1212" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="1325" y="1612" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 1620 880 L 1660 880 L 1660 1620 L 1620 1620" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="1630" y="872" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="1630" y="1612" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 1480 924 L 1480 1080" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="1488" y="944" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="1488" y="1068" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 760 870 L 870 870 L 870 1000 L 1300 1000 L 1300 1140 L 1340 1140" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="768" y="862" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="1325" y="1132" font-size="12" font-weight="bold" fill="#000000">n</text>
+<path d="M 1480 458 L 1480 600" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="1488" y="478" font-size="12" font-weight="bold" fill="#000000">n</text>
+<text x="1488" y="588" font-size="12" font-weight="bold" fill="#000000">1</text>
+<path d="M 700 600 L 700 540 L 1300 540 L 1300 380 L 1340 380" fill="none" stroke="#222222" stroke-width="1.3"/>
+<text x="708" y="585" font-size="12" font-weight="bold" fill="#000000">1</text>
+<text x="1325" y="372" font-size="12" font-weight="bold" fill="#000000">n</text>
+<rect x="480" y="60" width="280" height="162" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="480" y="60" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="620.0" y="79" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Workspace_members</text>
+<line x1="480" y1="88" x2="760" y2="88" stroke="#222222" stroke-width="1.2"/>
+<text x="488" y="104" font-size="11" fill="#000000">+id : string</text>
+<text x="488" y="122" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="488" y="140" font-size="11" fill="#000000">+userId : string</text>
+<text x="488" y="158" font-size="11" fill="#000000">+role : string</text>
+<text x="488" y="176" font-size="11" fill="#000000">+allowDirectPublish : boolean</text>
+<text x="488" y="194" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="488" y="212" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="480" y="280" width="280" height="198" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="480" y="280" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="620.0" y="299" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Workspace_invites</text>
+<line x1="480" y1="308" x2="760" y2="308" stroke="#222222" stroke-width="1.2"/>
+<text x="488" y="324" font-size="11" fill="#000000">+id : string</text>
+<text x="488" y="342" font-size="11" fill="#000000">+email : string</text>
+<text x="488" y="360" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="488" y="378" font-size="11" fill="#000000">+role : string</text>
+<text x="488" y="396" font-size="11" fill="#000000">+token : string</text>
+<text x="488" y="414" font-size="11" fill="#000000">+isUsed : boolean</text>
+<text x="488" y="432" font-size="11" fill="#000000">+expiresAt : Datetime</text>
+<text x="488" y="450" font-size="11" fill="#000000">+invitedById : string</text>
+<text x="488" y="468" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<rect x="890" y="260" width="280" height="216" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="890" y="260" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="1030.0" y="279" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Credit_packages</text>
+<line x1="890" y1="288" x2="1170" y2="288" stroke="#222222" stroke-width="1.2"/>
+<text x="898" y="304" font-size="11" fill="#000000">+id : string</text>
+<text x="898" y="322" font-size="11" fill="#000000">+name : string</text>
+<text x="898" y="340" font-size="11" fill="#000000">+description : string</text>
+<text x="898" y="358" font-size="11" fill="#000000">+creditAmount : int</text>
+<text x="898" y="376" font-size="11" fill="#000000">+price : int</text>
+<text x="898" y="394" font-size="11" fill="#000000">+sortOrder : int</text>
+<text x="898" y="412" font-size="11" fill="#000000">+isActive : boolean</text>
+<text x="898" y="430" font-size="11" fill="#000000">+deletedAt : Datetime</text>
+<text x="898" y="448" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="898" y="466" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="1340" y="260" width="280" height="198" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="1340" y="260" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="1480.0" y="279" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Audit_logs</text>
+<line x1="1340" y1="288" x2="1620" y2="288" stroke="#222222" stroke-width="1.2"/>
+<text x="1348" y="304" font-size="11" fill="#000000">+id : string</text>
+<text x="1348" y="322" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="1348" y="340" font-size="11" fill="#000000">+actorId : string</text>
+<text x="1348" y="358" font-size="11" fill="#000000">+action : string</text>
+<text x="1348" y="376" font-size="11" fill="#000000">+targetType : string</text>
+<text x="1348" y="394" font-size="11" fill="#000000">+targetId : string</text>
+<text x="1348" y="412" font-size="11" fill="#000000">+reason : string</text>
+<text x="1348" y="430" font-size="11" fill="#000000">+metadata : json</text>
+<text x="1348" y="448" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<rect x="70" y="600" width="280" height="270" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="70" y="600" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="210.0" y="619" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Channel_connections</text>
+<line x1="70" y1="628" x2="350" y2="628" stroke="#222222" stroke-width="1.2"/>
+<text x="78" y="644" font-size="11" fill="#000000">+id : string</text>
+<text x="78" y="662" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="78" y="680" font-size="11" fill="#000000">+platform : string</text>
+<text x="78" y="698" font-size="11" fill="#000000">+type : string</text>
+<text x="78" y="716" font-size="11" fill="#000000">+name : string</text>
+<text x="78" y="734" font-size="11" fill="#000000">+label : string</text>
+<text x="78" y="752" font-size="11" fill="#000000">+avatar : string</text>
+<text x="78" y="770" font-size="11" fill="#000000">+externalAccountId : string</text>
+<text x="78" y="788" font-size="11" fill="#000000">+accessToken : string</text>
+<text x="78" y="806" font-size="11" fill="#000000">+status : string</text>
+<text x="78" y="824" font-size="11" fill="#000000">+deletedAt : Datetime</text>
+<text x="78" y="842" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="78" y="860" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="480" y="600" width="280" height="288" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="480" y="600" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="620.0" y="619" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Workspaces</text>
+<line x1="480" y1="628" x2="760" y2="628" stroke="#222222" stroke-width="1.2"/>
+<text x="488" y="644" font-size="11" fill="#000000">+id : string</text>
+<text x="488" y="662" font-size="11" fill="#000000">+name : string</text>
+<text x="488" y="680" font-size="11" fill="#000000">+brandVoice : json</text>
+<text x="488" y="698" font-size="11" fill="#000000">+plan : string</text>
+<text x="488" y="716" font-size="11" fill="#000000">+remainingCredit : int</text>
+<text x="488" y="734" font-size="11" fill="#000000">+monthlyQuota : int</text>
+<text x="488" y="752" font-size="11" fill="#000000">+planExpiresAt : Datetime</text>
+<text x="488" y="770" font-size="11" fill="#000000">+billingCycleStart : Datetime</text>
+<text x="488" y="788" font-size="11" fill="#000000">+nextResetAt : Datetime</text>
+<text x="488" y="806" font-size="11" fill="#000000">+planExpiryWarningSentAt : Datetime</text>
+<text x="488" y="824" font-size="11" fill="#000000">+creditWarningSentAt : Datetime</text>
+<text x="488" y="842" font-size="11" fill="#000000">+deletedAt : Datetime</text>
+<text x="488" y="860" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="488" y="878" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="890" y="600" width="280" height="324" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="890" y="600" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="1030.0" y="619" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Orders</text>
+<line x1="890" y1="628" x2="1170" y2="628" stroke="#222222" stroke-width="1.2"/>
+<text x="898" y="644" font-size="11" fill="#000000">+id : string</text>
+<text x="898" y="662" font-size="11" fill="#000000">+orderCode : string</text>
+<text x="898" y="680" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="898" y="698" font-size="11" fill="#000000">+packageId : string</text>
+<text x="898" y="716" font-size="11" fill="#000000">+amount : int</text>
+<text x="898" y="734" font-size="11" fill="#000000">+creditAmount : int</text>
+<text x="898" y="752" font-size="11" fill="#000000">+targetPlan : string</text>
+<text x="898" y="770" font-size="11" fill="#000000">+paymentLinkId : string</text>
+<text x="898" y="788" font-size="11" fill="#000000">+checkoutUrl : string</text>
+<text x="898" y="806" font-size="11" fill="#000000">+expiresAt : Datetime</text>
+<text x="898" y="824" font-size="11" fill="#000000">+payosTransId : string</text>
+<text x="898" y="842" font-size="11" fill="#000000">+paidAt : Datetime</text>
+<text x="898" y="860" font-size="11" fill="#000000">+status : string</text>
+<text x="898" y="878" font-size="11" fill="#000000">+createdById : string</text>
+<text x="898" y="896" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="898" y="914" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="1340" y="600" width="280" height="324" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="1340" y="600" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="1480.0" y="619" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Users</text>
+<line x1="1340" y1="628" x2="1620" y2="628" stroke="#222222" stroke-width="1.2"/>
+<text x="1348" y="644" font-size="11" fill="#000000">+id : string</text>
+<text x="1348" y="662" font-size="11" fill="#000000">+email : string</text>
+<text x="1348" y="680" font-size="11" fill="#000000">+passwordHash : string</text>
+<text x="1348" y="698" font-size="11" fill="#000000">+name : string</text>
+<text x="1348" y="716" font-size="11" fill="#000000">+avatar : string</text>
+<text x="1348" y="734" font-size="11" fill="#000000">+facebookUrl : string</text>
+<text x="1348" y="752" font-size="11" fill="#000000">+threadsUrl : string</text>
+<text x="1348" y="770" font-size="11" fill="#000000">+authProvider : string</text>
+<text x="1348" y="788" font-size="11" fill="#000000">+googleId : string</text>
+<text x="1348" y="806" font-size="11" fill="#000000">+emailVerified : boolean</text>
+<text x="1348" y="824" font-size="11" fill="#000000">+systemRole : string</text>
+<text x="1348" y="842" font-size="11" fill="#000000">+tokenVersion : int</text>
+<text x="1348" y="860" font-size="11" fill="#000000">+isSuspended : boolean</text>
+<text x="1348" y="878" font-size="11" fill="#000000">+deletedAt : Datetime</text>
+<text x="1348" y="896" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="1348" y="914" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="70" y="1080" width="280" height="306" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="70" y="1080" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="210.0" y="1099" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Scheduled_posts</text>
+<line x1="70" y1="1108" x2="350" y2="1108" stroke="#222222" stroke-width="1.2"/>
+<text x="78" y="1124" font-size="11" fill="#000000">+id : string</text>
+<text x="78" y="1142" font-size="11" fill="#000000">+postId : string</text>
+<text x="78" y="1160" font-size="11" fill="#000000">+channelId : string</text>
+<text x="78" y="1178" font-size="11" fill="#000000">+customContent : json</text>
+<text x="78" y="1196" font-size="11" fill="#000000">+scheduledAt : Datetime</text>
+<text x="78" y="1214" font-size="11" fill="#000000">+status : string</text>
+<text x="78" y="1232" font-size="11" fill="#000000">+externalPostId : string</text>
+<text x="78" y="1250" font-size="11" fill="#000000">+errorMessage : string</text>
+<text x="78" y="1268" font-size="11" fill="#000000">+retryCount : int</text>
+<text x="78" y="1286" font-size="11" fill="#000000">+processingStartedAt : Datetime</text>
+<text x="78" y="1304" font-size="11" fill="#000000">+retryAt : Datetime</text>
+<text x="78" y="1322" font-size="11" fill="#000000">+publishedAt : Datetime</text>
+<text x="78" y="1340" font-size="11" fill="#000000">+reminderSentAt : Datetime</text>
+<text x="78" y="1358" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="78" y="1376" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="480" y="1040" width="280" height="396" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="480" y="1040" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="620.0" y="1059" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Posts</text>
+<line x1="480" y1="1068" x2="760" y2="1068" stroke="#222222" stroke-width="1.2"/>
+<text x="488" y="1084" font-size="11" fill="#000000">+id : string</text>
+<text x="488" y="1102" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="488" y="1120" font-size="11" fill="#000000">+title : string</text>
+<text x="488" y="1138" font-size="11" fill="#000000">+content : json</text>
+<text x="488" y="1156" font-size="11" fill="#000000">+status : string</text>
+<text x="488" y="1174" font-size="11" fill="#000000">+taskStatus : string</text>
+<text x="488" y="1192" font-size="11" fill="#000000">+campaignTag : string</text>
+<text x="488" y="1210" font-size="11" fill="#000000">+rejectReason : string</text>
+<text x="488" y="1228" font-size="11" fill="#000000">+assigneeId : string</text>
+<text x="488" y="1246" font-size="11" fill="#000000">+assignedById : string</text>
+<text x="488" y="1264" font-size="11" fill="#000000">+assignedAt : Datetime</text>
+<text x="488" y="1282" font-size="11" fill="#000000">+dueAt : Datetime</text>
+<text x="488" y="1300" font-size="11" fill="#000000">+submittedById : string</text>
+<text x="488" y="1318" font-size="11" fill="#000000">+createdById : string</text>
+<text x="488" y="1336" font-size="11" fill="#000000">+submittedAt : Datetime</text>
+<text x="488" y="1354" font-size="11" fill="#000000">+reviewedById : string</text>
+<text x="488" y="1372" font-size="11" fill="#000000">+reviewedAt : Datetime</text>
+<text x="488" y="1390" font-size="11" fill="#000000">+deletedAt : Datetime</text>
+<text x="488" y="1408" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="488" y="1426" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="890" y="1080" width="280" height="216" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="890" y="1080" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="1030.0" y="1099" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Credit_transactions</text>
+<line x1="890" y1="1108" x2="1170" y2="1108" stroke="#222222" stroke-width="1.2"/>
+<text x="898" y="1124" font-size="11" fill="#000000">+id : string</text>
+<text x="898" y="1142" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="898" y="1160" font-size="11" fill="#000000">+type : string</text>
+<text x="898" y="1178" font-size="11" fill="#000000">+action : string</text>
+<text x="898" y="1196" font-size="11" fill="#000000">+amount : int</text>
+<text x="898" y="1214" font-size="11" fill="#000000">+balanceBefore : int</text>
+<text x="898" y="1232" font-size="11" fill="#000000">+balanceAfter : int</text>
+<text x="898" y="1250" font-size="11" fill="#000000">+reason : string</text>
+<text x="898" y="1268" font-size="11" fill="#000000">+createdById : string</text>
+<text x="898" y="1286" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<rect x="1340" y="1080" width="280" height="162" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="1340" y="1080" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="1480.0" y="1099" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Notifications</text>
+<line x1="1340" y1="1108" x2="1620" y2="1108" stroke="#222222" stroke-width="1.2"/>
+<text x="1348" y="1124" font-size="11" fill="#000000">+id : string</text>
+<text x="1348" y="1142" font-size="11" fill="#000000">+userId : string</text>
+<text x="1348" y="1160" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="1348" y="1178" font-size="11" fill="#000000">+type : string</text>
+<text x="1348" y="1196" font-size="11" fill="#000000">+payload : json</text>
+<text x="1348" y="1214" font-size="11" fill="#000000">+isRead : boolean</text>
+<text x="1348" y="1232" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<rect x="70" y="1560" width="280" height="270" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="70" y="1560" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="210.0" y="1579" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Post_metrics</text>
+<line x1="70" y1="1588" x2="350" y2="1588" stroke="#222222" stroke-width="1.2"/>
+<text x="78" y="1604" font-size="11" fill="#000000">+id : string</text>
+<text x="78" y="1622" font-size="11" fill="#000000">+scheduledPostId : string</text>
+<text x="78" y="1640" font-size="11" fill="#000000">+reactions : int</text>
+<text x="78" y="1658" font-size="11" fill="#000000">+reactionsDetail : json</text>
+<text x="78" y="1676" font-size="11" fill="#000000">+comments : int</text>
+<text x="78" y="1694" font-size="11" fill="#000000">+shares : int</text>
+<text x="78" y="1712" font-size="11" fill="#000000">+reach : int</text>
+<text x="78" y="1730" font-size="11" fill="#000000">+impressions : int</text>
+<text x="78" y="1748" font-size="11" fill="#000000">+permalinkUrl : string</text>
+<text x="78" y="1766" font-size="11" fill="#000000">+syncError : string</text>
+<text x="78" y="1784" font-size="11" fill="#000000">+fetchedAt : Datetime</text>
+<text x="78" y="1802" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="78" y="1820" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="480" y="1560" width="280" height="306" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="480" y="1560" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="620.0" y="1579" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Tasks</text>
+<line x1="480" y1="1588" x2="760" y2="1588" stroke="#222222" stroke-width="1.2"/>
+<text x="488" y="1604" font-size="11" fill="#000000">+id : string</text>
+<text x="488" y="1622" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="488" y="1640" font-size="11" fill="#000000">+title : string</text>
+<text x="488" y="1658" font-size="11" fill="#000000">+description : string</text>
+<text x="488" y="1676" font-size="11" fill="#000000">+status : string</text>
+<text x="488" y="1694" font-size="11" fill="#000000">+priority : int</text>
+<text x="488" y="1712" font-size="11" fill="#000000">+assigneeId : string</text>
+<text x="488" y="1730" font-size="11" fill="#000000">+assignedById : string</text>
+<text x="488" y="1748" font-size="11" fill="#000000">+assignedAt : Datetime</text>
+<text x="488" y="1766" font-size="11" fill="#000000">+dueAt : Datetime</text>
+<text x="488" y="1784" font-size="11" fill="#000000">+postId : string</text>
+<text x="488" y="1802" font-size="11" fill="#000000">+createdById : string</text>
+<text x="488" y="1820" font-size="11" fill="#000000">+deletedAt : Datetime</text>
+<text x="488" y="1838" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="488" y="1856" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<rect x="890" y="1560" width="280" height="270" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="890" y="1560" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="1030.0" y="1579" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Media_assets</text>
+<line x1="890" y1="1588" x2="1170" y2="1588" stroke="#222222" stroke-width="1.2"/>
+<text x="898" y="1604" font-size="11" fill="#000000">+id : string</text>
+<text x="898" y="1622" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="898" y="1640" font-size="11" fill="#000000">+postId : string</text>
+<text x="898" y="1658" font-size="11" fill="#000000">+url : string</text>
+<text x="898" y="1676" font-size="11" fill="#000000">+type : string</text>
+<text x="898" y="1694" font-size="11" fill="#000000">+mimeType : string</text>
+<text x="898" y="1712" font-size="11" fill="#000000">+thumbnailUrl : string</text>
+<text x="898" y="1730" font-size="11" fill="#000000">+size : int</text>
+<text x="898" y="1748" font-size="11" fill="#000000">+tags : string</text>
+<text x="898" y="1766" font-size="11" fill="#000000">+source : string</text>
+<text x="898" y="1784" font-size="11" fill="#000000">+createdById : string</text>
+<text x="898" y="1802" font-size="11" fill="#000000">+deletedAt : Datetime</text>
+<text x="898" y="1820" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<rect x="1340" y="1560" width="280" height="288" fill="#ffffff" stroke="#222222" stroke-width="1.2"/>
+<rect x="1340" y="1560" width="280" height="28" fill="#92c7e8" stroke="#222222" stroke-width="1.2"/>
+<text x="1480.0" y="1579" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">Ai_generations</text>
+<line x1="1340" y1="1588" x2="1620" y2="1588" stroke="#222222" stroke-width="1.2"/>
+<text x="1348" y="1604" font-size="11" fill="#000000">+id : string</text>
+<text x="1348" y="1622" font-size="11" fill="#000000">+workspaceId : string</text>
+<text x="1348" y="1640" font-size="11" fill="#000000">+userId : string</text>
+<text x="1348" y="1658" font-size="11" fill="#000000">+postId : string</text>
+<text x="1348" y="1676" font-size="11" fill="#000000">+type : string</text>
+<text x="1348" y="1694" font-size="11" fill="#000000">+provider : string</text>
+<text x="1348" y="1712" font-size="11" fill="#000000">+model : string</text>
+<text x="1348" y="1730" font-size="11" fill="#000000">+status : string</text>
+<text x="1348" y="1748" font-size="11" fill="#000000">+prompt : string</text>
+<text x="1348" y="1766" font-size="11" fill="#000000">+response : string</text>
+<text x="1348" y="1784" font-size="11" fill="#000000">+errorMessage : string</text>
+<text x="1348" y="1802" font-size="11" fill="#000000">+creditCost : int</text>
+<text x="1348" y="1820" font-size="11" fill="#000000">+createdAt : Datetime</text>
+<text x="1348" y="1838" font-size="11" fill="#000000">+updatedAt : Datetime</text>
+<text x="1710" y="2020" text-anchor="end" font-size="11" fill="#64748b">Powered By Visual Paradigm Community Edition</text>
 </svg>

@@ -18,6 +18,8 @@ export interface AuthUser {
   email: string;
   name: string;
   avatar: string | null;
+  facebookUrl: string | null;
+  threadsUrl: string | null;
   systemRole: SystemRole;
   emailVerified: boolean;
   workspaces: UserWorkspace[];

@@ -2,7 +2,7 @@
 
 Tài liệu này đặc tả chi tiết thiết kế cơ sở dữ liệu vật lý của hệ thống Marka, bao gồm danh sách các bảng, kiểu dữ liệu, các ràng buộc và mối quan hệ giữa các bảng. Hệ thống sử dụng cơ sở dữ liệu quan hệ **PostgreSQL** và được quản lý thông qua **Prisma ORM**.
 
-> **Trạng thái:** nội dung khớp `backend/prisma/schema.prisma` (15 bảng). API hiện dùng 12 bảng; 3 bảng `post_metrics`, `credit_packages`, `orders` chưa có endpoint/service tương ứng.
+> **Trạng thái:** nội dung khớp `backend/prisma/schema.prisma` (16 bảng). API hiện dùng cả 16 bảng, gồm `tasks` và `post_metrics`.
 
 ---
 
@@ -70,7 +70,7 @@ Lưu trữ quan hệ phân quyền 2 cấp Workspace (RBAC).
 | `workspaceId` | VARCHAR(36) | FK -> `workspaces.id`, Cascade | Liên kết tới Workspace |
 | `userId` | VARCHAR(36) | FK -> `users.id`, Cascade | Liên kết tới Người dùng |
 | `role` | ENUM | Default: 'CONTENT_CREATOR' | Vai trò thành viên (`OWNER`, `CONTENT_CREATOR`) |
-| `allowDirectPublish` | BOOLEAN | Default: FALSE, NOT NULL | Toggle ủy quyền cho Creator tự đăng bài đã được duyệt |
+| `allowDirectPublish` | BOOLEAN | Default: FALSE, NOT NULL | Reserved cho quyền đăng trực tiếp; chưa enforce, không trả ra API |
 | `createdAt` | TIMESTAMP | Default: NOW(), NOT NULL | Thời điểm tham gia Workspace |
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật quyền của thành viên |
 
@@ -118,6 +118,28 @@ Lưu trữ nội dung bài viết chính và vòng đời trạng thái của n�
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật bài viết lần cuối |
 
 * **Index**: composite `(workspaceId, status, deletedAt)`, composite `(workspaceId, assigneeId, taskStatus)` và index `createdById`.
+
+### 2.5b. Bảng `tasks` (Công việc Kanban)
+Bảng công việc độc lập với bài viết; mỗi bài chỉ gắn tối đa một việc (`postId` unique).
+
+| Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `id` | VARCHAR(36) | PK, Default: UUID | ID công việc |
+| `workspaceId` | VARCHAR(36) | FK -> `workspaces.id`, Cascade, NOT NULL | Workspace chứa việc |
+| `title` | VARCHAR(255) | NOT NULL | Tiêu đề |
+| `description` | TEXT | Nullable | Mô tả |
+| `status` | ENUM | Default: `TODO`, NOT NULL | `TODO`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
+| `priority` | INT | Default: 3, NOT NULL | 1 = gấp nhất, 5 = thấp nhất |
+| `assigneeId` | VARCHAR(36) | FK -> `users.id`, SetNull, Nullable | Người nhận việc |
+| `assignedById` | VARCHAR(36) | FK -> `users.id`, SetNull, Nullable | Người giao việc |
+| `assignedAt` | TIMESTAMP | Nullable | Thời điểm giao |
+| `dueAt` | TIMESTAMP | Nullable | Hạn chót |
+| `postId` | VARCHAR(36) | FK -> `posts.id`, SetNull, UNIQUE, Nullable | Bài viết gắn với việc |
+| `createdById` | VARCHAR(36) | FK -> `users.id`, SetNull, Nullable | Người tạo |
+| `deletedAt` | TIMESTAMP | Nullable | Xoá mềm |
+| `createdAt`, `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm tạo/cập nhật |
+
+* **Index**: `(workspaceId, status, assigneeId)`, `(workspaceId, dueAt, status)`.
 
 ### 2.6. Bảng `media_assets` (Thư viện hình ảnh và video)
 Thư viện tệp tin đa phương tiện **cấp Workspace**; việc gắn vào bài viết là **tùy chọn** (D1).
@@ -186,7 +208,7 @@ Lưu trữ thông tin xác thực/mã hóa các kênh phân phối bài viết.
 ### 2.9. Bảng `ai_generations` (Lịch sử sử dụng AI)
 
 > **Trạng thái code:** `ai_generations` và `credit_transactions` đã được dùng cho trợ lý AI
-> (text + image). `credit_packages` và `orders` vẫn chưa có module/service/endpoint (Roadmap thanh toán).
+> (text + image). `credit_packages` và `orders` đã có module billing + PayOS (tạo đơn, webhook, polling).
 
 Lưu nhật ký prompts và logs để kiểm tra chi phí/dashboard của System Admin.
 
@@ -311,7 +333,7 @@ Lưu chỉ số hiệu suất của một bài đã đăng trên kênh; quan h�
 | `updatedAt` | TIMESTAMP | NOT NULL | Thời điểm cập nhật bản ghi |
 
 * **Index**: Unique Constraint trên `scheduledPostId` (đảm bảo quan hệ 1-1).
-* **Trạng thái code:** chưa có service đồng bộ metrics/n8n; bảng chưa được sử dụng.
+* **Trạng thái code:** đã có `analyticsWorker` đồng bộ metrics Facebook/Threads vào bảng; n8n không dùng.
 
 ---
 

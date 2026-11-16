@@ -101,7 +101,7 @@ export const DataTable = <T,>({
       </div>
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
-          <div key={getRowKey(row)} className="rounded-2xl border border-border bg-surface p-4">
+          <div key={getRowKey(row)} className="rounded-xl border border-border bg-surface p-4">
             {renderMobileCard ? renderMobileCard(row) : renderDefaultMobileCard(row)}
           </div>
         ))}

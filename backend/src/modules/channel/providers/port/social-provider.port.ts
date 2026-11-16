@@ -1,5 +1,4 @@
 import type { SocialPlatform } from '@prisma/client';
-import { BadRequestError } from '../../../utils/errors/index.js';
 
 export interface ProviderCapabilities {
   connect: 'multi-account' | 'single-account';
@@ -43,6 +42,7 @@ export interface ProviderMetrics {
   partialError: string | null;
 }
 
+//adapter
 export interface SocialProvider {
   readonly platform: SocialPlatform;
   readonly capabilities: ProviderCapabilities;
@@ -53,28 +53,4 @@ export interface SocialProvider {
   publish(input: PublishInput): Promise<string>;
   fetchMetrics(externalPostId: string, accessToken: string): Promise<ProviderMetrics>;
   refreshToken?(accessToken: string): Promise<string>;
-}
-
-export class SocialTokenExpiredError extends BadRequestError {
-  constructor(
-    message = 'Phiên đăng nhập hoặc token đã hết hạn / bị thu hồi. Vui lòng kết nối lại.'
-  ) {
-    super(message);
-    this.name = 'SocialTokenExpiredError';
-  }
-}
-
-/** Lỗi tạm thời (mạng/timeout/5xx) — có thể thử lại an toàn. */
-export class SocialTransientError extends BadRequestError {
-  constructor(message = 'Không thể kết nối tới nền tảng. Vui lòng thử lại.') {
-    super(message);
-    this.name = 'SocialTransientError';
-  }
-}
-
-export class SocialRateLimitError extends SocialTransientError {
-  constructor(message = 'Nền tảng đang giới hạn tần suất. Hệ thống sẽ thử lại sau.') {
-    super(message);
-    this.name = 'SocialRateLimitError';
-  }
 }

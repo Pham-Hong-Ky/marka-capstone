@@ -6,8 +6,10 @@ export const getCalendarRange = (month: Date) => ({
   end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
 });
 
+// Lịch hiển thị theo đúng mốc backend dùng để lọc khoảng ngày (scheduledAt,
+// fallback createdAt). publishedAt có thể lệch ngày khi đăng trễ qua nửa đêm.
 export const getScheduleDate = (schedule: ScheduleItem): Date =>
-  new Date(schedule.publishedAt ?? schedule.scheduledAt ?? schedule.createdAt);
+  new Date(schedule.scheduledAt ?? schedule.createdAt);
 
 export const toDayKey = (date: Date): string => format(date, 'yyyy-MM-dd');
 

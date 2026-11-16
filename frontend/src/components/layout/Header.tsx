@@ -21,7 +21,7 @@ export const Header = ({ workspace }: { workspace: UserWorkspace | undefined }) 
   const themeActionLabel = isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối';
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-sidebar/80 px-5 backdrop-blur">
+    <header className="sticky top-0 z-20 flex h-[60px] items-center gap-3 border-b border-border bg-surface/85 px-4 backdrop-blur sm:px-6">
       <Button
         type="button"
         variant="ghost"
@@ -50,12 +50,12 @@ export const Header = ({ workspace }: { workspace: UserWorkspace | undefined }) 
               {!isLast && crumb.to ? (
                 <Link
                   to={crumb.to}
-                  className="hidden truncate text-muted transition hover:text-foreground sm:block"
+                  className="hidden truncate text-[13px] text-muted transition hover:text-foreground sm:block"
                 >
                   {crumb.label}
                 </Link>
               ) : (
-                <span aria-current="page" className="truncate font-semibold text-foreground">
+                <span aria-current="page" className="truncate text-[13px] font-semibold text-foreground">
                   {crumb.label}
                 </span>
               )}

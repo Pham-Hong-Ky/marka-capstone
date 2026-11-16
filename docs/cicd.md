@@ -16,7 +16,7 @@ Developer push / PR
 GitHub Actions — CI (.github/workflows/ci.yml)
   ├── frontend-ci: npm ci → oxlint → vite build
   └── backend-ci : npm ci → oxlint → prisma generate → tsc --noEmit
-                   → prisma validate → prisma db push → test:connection → npm test
+                   → prisma validate → prisma migrate deploy → test:connection → npm test
         │
         │ merge vào main (qua PR + branch protection)
         ▼
@@ -56,9 +56,9 @@ CI chạy trên PostgreSQL 16 và Redis 7 dựng tạm bằng GitHub Actions `se
 | Prisma client | `npx prisma generate` |
 | Typecheck | `npm run typecheck` |
 | Validate schema | `npx prisma validate` |
-| Tạo bảng test | `npx prisma db push --skip-generate` |
+| Tạo bảng test | `npx prisma migrate deploy` (DB `marka_test`) |
 | Kiểm tra kết nối | `npm run test:connection` |
-| Test | `npm test` (Vitest + Supertest, DB thật) |
+| Test | `npm test` (Vitest + Supertest, DB test riêng) |
 
 Biến môi trường CI dùng giá trị cố định trong workflow: `DATABASE_URL`, `REDIS_URL`, `JWT_*`, `AES_SECRET_KEY`, `NODE_ENV=test`, `CLIENT_URL`. Đây không phải credential production.
 
@@ -94,11 +94,11 @@ Cấu hình trong [`render.yaml`](../render.yaml):
 | Health Check | `/api/v1/health` |
 | `ENABLE_WORKERS` | `true` (worker chạy chung process API) |
 
-Biến bắt buộc điền khi tạo Blueprint: `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `AES_SECRET_KEY`, `CLIENT_URL`, `APP_BASE_URL`, `FACEBOOK_REDIRECT_URI`.
+Biến bắt buộc điền khi tạo Blueprint: `DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `AES_SECRET_KEY`, `CLIENT_URL`, `APP_BASE_URL`, `FACEBOOK_REDIRECT_URI`.
 
-Biến tuỳ chọn (thêm trong Dashboard khi dùng): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_IMAGE_MODEL`, `CLOUDINARY_*`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `RESEND_API_KEY`, `MAIL_FROM`, `OPENAI_API_KEY`, `PAYOS_*`, `SMTP_*`.
+Biến tuỳ chọn (thêm trong Dashboard khi dùng): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_IMAGE_MODEL`, `CLOUDINARY_*`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `THREADS_APP_ID`, `THREADS_APP_SECRET`, `THREADS_REDIRECT_URI`, `RESEND_API_KEY`, `MAIL_FROM`, `PAYOS_*`.
 
-> **Lưu ý:** `GEMINI_*` và `CLOUDFLARE_*` được module AI sử dụng; `CLOUDINARY_*` dùng cho upload ảnh/AI; `PAYOS_*` dùng cho module billing (nạp credit). `OPENAI_API_KEY`, `SMTP_*` hiện **chưa được module nào sử dụng**. `ENABLE_WORKERS=true` khởi động BullMQ, trong đó `scheduleWorker` xử lý đăng bài thật, `contentWorker` xử lý job `ai:text`/`ai:image`; `email` vẫn là worker khung. Billing không dùng queue.
+> **Lưu ý:** `GEMINI_*` và `CLOUDFLARE_*` được module AI sử dụng; `CLOUDINARY_*` dùng cho upload ảnh/AI; `PAYOS_*` dùng cho module billing (nạp credit); `RESEND_API_KEY` dùng cho email mời workspace/duyệt bài/tester. Email hiện gửi đồng bộ trong request, chưa có `email-queue`. `ENABLE_WORKERS=true` khởi động BullMQ, trong đó `scheduleWorker` xử lý đăng bài thật, `contentWorker` xử lý job `ai:text`/`ai:image`. Billing không dùng queue.
 >
 > Gói free của Render không có Background Worker riêng, nên worker chạy chung Web Service. Khi service ngủ, job trong queue và scheduler đăng bài sẽ chờ tới khi có request đánh thức — lịch đăng có thể trễ. Production nên dùng backend always-on hoặc worker service riêng.
 

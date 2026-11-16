@@ -2,10 +2,9 @@
 
 > [Quay lại Mục lục](README.md)
 >
-> **Trạng thái: ĐÃ TRIỂN KHAI** cho UC31, UC40, UC41.
+> **Trạng thái: ĐÃ TRIỂN KHAI** cho UC31, UC39, UC40.
 > Phạm vi chốt: **chỉ bán gói nạp credit một lần**. Credit không hết hạn, không reset, dùng đến khi hết.
 > Không có gói tháng, không có cron billing, không dùng queue/worker cho billing.
-> UC38 (API đọc notification) đã bỏ khỏi phạm vi hệ thống.
 
 ---
 
@@ -14,8 +13,8 @@
 | UC | Chức năng | Tác nhân |
 | :--- | :--- | :--- |
 | **UC31** | Nạp credit qua PayOS | Mọi thành viên workspace |
-| **UC40** | Xem danh sách gói nạp | Mọi thành viên workspace |
-| **UC41** | Xem số dư & lịch sử giao dịch credit | Mọi thành viên workspace |
+| **UC39** | Xem danh sách gói nạp | Mọi thành viên workspace |
+| **UC40** | Xem số dư & lịch sử giao dịch credit | Mọi thành viên workspace |
 
 Ngoài ra: trừ credit khi gọi AI, hoàn credit khi job thất bại.
 

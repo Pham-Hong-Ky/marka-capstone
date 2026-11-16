@@ -2,7 +2,7 @@
 
 > [Quay lại Mục lục](README.md)
 >
-> **Phạm vi:** phần đã có trong code: gửi email qua Resend (mời workspace, bài gửi duyệt, kết quả duyệt) và ghi notification in-app.
+> **Phạm vi:** phần đã có trong code: gửi email qua Resend (mời workspace, bài gửi duyệt, kết quả duyệt) và ghi notification in-app (UC37).
 > Mã nguồn: `backend/src/utils/mailer.client.ts`, `backend/src/templates/`, `modules/workspace/workspace.service.ts`, `modules/post/post.notification.ts`.
 >
 > **Không có trong code:** email nhắc hạn gói/hết credit/lịch đăng, đẩy email qua `email-queue`.
@@ -21,7 +21,7 @@
 | Exception khi gọi Resend | Log error, trả `false` |
 | Thành công | Trả `true` |
 
-- Email gửi **đồng bộ trong request**, không qua BullMQ. Queue `email-queue` và `emailWorker` đã có khung nhưng chưa được dùng.
+- Email gửi **đồng bộ trong request**, không qua BullMQ. Code hiện không có queue/worker email; `email-queue` chỉ là roadmap.
 - Người gửi lấy từ `MAIL_FROM` (mặc định `no-reply@marka.vn`).
 - Không lưu log email vào DB, không có trạng thái "đã gửi" cho từng email.
 
@@ -87,7 +87,7 @@ Không có email thông báo khi lời mời được chấp nhận, bị thu h�
 
 ---
 
-## 5.4. Notification in-app
+## 5.4. Notification in-app (UC37)
 
 Bảng `notifications` (`Notification`): `id`, `userId`, `workspaceId?`, `type`, `payload` (JSON), `isRead` (mặc định `false`), `createdAt`.
 
@@ -99,12 +99,16 @@ Bảng `notifications` (`Notification`): `id`, `userId`, `workspaceId?`, `type`,
 | `POST_SUBMITTED` | Các Owner **trừ** người gửi duyệt | Submit bài thành công | `{ postId, postTitle, submittedById }` |
 | `POST_APPROVED` | Tác giả bài | Duyệt bài | `{ postId, postTitle, approved: true, reason: null }` |
 | `POST_REJECTED` | Tác giả bài | Từ chối bài | `{ postId, postTitle, approved: false, reason }` |
+| `TASK_ASSIGNED` | Người nhận việc | Giao/đổi người nhận | `{ taskId, taskTitle, postId? }` |
+| `TASK_STATUS_CHANGED` | Người nhận việc hoặc Owner | Đổi trạng thái việc | `{ taskId, taskTitle, status }` |
+| `TASK_DUE_SOON` | Người nhận việc | Việc đến hạn ngày mai | `{ taskId, taskTitle, dueAt }` |
+| `TASK_OVERDUE` | Người nhận việc | Việc quá hạn | `{ taskId, taskTitle, dueAt }` |
 
 - Ghi notification **không** nằm trong transaction với thao tác nghiệp vụ chính.
 - Không có notification cho: mời thành viên, xoá thành viên, đổi vai trò, cập nhật workspace, kết nối/ngắt kênh, sửa/xoá bài.
 - Không có email nào cho `MEMBER_JOINED`.
 
-### Hộp thư thông báo (bổ sung ngoài UC38)
+### Hộp thư thông báo (UC37)
 
 - `GET /users/me/notifications`: danh sách của chính người gọi, phân trang (`page`, `limit` ≤ 50), lọc `isRead`, `workspaceId` (phải là thành viên).
 - `GET /users/me/notifications/unread-count`: số chưa đọc; nhận `workspaceId?`.
@@ -137,5 +141,5 @@ Không có endpoint `/notifications`.
 1. **Email nhắc hạn gói / hết credit:** dùng `Workspace.planExpiryWarningSentAt`, `creditWarningSentAt` (cờ đã có trong schema, chưa có cron).
 2. **Email nhắc lịch đăng:** dùng `ScheduledPost.reminderSentAt` (đã có lịch đăng nhưng chưa có job nhắc).
 3. **Quên/đặt lại mật khẩu.**
-4. **Đưa email vào `email-queue`:** processor hiện chỉ log, chưa xử lý job.
+4. **Đưa email vào queue:** hiện gửi đồng bộ trong request, chưa có `email-queue`.
 5. **Thu hồi lời mời / email mời lại có kiểm soát** và template escape đầy đủ cho mọi trường người dùng nhập.

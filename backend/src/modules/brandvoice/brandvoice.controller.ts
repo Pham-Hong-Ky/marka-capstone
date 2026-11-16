@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import brandVoiceService from './brandvoice.service.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
+import type { BrandVoiceInsightsQuery } from './brandvoice.validation.js';
 
 export const getBrandVoice = catchAsync(async (req: Request, res: Response) => {
   const data = await brandVoiceService.getBrandVoice(req.params.workspaceId as string);
@@ -27,7 +28,21 @@ export const updateBrandVoice = catchAsync(async (req: Request, res: Response) =
   });
 });
 
+export const getInsights = catchAsync(async (req: Request, res: Response) => {
+  const data = await brandVoiceService.getInsights(
+    req.params.workspaceId as string,
+    req.query as unknown as BrandVoiceInsightsQuery
+  );
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Phân tích bài viết hiệu quả thành công',
+    data,
+  });
+});
+
 export default {
   getBrandVoice,
   updateBrandVoice,
+  getInsights,
 };

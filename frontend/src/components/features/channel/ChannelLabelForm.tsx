@@ -47,7 +47,7 @@ export const ChannelLabelForm = ({
   });
 
   return (
-    <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-surface p-6">
+    <form onSubmit={onSubmit} className="rounded-xl border border-border bg-surface p-5">
       <div className="space-y-1.5">
         <TextField
           label="Nhãn nội bộ"
@@ -57,7 +57,7 @@ export const ChannelLabelForm = ({
           error={errors.label?.message}
           {...register('label')}
         />
-        <p id={LABEL_HINT_ID} className="text-xs text-subtle">
+        <p id={LABEL_HINT_ID} className="text-[11px] text-subtle">
           Dùng để phân biệt các kênh cùng tên. Để trống để dùng tên gốc.
         </p>
       </div>

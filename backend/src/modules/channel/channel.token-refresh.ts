@@ -3,7 +3,7 @@ import logger from '../../utils/logger.js';
 import { decryptOrNull, encrypt } from '../../utils/encryption.js';
 import channelRepository from './channel.repository.js';
 import { getProvider, listProviders } from './providers/provider.registry.js';
-import { SocialTokenExpiredError } from './providers/social-provider.js';
+import { SocialTokenExpiredError } from './providers/errors/social.errors.js';
 
 export interface TokenRefreshResult {
   total: number;

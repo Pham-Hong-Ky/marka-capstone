@@ -11,7 +11,7 @@ vi.mock('../../../src/utils/mailer.client.js', async (importOriginal) => {
 
 const password = 'password123';
 
-describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
+describe('Workspace module (UC16–UC23, UC34, UC35)', () => {
   const stamp = Date.now();
   const owner = { email: `test_ws_owner_${stamp}@marka.vn`, name: 'Owner Test' };
   const member = { email: `test_ws_member_${stamp}@marka.vn`, name: 'Member Test' };
@@ -36,7 +36,7 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     await prisma.user.deleteMany({ where: { email: { in: [owner.email, member.email] } } });
   });
 
-  it('UC35 — Đăng ký owner và tạo workspace mặc định', async () => {
+  it('UC34 — Đăng ký owner và tạo workspace mặc định', async () => {
     const res = await request(app).post('/api/v1/auth/register').send({ ...owner, password });
 
     expect(res.status).toBe(201);
@@ -76,7 +76,7 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     expect(res.status).toBe(422);
   });
 
-  it('UC35 — Danh sách workspace chứa workspace vừa tạo', async () => {
+  it('UC34 — Danh sách workspace chứa workspace vừa tạo', async () => {
     const res = await request(app).get('/api/v1/workspaces').set('Authorization', `Bearer ${ownerToken}`);
 
     expect(res.status).toBe(200);
@@ -103,6 +103,7 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.members).toHaveLength(1);
     expect(res.body.data.members[0].role).toBe('OWNER');
+    expect(res.body.data.members[0]).not.toHaveProperty('allowDirectPublish');
     expect(res.body.data.pendingInvites).toHaveLength(0);
   });
 
@@ -219,7 +220,7 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('UC36 — Owner đổi vai trò member thành OWNER (200)', async () => {
+  it('UC35 — Owner đổi vai trò member thành OWNER (200)', async () => {
     const membersRes = await request(app)
       .get(`/api/v1/workspaces/${createdWorkspaceId}/members`)
       .set('Authorization', `Bearer ${ownerToken}`);
@@ -236,7 +237,7 @@ describe('Workspace module (UC16–UC23, UC35, UC36)', () => {
     expect(res.body.data.role).toBe('OWNER');
   });
 
-  it('UC36 — Không thể hạ Owner duy nhất (409)', async () => {
+  it('UC35 — Không thể hạ Owner duy nhất (409)', async () => {
     const membersRes = await request(app)
       .get(`/api/v1/workspaces/${ownerDefaultWorkspaceId}/members`)
       .set('Authorization', `Bearer ${ownerToken}`);

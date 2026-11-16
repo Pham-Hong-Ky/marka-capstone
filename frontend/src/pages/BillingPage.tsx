@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
+import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
 import CreditHistoryTable from '@/components/features/billing/CreditHistoryTable';
@@ -80,24 +81,24 @@ export const BillingPage = () => {
 
   if (billing.isLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6">
+      <PageContainer width="default">
         <PageHeader title="Credit & Nạp" description="Nạp credit để dùng trợ lý AI và sinh ảnh." />
         <SkeletonBlock />
-      </div>
+      </PageContainer>
     );
   }
 
   if (billing.isError || !billing.data) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6">
+      <PageContainer width="default">
         <PageHeader title="Credit & Nạp" description="Nạp credit để dùng trợ lý AI và sinh ảnh." />
-        <div className="rounded-2xl border border-border bg-surface p-6">
-          <p className="text-sm text-danger">{getErrorMessage(billing.error)}</p>
+        <div className="rounded-xl border border-border bg-surface p-5">
+          <p className="text-[13px] text-danger">{getErrorMessage(billing.error)}</p>
           <Button type="button" variant="outline" className="mt-4" onClick={() => billing.refetch()}>
             Thử lại
           </Button>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -134,26 +135,26 @@ export const BillingPage = () => {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <PageContainer width="default" className="space-y-6">
       <PageHeader
         title="Credit & Nạp"
         description="Nạp credit để dùng trợ lý AI và sinh ảnh. Credit không hết hạn, dùng đến khi hết."
       />
 
-      <section className="rounded-2xl border border-border bg-surface p-6">
-        <p className="text-sm text-muted">Credit còn lại</p>
-        <p className="mt-1 text-3xl font-semibold tabular-nums text-foreground">
+      <section className="rounded-xl border border-border bg-surface p-5">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Credit còn lại</p>
+        <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-foreground">
           {formatNumber(remainingCredit)}
         </p>
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-[13px] text-muted">
           Credit được cộng ngay sau khi thanh toán PayOS thành công.
         </p>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Gói nạp</h2>
-          <p className="mt-1 text-sm text-muted">
+          <h2 className="text-sm font-semibold text-foreground">Gói nạp</h2>
+          <p className="mt-1 text-[13px] text-muted">
             Mọi thành viên đều có thể nạp credit cho workspace.
           </p>
         </div>
@@ -164,7 +165,7 @@ export const BillingPage = () => {
             description="Quản trị viên cần cấu hình gói nạp trước khi bán credit."
           />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {packages.map((creditPackage) => (
               <PackageCard
                 key={creditPackage.id}
@@ -178,10 +179,10 @@ export const BillingPage = () => {
         )}
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Lịch sử credit</h2>
-          <p className="mt-1 text-sm text-muted">
+          <h2 className="text-sm font-semibold text-foreground">Lịch sử credit</h2>
+          <p className="mt-1 text-[13px] text-muted">
             Các lần nạp credit và sử dụng trợ lý AI.
           </p>
         </div>
@@ -205,7 +206,7 @@ export const BillingPage = () => {
         onClose={handleClosePayment}
         onCancel={handleCancelOrder}
       />
-    </div>
+    </PageContainer>
   );
 };
 

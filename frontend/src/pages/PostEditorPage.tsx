@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import EmptyState from '@/components/ui/EmptyState';
+import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
 import PostEditorForm from '@/components/features/post/PostEditorForm';
 import { usePost } from '@/hooks/usePost';
@@ -14,21 +15,37 @@ interface PostEditorLocationState {
   pendingAiGenerationId?: string;
 }
 
+interface PendingAiGeneration {
+  postId: string;
+  generationId: string;
+}
+
 export const PostEditorPage = () => {
   const { postId } = useParams<{ postId: string }>();
   const isEdit = Boolean(postId);
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [initialAiGenerationId] = useState<string | null>(() => {
-    const state = location.state as PostEditorLocationState | null;
-    return state?.pendingAiGenerationId ?? null;
-  });
+  // Từ /posts/new sang /posts/:id/edit React Router không remount page. Giữ ID
+  // trong state để không mất khi trang tạm hiện skeleton chờ tải bài.
+  const postKey = postId ?? 'new';
+  const pendingAiGenerationId =
+    (location.state as PostEditorLocationState | null)?.pendingAiGenerationId ?? null;
+  const [pendingAi, setPendingAi] = useState<PendingAiGeneration | null>(
+    pendingAiGenerationId ? { postId: postKey, generationId: pendingAiGenerationId } : null
+  );
+  const initialAiGenerationId =
+    pendingAi?.postId === postKey ? pendingAi.generationId : null;
 
   useEffect(() => {
-    if (!initialAiGenerationId) return;
+    if (!pendingAiGenerationId) return;
+    setPendingAi({ postId: postKey, generationId: pendingAiGenerationId });
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-  }, [initialAiGenerationId, location.pathname, location.search, navigate]);
+  }, [pendingAiGenerationId, postKey, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    if (pendingAi && pendingAi.postId !== postKey) setPendingAi(null);
+  }, [pendingAi, postKey]);
 
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
@@ -70,7 +87,7 @@ export const PostEditorPage = () => {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <PageContainer width="wide">
       <PageHeader
         title={isEdit ? 'Sửa bài viết' : 'Tạo bài viết'}
         description="Soạn nội dung và lưu dưới dạng bản nháp, sau đó gửi duyệt khi đã sẵn sàng."
@@ -82,7 +99,7 @@ export const PostEditorPage = () => {
         post={post ?? null}
         initialAiGenerationId={initialAiGenerationId}
       />
-    </div>
+    </PageContainer>
   );
 };
 

@@ -66,7 +66,7 @@ const paidPaymentLink = (orderCode: number, amount = 25_000) => ({
   canceledAt: null,
 });
 
-describe('Billing - nạp credit qua PayOS (UC31, UC40, UC41)', () => {
+describe('Billing - nạp credit qua PayOS (UC31, UC39, UC40)', () => {
   const stamp = Date.now();
   const owner = { email: `test_billing_owner_${stamp}@marka.vn`, name: 'Owner Billing' };
   const creator = { email: `test_billing_creator_${stamp}@marka.vn`, name: 'Creator Billing' };
@@ -171,7 +171,7 @@ describe('Billing - nạp credit qua PayOS (UC31, UC40, UC41)', () => {
     }
   });
 
-  it('UC40 - thành viên xem số dư và danh sách gói nạp', async () => {
+  it('UC39 - thành viên xem số dư và danh sách gói nạp', async () => {
     const res = await request(app).get(billingUrl()).set(auth(creatorToken));
 
     expect(res.status).toBe(200);

@@ -62,13 +62,13 @@ export const DeleteAccountCard = () => {
   });
 
   return (
-    <section className="rounded-2xl border border-danger/30 bg-surface p-6">
+    <section className="rounded-xl border border-danger/30 bg-surface p-5">
       <h2 className="text-sm font-semibold text-foreground">Xoá tài khoản</h2>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-[11px] text-muted">
         Bạn sẽ mất quyền truy cập vào mọi workspace và không thể hoàn tác thao tác này.
       </p>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-5 flex justify-end">
         <Button type="button" className="min-h-11 bg-danger hover:bg-danger/90" onClick={openModal}>
           Xoá tài khoản
         </Button>
@@ -113,7 +113,7 @@ export const DeleteAccountCard = () => {
               aria-describedby={PASSWORD_HINT_ID}
               {...register('password')}
             />
-            <p id={PASSWORD_HINT_ID} className="text-xs text-subtle">
+            <p id={PASSWORD_HINT_ID} className="text-[11px] text-subtle">
               Bắt buộc với tài khoản đăng nhập bằng email/mật khẩu; có thể để trống với tài khoản
               Google.
             </p>

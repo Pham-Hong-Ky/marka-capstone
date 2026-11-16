@@ -1,14 +1,19 @@
 import { useState } from 'react';
+import { Share2 } from 'lucide-react';
+import Alert from '@/components/ui/Alert';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
+import MetricStrip from '@/components/ui/MetricStrip';
+import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
+import { SkeletonList } from '@/components/ui/Skeleton';
 import ChannelCard from '@/components/features/channel/ChannelCard';
 import ChannelConnectMenu from '@/components/features/channel/ChannelConnectMenu';
 import ChannelConnectFlow from '@/components/features/channel/connect/ChannelConnectFlow';
 import { useChannels, useDisconnectChannel, useStartChannelOauth } from '@/hooks/useChannels';
 import type { ChannelConnection } from '@/services/channel';
 import { getErrorMessage } from '@/utils/error';
-import { SkeletonList } from '@/components/ui/Skeleton';
+import { formatNumber } from '@/utils/format';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 
 export const ChannelsPage = () => {
@@ -27,6 +32,8 @@ export const ChannelsPage = () => {
   }
 
   const channels = data?.channels ?? [];
+  const activeCount = channels.filter((channel) => channel.status === 'ACTIVE').length;
+  const expiredCount = channels.filter((channel) => channel.status === 'EXPIRED').length;
 
   const handleStartOauth = (channel: ChannelConnection) =>
     startOauth.mutate({ platform: channel.platform, workspaceId });
@@ -40,7 +47,7 @@ export const ChannelsPage = () => {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <PageContainer width="default">
       <PageHeader
         title="Kênh kết nối"
         description="Kết nối nền tảng mạng xã hội để chuẩn bị đăng bài và theo dõi hiệu quả nội dung."
@@ -50,11 +57,24 @@ export const ChannelsPage = () => {
       {isLoading ? <SkeletonList rows={2} /> : null}
 
       {isError ? (
-        <p className="text-sm text-danger">{getErrorMessage(error)}</p>
+        <Alert variant="danger" title="Không tải được danh sách kênh">
+          {getErrorMessage(error)}
+        </Alert>
+      ) : null}
+
+      {!isLoading && !isError && channels.length > 0 ? (
+        <MetricStrip
+          items={[
+            { label: 'Tổng kênh', value: formatNumber(channels.length) },
+            { label: 'Đang hoạt động', value: formatNumber(activeCount) },
+            { label: 'Hết hạn', value: formatNumber(expiredCount) },
+          ]}
+        />
       ) : null}
 
       {!isLoading && !isError && channels.length === 0 ? (
         <EmptyState
+          icon={Share2}
           title="Chưa có kênh nào được kết nối."
           description={
             isOwner
@@ -65,7 +85,7 @@ export const ChannelsPage = () => {
       ) : null}
 
       {channels.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           {channels.map((channel) => (
             <ChannelCard
               key={channel.id}
@@ -93,7 +113,7 @@ export const ChannelsPage = () => {
         isLoading={disconnect.isPending}
         onConfirm={confirmDisconnect}
       />
-    </div>
+    </PageContainer>
   );
 };
 

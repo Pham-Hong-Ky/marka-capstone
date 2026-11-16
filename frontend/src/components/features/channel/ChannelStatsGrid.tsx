@@ -37,10 +37,10 @@ export const ChannelStatsGrid = ({
       </div>
 
       {showMetrics ? null : (
-        <p className="text-sm text-muted">Nền tảng này chưa cung cấp số liệu tương tác.</p>
+        <p className="text-[13px] text-muted">Nền tảng này chưa cung cấp số liệu tương tác.</p>
       )}
 
-      <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-subtle">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-subtle">
         <p>
           {stats.lastSyncedAt
             ? `Đồng bộ lần cuối ${formatDateTime(stats.lastSyncedAt)}`

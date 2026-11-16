@@ -11,7 +11,7 @@ vi.mock('../../../src/utils/cloudinary.client.js', () => ({
 
 const password = 'password123';
 
-describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
+describe('Post module (UC05, UC07, UC08, UC09, UC10, UC36)', () => {
   const stamp = Date.now();
   const owner = { email: `test_post_owner_${stamp}@marka.vn`, name: 'Owner Post' };
   const creatorA = { email: `test_post_creator_a_${stamp}@marka.vn`, name: 'Creator A' };
@@ -317,7 +317,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(200);
   });
 
-  it('UC37 — Upload ảnh vào bài của mình (201)', async () => {
+  it('UC36 — Upload ảnh vào bài của mình (201)', async () => {
     const res = await request(app)
       .post(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}/media`)
       .set('Authorization', `Bearer ${creatorAToken}`)
@@ -329,7 +329,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     mediaId = res.body.data.id;
   });
 
-  it('UC37 — Chi tiết bài chứa ảnh vừa upload', async () => {
+  it('UC36 — Chi tiết bài chứa ảnh vừa upload', async () => {
     const res = await request(app)
       .get(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}`)
       .set('Authorization', `Bearer ${creatorAToken}`);
@@ -337,7 +337,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.body.data.mediaAssets.length).toBeGreaterThan(0);
   });
 
-  it('UC37 — Upload sai định dạng trả 400', async () => {
+  it('UC36 — Upload sai định dạng trả 400', async () => {
     const res = await request(app)
       .post(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}/media`)
       .set('Authorization', `Bearer ${creatorAToken}`)
@@ -346,7 +346,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('UC37 — Upload ảnh vượt 10MB trả 400', async () => {
+  it('UC36 — Upload ảnh vượt 10MB trả 400', async () => {
     const res = await request(app)
       .post(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}/media`)
       .set('Authorization', `Bearer ${creatorAToken}`)
@@ -355,7 +355,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('UC37 — Creator khác upload vào bài người khác trả 403', async () => {
+  it('UC36 — Creator khác upload vào bài người khác trả 403', async () => {
     const res = await request(app)
       .post(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}/media`)
       .set('Authorization', `Bearer ${creatorBToken}`)
@@ -374,7 +374,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     mediaId2 = res.body.data.id;
   });
 
-  it('UC37 — Gỡ ảnh khỏi bài của mình (200)', async () => {
+  it('UC36 — Gỡ ảnh khỏi bài của mình (200)', async () => {
     const res = await request(app)
       .delete(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}/media/${mediaId}`)
       .set('Authorization', `Bearer ${creatorAToken}`);
@@ -382,7 +382,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(200);
   });
 
-  it('UC37 — Gỡ ảnh không thuộc bài trả 404', async () => {
+  it('UC36 — Gỡ ảnh không thuộc bài trả 404', async () => {
     const res = await request(app)
       .delete(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}/media/00000000-0000-0000-0000-000000000000`)
       .set('Authorization', `Bearer ${creatorAToken}`);
@@ -390,7 +390,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(404);
   });
 
-  it('UC37 — Creator khác gỡ ảnh bài người khác trả 403', async () => {
+  it('UC36 — Creator khác gỡ ảnh bài người khác trả 403', async () => {
     const res = await request(app)
       .delete(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}/media/${mediaId2}`)
       .set('Authorization', `Bearer ${creatorBToken}`);
@@ -689,7 +689,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(savedPost).toBeNull();
   });
 
-  // ---- UC42 (Giao việc) & UC43 (Cập nhật trạng thái công việc) ----
+  // ---- UC41 (Giao việc) & UC42 (Cập nhật trạng thái công việc) ----
 
   let taskPostId = '';
 
@@ -703,7 +703,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     taskPostId = res.body.data.id;
   });
 
-  it('UC42 — Creator không được giao việc (403)', async () => {
+  it('UC41 — Creator không được giao việc (403)', async () => {
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/assign`)
       .set('Authorization', `Bearer ${creatorAToken}`)
@@ -712,7 +712,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('UC42 — Giao việc cho thành viên workspace (200)', async () => {
+  it('UC41 — Giao việc cho thành viên workspace (200)', async () => {
     const dueAt = new Date(Date.now() + 3 * 86_400_000).toISOString();
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/assign`)
@@ -731,9 +731,13 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
       where: { workspaceId: wsId, userId: creatorAId, type: 'TASK_ASSIGNED' },
     });
     expect(notifyCount).toBeGreaterThanOrEqual(1);
+
+    const task = await prisma.task.findUnique({ where: { postId: taskPostId } });
+    expect(task).toMatchObject({ assigneeId: creatorAId, status: 'TODO' });
+    expect(task?.dueAt?.toISOString()).toBe(dueAt);
   });
 
-  it('UC42 — Giao việc cho người ngoài workspace trả 400', async () => {
+  it('UC41 — Giao việc cho người ngoài workspace trả 400', async () => {
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/assign`)
       .set('Authorization', `Bearer ${ownerToken}`)
@@ -742,7 +746,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('UC43 — Creator khác không cập nhật được trạng thái việc người khác (403)', async () => {
+  it('UC42 — Creator khác không cập nhật được trạng thái việc người khác (403)', async () => {
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
       .set('Authorization', `Bearer ${creatorBToken}`)
@@ -751,7 +755,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('UC43 — Người nhận việc cập nhật trạng thái (200)', async () => {
+  it('UC42 — Người nhận việc cập nhật trạng thái (200)', async () => {
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
       .set('Authorization', `Bearer ${creatorAToken}`)
@@ -770,9 +774,12 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
       where: { workspaceId: wsId, userId: ownerId, type: 'TASK_STATUS_CHANGED' },
     });
     expect(notifyCount).toBeGreaterThanOrEqual(1);
+
+    const task = await prisma.task.findUnique({ where: { postId: taskPostId } });
+    expect(task?.status).toBe('IN_PROGRESS');
   });
 
-  it('UC43 — Owner cập nhật trạng thái việc của người khác (200)', async () => {
+  it('UC42 — Owner cập nhật trạng thái việc của người khác (200)', async () => {
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
       .set('Authorization', `Bearer ${ownerToken}`)
@@ -782,7 +789,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.body.data.taskStatus).toBe('DONE');
   });
 
-  it('UC43 — Trạng thái không hợp lệ trả 422', async () => {
+  it('UC42 — Trạng thái không hợp lệ trả 422', async () => {
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
       .set('Authorization', `Bearer ${ownerToken}`)
@@ -817,7 +824,7 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     ).toBe(true);
   });
 
-  it('UC42 — Bỏ giao việc (assigneeId=null) đưa trạng thái về TODO', async () => {
+  it('UC41 — Bỏ giao việc (assigneeId=null) đưa trạng thái về TODO', async () => {
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/assign`)
       .set('Authorization', `Bearer ${ownerToken}`)
@@ -829,9 +836,12 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC37)', () => {
     expect(res.body.data.assignedById).toBeNull();
     expect(res.body.data.assignedAt).toBeNull();
     expect(res.body.data.dueAt).toBeNull();
+
+    const task = await prisma.task.findUnique({ where: { postId: taskPostId } });
+    expect(task).toMatchObject({ assigneeId: null, status: 'TODO' });
   });
 
-  it('UC43 — Cập nhật trạng thái bài chưa giao việc trả 409', async () => {
+  it('UC42 — Cập nhật trạng thái bài chưa giao việc trả 409', async () => {
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${taskPostId}/task-status`)
       .set('Authorization', `Bearer ${ownerToken}`)

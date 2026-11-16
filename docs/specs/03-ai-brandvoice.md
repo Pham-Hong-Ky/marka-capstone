@@ -36,6 +36,8 @@ Cấu trúc JSON:
 ```
 
 Module AI đọc `brandVoice` để đưa vào prompt sinh nội dung và prompt sinh ảnh.
+Prompt sinh nội dung dùng tối đa **3 bài mẫu**, mỗi bài cắt tối đa **1200 ký tự** và chỉ
+học cách mở bài/nhịp câu/xưng hô/CTA/emoji/hashtag, không sao chép nguyên văn.
 
 ---
 
@@ -136,6 +138,7 @@ Body (`generateTextBodySchema`):
 | `topic` | string | `trim`, 5–1000 ký tự |
 | `instructions` | string | `trim`, ≤ 500 ký tự, tuỳ chọn |
 | `postId` | UUID | Tuỳ chọn; nếu có phải thuộc workspace và bài đang `DRAFT`/`REJECTED`, user có quyền sửa |
+| `channelIds` | UUID[] | Tuỳ chọn, 1–10 kênh `REAL`/`ACTIVE` có provider đăng bài. Bắt buộc khi workspace đã có kênh đăng được. AI dùng kênh để chọn giới hạn ký tự, hashtag, emoji và cấu trúc |
 
 Response:
 
@@ -153,8 +156,9 @@ Response:
 }
 ```
 
-- Prompt gồm Brand Voice + chủ đề + yêu cầu thêm; system prompt yêu cầu tiếng Việt,
-  không bịa số liệu, có mở bài/thân bài/CTA.
+- Prompt gồm Brand Voice (tối đa 3 bài mẫu) + chủ đề + yêu cầu thêm + kênh đăng bài; system prompt
+  yêu cầu tiếng Việt, không bịa số liệu, có mở bài/thân bài/CTA. Khi chọn nhiều kênh, giới hạn được lấy theo kênh chặt nhất
+  (ví dụ Facebook + Threads → tối đa 480 ký tự, không heading/bullet, 1–3 hashtag).
 - Gemini trả JSON `{ title, blocks }`; server validate bằng Zod rồi chuyển sang Tiptap:
   `paragraph`, `heading` (level 2), `bulletList`.
 - Không tự tạo/sửa `Post`; frontend điền kết quả vào editor và người dùng bấm Lưu.
@@ -270,6 +274,7 @@ hoặc (bài mới, tự tạo nháp):
 | Method | Path | Quyền | Ghi chú |
 | :--- | :--- | :--- | :--- |
 | GET | `/workspaces/:workspaceId/brand-voice` | Thành viên | Trả `brandVoice` + `isConfigured` |
+| GET | `/workspaces/:workspaceId/brand-voice/insights` | Thành viên | Top bài hiệu quả + bài học + gợi ý Brand Voice |
 | PUT | `/workspaces/:workspaceId/brand-voice` | OWNER | Ghi đè toàn bộ, dedupe từ khoá, audit |
 | POST | `/workspaces/:workspaceId/ai/text` | Thành viên | Enqueue sinh nội dung, trừ 10 credit |
 | POST | `/workspaces/:workspaceId/ai/images` | Thành viên + quyền sửa bài | Enqueue sinh ảnh, trừ 20 credit |
@@ -280,7 +285,34 @@ hoặc (bài mới, tự tạo nháp):
 
 ---
 
-## 3.7. Chưa triển khai (Roadmap)
+## 3.7. Brand Voice Insights — top bài hiệu quả
+
+`GET /workspaces/:workspaceId/brand-voice/insights`
+
+- Quyền: thành viên workspace (Creator xem được; chỉ OWNER áp dụng gợi ý).
+- Query: `windowDays` (7–365, mặc định 90), `limit` (1–10, mặc định 5), `channelId` (tuỳ chọn).
+- Nguồn dữ liệu: `ScheduledPost` trạng thái `PUBLISHED`, có `PostMetric` đã sync
+  (`fetchedAt != null`, `syncError == null`), trong cửa sổ ngày và đăng cách hiện tại
+  ít nhất 48 giờ để số liệu ổn định; nội dung lấy
+  `customContent` nếu có, ngược lại `Post.content`; bỏ bài trùng nội dung
+  (Jaccard ≥ 0.98).
+- Xếp hạng: **tổng tương tác** = `reactions + comments + shares`, giảm dần.
+- Insight: so nhóm top 30% với nhóm kém 30% (mỗi nhóm 3–10 bài). Chỉ kết luận khi
+  đủ 10 bài và chênh lệch ≥ 25%:
+  - hook câu hỏi, CTA, ảnh/video, bullet, xưng hô gần gũi, link ngoài;
+  - độ dài, số đoạn, hashtag, emoji, độ dài câu, tỷ lệ viết hoa.
+- Gợi ý:
+  - `writingStyle` ghép từ tối đa 6 insight mạnh nhất, ≤ 300 ký tự;
+  - `keywordsShouldUse` / `keywordsAvoid`: hashtag xuất hiện ≥ 2 bài ở nhóm top/kém
+    và không lẫn giữa hai nhóm;
+  - `fewShotExamples`: tối đa 3 bài top.
+- `meta`: `sampleSize`, `windowDays`, `minPostsForInsights`, `usedFallback`.
+- Áp dụng: frontend gọi `PUT /brand-voice` với `industry`/`targetAudience` hiện tại,
+  `writingStyle` gợi ý, hashtag merge vào từ khoá hiện có, thay 3 bài mẫu.
+  Không auto-save.
+- Không trừ credit, không gọi AI provider.
+
+## 3.8. Chưa triển khai (Roadmap)
 
 1. **Viral Score / 1-Click Fix:** chấm điểm và sinh lại nội dung; `AiGenType.VIRAL_SCORE`, `REGENERATE`.
 2. **Sinh nhiều ảnh/lần, chọn tỉ lệ/style:** hiện 1 ảnh vuông mỗi lần.

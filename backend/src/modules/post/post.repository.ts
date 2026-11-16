@@ -132,6 +132,11 @@ export const updateTaskStatus = async (postId: string, taskStatus: TaskStatus) =
   return prisma.post.update({ where: { id: postId }, data: { taskStatus } });
 };
 
+export const updateAssignmentFields = async (
+  postId: string,
+  data: Prisma.PostUncheckedUpdateInput
+) => prisma.post.update({ where: { id: postId }, data });
+
 export type SoftDeletePostResult = 'deleted' | 'publishing';
 
 export const softDeletePost = async (postId: string): Promise<SoftDeletePostResult> => {
@@ -187,6 +192,7 @@ export default {
   transitionPostStatus,
   assignPost,
   updateTaskStatus,
+  updateAssignmentFields,
   softDeletePost,
   createMedia,
   findMediaByIdAndPost,

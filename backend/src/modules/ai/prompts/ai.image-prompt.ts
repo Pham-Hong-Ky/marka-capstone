@@ -3,8 +3,8 @@ import {
   AI_IMAGE_ART_PROMPT_MAX_LENGTH,
   AI_IMAGE_CONTENT_LIMIT,
   AI_IMAGE_MAX_PROMPT_LENGTH,
-} from './ai.config.js';
-import { AiOutputError } from './ai.errors.js';
+} from '../providers/ai.config.js';
+import { AiOutputError } from '../providers/ai.errors.js';
 import { parseStoredPayload } from './ai.payload.js';
 import { normalizeBrandVoice } from './ai.prompt.js';
 

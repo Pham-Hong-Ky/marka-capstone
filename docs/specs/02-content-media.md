@@ -134,11 +134,13 @@ Yêu cầu `requireAuth` + là thành viên.
 
 ## 2.3. Sửa & xoá bài viết (UC08, UC11)
 
-Quyền chung cho cả sửa và xoá (`assertCanModify` + `assertEditable`):
+Quyền sửa (`PATCH`) áp dụng `assertCanModify` + `assertEditable`:
 
-- `OWNER`: được thao tác **mọi bài** trong workspace.
+- `OWNER`: được sửa **mọi bài** trong workspace, nhưng chỉ khi bài ở `DRAFT`/`REJECTED`.
 - `CONTENT_CREATOR`: chỉ bài có `createdById` trùng user hiện tại; bài người khác → `403` `"Bạn không có quyền thay đổi bài viết này"`.
-- Chỉ bài `DRAFT` hoặc `REJECTED` mới được sửa/xoá; trạng thái khác → `409` `"Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối"`.
+- Bài `DRAFT` hoặc `REJECTED` mới được sửa; trạng thái khác → `409` `"Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối"`.
+
+Quyền xoá (`DELETE`) khác: `OWNER` xoá được mọi trạng thái trừ bài đang đăng; `CONTENT_CREATOR` chỉ xoá bài của mình ở `DRAFT`/`REJECTED`.
 
 ### `PATCH /workspaces/:workspaceId/posts/:postId` (UC08)
 
@@ -154,11 +156,12 @@ Quyền chung cho cả sửa và xoá (`assertCanModify` + `assertEditable`):
 
 ### `DELETE /workspaces/:workspaceId/posts/:postId` (UC11)
 
-- Chỉ xoá được `DRAFT`/`REJECTED`; bài `PENDING`/`APPROVED` (và các trạng thái khác) trả `409`.
+- `OWNER`: xoá được bài ở mọi trạng thái, trừ khi bài đang được đăng (`409` `"Bài viết đang được đăng, vui lòng thử lại sau"`).
+- `CONTENT_CREATOR`: chỉ xoá bài của mình ở `DRAFT`/`REJECTED`; trạng thái khác → `409`.
 - **Xoá mềm**: set `deletedAt = now`; không xoá media, không xoá asset trên Cloudinary.
-- Không ghi audit.
+- Ghi audit `POST_DELETED`.
 - Response `200`: `{ "success": true }`.
-- Hệ quả: bài đã xoá không còn trong list/detail và không thể khôi phục qua API. Đây là lý do UC11 được xếp **Một phần** (chưa có luồng thu hồi bài `PENDING`/`APPROVED` rồi xoá, chưa có xoá cứng).
+- Hệ quả: bài đã xoá không còn trong list/detail và không thể khôi phục qua API. UC11 được xếp **Một phần** vì Creator bị giới hạn trạng thái và chưa có xoá cứng/khôi phục.
 
 ---
 
@@ -255,7 +258,7 @@ Chi tiết email & notification: xem [05](./05-notifications-email.md).
 | `POST_APPROVED` | Duyệt | — |
 | `POST_REJECTED` | Từ chối | Lý do từ chối |
 
-Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đọc audit (xem [07](./07-admin-analytics.md)).
+Tạo/sửa bài và thao tác media **không** ghi audit; xoá bài ghi `POST_DELETED`. Đọc audit qua `/admin/audit-logs` hoặc `/workspaces/:workspaceId/audit-logs` ([07](./07-admin-analytics.md)).
 
 ---
 
@@ -265,11 +268,12 @@ Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đ
 | :--- | :--- | :--- |
 | Tạo bài | ✅ | ✅ |
 | Xem danh sách/chi tiết | ✅ | ✅ |
-| Sửa/xoá bài | ✅ mọi bài, chỉ `DRAFT`/`REJECTED` | ✅ bài của mình, chỉ `DRAFT`/`REJECTED` |
+| Sửa bài | ✅ mọi bài, chỉ `DRAFT`/`REJECTED` | ✅ bài của mình, chỉ `DRAFT`/`REJECTED` |
+| Xoá bài | ✅ mọi trạng thái trừ đang đăng | ✅ bài của mình, chỉ `DRAFT`/`REJECTED` |
 | Upload/xoá media | ✅ mọi bài đang sửa được | ✅ bài của mình đang sửa được |
 | Gửi duyệt | ✅ mọi bài | ✅ bài của mình |
 | Duyệt/từ chối | ✅ | ❌ `403` |
-| Xem notification | Chưa có API | Chưa có API |
+| Xem notification | ✅ (UC37) | ✅ (UC37) |
 
 ---
 
@@ -303,7 +307,8 @@ Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đ
 | `403` | `Chỉ người nhận việc hoặc chủ workspace được cập nhật trạng thái công việc` | Creator khác đổi trạng thái việc |
 | `404` | `Bài viết không tồn tại` | Sai id / khác workspace / đã xoá mềm |
 | `404` | `Ảnh không tồn tại trong bài viết` | Media không thuộc bài |
-| `409` | `Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối` | Sửa/xoá/upload media ở trạng thái khác |
+| `409` | `Chỉ có thể thay đổi bản nháp hoặc bài bị từ chối` | Sửa/upload media ở trạng thái khác; Creator xoá bài ở trạng thái khác |
+| `409` | `Bài viết đang được đăng, vui lòng thử lại sau` | Owner xoá bài đang trong quá trình đăng |
 | `409` | `Không thể chuyển trạng thái bài viết này` | Submit/review sai trạng thái hoặc race |
 | `409` | `Bài viết chưa được giao việc` | Đổi `taskStatus` khi chưa có người nhận |
 | `422` | `Cần cung cấp ít nhất một trường để cập nhật` | PATCH body rỗng |
@@ -313,7 +318,7 @@ Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đ
 
 ---
 
-## 2.10. Giao việc & trạng thái công việc (UC42, UC43)
+## 2.10. Giao việc & trạng thái công việc (UC41, UC42)
 
 - **Giao việc** — `PATCH /workspaces/:workspaceId/posts/:postId/assign`, chỉ `OWNER`.
   - Body: `assigneeId` (uuid hoặc `null`) và `dueAt` (ISO-8601 tuỳ chọn).
@@ -325,13 +330,14 @@ Tạo/sửa/xoá bài và thao tác media **không** ghi audit. Chưa có API đ
   - Bài chưa giao việc → `409`; không phải người nhận/Owner → `403`.
   - Notification `TASK_STATUS_CHANGED` cho Owner và tác giả bài (trừ người thao tác), audit `TASK_STATUS_CHANGED`.
 - **Lọc danh sách**: `GET .../posts?assigneeId=me` (việc của tôi) hoặc uuid, kết hợp `taskStatus`.
+- **Đồng bộ với bảng `Task`**: giao việc từ bài sẽ upsert một `Task` gắn `postId` (một bài tối đa một việc); đổi trạng thái từ phía bài cập nhật luôn `Task.status`. Ngược lại, giao/đổi trạng thái/đổi hạn trên Kanban cập nhật `assigneeId`, `dueAt`, `taskStatus` của bài liên kết. Huỷ/gỡ liên kết hoặc xoá việc sẽ bỏ giao việc trên bài.
 
 ---
 
 ## 2.11. Chưa triển khai (Roadmap)
 
 - **Thư viện media cấp workspace**: `MediaAsset.postId` nullable, upload độc lập, tag, quota, lọc/tìm kiếm, video/thumbnail. Hiện chỉ có ảnh gắn bài.
-- **Calendar nâng cao**: kéo-thả đổi giờ, sửa lịch sau khi tạo — đăng ngay/lên lịch/huỷ lịch cơ bản đã có trong [04](./04-social-publishing.md).
-- Nâng cấp giao việc: board Kanban, độ ưu tiên, nhắc hạn qua email.
+- **Calendar nâng cao**: kéo-thả theo khung giờ — đổi ngày, đổi giờ chính xác và huỷ lịch đã có trong [04](./04-social-publishing.md).
+- Giao việc nâng cao: nhắc hạn qua email (board Kanban và nhắc hạn in-app đã có).
 - Lịch sử phiên bản bài viết, bình luận/góp ý theo bài, xuất CSV/Excel, lọc theo `campaignTag`, khôi phục bài đã xoá mềm.
 - Xoá cứng / xoá asset Cloudinary khi xoá media hoặc bài.

@@ -1,3 +1,5 @@
+import { CalendarClock } from 'lucide-react';
+import Button from '@/components/ui/Button';
 import ScheduleStatusBadge from '@/components/features/schedule/ScheduleStatusBadge';
 import { buildExternalPostUrl } from '@/services/channel';
 import type { ScheduleItem } from '@/services/schedule';
@@ -9,7 +11,15 @@ const getScheduleTime = (schedule: ScheduleItem): string => {
   return 'Đăng ngay';
 };
 
-export const PostScheduleList = ({ schedules }: { schedules: ScheduleItem[] }) => {
+export const PostScheduleList = ({
+  schedules,
+  canReschedule,
+  onReschedule,
+}: {
+  schedules: ScheduleItem[];
+  canReschedule?: (schedule: ScheduleItem) => boolean;
+  onReschedule?: (schedule: ScheduleItem) => void;
+}) => {
   if (schedules.length === 0) return null;
 
   return (
@@ -24,6 +34,17 @@ export const PostScheduleList = ({ schedules }: { schedules: ScheduleItem[] }) =
               <span className="font-medium text-foreground">{schedule.channel.name}</span>
               <ScheduleStatusBadge status={schedule.status} />
               <span className="text-xs text-muted">{getScheduleTime(schedule)}</span>
+              {canReschedule?.(schedule) && onReschedule ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="ml-auto min-h-11 px-3"
+                  onClick={() => onReschedule(schedule)}
+                >
+                  <CalendarClock className="h-4 w-4" />
+                  Đổi lịch
+                </Button>
+              ) : null}
             </div>
             {schedule.errorMessage ? (
               <p className="mt-1 text-danger">{schedule.errorMessage}</p>

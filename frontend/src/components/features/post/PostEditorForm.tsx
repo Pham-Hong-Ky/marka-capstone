@@ -250,90 +250,99 @@ export const PostEditorForm = ({
   const isSaving = createPost.isPending || updatePost.isPending || uploadMedia.isPending;
 
   return (
-    <form id="post-editor-form" onSubmit={onSubmit} className="space-y-5">
-      {restored ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
-          <span>Đã khôi phục bản đang soạn chưa lưu trước đó.</span>
-          <button
-            type="button"
-            onClick={discardDraft}
-            className="shrink-0 font-medium text-accent-text underline transition hover:opacity-80"
-          >
-            Bỏ thay đổi
-          </button>
-        </div>
-      ) : null}
-
-      <PostAIAssistant
-        workspaceId={workspaceId}
-        postId={post?.id ?? null}
-        disabled={isSaving}
-        onBusyChange={setAiBusy}
-        onApplyText={handleApplyText}
-      />
-
-      <TextField
-        label="Tiêu đề"
-        placeholder="Ví dụ: Khuyến mãi mùa thu"
-        error={errors.title?.message}
-        disabled={aiBusy || isSaving}
-        {...register('title')}
-      />
-
-      <div className="space-y-1.5">
-        <span className="block text-sm font-medium text-foreground">Nội dung</span>
-        <RichTextEditor
-          key={editorKey}
-          value={content}
-          editable={!aiBusy}
-          onChange={(json) => {
-            setContent(json);
-            setContentError(null);
-          }}
-          error={contentError ?? undefined}
-        />
-      </div>
-
-      <div className="space-y-3">
-        <span className="block text-sm font-medium text-foreground">Ảnh đính kèm</span>
-
-        <PostMediaGrid
-          existingMedia={existingMedia}
-          pendingMedia={pending}
-          isDeleting={deleteMedia.isPending}
-          onDeleteExisting={(mediaId) => {
-            if (post) deleteMedia.mutate({ workspaceId, postId: post.id, mediaId });
-          }}
-          onRemovePending={removeImage}
-        />
-
-        {mediaError ? (
-          <p role="alert" className="text-sm text-danger">
-            {mediaError}
-          </p>
+    <form id="post-editor-form" onSubmit={onSubmit} className="space-y-4">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-4">
+        {restored ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] text-muted">
+            <span>Đã khôi phục bản đang soạn chưa lưu trước đó.</span>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="shrink-0 font-medium text-accent-text underline transition hover:opacity-80"
+            >
+              Bỏ thay đổi
+            </button>
+          </div>
         ) : null}
 
-        <ImageUploadField
-          id="post-editor-media"
-          label="Thêm ảnh"
-          hint="JPG, PNG hoặc WEBP, tối đa 10MB. Ảnh sẽ được tải lên khi lưu bài."
-          maxSize={10 * 1024 * 1024}
-          disabled={isSaving || aiBusy}
-          onSelect={addImage}
+        <TextField
+          label="Tiêu đề"
+          placeholder="Ví dụ: Khuyến mãi mùa thu"
+          error={errors.title?.message}
+          disabled={aiBusy || isSaving}
+          {...register('title')}
         />
 
-        <PostAIImageGenerator
-          workspaceId={workspaceId}
-          postId={post?.id ?? null}
-          title={title}
-          content={content}
-          disabled={isSaving || aiBusy}
-          pendingImageCount={pending.length}
-          initialImageGenerationId={initialAiGenerationId}
-        />
+        <div className="space-y-1.5">
+          <span className="block text-sm font-medium text-foreground">Nội dung</span>
+          <RichTextEditor
+            key={editorKey}
+            value={content}
+            editable={!aiBusy}
+            onChange={(json) => {
+              setContent(json);
+              setContentError(null);
+            }}
+            error={contentError ?? undefined}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <span className="block text-sm font-medium text-foreground">Ảnh đính kèm</span>
+
+          <PostMediaGrid
+            existingMedia={existingMedia}
+            pendingMedia={pending}
+            isDeleting={deleteMedia.isPending}
+            onDeleteExisting={(mediaId) => {
+              if (post) deleteMedia.mutate({ workspaceId, postId: post.id, mediaId });
+            }}
+            onRemovePending={removeImage}
+          />
+
+          {mediaError ? (
+            <p role="alert" className="text-[13px] text-danger">
+              {mediaError}
+            </p>
+          ) : null}
+
+          <ImageUploadField
+            id="post-editor-media"
+            label="Thêm ảnh"
+            hint="JPG, PNG hoặc WEBP, tối đa 10MB. Ảnh sẽ được tải lên khi lưu bài."
+            maxSize={10 * 1024 * 1024}
+            disabled={isSaving || aiBusy}
+            onSelect={addImage}
+          />
+        </div>
+
+        </div>
+
+        <aside className="space-y-3 xl:sticky xl:top-20">
+          <PostAIAssistant
+            workspaceId={workspaceId}
+            postId={post?.id ?? null}
+            disabled={isSaving}
+            onBusyChange={setAiBusy}
+            onApplyText={handleApplyText}
+          />
+
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <PostAIImageGenerator
+              workspaceId={workspaceId}
+              postId={post?.id ?? null}
+              title={title}
+              content={content}
+              disabled={isSaving || aiBusy}
+              pendingImageCount={pending.length}
+              initialImageGenerationId={initialAiGenerationId}
+            />
+          </div>
+        </aside>
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="sticky bottom-0 z-10 flex justify-end gap-2 border-t border-border bg-background/95 py-3 backdrop-blur xl:static xl:border-0 xl:bg-transparent xl:py-0 xl:backdrop-blur-none">
         <Button type="button" variant="outline" onClick={cancel} disabled={aiBusy}>
           Hủy
         </Button>

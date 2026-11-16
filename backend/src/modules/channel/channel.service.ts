@@ -8,7 +8,7 @@ import { decryptOrNull, encrypt } from '../../utils/encryption.js';
 import auditService from '../audit/audit.service.js';
 import channelRepository, { type ChannelSummary } from './channel.repository.js';
 import { getProvider } from './providers/provider.registry.js';
-import { SocialTokenExpiredError } from './providers/social-provider.js';
+import { SocialTokenExpiredError } from './providers/errors/social.errors.js';
 import * as oauthStore from './channel.oauth-store.js';
 import type { OauthSession, OauthSessionAccount } from './channel.oauth-store.js';
 
@@ -116,11 +116,19 @@ export const handleOauthCallback = async (
   }
 
   if (!query.state || !query.code) {
+    logger.warn(
+      `OAuth ${platformLabel(platform)} callback thiếu tham số (state: ${Boolean(query.state)}, code: ${Boolean(query.code)})`
+    );
     return errorRedirect(platform, 'invalid_state');
   }
 
   const state = await oauthStore.consumeOauthState(query.state);
-  if (!state || state.platform !== platform) {
+  if (!state) {
+    logger.warn(`OAuth ${platformLabel(platform)}: không tìm thấy state trong Redis (hết hạn hoặc đã dùng)`);
+    return errorRedirect(platform, 'invalid_state');
+  }
+  if (state.platform !== platform) {
+    logger.warn(`OAuth state thuộc ${state.platform} nhưng callback là ${platform}`);
     return errorRedirect(platform, 'invalid_state');
   }
 

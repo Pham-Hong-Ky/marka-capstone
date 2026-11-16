@@ -120,8 +120,8 @@ jobs:
       - name: Validate Prisma Schema
         run: npx prisma validate
 
-      - name: Push Schema to Test DB
-        run: npx prisma db push --skip-generate
+      - name: Apply Migrations to Test DB
+        run: npx prisma migrate deploy
 
       - name: Test Connections (PostgreSQL + Redis)
         run: npm run test:connection

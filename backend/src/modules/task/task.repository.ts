@@ -1,4 +1,4 @@
-import type { PostStatus, Prisma, TaskStatus } from '@prisma/client';
+import { Prisma, type PostStatus, type TaskStatus } from '@prisma/client';
 import prisma from '../../config/db.js';
 
 const TASK_ASSIGNEE_SELECT = { id: true, name: true, avatar: true } as const;
@@ -11,6 +11,7 @@ export const TASK_SELECT = {
   description: true,
   status: true,
   priority: true,
+  assignedById: true,
   assignedAt: true,
   dueAt: true,
   assignee: { select: TASK_ASSIGNEE_SELECT },
@@ -141,6 +142,44 @@ export const findTaskByPostId = async (postId: string) => {
   return task ? toTaskDto(task) : null;
 };
 
+// Bài viết và công việc dùng chung một bản ghi khi giao việc từ phía bài.
+export const upsertTaskForPost = async (data: {
+  workspaceId: string;
+  postId: string;
+  title: string;
+  createdById: string;
+  assigneeId: string | null;
+  assignedById: string | null;
+  assignedAt: Date | null;
+  dueAt: Date | null;
+  status?: TaskStatus;
+}) =>
+  prisma.task.upsert({
+    where: { postId: data.postId },
+    create: {
+      workspaceId: data.workspaceId,
+      postId: data.postId,
+      title: data.title,
+      createdById: data.createdById,
+      assigneeId: data.assigneeId,
+      assignedById: data.assignedById,
+      assignedAt: data.assignedAt,
+      dueAt: data.dueAt,
+      status: data.status ?? 'TODO',
+    },
+    update: {
+      assigneeId: data.assigneeId,
+      assignedById: data.assignedById,
+      assignedAt: data.assignedAt,
+      dueAt: data.dueAt,
+      ...(data.status ? { status: data.status } : {}),
+    },
+    select: TASK_SELECT,
+  });
+
+export const updateTaskStatusForPost = async (postId: string, status: TaskStatus) =>
+  prisma.task.updateMany({ where: { postId }, data: { status } });
+
 export interface AssignTaskData {
   assigneeId: string | null;
   assignedById: string | null;
@@ -179,6 +218,7 @@ export const findDueSoonTasks = async (from: Date, to: Date, workspaceId?: strin
       assigneeId: { not: null },
     },
     select: REMINDER_TASK_SELECT,
+    orderBy: { dueAt: 'asc' },
     take: 500,
   });
 
@@ -191,6 +231,7 @@ export const findOverdueTasks = async (before: Date, workspaceId?: string) =>
       assigneeId: { not: null },
     },
     select: REMINDER_TASK_SELECT,
+    orderBy: { dueAt: 'asc' },
     take: 500,
   });
 
@@ -219,6 +260,8 @@ export default {
   linkTaskPost,
   softDeleteTask,
   findTaskByPostId,
+  upsertTaskForPost,
+  updateTaskStatusForPost,
   findDueSoonTasks,
   findOverdueTasks,
 };

@@ -43,9 +43,9 @@ export const WorkspaceSettingsTab = () => {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-border bg-surface p-6">
+      <section className="rounded-xl border border-border bg-surface p-5">
         <h2 className="text-sm font-semibold text-foreground">Thông tin workspace</h2>
-        <p className="mt-1 text-xs text-muted">
+        <p className="mt-1 text-[11px] text-muted">
           {isOwner
             ? 'Cập nhật tên hiển thị của workspace.'
             : 'Chỉ chủ sở hữu mới chỉnh sửa được.'}
@@ -56,7 +56,7 @@ export const WorkspaceSettingsTab = () => {
           <p className="text-xs text-subtle">Workspace dùng icon mặc định.</p>
         </div>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        <form onSubmit={onSubmit} className="mt-5 space-y-4">
           <TextField
             label="Tên workspace"
             disabled={!isOwner}
@@ -74,12 +74,12 @@ export const WorkspaceSettingsTab = () => {
       </section>
 
       {isOwner ? (
-        <section className="rounded-2xl border border-danger/40 bg-danger/5 p-6">
+        <section className="rounded-xl border border-danger/40 bg-danger/5 p-5">
           <h2 className="text-sm font-semibold text-foreground">Vùng nguy hiểm</h2>
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-1 text-[11px] text-muted">
             Xóa workspace sẽ thu hồi kết nối kênh và ẩn toàn bộ bài viết, media liên quan.
           </p>
-          <div className="mt-4">
+          <div className="mt-3">
             <Button
               type="button"
               onClick={() => setDeleteOpen(true)}

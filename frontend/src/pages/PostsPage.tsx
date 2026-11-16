@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import PostToolbar from '@/components/features/post/PostToolbar';
 import PostList from '@/components/features/post/PostList';
-import PostDetailModal from '@/components/features/post/PostDetailModal';
 import RejectPostModal from '@/components/features/post/RejectPostModal';
+import Alert from '@/components/ui/Alert';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
+import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
 import { useDeletePost, usePosts } from '@/hooks/usePost';
 import { getErrorMessage } from '@/utils/error';
@@ -13,6 +14,9 @@ import type { PostStatus, PostSummary } from '@/services/post';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 import { useAuthStore } from '@/stores/auth.store';
+
+// Modal chi tiết kéo theo RichTextEditor (TipTap) ~400KB; chỉ tải khi mở bài.
+const PostDetailModal = lazy(() => import('@/components/features/post/PostDetailModal'));
 
 export const PostsPage = () => {
   const navigate = useNavigate();
@@ -97,7 +101,7 @@ export const PostsPage = () => {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <PageContainer width="wide">
       <PageHeader
         title="Bài viết"
         description="Soạn thảo, gửi duyệt và quản lý bài viết trong workspace."
@@ -112,9 +116,7 @@ export const PostsPage = () => {
 
       {isLoading ? <SkeletonList rows={5} /> : null}
 
-      {isError ? (
-        <p className="text-sm text-danger">{getErrorMessage(error)}</p>
-      ) : null}
+      {isError ? <Alert variant="danger">{getErrorMessage(error)}</Alert> : null}
 
       {data ? (
         <PostList
@@ -130,20 +132,25 @@ export const PostsPage = () => {
       ) : null}
 
       {selectedPostId ? (
-        <PostDetailModal
-          open
-          onClose={closeDetail}
-          workspaceId={workspaceId}
-          postId={selectedPostId}
-          role={role}
-          currentUserId={currentUserId}
-          onEdit={(post) => navigate(`/posts/${post.id}/edit`)}
-          onReject={(id) => {
-            setSelectedPostId(null);
-            setRejectingPostId(id);
-          }}
-          onDelete={(post) => setPostToDelete(post)}
-        />
+        <Suspense fallback={null}>
+          <PostDetailModal
+            open
+            onClose={closeDetail}
+            workspaceId={workspaceId}
+            postId={selectedPostId}
+            role={role}
+            currentUserId={currentUserId}
+            onEdit={(post) => navigate(`/posts/${post.id}/edit`)}
+            onReject={(id) => {
+              setSelectedPostId(null);
+              setRejectingPostId(id);
+            }}
+            onDelete={(post) => {
+              setSelectedPostId(null);
+              setPostToDelete(post);
+            }}
+          />
+        </Suspense>
       ) : null}
 
       <RejectPostModal
@@ -169,7 +176,7 @@ export const PostsPage = () => {
           </>
         }
       />
-    </div>
+    </PageContainer>
   );
 };
 

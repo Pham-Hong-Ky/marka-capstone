@@ -1,5 +1,6 @@
-import { Trash2 } from 'lucide-react';
+import { Trash2, Users } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
+import EmptyState from '@/components/ui/EmptyState';
 import SelectField from '@/components/ui/SelectField';
 import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table';
 import {
@@ -32,9 +33,7 @@ export const MembersTable = ({
 }: MembersTableProps) => {
   if (members.length === 0 && pendingInvites.length === 0) {
     return (
-      <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm text-muted">
-        Chưa có thành viên nào.
-      </p>
+      <EmptyState icon={Users} title="Chưa có thành viên nào." />
     );
   }
 
@@ -65,10 +64,10 @@ export const MembersTable = ({
                     className="h-9 w-9"
                   />
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-foreground">
+                    <p className="truncate text-[13px] font-medium text-foreground">
                       {member.name || member.email}
                     </p>
-                    <p className="truncate text-xs text-muted">{member.email}</p>
+                    <p className="truncate text-[11px] text-muted">{member.email}</p>
                   </div>
                 </div>
               </TD>
@@ -92,7 +91,7 @@ export const MembersTable = ({
                 )}
               </TD>
               <TD>
-                <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs text-success">
+                <span className="rounded-full bg-success/10 px-2 py-0.5 text-[11px] text-success">
                   Hoạt động
                 </span>
               </TD>
@@ -122,12 +121,12 @@ export const MembersTable = ({
           {pendingInvites.map((invite) => (
             <TR key={invite.inviteId}>
               <TD>
-                <p className="truncate font-medium text-foreground">{invite.email}</p>
-                <p className="text-xs text-muted">Chưa có tài khoản</p>
+                <p className="truncate text-[13px] font-medium text-foreground">{invite.email}</p>
+                <p className="text-[11px] text-muted">Chưa có tài khoản</p>
               </TD>
               <TD className="text-muted">{WORKSPACE_ROLE_LABELS[invite.role]}</TD>
               <TD>
-                <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning">
+                <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[11px] text-warning">
                   Chờ chấp nhận
                 </span>
               </TD>

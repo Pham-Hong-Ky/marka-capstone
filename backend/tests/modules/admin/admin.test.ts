@@ -230,6 +230,38 @@ describe('Admin module — quản trị hệ thống & audit log (UC32)', () => 
     expect(res.status).toBe(404);
   });
 
+  it('POST /admin/users/:id/tester-invite — user thường nhận 403', async () => {
+    const res = await request(app)
+      .post(`/api/v1/admin/users/${creatorId}/tester-invite`)
+      .set(auth(ownerToken));
+
+    expect(res.status).toBe(403);
+  });
+
+  it('POST /admin/users/:id/tester-invite — user không tồn tại trả 404', async () => {
+    const res = await request(app)
+      .post('/api/v1/admin/users/00000000-0000-0000-0000-000000000000/tester-invite')
+      .set(auth(adminToken));
+
+    expect(res.status).toBe(404);
+  });
+
+  it('POST /admin/users/:id/tester-invite — gửi email và ghi audit', async () => {
+    const res = await request(app)
+      .post(`/api/v1/admin/users/${creatorId}/tester-invite`)
+      .set(auth(adminToken));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.email).toBe(creator.email);
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'ADMIN_TESTER_INVITE_SENT', targetId: creatorId },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(audit?.actorId).toBe(adminId);
+    expect(audit?.metadata).toMatchObject({ email: creator.email });
+  });
+
   it('GET /admin/workspaces — trả số thành viên/bài viết', async () => {
     const res = await request(app)
       .get(`/api/v1/admin/workspaces?search=${encodeURIComponent(owner.name)}`)
