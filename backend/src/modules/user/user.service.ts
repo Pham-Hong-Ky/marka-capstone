@@ -3,11 +3,15 @@ import { toAuthUser } from './user.mapper.js';
 import { hashPassword, verifyPassword } from '../../utils/password.js';
 import { cloudinaryClient } from '../../utils/cloudinary.client.js';
 import auditService from '../audit/audit.service.js';
+import { mailerClient } from '../../utils/mailer.client.js';
+import { buildTesterRequestEmail, getTesterPlatformLabel } from '../../templates/testerRequestEmail.js';
+import type { TesterInvitePlatform } from '../../templates/testerInviteEmail.js';
 import {
   NotFoundError,
   UnauthorizedError,
   BadRequestError,
   ConflictError,
+  BadGatewayError,
 } from '../../utils/errors/index.js';
 
 export const getProfile = async (userId: string) => {
@@ -33,6 +37,43 @@ export const updateProfile = async (
   });
 
   return updatedUser;
+};
+
+export const requestTesterAccess = async (userId: string, platform: TesterInvitePlatform) => {
+  const user = await userRepository.findUserById(userId);
+  if (!user) {
+    throw new NotFoundError('Người dùng không tồn tại');
+  }
+
+  const label = getTesterPlatformLabel(platform);
+  const profileLink = platform === 'FACEBOOK' ? user.facebookUrl : user.threadsUrl;
+  if (!profileLink) {
+    throw new BadRequestError(`Hãy điền link ${label} trong hồ sơ trước khi gửi yêu cầu`);
+  }
+
+  const adminEmails = await userRepository.findActiveSystemAdminEmails();
+  const { subject, html } = buildTesterRequestEmail({
+    userName: user.name,
+    userEmail: user.email,
+    platform,
+    profileLink,
+  });
+  const results = await Promise.all(
+    adminEmails.map((to) => mailerClient.sendEmail({ to, subject, html }))
+  );
+  if (!results.some(Boolean)) {
+    throw new BadGatewayError('Gửi yêu cầu thất bại. Vui lòng thử lại sau.');
+  }
+
+  await auditService.recordAuditLog({
+    actorId: userId,
+    action: 'USER_TESTER_REQUESTED',
+    targetType: 'User',
+    targetId: userId,
+    metadata: { platform, link: profileLink },
+  });
+
+  return { platform };
 };
 
 export const changePassword = async (userId: string, oldPassword: string, newPassword: string) => {
@@ -134,6 +175,7 @@ export const deleteAccount = async (
 export default {
   getProfile,
   updateProfile,
+  requestTesterAccess,
   uploadAvatar,
   changePassword,
   logoutAll,

@@ -5,6 +5,7 @@ import {
   accountService,
   type ChangePasswordPayload,
   type DeleteAccountPayload,
+  type TesterRequestPlatform,
   type UpdateProfilePayload,
 } from '@/services/user';
 import { syncSessionUser } from '@/hooks/useWorkspace';
@@ -33,6 +34,13 @@ export const useUpdateProfile = () =>
       await syncSessionUser();
       toast.success('Cập nhật hồ sơ thành công');
     },
+  });
+
+export const useRequestTesterAccess = () =>
+  useMutation({
+    mutationFn: (platform: TesterRequestPlatform) => accountService.requestTesterAccess(platform),
+    onSuccess: () => toast.success('Đã gửi yêu cầu tới quản trị viên'),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
 export const useUploadAvatar = () =>

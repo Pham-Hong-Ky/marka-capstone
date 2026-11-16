@@ -3,6 +3,7 @@ import userService from './user.service.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
 import { clearRefreshTokenCookie } from '../../utils/cookies.js';
+import type { TesterRequestBody } from './user.validation.js';
 
 export const getMe = catchAsync(async (req: Request, res: Response) => {
   const profile = await userService.getProfile(req.user!.id);
@@ -19,6 +20,17 @@ export const updateProfile = catchAsync(async (req: Request, res: Response) => {
     statusCode: 200,
     message: 'Cập nhật thông tin tài khoản thành công',
     data: updatedUser,
+  });
+});
+
+export const requestTesterAccess = catchAsync(async (req: Request, res: Response) => {
+  const { platform } = req.body as TesterRequestBody;
+  const result = await userService.requestTesterAccess(req.user!.id, platform);
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Đã gửi yêu cầu thêm Tester tới quản trị viên',
+    data: result,
   });
 });
 
@@ -66,6 +78,7 @@ export const deleteAccount = catchAsync(async (req: Request, res: Response) => {
 export default {
   getMe,
   updateProfile,
+  requestTesterAccess,
   uploadAvatar,
   changePassword,
   logoutAll,

@@ -60,12 +60,22 @@ export const deleteAccountBodySchema = z.object({
     }),
 });
 
+export const testerRequestBodySchema = z.object({
+  platform: z
+    .enum(['FACEBOOK', 'THREADS'], { message: 'Nền tảng không hợp lệ' })
+    .openapi({ example: 'THREADS' }),
+});
+
+export type TesterRequestBody = z.infer<typeof testerRequestBodySchema>;
+
 export const updateProfileSchema = { body: updateProfileBodySchema };
+export const testerRequestSchema = { body: testerRequestBodySchema };
 export const changePasswordSchema = { body: changePasswordBodySchema };
 export const deleteAccountSchema = { body: deleteAccountBodySchema };
 
 export default {
   updateProfileSchema,
+  testerRequestSchema,
   changePasswordSchema,
   deleteAccountSchema,
 };
