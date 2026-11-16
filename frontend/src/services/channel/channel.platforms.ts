@@ -15,6 +15,8 @@ export interface ChannelPlatformMeta {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
+  connectHint?: string;
+  requiredProfileField: 'facebookUrl' | 'threadsUrl' | null;
   connect: ChannelConnectKind;
   capabilities: ChannelPlatformCapabilities;
 }
@@ -24,6 +26,8 @@ const PLATFORMS: Partial<Record<ChannelPlatform, ChannelPlatformMeta>> = {
     label: 'Facebook Page',
     shortLabel: 'Facebook',
     icon: Share2,
+    connectHint: 'Tài khoản cần có ít nhất 1 Page',
+    requiredProfileField: 'facebookUrl',
     connect: 'oauth',
     capabilities: {
       label: true,
@@ -37,6 +41,7 @@ const PLATFORMS: Partial<Record<ChannelPlatform, ChannelPlatformMeta>> = {
     label: 'Threads',
     shortLabel: 'Threads',
     icon: AtSign,
+    requiredProfileField: 'threadsUrl',
     connect: 'oauth',
     capabilities: {
       label: true,
@@ -65,6 +70,7 @@ export const getChannelPlatformMeta = (platform: string): ChannelPlatformMeta =>
     label: platform,
     shortLabel: platform,
     icon: Link2,
+    requiredProfileField: null,
     connect: 'unavailable',
     capabilities: { label: false, refreshProfile: false, metrics: false, scheduling: false, maxImages: 0 },
   };

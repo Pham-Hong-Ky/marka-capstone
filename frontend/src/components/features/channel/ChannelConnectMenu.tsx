@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useDismissable } from '@/hooks/useDismissable';
 import { useMenuKeyboard } from '@/hooks/useMenuKeyboard';
 import { useStartChannelOauth } from '@/hooks/useChannels';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   CONNECTABLE_PLATFORMS,
   getChannelPlatformMeta,
@@ -22,6 +25,8 @@ export const ChannelConnectMenu = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const startOauth = useStartChannelOauth();
+  const user = useAuthStore((state) => state.user);
+  const navigate = useNavigate();
 
   useDismissable(containerRef, () => setOpen(false), { enabled: open });
   const onMenuKeyDown = useMenuKeyboard(menuRef, () => setOpen(false));
@@ -41,7 +46,16 @@ export const ChannelConnectMenu = ({
   const startConnect = (platform: ChannelPlatform) => {
     setOpen(false);
 
-    if (getChannelPlatformMeta(platform).connect === 'oauth') {
+    const meta = getChannelPlatformMeta(platform);
+    if (meta.requiredProfileField && !user?.[meta.requiredProfileField]) {
+      toast(
+        `Hãy điền link ${meta.shortLabel} trong hồ sơ để quản trị viên thêm bạn làm Tester, rồi quay lại kết nối.`
+      );
+      navigate('/settings/account');
+      return;
+    }
+
+    if (meta.connect === 'oauth') {
       startOauth.mutate({ platform, workspaceId });
     }
   };
@@ -66,7 +80,7 @@ export const ChannelConnectMenu = ({
           role="menu"
           aria-label="Kết nối kênh"
           onKeyDown={onMenuKeyDown}
-          className="absolute right-0 top-full z-30 mt-1 w-56 overflow-hidden rounded-xl border border-border bg-surface p-1 shadow-xl"
+          className="absolute right-0 top-full z-30 mt-1 w-64 overflow-hidden rounded-xl border border-border bg-surface p-1 shadow-xl"
         >
           {platforms.map(({ platform, meta }) => {
             const Icon = meta.icon;
@@ -80,7 +94,12 @@ export const ChannelConnectMenu = ({
                 className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-foreground transition hover:bg-surface-2 focus:bg-surface-2 focus:outline-none"
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate">{meta.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{meta.label}</span>
+                  {meta.connectHint ? (
+                    <span className="block text-xs text-muted">{meta.connectHint}</span>
+                  ) : null}
+                </span>
               </button>
             );
           })}
