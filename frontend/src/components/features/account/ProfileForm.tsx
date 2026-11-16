@@ -4,7 +4,7 @@ import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import AvatarField from './AvatarField';
-import { useUpdateProfile, useUploadAvatar } from '@/hooks/useAccount';
+import { useRequestTesterAccess, useUpdateProfile, useUploadAvatar } from '@/hooks/useAccount';
 import { profileFormSchema, type ProfileFormValues } from '@/services/user';
 import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
@@ -13,6 +13,7 @@ export const ProfileForm = () => {
   const user = useAuthStore((state) => state.user);
   const updateProfile = useUpdateProfile();
   const upload = useUploadAvatar();
+  const requestTester = useRequestTesterAccess();
 
   const {
     register,
@@ -67,7 +68,7 @@ export const ProfileForm = () => {
           <div className="space-y-1">
             <h3 className="text-sm font-semibold text-foreground">Liên kết mạng xã hội</h3>
             <p className="text-[11px] text-muted">
-              Admin dùng thông tin này để liên hệ mời bạn tham gia thử nghiệm sản phẩm.
+              Lưu link, rồi bấm "Gửi yêu cầu thêm Tester" để quản trị viên thêm bạn vào danh sách thử nghiệm trước khi kết nối kênh.
             </p>
           </div>
 
@@ -79,6 +80,18 @@ export const ProfileForm = () => {
             error={errors.facebookUrl?.message}
             {...register('facebookUrl')}
           />
+          {user.facebookUrl ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              isLoading={requestTester.isPending && requestTester.variables === 'FACEBOOK'}
+              disabled={requestTester.isPending}
+              onClick={() => requestTester.mutate('FACEBOOK')}
+            >
+              Gửi yêu cầu thêm Tester Facebook
+            </Button>
+          ) : null}
           <TextField
             label="Threads"
             type="text"
@@ -87,6 +100,18 @@ export const ProfileForm = () => {
             error={errors.threadsUrl?.message}
             {...register('threadsUrl')}
           />
+          {user.threadsUrl ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              isLoading={requestTester.isPending && requestTester.variables === 'THREADS'}
+              disabled={requestTester.isPending}
+              onClick={() => requestTester.mutate('THREADS')}
+            >
+              Gửi yêu cầu thêm Tester Threads
+            </Button>
+          ) : null}
         </div>
 
         {updateProfile.error ? (

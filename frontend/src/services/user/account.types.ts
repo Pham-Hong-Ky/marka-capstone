@@ -19,6 +19,8 @@ export interface UpdateProfileResult {
   updatedAt: string;
 }
 
+export type TesterRequestPlatform = 'FACEBOOK' | 'THREADS';
+
 export interface ChangePasswordPayload {
   oldPassword: string;
   newPassword: string;

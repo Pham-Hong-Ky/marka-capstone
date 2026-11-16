@@ -35,6 +35,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   TASK_DELETED: 'Xoá công việc',
   ADMIN_USER_SUSPENDED: 'Khoá tài khoản',
   ADMIN_USER_REACTIVATED: 'Mở khoá tài khoản',
+  USER_TESTER_REQUESTED: 'Yêu cầu thêm Tester',
   ADMIN_TESTER_INVITE_SENT: 'Gửi email mời Tester',
   BILLING_ORDER_CREATED: 'Tạo đơn nạp',
   BILLING_ORDER_CANCELLED: 'Huỷ đơn nạp',

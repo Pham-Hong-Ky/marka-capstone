@@ -119,6 +119,14 @@ export const updateUser = async (userId: string, data: UpdateUserData) => {
   });
 };
 
+export const findActiveSystemAdminEmails = async (): Promise<string[]> => {
+  const admins = await prisma.user.findMany({
+    where: { systemRole: 'SYSTEM_ADMIN', isSuspended: false },
+    select: { email: true },
+  });
+  return admins.map((admin) => admin.email);
+};
+
 export const incrementTokenVersion = async (userId: string) => {
   return prisma.user.update({
     where: { id: userId },
@@ -176,6 +184,7 @@ export default {
   createUser,
   linkGoogleAccount,
   updateUser,
+  findActiveSystemAdminEmails,
   incrementTokenVersion,
   updatePasswordAndBumpTokenVersion,
   findSoleOwnedWorkspaces,

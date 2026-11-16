@@ -5,6 +5,7 @@ import type {
   ChangePasswordPayload,
   DeleteAccountPayload,
   UpdateProfilePayload,
+  TesterRequestPlatform,
   UpdateProfileResult,
 } from './account.types';
 
@@ -21,6 +22,10 @@ export const accountService = {
         headers: { 'Content-Type': undefined },
       })
     );
+  },
+
+  requestTesterAccess: async (platform: TesterRequestPlatform): Promise<void> => {
+    await httpClient.post('/users/me/tester-requests', { platform });
   },
 
   changePassword: async (payload: ChangePasswordPayload): Promise<void> => {
