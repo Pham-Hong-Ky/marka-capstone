@@ -8,7 +8,6 @@ import { enqueue } from '../../workers/queue-manager.js';
 import { QUEUE_NAMES } from '../../workers/types.js';
 import { getProvider } from '../channel/providers/provider.registry.js';
 import { SocialTokenExpiredError } from '../channel/providers/errors/social.errors.js';
-import renderContentToPlainText from '../schedule/schedule.content.js';
 import analyticsRepository, { isFailedSync } from './analytics.repository.js';
 import {
   buildSeries,
@@ -20,9 +19,6 @@ import {
 } from './analytics.aggregate.js';
 import {
   buildBestTimes,
-  buildContentTips,
-  shouldPenalizeExternalLinks,
-  type DraftPost,
   type SuggestionRow,
 } from './analytics.suggestion.js';
 import type {
@@ -43,7 +39,6 @@ const SYNC_REFRESH_TIERS = [
 const SYNC_BATCH_SIZE = 50;
 const MANUAL_SYNC_COOLDOWN_SECONDS = 5 * 60;
 const SUGGESTION_WINDOW_DAYS = 90;
-const EXTERNAL_LINK_PATTERN = /https?:\/\//i;
 
 const mapMetricFields = (metric: {
   reactions: number;
@@ -210,41 +205,26 @@ export const getSuggestions = async (
 ) => {
   const since = new Date(Date.now() - SUGGESTION_WINDOW_DAYS * DAY_MS);
 
-  const [publishedRows, drafts] = await Promise.all([
-    analyticsRepository.findPublishedForSuggestions({
-      workspaceId,
-      since,
-      channelId: query.channelId,
-    }),
-    analyticsRepository.findDraftPostsForSuggestions(workspaceId),
-  ]);
+  const publishedRows = await analyticsRepository.findPublishedForSuggestions({
+    workspaceId,
+    since,
+    channelId: query.channelId,
+  });
 
   const suggestionRows: SuggestionRow[] = publishedRows
     .filter((row): row is typeof row & { publishedAt: Date } => row.publishedAt !== null)
     .map((row) => ({
       publishedAt: row.publishedAt,
       ...mapMetricFields(row.metric),
-      hasLink: EXTERNAL_LINK_PATTERN.test(renderContentToPlainText(row.post.content)),
     }));
 
   const bestTimes = buildBestTimes(suggestionRows);
-  const draftPosts: DraftPost[] = drafts.map((post) => ({
-    id: post.id,
-    title: post.title,
-    text: renderContentToPlainText(post.content),
-    hasMedia: post.mediaAssets.length > 0,
-    scheduledAt: post.scheduledPosts[0]?.scheduledAt ?? null,
-    updatedAt: post.updatedAt,
-  }));
 
   return {
     bestTimes: bestTimes.slots,
     usedFallback: bestTimes.usedFallback,
     sampleSize: bestTimes.sampleSize,
     windowDays: SUGGESTION_WINDOW_DAYS,
-    contentTips: buildContentTips(draftPosts, bestTimes.slots, {
-      penalizeExternalLinks: shouldPenalizeExternalLinks(suggestionRows),
-    }),
   };
 };
 

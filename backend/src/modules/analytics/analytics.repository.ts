@@ -67,36 +67,7 @@ export const findPublishedForSuggestions = async ({
           reach: true,
         },
       },
-      post: {
-        select: {
-          content: true,
-          mediaAssets: { where: { deletedAt: null }, select: { id: true }, take: 1 },
-        },
-      },
     },
-  });
-
-export const findDraftPostsForSuggestions = async (workspaceId: string) =>
-  prisma.post.findMany({
-    where: {
-      workspaceId,
-      status: { in: ['DRAFT', 'APPROVED', 'REJECTED', 'SCHEDULED'] },
-    },
-    select: {
-      id: true,
-      title: true,
-      content: true,
-      updatedAt: true,
-      mediaAssets: { where: { deletedAt: null }, select: { id: true }, take: 1 },
-      scheduledPosts: {
-        where: { status: 'SCHEDULED' },
-        orderBy: { scheduledAt: 'asc' },
-        take: 1,
-        select: { scheduledAt: true },
-      },
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: 20,
   });
 
 export const findCampaignTags = async (workspaceId: string): Promise<string[]> => {
@@ -218,7 +189,6 @@ export const markChannelExpired = async (channelId: string) =>
 export default {
   findMetricRows,
   findPublishedForSuggestions,
-  findDraftPostsForSuggestions,
   findCampaignTags,
   findSchedulesToSync,
   saveMetric,
