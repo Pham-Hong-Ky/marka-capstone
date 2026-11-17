@@ -87,6 +87,15 @@ describe('Yêu cầu thêm Tester — người dùng gửi cho admin', () => {
     expect(audit?.metadata).toMatchObject({ platform: 'THREADS', link: THREADS_URL });
   });
 
+  it('gửi lại cùng nền tảng trong thời gian chờ bị chặn 429 và không gửi email', async () => {
+    sendEmailSpy.mockClear();
+
+    const res = await sendRequest('THREADS');
+
+    expect(res.status).toBe(429);
+    expect(sendEmailSpy).not.toHaveBeenCalled();
+  });
+
   it('gửi email thất bại thì trả 502 và không ghi audit', async () => {
     const before = await prisma.auditLog.count({
       where: { action: 'USER_TESTER_REQUESTED', actorId: userId },

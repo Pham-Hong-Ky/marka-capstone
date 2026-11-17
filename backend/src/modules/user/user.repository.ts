@@ -127,6 +127,22 @@ export const findActiveSystemAdminEmails = async (): Promise<string[]> => {
   return admins.map((admin) => admin.email);
 };
 
+export const findLatestTesterRequestAt = async (
+  userId: string,
+  platform: string
+): Promise<Date | null> => {
+  const log = await prisma.auditLog.findFirst({
+    where: {
+      actorId: userId,
+      action: 'USER_TESTER_REQUESTED',
+      metadata: { path: ['platform'], equals: platform },
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { createdAt: true },
+  });
+  return log?.createdAt ?? null;
+};
+
 export const incrementTokenVersion = async (userId: string) => {
   return prisma.user.update({
     where: { id: userId },
@@ -185,6 +201,7 @@ export default {
   linkGoogleAccount,
   updateUser,
   findActiveSystemAdminEmails,
+  findLatestTesterRequestAt,
   incrementTokenVersion,
   updatePasswordAndBumpTokenVersion,
   findSoleOwnedWorkspaces,

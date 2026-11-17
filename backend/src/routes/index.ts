@@ -56,6 +56,11 @@ import {
   assignPostSchema,
   updateTaskStatusSchema,
 } from '../modules/post/post.validation.js';
+import postVersionController from '../modules/post-version/post-version.controller.js';
+import {
+  listPostVersionsSchema,
+  postVersionSchema,
+} from '../modules/post-version/post-version.validation.js';
 import taskController from '../modules/task/task.controller.js';
 import {
   createTaskSchema,
@@ -433,6 +438,27 @@ router.delete(
   validate(postIdSchema),
   requireWorkspaceRole(),
   postController.deletePost
+);
+router.get(
+  '/workspaces/:workspaceId/posts/:postId/versions',
+  requireAuth,
+  validate(listPostVersionsSchema),
+  requireWorkspaceRole(),
+  postVersionController.listVersions
+);
+router.get(
+  '/workspaces/:workspaceId/posts/:postId/versions/:version',
+  requireAuth,
+  validate(postVersionSchema),
+  requireWorkspaceRole(),
+  postVersionController.getVersion
+);
+router.post(
+  '/workspaces/:workspaceId/posts/:postId/versions/:version/restore',
+  requireAuth,
+  validate(postVersionSchema),
+  requireWorkspaceRole(),
+  postVersionController.restoreVersion
 );
 router.post(
   '/workspaces/:workspaceId/posts/:postId/media',

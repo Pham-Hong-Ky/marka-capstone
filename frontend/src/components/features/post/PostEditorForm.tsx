@@ -11,6 +11,7 @@ import ImageUploadField from '@/components/ui/ImageUploadField';
 import PostAIAssistant from './PostAIAssistant';
 import PostAIImageGenerator from './PostAIImageGenerator';
 import PostMediaGrid from './PostMediaGrid';
+import PostVersionHistory from './PostVersionHistory';
 import { EMPTY_DOC, isContentEmpty, postEditorSchema, type PostDetail, type PostEditorValues } from '@/services/post';
 import type { AiTextResult } from '@/services/ai';
 import { useCreatePost, useDeletePostMedia, useUpdatePost, useUploadPostMedia } from '@/hooks/usePost';
@@ -30,6 +31,18 @@ interface PendingImage {
 }
 
 const DRAFT_DEBOUNCE_MS = 1000;
+
+interface EditorSnapshot {
+  title: string;
+  content: JSONContent;
+}
+
+// Lưu bản trước/sau khi AI ghi đè để người dùng hoàn tác hoặc làm lại bằng một cú bấm.
+interface AiOverwrite {
+  before: EditorSnapshot;
+  after: EditorSnapshot;
+  applied: boolean;
+}
 
 export const PostEditorForm = ({
   workspaceId,
@@ -66,7 +79,10 @@ export const PostEditorForm = ({
   const [restored, setRestored] = useState(Boolean(initialDraft));
   const [aiBusy, setAiBusy] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
+  const [aiOverwrite, setAiOverwrite] = useState<AiOverwrite | null>(null);
 
+  const contentRef = useRef(content);
+  contentRef.current = content;
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
   const postRef = useRef(post);
@@ -84,6 +100,7 @@ export const PostEditorForm = ({
     handleSubmit,
     reset,
     watch,
+    getValues,
     formState: { errors },
   } = useForm<PostEditorValues>({
     resolver: zodResolver(postEditorSchema),
@@ -92,15 +109,39 @@ export const PostEditorForm = ({
 
   const title = watch('title');
 
-  const handleApplyText = useCallback(
-    (result: AiTextResult) => {
-      reset({ title: result.title });
-      setContent(result.content as JSONContent);
+  const replaceEditorContent = useCallback(
+    ({ title: nextTitle, content: nextContent }: EditorSnapshot) => {
+      reset({ title: nextTitle });
+      setContent(nextContent);
       setContentError(null);
       setEditorKey((current) => current + 1);
     },
     [reset]
   );
+
+  const handleApplyText = useCallback(
+    (result: AiTextResult) => {
+      const after = { title: result.title, content: result.content as JSONContent };
+      setAiOverwrite({
+        before: { title: getValues('title'), content: contentRef.current },
+        after,
+        applied: true,
+      });
+      replaceEditorContent(after);
+    },
+    [getValues, replaceEditorContent]
+  );
+
+  const toggleAiOverwrite = () => {
+    if (!aiOverwrite) return;
+    replaceEditorContent(aiOverwrite.applied ? aiOverwrite.before : aiOverwrite.after);
+    setAiOverwrite({ ...aiOverwrite, applied: !aiOverwrite.applied });
+  };
+
+  const handleVersionRestored = (restored: PostDetail) => {
+    setAiOverwrite(null);
+    replaceEditorContent({ title: restored.title, content: restored.content as JSONContent });
+  };
 
   useEffect(() => {
     if (!aiBusy) return;
@@ -266,12 +307,29 @@ export const PostEditorForm = ({
           </div>
         ) : null}
 
+        {aiOverwrite ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] text-muted">
+            <span>
+              {aiOverwrite.applied
+                ? 'Nội dung hiện tại do AI tạo, đã thay bản bạn đang soạn.'
+                : 'Đã hoàn tác, đang là bản bạn soạn trước khi dùng AI.'}
+            </span>
+            <button
+              type="button"
+              onClick={toggleAiOverwrite}
+              className="shrink-0 font-medium text-accent-text underline transition hover:opacity-80"
+            >
+              {aiOverwrite.applied ? 'Hoàn tác' : 'Làm lại'}
+            </button>
+          </div>
+        ) : null}
+
         <TextField
           label="Tiêu đề"
           placeholder="Ví dụ: Khuyến mãi mùa thu"
           error={errors.title?.message}
           disabled={aiBusy || isSaving}
-          {...register('title')}
+          {...register('title', { onChange: () => setAiOverwrite(null) })}
         />
 
         <div className="space-y-1.5">
@@ -283,6 +341,7 @@ export const PostEditorForm = ({
             onChange={(json) => {
               setContent(json);
               setContentError(null);
+              setAiOverwrite(null);
             }}
             error={contentError ?? undefined}
           />
@@ -339,6 +398,15 @@ export const PostEditorForm = ({
               initialImageGenerationId={initialAiGenerationId}
             />
           </div>
+
+          {post ? (
+            <PostVersionHistory
+              workspaceId={workspaceId}
+              postId={post.id}
+              disabled={isSaving || aiBusy}
+              onRestored={handleVersionRestored}
+            />
+          ) : null}
         </aside>
       </div>
 

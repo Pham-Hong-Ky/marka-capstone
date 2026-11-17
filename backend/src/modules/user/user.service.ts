@@ -12,7 +12,10 @@ import {
   BadRequestError,
   ConflictError,
   BadGatewayError,
+  TooManyRequestsError,
 } from '../../utils/errors/index.js';
+
+const TESTER_REQUEST_COOLDOWN_MS = 10 * 60 * 1000;
 
 export const getProfile = async (userId: string) => {
   const user = await userRepository.findUserById(userId);
@@ -49,6 +52,16 @@ export const requestTesterAccess = async (userId: string, platform: TesterInvite
   const profileLink = platform === 'FACEBOOK' ? user.facebookUrl : user.threadsUrl;
   if (!profileLink) {
     throw new BadRequestError(`Hãy điền link ${label} trong hồ sơ trước khi gửi yêu cầu`);
+  }
+
+  const lastRequestedAt = await userRepository.findLatestTesterRequestAt(userId, platform);
+  if (lastRequestedAt) {
+    const remainingMs = lastRequestedAt.getTime() + TESTER_REQUEST_COOLDOWN_MS - Date.now();
+    if (remainingMs > 0) {
+      throw new TooManyRequestsError(
+        `Bạn vừa gửi yêu cầu ${label}. Vui lòng đợi ${Math.ceil(remainingMs / 60_000)} phút trước khi gửi lại.`
+      );
+    }
   }
 
   const adminEmails = await userRepository.findActiveSystemAdminEmails();

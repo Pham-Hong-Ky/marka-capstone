@@ -93,6 +93,17 @@ export interface UpdatePostPayload {
   content?: object;
 }
 
+export type PostVersionSource = 'MANUAL' | 'RESTORE';
+
+export interface PostVersionSummary {
+  id: string;
+  version: number;
+  title: string;
+  source: PostVersionSource;
+  createdAt: string;
+  createdBy: PostAuthor | null;
+}
+
 export interface ReviewPostPayload {
   decision: 'APPROVED' | 'REJECTED';
   rejectReason?: string;

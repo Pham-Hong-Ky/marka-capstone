@@ -8,7 +8,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
 import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
-import { useDeletePost, usePosts } from '@/hooks/usePost';
+import { useDeletePost, usePosts, useReviewPost, useSubmitPost } from '@/hooks/usePost';
 import { getErrorMessage } from '@/utils/error';
 import type { PostStatus, PostSummary } from '@/services/post';
 import { SkeletonList } from '@/components/ui/Skeleton';
@@ -48,6 +48,8 @@ export const PostsPage = () => {
     search: search || undefined,
   });
   const deletePost = useDeletePost();
+  const submitPost = useSubmitPost();
+  const reviewPost = useReviewPost();
 
   useEffect(() => {
     if (page > 1 && data && data.posts.length === 0) {
@@ -126,6 +128,12 @@ export const PostsPage = () => {
           currentUserId={currentUserId}
           onOpen={(post) => setSelectedPostId(post.id)}
           onEdit={(post) => navigate(`/posts/${post.id}/edit`)}
+          isBusy={submitPost.isPending || reviewPost.isPending}
+          onSubmit={(post) => submitPost.mutate({ workspaceId, postId: post.id })}
+          onApprove={(post) =>
+            reviewPost.mutate({ workspaceId, postId: post.id, payload: { decision: 'APPROVED' } })
+          }
+          onReject={(post) => setRejectingPostId(post.id)}
           onDelete={(post) => setPostToDelete(post)}
           onPageChange={setPage}
         />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { EditorContent, useEditor, useEditorState, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -48,6 +48,10 @@ export const RichTextEditor = ({
       },
     },
   });
+
+  useEffect(() => {
+    editor?.setEditable(editable);
+  }, [editor, editable]);
 
   const state = useEditorState({
     editor,

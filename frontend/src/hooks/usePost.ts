@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import toast from 'react-hot-toast';
 import {
   postService,
+  postVersionService,
   type PostListParams,
   type PostPayload,
   type ReviewPostPayload,
@@ -158,6 +159,34 @@ export const useDeletePostMedia = () => {
         queryKey: queryKeys.post.detailWorkspace(variables.workspaceId),
       });
       toast.success('Đã gỡ ảnh');
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+};
+
+export const usePostVersions = (workspaceId: string | null, postId: string | null) =>
+  useQuery({
+    queryKey: queryKeys.post.versions(workspaceId ?? '', postId ?? ''),
+    queryFn: () => postVersionService.listPostVersions(workspaceId as string, postId as string),
+    enabled: Boolean(workspaceId && postId),
+  });
+
+export const useRestorePostVersion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      workspaceId,
+      postId,
+      version,
+    }: {
+      workspaceId: string;
+      postId: string;
+      version: number;
+    }) => postVersionService.restorePostVersion(workspaceId, postId, version),
+    onSuccess: (_data, variables) => {
+      invalidatePosts(queryClient, variables.workspaceId);
+      toast.success(`Đã khôi phục phiên bản ${variables.version}`);
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
