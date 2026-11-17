@@ -87,6 +87,7 @@ import {
 import analyticsController from '../modules/analytics/analytics.controller.js';
 import {
   analyticsOverviewSchema,
+  analyticsPostsSchema,
   analyticsSuggestionsSchema,
   analyticsSyncSchema,
 } from '../modules/analytics/analytics.validation.js';
@@ -621,6 +622,13 @@ router.get(
   validate(analyticsOverviewSchema),
   requireWorkspaceRole(),
   analyticsController.getOverview
+);
+router.get(
+  '/workspaces/:workspaceId/analytics/posts',
+  requireAuth,
+  validate(analyticsPostsSchema),
+  requireWorkspaceRole(),
+  analyticsController.getPosts
 );
 router.get(
   '/workspaces/:workspaceId/analytics/suggestions',

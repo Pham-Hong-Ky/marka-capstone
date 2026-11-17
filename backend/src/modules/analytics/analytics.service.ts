@@ -1,4 +1,5 @@
 import { getErrorMessage } from '../../utils/errorMessage.js';
+import { buildPaginationMeta } from '../../utils/pagination.js';
 import logger from '../../utils/logger.js';
 import { decryptOrNull } from '../../utils/encryption.js';
 import { getProvider } from '../channel/providers/provider.registry.js';
@@ -20,7 +21,11 @@ import {
   type DraftPost,
   type SuggestionRow,
 } from './analytics.suggestion.js';
-import type { AnalyticsOverviewQuery, AnalyticsSuggestionsQuery } from './analytics.validation.js';
+import type {
+  AnalyticsOverviewQuery,
+  AnalyticsPostsQuery,
+  AnalyticsSuggestionsQuery,
+} from './analytics.validation.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -59,7 +64,55 @@ const toMetricRows = (
       ...mapMetricFields(row.metric),
     }));
 
-const buildDeltas = (current: Summary, previous: Summary) => ({
+type MetricRowRecord = Awaited<ReturnType<typeof analyticsRepository.findMetricRows>>[number];
+
+const channelDisplayName = (channel: { name: string; label: string | null }): string =>
+  channel.label ?? channel.name;
+
+const engagementOf = (metric: { reactions: number; comments: number; shares: number } | null) =>
+  metric ? metric.reactions + metric.comments + metric.shares : 0;
+
+const buildChannelBreakdown = (rows: MetricRowRecord[]) => {
+  const groups = new Map<string, { channel: MetricRowRecord['channel']; rows: MetricRowRecord[] }>();
+
+  for (const row of rows) {
+    const group = groups.get(row.channel.id) ?? { channel: row.channel, rows: [] };
+    group.rows.push(row);
+    groups.set(row.channel.id, group);
+  }
+
+  return [...groups.values()]
+    .map(({ channel, rows: channelRows }) => {
+      const summary = computeSummary(toMetricRows(channelRows));
+
+      return {
+        channelId: channel.id,
+        name: channelDisplayName(channel),
+        platform: channel.platform,
+        posts: channelRows.length,
+        ...summary,
+        engagement: summary.likes + summary.comments + summary.shares,
+      };
+    })
+    .sort((a, b) => b.engagement - a.engagement);
+};
+
+const resolveSyncStatus = (metric: MetricRowRecord['metric']) => {
+  if (!metric) return 'pending' as const;
+  if (metric.syncError === null) return 'synced' as const;
+  return isFailedSync(metric.syncError) ? ('failed' as const) : ('partial' as const);
+};
+
+const compareNullableDesc = (a: number | null, b: number | null): number =>
+  (b ?? -1) - (a ?? -1);
+
+const POST_SORTERS: Record<AnalyticsPostsQuery['sort'], (a: MetricRowRecord, b: MetricRowRecord) => number> = {
+  publishedAt: (a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0),
+  impressions: (a, b) => compareNullableDesc(a.metric?.impressions ?? null, b.metric?.impressions ?? null),
+  engagement: (a, b) => engagementOf(b.metric) - engagementOf(a.metric),
+};
+
+const buildDeltas =(current: Summary, previous: Summary) => ({
   likes: computeDelta(current.likes, previous.likes),
   comments: computeDelta(current.comments, previous.comments),
   shares: computeDelta(current.shares, previous.shares),
@@ -102,6 +155,7 @@ export const getOverview = async (workspaceId: string, query: AnalyticsOverviewQ
   return {
     summary: { ...summary, deltas: buildDeltas(summary, previousSummary) },
     series: buildSeries(metricRows, current),
+    byChannel: buildChannelBreakdown(rows),
     coverage: {
       publishedPosts: rows.length,
       syncedPosts: synced.length,
@@ -111,6 +165,38 @@ export const getOverview = async (workspaceId: string, query: AnalyticsOverviewQ
     tags,
     range: { start: current.start, end: current.end },
   };
+};
+
+export const listPosts = async (workspaceId: string, query: AnalyticsPostsQuery) => {
+  const { current } = resolveRange(query.range, query.from, query.to);
+  const rows = await analyticsRepository.findMetricRows({
+    workspaceId,
+    start: current.start,
+    end: current.end,
+    channelId: query.channelId,
+    tag: query.tag,
+  });
+
+  const start = (query.page - 1) * query.limit;
+  const posts = rows
+    .sort(POST_SORTERS[query.sort])
+    .slice(start, start + query.limit)
+    .map((row) => ({
+      id: row.id,
+      postId: row.post.id,
+      title: row.post.title,
+      publishedAt: row.publishedAt,
+      channel: {
+        id: row.channel.id,
+        name: channelDisplayName(row.channel),
+        platform: row.channel.platform,
+      },
+      ...mapMetricFields(row.metric),
+      syncStatus: resolveSyncStatus(row.metric),
+      syncError: row.metric?.syncError ?? null,
+    }));
+
+  return { posts, meta: buildPaginationMeta(query.page, query.limit, rows.length) };
 };
 
 export const getSuggestions = async (
@@ -214,4 +300,4 @@ export const syncMetrics = async (options: { workspaceId?: string; force?: boole
   return { total: schedules.length, synced, failed };
 };
 
-export default { getOverview, getSuggestions, syncMetrics };
+export default { getOverview, listPosts, getSuggestions, syncMetrics };

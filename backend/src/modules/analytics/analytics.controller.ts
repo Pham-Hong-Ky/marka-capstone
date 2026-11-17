@@ -5,7 +5,11 @@ import catchAsync from '../../utils/catchAsync.js';
 import { enqueue } from '../../workers/queue-manager.js';
 import { QUEUE_NAMES } from '../../workers/types.js';
 import analyticsService from './analytics.service.js';
-import type { AnalyticsOverviewQuery, AnalyticsSuggestionsQuery } from './analytics.validation.js';
+import type {
+  AnalyticsOverviewQuery,
+  AnalyticsPostsQuery,
+  AnalyticsSuggestionsQuery,
+} from './analytics.validation.js';
 
 export const getOverview = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = getWorkspaceId(req);
@@ -17,6 +21,20 @@ export const getOverview = catchAsync(async (req: Request, res: Response) => {
   return ApiResponse.success(res, {
     message: 'Lấy thống kê thành công',
     data,
+  });
+});
+
+export const getPosts = catchAsync(async (req: Request, res: Response) => {
+  const workspaceId = getWorkspaceId(req);
+  const { posts, meta } = await analyticsService.listPosts(
+    workspaceId,
+    req.query as unknown as AnalyticsPostsQuery
+  );
+
+  return ApiResponse.success(res, {
+    message: 'Lấy số liệu theo bài đăng thành công',
+    data: { posts },
+    meta,
   });
 });
 
@@ -52,6 +70,7 @@ export const triggerSync = catchAsync(async (req: Request, res: Response) => {
 
 export default {
   getOverview,
+  getPosts,
   getSuggestions,
   triggerSync,
 };

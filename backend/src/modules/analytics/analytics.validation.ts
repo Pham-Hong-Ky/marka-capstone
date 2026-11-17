@@ -28,6 +28,16 @@ export const analyticsOverviewQuerySchema = z
     path: ['to'],
   });
 
+export const analyticsPostSortValues = ['publishedAt', 'impressions', 'engagement'] as const;
+
+export const analyticsPostsQuerySchema = analyticsOverviewQuerySchema.and(
+  z.object({
+    page: z.coerce.number().int().min(1).max(100000).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(10),
+    sort: z.enum(analyticsPostSortValues).default('publishedAt'),
+  })
+);
+
 export const analyticsSuggestionsQuerySchema = z.object({
   channelId: z.string().uuid('Channel ID không hợp lệ').optional(),
 });
@@ -35,6 +45,11 @@ export const analyticsSuggestionsQuerySchema = z.object({
 export const analyticsOverviewSchema = {
   params: workspaceIdParamSchema,
   query: analyticsOverviewQuerySchema,
+};
+
+export const analyticsPostsSchema = {
+  params: workspaceIdParamSchema,
+  query: analyticsPostsQuerySchema,
 };
 
 export const analyticsSuggestionsSchema = {
@@ -45,10 +60,12 @@ export const analyticsSuggestionsSchema = {
 export const analyticsSyncSchema = { params: workspaceIdParamSchema };
 
 export type AnalyticsOverviewQuery = z.infer<typeof analyticsOverviewQuerySchema>;
+export type AnalyticsPostsQuery = z.infer<typeof analyticsPostsQuerySchema>;
 export type AnalyticsSuggestionsQuery = z.infer<typeof analyticsSuggestionsQuerySchema>;
 
 export default {
   analyticsOverviewSchema,
+  analyticsPostsSchema,
   analyticsSuggestionsSchema,
   analyticsSyncSchema,
 };
