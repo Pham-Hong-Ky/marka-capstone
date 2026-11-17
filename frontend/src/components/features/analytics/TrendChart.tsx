@@ -89,7 +89,7 @@ export const TrendChart = ({
               tick={{ fill: 'var(--muted)', fontSize: 11 }}
             />
             <YAxis
-              yAxisId="engagement"
+              yAxisId="interactions"
               orientation="right"
               width={48}
               allowDecimals={false}
@@ -99,7 +99,6 @@ export const TrendChart = ({
               axisLine={false}
               tick={{ fill: 'var(--muted)', fontSize: 11 }}
             />
-            <YAxis yAxisId="impressions" hide domain={[0, (dataMax: number) => Math.max(dataMax, 4)]} />
             <Tooltip
               cursor={{ stroke: 'var(--border)' }}
               labelFormatter={(label) => formatDay(String(label))}
@@ -132,7 +131,7 @@ export const TrendChart = ({
               strokeWidth={2}
             />
             <Line
-              yAxisId="engagement"
+              yAxisId="interactions"
               type="monotone"
               dataKey="engagement"
               name="engagement"
@@ -141,7 +140,7 @@ export const TrendChart = ({
               dot={false}
             />
             <Line
-              yAxisId="impressions"
+              yAxisId="interactions"
               type="monotone"
               dataKey="impressions"
               name="impressions"
