@@ -164,6 +164,23 @@ describe('ThreadsAdapter.publish', () => {
     expect(order).toEqual(['start', 'publish']);
   });
 
+  it('cho threads_publish timeout 30 giây, các request còn lại giữ mặc định', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith('/threads_publish')) return jsonResponse({ id: 'threads-post-1' });
+        return jsonResponse({ id: 'container-1' });
+      })
+    );
+
+    await threadsAdapter.publish(baseInput);
+
+    expect(timeoutSpy.mock.calls.map(([ms]) => ms)).toEqual([10_000, 30_000]);
+    timeoutSpy.mockRestore();
+  });
+
   it('map token hết hạn thành SocialTokenExpiredError', async () => {
     vi.stubGlobal(
       'fetch',

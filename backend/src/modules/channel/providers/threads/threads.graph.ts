@@ -91,9 +91,10 @@ const throwThreadsError = (status: number, body: ThreadsErrorBody | null): never
 /** Gọi Threads API và ném lỗi nghiệp vụ nếu phản hồi không ok. */
 export const threadsRequest = async <T>(
   url: URL,
-  init?: RequestInit
+  init?: RequestInit,
+  timeoutMs?: number
 ): Promise<T> => {
-  const result = await requestGraph<T & ThreadsErrorBody>(url, init);
+  const result = await requestGraph<T & ThreadsErrorBody>(url, init, timeoutMs);
 
   if (!result.ok || result.body?.error) {
     throwThreadsError(result.status, result.body);
