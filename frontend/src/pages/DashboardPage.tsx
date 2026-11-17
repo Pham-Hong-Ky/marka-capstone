@@ -402,7 +402,7 @@ export const DashboardPage = () => {
           {suggestions.data ? (
             <div className="grid gap-3 lg:grid-cols-2">
               <BestTimesCard suggestions={suggestions.data} />
-              <ContentTipsCard suggestions={suggestions.data} />
+              <ContentTipsCard />
             </div>
           ) : null}
         </div>
