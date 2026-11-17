@@ -5,7 +5,7 @@ import Button from '@/components/ui/Button';
 import SelectableAccountList from '@/components/shared/SelectableAccountList';
 import EmptyState from '@/components/ui/EmptyState';
 import Modal from '@/components/ui/Modal';
-import TextField from '@/components/ui/TextField';
+import DateTimeField from '@/components/ui/DateTimeField';
 import { useChannels } from '@/hooks/useChannels';
 import { useCreateSchedules } from '@/hooks/useSchedule';
 import type { PostDetail } from '@/services/post';
@@ -161,13 +161,11 @@ export const PublishScheduleModal = ({
         </div>
 
         {mode === 'schedule' ? (
-          <TextField
+          <DateTimeField
             label="Thời gian đăng"
-            name="scheduledAt"
-            type="datetime-local"
             value={scheduledAt}
-            min={toDateTimeLocalValue(new Date(Date.now() + 60_000))}
-            onChange={(event) => setScheduledAt(event.target.value)}
+            min={new Date(Date.now() + 60_000)}
+            onChange={setScheduledAt}
           />
         ) : null}
 

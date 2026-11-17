@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { CalendarClock } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import TextField from '@/components/ui/TextField';
+import DateTimeField from '@/components/ui/DateTimeField';
 import { useRescheduleSchedule } from '@/hooks/useSchedule';
 import type { ScheduleItem } from '@/services/schedule';
 import { formatDateTime, toDateTimeLocalValue } from '@/utils/format';
@@ -96,13 +96,11 @@ export const RescheduleScheduleModal = ({
           </span>
         </p>
 
-        <TextField
+        <DateTimeField
           label="Thời gian đăng mới"
-          name="scheduledAt"
-          type="datetime-local"
           value={scheduledAt}
-          min={toDateTimeLocalValue(new Date(Date.now() + MIN_SCHEDULE_AHEAD_MS))}
-          onChange={(event) => setScheduledAt(event.target.value)}
+          min={new Date(Date.now() + MIN_SCHEDULE_AHEAD_MS)}
+          onChange={setScheduledAt}
         />
 
         {formError ? <p className="text-sm text-danger">{formError}</p> : null}
