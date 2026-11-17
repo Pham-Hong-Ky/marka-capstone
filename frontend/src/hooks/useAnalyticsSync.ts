@@ -63,6 +63,7 @@ export const useAnalyticsSync = ({
     queryClient.invalidateQueries({
       queryKey: queryKeys.analytics.suggestionsRoot,
     });
+    queryClient.invalidateQueries({ queryKey: queryKeys.analytics.postsRoot });
     toast.success('Đã cập nhật số liệu mới.');
   }, [baseline, coverage, queryClient, syncKey, workspaceId]);
 

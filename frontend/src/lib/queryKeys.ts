@@ -3,7 +3,7 @@ import type {
   AdminUsersQuery,
   AdminWorkspacesQuery,
 } from '@/services/admin';
-import type { AnalyticsFilters } from '@/services/analytics';
+import type { AnalyticsFilters, AnalyticsPostsParams } from '@/services/analytics';
 import type { BrandVoiceInsightsParams } from '@/services/brandvoice';
 import type { PostListParams } from '@/services/post';
 import type { ScheduleListParams } from '@/services/schedule';
@@ -59,6 +59,9 @@ export const queryKeys = {
   analytics: {
     overview: (workspaceId: string | null, filters: AnalyticsFilters) =>
       ['analytics', 'overview', workspaceId, filters] as const,
+    posts: (workspaceId: string | null, params: AnalyticsPostsParams) =>
+      ['analytics', 'posts', workspaceId, params] as const,
+    postsRoot: ['analytics', 'posts'] as const,
     suggestions: (workspaceId: string | null, channelId?: string) =>
       ['analytics', 'suggestions', workspaceId, channelId ?? 'all'] as const,
     suggestionsRoot: ['analytics', 'suggestions'] as const,

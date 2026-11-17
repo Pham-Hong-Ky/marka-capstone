@@ -1,9 +1,12 @@
 import httpClient from '../httpClient';
-import { unwrap } from '../http';
-import type { ApiResponse } from '@/types';
+import { unwrap, unwrapPaginated } from '../http';
+import type { ApiResponse, PaginationMeta } from '@/types';
 import type {
   AnalyticsFilters,
   AnalyticsOverview,
+  AnalyticsPostRow,
+  AnalyticsPostsParams,
+  AnalyticsPostsResult,
   AnalyticsSuggestions,
 } from './analytics.types';
 
@@ -30,6 +33,20 @@ export const getOverview = async (
     })
   );
 
+export const getPosts = async (
+  workspaceId: string,
+  { filters, sort, page, limit }: AnalyticsPostsParams
+): Promise<AnalyticsPostsResult> => {
+  const response = await httpClient.get<
+    ApiResponse<{ posts: AnalyticsPostRow[] }, PaginationMeta>
+  >(`${base(workspaceId)}/posts`, {
+    params: { ...buildOverviewParams(filters), sort, page, ...(limit ? { limit } : {}) },
+  });
+  const { data, meta } = unwrapPaginated(response);
+
+  return { posts: data.posts, meta };
+};
+
 export const getSuggestions = async (
   workspaceId: string,
   params: { channelId?: string }
@@ -47,6 +64,7 @@ export const syncMetrics = async (workspaceId: string): Promise<{ queued: boolea
 
 const analyticsService = {
   getOverview,
+  getPosts,
   getSuggestions,
   syncMetrics,
 };

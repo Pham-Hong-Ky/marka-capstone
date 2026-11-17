@@ -10,7 +10,8 @@ export interface MetricItem {
 }
 
 const columnsFor = (count: number): string => {
-  if (count >= 5) return 'sm:grid-cols-5';
+  if (count >= 6) return 'sm:grid-cols-3 lg:grid-cols-6';
+  if (count === 5) return 'sm:grid-cols-5';
   if (count === 4) return 'sm:grid-cols-2 lg:grid-cols-4';
   return 'sm:grid-cols-3';
 };
