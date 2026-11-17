@@ -28,7 +28,7 @@ const waitForContainer = async (containerId: string, accessToken: string): Promi
     if (body.status === 'FINISHED' || body.status === 'PUBLISHED') return;
     if (body.status === 'ERROR' || body.status === 'EXPIRED') {
       throw new BadRequestError(
-        `Threads không xử lý được ảnh: ${body.error_message ?? body.status}`
+        `Threads không xử lý được nội dung: ${body.error_message ?? body.status}`
       );
     }
 
@@ -36,7 +36,7 @@ const waitForContainer = async (containerId: string, accessToken: string): Promi
     await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
   }
 
-  throw new SocialTransientError('Threads đang xử lý ảnh. Hệ thống sẽ thử lại sau.');
+  throw new SocialTransientError('Threads đang xử lý nội dung. Hệ thống sẽ thử lại sau.');
 };
 
 export const publishThreadsPost = async (
@@ -90,6 +90,7 @@ export const publishThreadsPost = async (
 
   if (imageUrls.length === 0) {
     containerId = await createContainer({ media_type: 'TEXT', text });
+    await waitForContainer(containerId, accessToken);
   } else if (imageUrls.length === 1) {
     containerId = await createContainer({
       media_type: 'IMAGE',
