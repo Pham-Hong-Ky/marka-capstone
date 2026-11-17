@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Check, Eye, MoreHorizontal, Pencil, Send, Trash2, X } from 'lucide-react';
 import { useMenuKeyboard } from '@/hooks/useMenuKeyboard';
 import type { PostSummary } from '@/services/post';
 import { cn } from '@/utils/cn';
@@ -18,12 +18,22 @@ export const PostRowActions = ({
   canEdit,
   onView,
   onEdit,
+  canReview,
+  isBusy,
+  onSubmit,
+  onApprove,
+  onReject,
   onDelete,
 }: {
   post: PostSummary;
   canEdit: boolean;
   onView: () => void;
   onEdit: () => void;
+  canReview: boolean;
+  isBusy: boolean;
+  onSubmit: () => void;
+  onApprove: () => void;
+  onReject: () => void;
   onDelete: () => void;
 }) => {
   const [open, setOpen] = useState(false);
@@ -39,7 +49,7 @@ export const PostRowActions = ({
       if (!trigger) return;
 
       const rect = trigger.getBoundingClientRect();
-      const estimatedHeight = (canEdit ? 3 : 1) * MENU_ITEM_HEIGHT + MENU_PADDING;
+      const estimatedHeight = (canEdit ? 4 : canReview ? 3 : 1) * MENU_ITEM_HEIGHT + MENU_PADDING;
       const opensUpward = rect.bottom + estimatedHeight + 6 > window.innerHeight;
       const top = opensUpward ? rect.top - estimatedHeight - 6 : rect.bottom + 6;
       const maxLeft = Math.max(8, window.innerWidth - MENU_WIDTH - 8);
@@ -75,7 +85,7 @@ export const PostRowActions = ({
       window.removeEventListener('scroll', closeOnViewportChange, true);
       cancelAnimationFrame(frame);
     };
-  }, [open, canEdit]);
+  }, [open, canEdit, canReview]);
 
   const runAction = (action: () => void) => {
     setOpen(false);
@@ -118,6 +128,30 @@ export const PostRowActions = ({
                 Xem chi tiết
               </button>
 
+              {canReview ? (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={isBusy}
+                    className={cn(menuItemClasses, 'text-foreground disabled:opacity-60')}
+                    onClick={() => runAction(onApprove)}
+                  >
+                    <Check className="h-4 w-4 text-muted" />
+                    Duyệt
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={cn(menuItemClasses, 'text-danger')}
+                    onClick={() => runAction(onReject)}
+                  >
+                    <X className="h-4 w-4" />
+                    Từ chối
+                  </button>
+                </>
+              ) : null}
+
               {canEdit ? (
                 <>
                   <button
@@ -128,6 +162,16 @@ export const PostRowActions = ({
                   >
                     <Pencil className="h-4 w-4 text-muted" />
                     Chỉnh sửa
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={isBusy}
+                    className={cn(menuItemClasses, 'text-foreground disabled:opacity-60')}
+                    onClick={() => runAction(onSubmit)}
+                  >
+                    <Send className="h-4 w-4 text-muted" />
+                    Gửi duyệt
                   </button>
                   <button
                     type="button"

@@ -16,6 +16,10 @@ export const PostList = ({
   currentUserId,
   onOpen,
   onEdit,
+  isBusy,
+  onSubmit,
+  onApprove,
+  onReject,
   onDelete,
   onPageChange,
 }: {
@@ -25,6 +29,10 @@ export const PostList = ({
   currentUserId: string | null;
   onOpen: (post: PostSummary) => void;
   onEdit: (post: PostSummary) => void;
+  isBusy: boolean;
+  onSubmit: (post: PostSummary) => void;
+  onApprove: (post: PostSummary) => void;
+  onReject: (post: PostSummary) => void;
   onDelete: (post: PostSummary) => void;
   onPageChange: (page: number) => void;
 }) => {
@@ -86,6 +94,11 @@ export const PostList = ({
                   canEdit={canModifyPost(post, currentUserId, role)}
                   onView={() => onOpen(post)}
                   onEdit={() => onEdit(post)}
+                  canReview={post.status === 'PENDING' && role === 'OWNER'}
+                  isBusy={isBusy}
+                  onSubmit={() => onSubmit(post)}
+                  onApprove={() => onApprove(post)}
+                  onReject={() => onReject(post)}
                   onDelete={() => onDelete(post)}
                 />
               </TD>
