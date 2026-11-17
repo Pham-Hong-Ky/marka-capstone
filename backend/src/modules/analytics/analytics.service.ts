@@ -2,6 +2,10 @@ import { getErrorMessage } from '../../utils/errorMessage.js';
 import { buildPaginationMeta } from '../../utils/pagination.js';
 import logger from '../../utils/logger.js';
 import { decryptOrNull } from '../../utils/encryption.js';
+import { TooManyRequestsError } from '../../utils/errors/index.js';
+import redis from '../../config/redis.js';
+import { enqueue } from '../../workers/queue-manager.js';
+import { QUEUE_NAMES } from '../../workers/types.js';
 import { getProvider } from '../channel/providers/provider.registry.js';
 import { SocialTokenExpiredError } from '../channel/providers/errors/social.errors.js';
 import renderContentToPlainText from '../schedule/schedule.content.js';
@@ -37,6 +41,7 @@ const SYNC_REFRESH_TIERS = [
   { maxAgeMs: SYNC_WINDOW_MS, refreshMs: 24 * HOUR_MS },
 ];
 const SYNC_BATCH_SIZE = 50;
+const MANUAL_SYNC_COOLDOWN_SECONDS = 5 * 60;
 const SUGGESTION_WINDOW_DAYS = 90;
 const EXTERNAL_LINK_PATTERN = /https?:\/\//i;
 
@@ -300,4 +305,31 @@ export const syncMetrics = async (options: { workspaceId?: string; force?: boole
   return { total: schedules.length, synced, failed };
 };
 
-export default { getOverview, listPosts, getSuggestions, syncMetrics };
+const syncCooldownKey = (workspaceId: string) => `analytics:sync-cooldown:${workspaceId}`;
+
+export const requestManualSync = async (workspaceId: string): Promise<void> => {
+  const key = syncCooldownKey(workspaceId);
+  const acquired = await redis.set(key, '1', 'EX', MANUAL_SYNC_COOLDOWN_SECONDS, 'NX');
+
+  if (!acquired) {
+    const remaining = Math.max(await redis.ttl(key), 1);
+    throw new TooManyRequestsError(
+      `Số liệu vừa được đồng bộ gần đây. Vui lòng thử lại sau ${remaining} giây.`
+    );
+  }
+
+  try {
+    // jobId theo workspace: gộp các yêu cầu đang chờ thành một job.
+    await enqueue(
+      QUEUE_NAMES.analytics,
+      'analytics-sync',
+      { workspaceId, force: true },
+      { jobId: `analytics-sync-${workspaceId}`, removeOnComplete: true, removeOnFail: true }
+    );
+  } catch (error) {
+    await redis.del(key);
+    throw error;
+  }
+};
+
+export default { getOverview, listPosts, getSuggestions, syncMetrics, requestManualSync };

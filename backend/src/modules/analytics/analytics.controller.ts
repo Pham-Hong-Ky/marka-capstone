@@ -2,8 +2,6 @@ import { getWorkspaceId } from '../../utils/request.js';
 import { Request, Response } from 'express';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
-import { enqueue } from '../../workers/queue-manager.js';
-import { QUEUE_NAMES } from '../../workers/types.js';
 import analyticsService from './analytics.service.js';
 import type {
   AnalyticsOverviewQuery,
@@ -53,13 +51,7 @@ export const getSuggestions = catchAsync(async (req: Request, res: Response) => 
 
 export const triggerSync = catchAsync(async (req: Request, res: Response) => {
   const workspaceId = getWorkspaceId(req);
-  // jobId theo workspace: bấm đồng bộ liên tục chỉ giữ một job chờ, tránh dội API nền tảng.
-  await enqueue(
-    QUEUE_NAMES.analytics,
-    'analytics-sync',
-    { workspaceId, force: true },
-    { jobId: `analytics-sync-${workspaceId}`, removeOnComplete: true, removeOnFail: true }
-  );
+  await analyticsService.requestManualSync(workspaceId);
 
   return ApiResponse.success(res, {
     statusCode: 202,
