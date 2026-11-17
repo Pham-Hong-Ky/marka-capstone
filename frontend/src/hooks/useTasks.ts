@@ -25,7 +25,6 @@ const findColumn = (board: TaskBoard, taskId: string): TaskColumn | null =>
   COLUMNS.find((column) => board[column].some((task) => task.id === taskId)) ?? null;
 
 const compareTasks = (a: TaskItem, b: TaskItem): number => {
-  if (a.priority !== b.priority) return a.priority - b.priority;
   if (a.dueAt && b.dueAt) return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
   if (a.dueAt) return -1;
   if (b.dueAt) return 1;

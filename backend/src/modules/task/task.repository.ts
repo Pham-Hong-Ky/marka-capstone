@@ -10,7 +10,6 @@ export const TASK_SELECT = {
   title: true,
   description: true,
   status: true,
-  priority: true,
   assignedById: true,
   assignedAt: true,
   dueAt: true,
@@ -51,7 +50,6 @@ export interface BoardTaskFilters {
   assigneeId?: string;
   includeUnassigned: boolean;
   search?: string;
-  priority?: number;
   limit: number;
 }
 
@@ -66,11 +64,9 @@ const buildWhere = (
   status,
   assigneeId: unassigned ? null : filters.assigneeId ?? { not: null },
   ...(filters.search ? { title: { contains: filters.search, mode: 'insensitive' } } : {}),
-  ...(filters.priority ? { priority: filters.priority } : {}),
 });
 
 const BOARD_ORDER_BY: Prisma.TaskOrderByWithRelationInput[] = [
-  { priority: 'asc' },
   { dueAt: { sort: 'asc', nulls: 'last' } },
   { updatedAt: 'desc' },
 ];
@@ -117,7 +113,6 @@ export interface UpdateTaskData {
   title?: string;
   description?: string;
   dueAt?: Date | null;
-  priority?: number;
 }
 
 export const updateTask = async (taskId: string, data: UpdateTaskData) =>
@@ -204,7 +199,6 @@ const REMINDER_TASK_SELECT = {
   id: true,
   workspaceId: true,
   title: true,
-  priority: true,
   dueAt: true,
   assigneeId: true,
 } satisfies Prisma.TaskSelect;

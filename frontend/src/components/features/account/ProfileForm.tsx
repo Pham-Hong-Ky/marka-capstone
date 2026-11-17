@@ -5,6 +5,7 @@ import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import AvatarField from './AvatarField';
+import ProfileLinkGuide from './ProfileLinkGuide';
 import { useRequestTesterAccess, useUpdateProfile, useUploadAvatar } from '@/hooks/useAccount';
 import {
   profileFormSchema,
@@ -93,6 +94,7 @@ export const ProfileForm = () => {
 
           <TextField
             label="Facebook"
+            labelAction={<ProfileLinkGuide platform="Facebook" />}
             type="text"
             inputMode="url"
             placeholder="https://facebook.com/ten-ban"
@@ -113,6 +115,7 @@ export const ProfileForm = () => {
           ) : null}
           <TextField
             label="Threads"
+            labelAction={<ProfileLinkGuide platform="Threads" />}
             type="text"
             inputMode="url"
             placeholder="https://www.threads.net/@ten-ban"

@@ -126,7 +126,6 @@ add_table("tasks", 0, 1, "content", [
     ("workspaceId", "uuid", "FK"),
     ("title", "varchar", ""),
     ("status", "enum", ""),
-    ("priority", "int", ""),
     ("assigneeId", "uuid", "FK"),
     ("postId", "uuid", "FK"),
 ])

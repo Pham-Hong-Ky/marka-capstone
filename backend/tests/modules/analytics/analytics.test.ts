@@ -364,9 +364,6 @@ describe('Analytics — thống kê & gợi ý', () => {
     expect(res.body.data.usedFallback).toBe(true);
     expect(res.body.data.bestTimes).toHaveLength(3);
 
-    const tips = res.body.data.contentTips as Array<{ postId: string; rule: string }>;
-    expect(tips.some((tip) => tip.rule === 'no_media')).toBe(true);
-    expect(tips.every((tip) => tip.postId !== undefined)).toBe(true);
     expect(res.body.data.sampleSize).toBe(2);
   });
 

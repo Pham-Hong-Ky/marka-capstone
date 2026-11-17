@@ -69,31 +69,11 @@ export interface BestTimeSlot {
   source: 'data' | 'benchmark';
 }
 
-export type TipSeverity = 'high' | 'medium' | 'low';
-
-export type TipRule =
-  | 'no_media'
-  | 'too_short'
-  | 'too_long'
-  | 'no_cta'
-  | 'too_many_hashtags'
-  | 'outside_best_time'
-  | 'external_link';
-
-export interface ContentTip {
-  postId: string;
-  postTitle: string;
-  rule: TipRule;
-  severity: TipSeverity;
-  message: string;
-}
-
 export interface AnalyticsSuggestions {
   bestTimes: BestTimeSlot[];
   usedFallback: boolean;
   sampleSize: number;
   windowDays: number;
-  contentTips: ContentTip[];
 }
 
 export type AnalyticsPostSort = 'publishedAt' | 'impressions' | 'engagement';

@@ -321,8 +321,6 @@ model Task {
   title        String     @db.VarChar(255)
   description  String?    @db.Text
   status       TaskStatus @default(TODO)
-  /// 1 = gấp nhất, 5 = thấp nhất
-  priority     Int        @default(3)
   assigneeId   String?    @db.VarChar(36)
   assignedById String?    @db.VarChar(36)
   assignedAt   DateTime?

@@ -125,15 +125,14 @@ describe('Task manage: update, delete, link post', () => {
     });
   });
 
-  it('Owner sửa tiêu đề, ưu tiên, hạn chót → audit TASK_UPDATED', async () => {
+  it('Owner sửa tiêu đề, hạn chót → audit TASK_UPDATED', async () => {
     const task = await createTask();
     const dueAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
 
-    const res = await updateTask(task.id, { title: 'Tiêu đề mới', priority: 1, dueAt });
+    const res = await updateTask(task.id, { title: 'Tiêu đề mới', dueAt });
 
     expect(res.status).toBe(200);
     expect(res.body.data.title).toBe('Tiêu đề mới');
-    expect(res.body.data.priority).toBe(1);
     expect(res.body.data.dueAt).not.toBeNull();
 
     const audit = await prisma.auditLog.findFirst({
@@ -157,7 +156,7 @@ describe('Task manage: update, delete, link post', () => {
   it('member sửa việc → 403', async () => {
     const task = await createTask({ assigneeId: creatorAId });
 
-    const res = await updateTask(task.id, { priority: 1 }, creatorAToken);
+    const res = await updateTask(task.id, { title: 'Đổi tên' }, creatorAToken);
 
     expect(res.status).toBe(403);
   });
@@ -316,7 +315,7 @@ describe('Task manage: update, delete, link post', () => {
   });
 
   it('chi tiết bài viết trả kèm công việc đã gắn', async () => {
-    const task = await createTask({ assigneeId: creatorAId, priority: 2 });
+    const task = await createTask({ assigneeId: creatorAId });
     const post = await createPost('Bài có công việc');
     await linkPost(task.id, post.id);
 
@@ -326,7 +325,6 @@ describe('Task manage: update, delete, link post', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.task.id).toBe(task.id);
-    expect(res.body.data.task.priority).toBe(2);
     expect(res.body.data.task.assignee.id).toBe(creatorAId);
   });
 });

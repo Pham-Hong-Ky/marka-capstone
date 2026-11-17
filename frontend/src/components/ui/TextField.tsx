@@ -1,13 +1,14 @@
-import { forwardRef, useId, type InputHTMLAttributes } from 'react';
+import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from 'react';
 import { inputClasses } from './input.styles';
 
 export const TextField = forwardRef<
   HTMLInputElement,
-  { label: string; error?: string } & InputHTMLAttributes<HTMLInputElement>
+  { label: string; labelAction?: ReactNode; error?: string } & InputHTMLAttributes<HTMLInputElement>
 >(
   (
     {
       label,
+      labelAction,
       error,
       id,
       className,
@@ -24,9 +25,12 @@ export const TextField = forwardRef<
 
     return (
       <div className="space-y-1.5">
-        <label htmlFor={inputId} className="block text-sm font-medium text-foreground">
-          {label}
-        </label>
+        <div className="flex items-center gap-1">
+          <label htmlFor={inputId} className="block text-sm font-medium text-foreground">
+            {label}
+          </label>
+          {labelAction}
+        </div>
         <input
           ref={ref}
           id={inputId}

@@ -281,7 +281,6 @@ def build_svg():
                 "+title : string",
                 "+description : string",
                 "+status : string",
-                "+priority : int",
                 "+assigneeId : string",
                 "+assignedById : string",
                 "+assignedAt : Datetime",

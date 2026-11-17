@@ -8,9 +8,8 @@ export const notifyTaskAssigned = async (params: {
   assigneeId: string;
   actorId: string;
   dueAt: Date | null;
-  priority: number;
 }) => {
-  const { workspaceId, taskId, taskTitle, assigneeId, actorId, dueAt, priority } = params;
+  const { workspaceId, taskId, taskTitle, assigneeId, actorId, dueAt } = params;
   if (assigneeId === actorId) {
     return;
   }
@@ -23,7 +22,6 @@ export const notifyTaskAssigned = async (params: {
       taskId,
       taskTitle,
       dueAt: dueAt?.toISOString() ?? null,
-      priority,
       assignedById: actorId,
     },
   });
@@ -65,8 +63,7 @@ interface DeadlineTask {
   id: string;
   workspaceId: string;
   title: string;
-  priority: number;
-  dueAt: Date | null;
+dueAt: Date | null;
   assigneeId: string | null;
 }
 
@@ -83,7 +80,6 @@ const notifyTaskDeadline = async (type: 'TASK_DUE_SOON' | 'TASK_OVERDUE', task: 
       taskId: task.id,
       taskTitle: task.title,
       dueAt: task.dueAt.toISOString(),
-      priority: task.priority,
     },
   });
 };

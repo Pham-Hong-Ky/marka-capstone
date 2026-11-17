@@ -22,6 +22,7 @@ export interface AuthUser {
   threadsUrl: string | null;
   systemRole: SystemRole;
   emailVerified: boolean;
+  hasPassword: boolean;
   workspaces: UserWorkspace[];
 }
 
