@@ -90,12 +90,11 @@ describe('Task board (UC41, UC42)', () => {
     });
   });
 
-  it('Owner tạo việc không giao ai → 201, priority mặc định 3, nằm cột Chưa giao', async () => {
+  it('Owner tạo việc không giao ai → 201, nằm cột Chưa giao', async () => {
     const res = await createTask(ownerToken, { title: 'Viết brief chiến dịch' });
 
     expect(res.status).toBe(201);
     expect(res.body.data.status).toBe('TODO');
-    expect(res.body.data.priority).toBe(3);
     expect(res.body.data.assignee).toBeNull();
 
     const board = await getBoard(ownerToken);
@@ -115,7 +114,6 @@ describe('Task board (UC41, UC42)', () => {
     const res = await createTask(ownerToken, {
       title: 'Việc giao ngay',
       assigneeId: creatorAId,
-      priority: 2,
     });
 
     expect(res.status).toBe(201);
@@ -128,14 +126,6 @@ describe('Task board (UC41, UC42)', () => {
     expect(count).toBe(1);
   });
 
-  it('priority ngoài 1–5 → 422', async () => {
-    const high = await createTask(ownerToken, { title: 'Việc sai ưu tiên', priority: 6 });
-    const low = await createTask(ownerToken, { title: 'Việc sai ưu tiên', priority: 0 });
-
-    expect(high.status).toBe(422);
-    expect(low.status).toBe(422);
-  });
-
   it('thành viên tạo việc → 403', async () => {
     const res = await createTask(creatorAToken, { title: 'Việc của member' });
     expect(res.status).toBe(403);
@@ -143,7 +133,7 @@ describe('Task board (UC41, UC42)', () => {
 
   it('member chỉ thấy việc của mình, không có cột Chưa giao', async () => {
     await prisma.task.create({
-      data: { workspaceId: wsId, title: 'Việc của A', assigneeId: creatorAId, priority: 1 },
+      data: { workspaceId: wsId, title: 'Việc của A', assigneeId: creatorAId },
     });
     await prisma.task.create({ data: { workspaceId: wsId, title: 'Việc chưa giao' } });
     await prisma.task.create({
@@ -159,28 +149,26 @@ describe('Task board (UC41, UC42)', () => {
     expect(res.body.data.todo[0].assignee.id).toBe(creatorAId);
   });
 
-  it('sắp xếp ưu tiên tăng dần rồi hạn chót, null cuối', async () => {
+  it('sắp xếp theo hạn chót tăng dần, null cuối', async () => {
     const dueTomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const p5 = await prisma.task.create({
-      data: { workspaceId: wsId, title: 'P5', priority: 5 },
+    const dueNextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const noDue = await prisma.task.create({
+      data: { workspaceId: wsId, title: 'Không hạn' },
     });
-    const p3NoDue = await prisma.task.create({
-      data: { workspaceId: wsId, title: 'P3 không hạn', priority: 3 },
+    const nextWeek = await prisma.task.create({
+      data: { workspaceId: wsId, title: 'Hạn tuần sau', dueAt: dueNextWeek },
     });
-    const p3Due = await prisma.task.create({
-      data: { workspaceId: wsId, title: 'P3 có hạn', priority: 3, dueAt: dueTomorrow },
-    });
-    const p1 = await prisma.task.create({
-      data: { workspaceId: wsId, title: 'P1', priority: 1 },
+    const tomorrow = await prisma.task.create({
+      data: { workspaceId: wsId, title: 'Hạn ngày mai', dueAt: dueTomorrow },
     });
 
     const res = await getBoard(ownerToken);
     const ids = res.body.data.unassigned.map((task: { id: string }) => task.id);
 
-    expect(ids).toEqual([p1.id, p3Due.id, p3NoDue.id, p5.id]);
+    expect(ids).toEqual([tomorrow.id, nextWeek.id, noDue.id]);
   });
 
-  it('lọc mine, priority và search đúng', async () => {
+  it('lọc mine và search đúng', async () => {
     await prisma.task.create({
       data: {
         workspaceId: wsId,
@@ -188,7 +176,6 @@ describe('Task board (UC41, UC42)', () => {
         assigneeId: ownerId,
         assignedById: ownerId,
         assignedAt: new Date(),
-        priority: 1,
       },
     });
     await prisma.task.create({
@@ -198,7 +185,6 @@ describe('Task board (UC41, UC42)', () => {
         assigneeId: creatorAId,
         assignedById: ownerId,
         assignedAt: new Date(),
-        priority: 1,
       },
     });
     await prisma.task.create({
@@ -208,16 +194,15 @@ describe('Task board (UC41, UC42)', () => {
         assigneeId: creatorBId,
         assignedById: ownerId,
         assignedAt: new Date(),
-        priority: 5,
       },
     });
 
-    const ownerMine = await getBoard(ownerToken, '?mine=true&priority=1&search=Brief');
+    const ownerMine = await getBoard(ownerToken, '?mine=true&search=Brief');
     expect(ownerMine.body.data.todo.map((task: { title: string }) => task.title)).toEqual([
       'Brief owner',
     ]);
 
-    const memberFiltered = await getBoard(creatorAToken, '?priority=1&search=Brief');
+    const memberFiltered = await getBoard(creatorAToken, '?search=Brief');
     expect(memberFiltered.body.data.todo.map((task: { title: string }) => task.title)).toEqual([
       'Brief A',
     ]);

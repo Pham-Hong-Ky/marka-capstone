@@ -36,7 +36,6 @@ export const getPostById = async (postId: string, workspaceId: string) => {
           title: true,
           status: true,
           dueAt: true,
-          priority: true,
           deletedAt: true,
           assignee: { select: POST_AUTHOR_SELECT },
         },

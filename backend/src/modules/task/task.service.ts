@@ -73,7 +73,6 @@ export const createTask = async (workspaceId: string, actorId: string, body: Cre
     title: body.title,
     description: body.description ?? null,
     status: 'TODO',
-    priority: body.priority,
     assigneeId: body.assigneeId ?? null,
     assignedById: body.assigneeId ? actorId : null,
     assignedAt,
@@ -90,7 +89,6 @@ export const createTask = async (workspaceId: string, actorId: string, body: Cre
         assigneeId: body.assigneeId as string,
         actorId,
         dueAt: task.dueAt,
-        priority: task.priority,
       })
     );
   }
@@ -101,7 +99,7 @@ export const createTask = async (workspaceId: string, actorId: string, body: Cre
     action: 'TASK_CREATED',
     targetType: 'Task',
     targetId: task.id,
-    metadata: { title: task.title, priority: task.priority, assigneeId: task.assignee?.id ?? null },
+    metadata: { title: task.title, assigneeId: task.assignee?.id ?? null },
   });
 
   return task;
@@ -123,7 +121,6 @@ export const getTaskBoard = async (
     assigneeId,
     includeUnassigned,
     search: query.search,
-    priority: query.priority,
   };
 
   const [groups, counts] = await Promise.all([
@@ -183,7 +180,6 @@ export const assignTask = async (
         assigneeId,
         actorId,
         dueAt: updated.dueAt,
-        priority: updated.priority,
       })
     );
   }
@@ -261,7 +257,6 @@ export const updateTask = async (
     title: body.title,
     description: body.description,
     dueAt: body.dueAt,
-    priority: body.priority,
   });
 
   if (task.post && body.dueAt !== undefined) {

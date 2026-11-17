@@ -20,12 +20,6 @@ export const createTaskBodySchema = z.object({
   description: z.string().trim().max(2000, 'Mô tả tối đa 2000 ký tự').optional(),
   assigneeId: z.string().uuid('Người nhận việc không hợp lệ').optional(),
   dueAt: z.coerce.date().optional(),
-  priority: z
-    .number()
-    .int('Độ ưu tiên phải là số nguyên')
-    .min(1, 'Độ ưu tiên từ 1 đến 5')
-    .max(5, 'Độ ưu tiên từ 1 đến 5')
-    .default(3),
 });
 
 export const boardQuerySchema = z.object({
@@ -34,12 +28,6 @@ export const boardQuerySchema = z.object({
     .transform((value) => value === 'true')
     .optional(),
   search: z.string().trim().min(1).optional(),
-  priority: z.coerce
-    .number()
-    .int()
-    .min(1, 'Độ ưu tiên từ 1 đến 5')
-    .max(5, 'Độ ưu tiên từ 1 đến 5')
-    .optional(),
 });
 
 export const assignTaskBodySchema = z.object({
@@ -55,7 +43,6 @@ export const updateTaskBodySchema = z
     title: z.string().trim().min(1, 'Tiêu đề không được để trống').max(255).optional(),
     description: z.string().trim().max(2000, 'Mô tả tối đa 2000 ký tự').optional(),
     dueAt: z.coerce.date().nullable().optional(),
-    priority: z.number().int().min(1, 'Độ ưu tiên từ 1 đến 5').max(5, 'Độ ưu tiên từ 1 đến 5').optional(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: 'Cần cung cấp ít nhất một trường để cập nhật',

@@ -64,7 +64,6 @@ export const getPost = async (workspaceId: string, postId: string) => {
           title: task.title,
           status: task.status,
           dueAt: task.dueAt,
-          priority: task.priority,
           assignee: task.assignee,
         }
       : null;
