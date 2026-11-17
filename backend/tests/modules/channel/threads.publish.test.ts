@@ -42,6 +42,7 @@ describe('ThreadsAdapter.publish', () => {
         calls.push({ url, form, method: init?.method ?? 'GET' });
 
         if (url.pathname.endsWith('/threads')) return jsonResponse({ id: 'container-1' });
+        if (url.pathname.includes('/container-1')) return jsonResponse({ status: 'FINISHED' });
         if (url.pathname.endsWith('/threads_publish')) return jsonResponse({ id: 'threads-post-1' });
         throw new Error(`Unexpected URL: ${url}`);
       })
@@ -52,7 +53,31 @@ describe('ThreadsAdapter.publish', () => {
     expect(id).toBe('threads-post-1');
     expect(calls[0].form.get('media_type')).toBe('TEXT');
     expect(calls[0].form.get('text')).toBe('Xin chào Threads');
-    expect(calls[1].form.get('creation_id')).toBe('container-1');
+    expect(calls[2].form.get('creation_id')).toBe('container-1');
+  });
+
+  it('chờ container text FINISHED rồi mới gọi threads_publish', async () => {
+    const order: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith('/threads')) return jsonResponse({ id: 'container-1' });
+        if (url.pathname.includes('/container-1')) {
+          order.push('status');
+          return jsonResponse({ status: 'FINISHED' });
+        }
+        if (url.pathname.endsWith('/threads_publish')) {
+          order.push('publish');
+          return jsonResponse({ id: 'threads-post-1' });
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      })
+    );
+
+    await threadsAdapter.publish(baseInput);
+
+    expect(order).toEqual(['status', 'publish']);
   });
 
   it('đăng một ảnh bằng media_type=IMAGE và chờ container FINISHED', async () => {
@@ -143,6 +168,7 @@ describe('ThreadsAdapter.publish', () => {
       vi.fn(async (input: string | URL | Request) => {
         const url = new URL(String(input));
         if (url.pathname.endsWith('/threads')) return jsonResponse({ id: 'container-1' });
+        if (url.pathname.includes('/container-1')) return jsonResponse({ status: 'FINISHED' });
         if (url.pathname.endsWith('/threads_publish')) {
           order.push('publish');
           return jsonResponse({ id: 'threads-post-1' });
@@ -171,13 +197,14 @@ describe('ThreadsAdapter.publish', () => {
       vi.fn(async (input: string | URL | Request) => {
         const url = new URL(String(input));
         if (url.pathname.endsWith('/threads_publish')) return jsonResponse({ id: 'threads-post-1' });
+        if (url.pathname.includes('/container-1')) return jsonResponse({ status: 'FINISHED' });
         return jsonResponse({ id: 'container-1' });
       })
     );
 
     await threadsAdapter.publish(baseInput);
 
-    expect(timeoutSpy.mock.calls.map(([ms]) => ms)).toEqual([10_000, 30_000]);
+    expect(timeoutSpy.mock.calls.map(([ms]) => ms)).toEqual([10_000, 10_000, 30_000]);
     timeoutSpy.mockRestore();
   });
 
