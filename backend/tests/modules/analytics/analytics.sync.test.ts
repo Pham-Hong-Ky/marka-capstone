@@ -7,6 +7,7 @@ import { facebookAdapter } from '../../../src/modules/channel/providers/facebook
 import { threadsAdapter } from '../../../src/modules/channel/providers/threads/threads.adapter.js';
 import { SocialTokenExpiredError } from '../../../src/modules/channel/providers/errors/social.errors.js';
 import analyticsService from '../../../src/modules/analytics/analytics.service.js';
+import { PARTIAL_SYNC_PREFIX } from '../../../src/modules/analytics/analytics.repository.js';
 
 const password = 'password123';
 
@@ -203,6 +204,80 @@ describe('Analytics — đồng bộ số liệu Facebook', () => {
 
       expect(overview.coverage.syncedPosts).toBe(0);
       expect(overview.coverage.lastSyncedAt).toBeNull();
+    } finally {
+      await prisma.workspace.delete({ where: { id: ws.id } });
+    }
+  });
+
+  it('bài chỉ thiếu insights vẫn được tính là đã đồng bộ, nhưng thiếu impressions', async () => {
+    const activeChannel = await prisma.channelConnection.create({
+      data: {
+        workspaceId: wsId,
+        platform: 'FACEBOOK',
+        type: 'REAL',
+        name: 'Page thiếu insights',
+        externalAccountId: `partial-sync-${Date.now()}`,
+        accessToken: encrypt('page-token') as string,
+        status: 'ACTIVE',
+      },
+    });
+    const schedule = await createPublishedSchedule(new Date(), activeChannel.id);
+    vi.spyOn(facebookAdapter, 'fetchMetrics').mockResolvedValue({
+      reactions: 8,
+      comments: 1,
+      shares: 0,
+      impressions: null,
+      reach: null,
+      reactionsDetail: null,
+      partialError: 'Permission denied',
+    });
+
+    await analyticsService.syncMetrics({ workspaceId: wsId, force: true });
+
+    const metric = await prisma.postMetric.findUnique({ where: { scheduledPostId: schedule.id } });
+    expect(metric).toMatchObject({ reactions: 8, comments: 1 });
+    expect(metric?.syncError).toContain('Permission denied');
+
+    const ws = await prisma.workspace.create({
+      data: { name: `WS thiếu insights ${Date.now()}`, plan: 'FREE' },
+    });
+
+    try {
+      const channel = await prisma.channelConnection.create({
+        data: {
+          workspaceId: ws.id,
+          platform: 'FACEBOOK',
+          type: 'REAL',
+          name: 'Page thiếu insights',
+          externalAccountId: `partial-page-${Date.now()}`,
+          status: 'ACTIVE',
+        },
+      });
+      const post = await prisma.post.create({
+        data: { workspaceId: ws.id, title: 'Bài thiếu insights', content, status: 'PUBLISHED' },
+      });
+      const partialSchedule = await prisma.scheduledPost.create({
+        data: {
+          postId: post.id,
+          channelId: channel.id,
+          status: 'PUBLISHED',
+          publishedAt: new Date(),
+          externalPostId: 'fb-partial',
+        },
+      });
+      await prisma.postMetric.create({
+        data: {
+          scheduledPostId: partialSchedule.id,
+          reactions: 8,
+          syncError: `${PARTIAL_SYNC_PREFIX}Permission denied`,
+          fetchedAt: new Date(),
+        },
+      });
+
+      const overview = await analyticsService.getOverview(ws.id, { range: '30d' });
+
+      expect(overview.coverage.syncedPosts).toBe(1);
+      expect(overview.coverage.missingImpressions).toBe(1);
     } finally {
       await prisma.workspace.delete({ where: { id: ws.id } });
     }

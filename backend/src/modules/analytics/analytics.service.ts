@@ -4,7 +4,7 @@ import { decryptOrNull } from '../../utils/encryption.js';
 import { getProvider } from '../channel/providers/provider.registry.js';
 import { SocialTokenExpiredError } from '../channel/providers/errors/social.errors.js';
 import renderContentToPlainText from '../schedule/schedule.content.js';
-import analyticsRepository from './analytics.repository.js';
+import analyticsRepository, { isFailedSync } from './analytics.repository.js';
 import {
   buildSeries,
   computeDelta,
@@ -92,7 +92,7 @@ export const getOverview = async (workspaceId: string, query: AnalyticsOverviewQ
   const summary = computeSummary(metricRows);
   const previousSummary = computeSummary(toMetricRows(previousRows));
 
-  const synced = rows.filter((row) => row.metric !== null && row.metric.syncError === null);
+  const synced = rows.filter((row) => row.metric !== null && !isFailedSync(row.metric.syncError));
   const lastSyncedAt = synced.reduce<Date | null>((latest, row) => {
     const fetchedAt = row.metric?.fetchedAt;
     if (!fetchedAt) return latest;
