@@ -3,7 +3,7 @@ import { toWorkspaceSummary } from '../workspace/workspace.mapper.js';
 
 type UserWithWorkspaces = Pick<
   User,
-  'id' | 'email' | 'name' | 'avatar' | 'facebookUrl' | 'threadsUrl' | 'systemRole' | 'emailVerified'
+  'id' | 'email' | 'name' | 'avatar' | 'facebookUrl' | 'threadsUrl' | 'systemRole' | 'emailVerified' | 'passwordHash'
 > & {
   workspaceMembers: Array<{ role: WorkspaceRole; workspace: Workspace }>;
 };
@@ -17,5 +17,6 @@ export const toAuthUser = (user: UserWithWorkspaces) => ({
   threadsUrl: user.threadsUrl,
   systemRole: user.systemRole,
   emailVerified: user.emailVerified,
+  hasPassword: user.passwordHash !== null,
   workspaces: user.workspaceMembers.map(toWorkspaceSummary),
 });
