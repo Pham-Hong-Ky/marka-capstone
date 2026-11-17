@@ -5,7 +5,6 @@ export interface NotificationPayload {
   postTitle?: string;
   taskId?: string;
   taskTitle?: string;
-  priority?: number;
   approved?: boolean;
   reason?: string | null;
   submittedById?: string;

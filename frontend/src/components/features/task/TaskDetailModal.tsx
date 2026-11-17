@@ -71,10 +71,6 @@ export const TaskDetailModal = ({
           <dd className="font-medium text-foreground">{getStatusLabel(task)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-4">
-          <dt className="text-muted">Ưu tiên</dt>
-          <dd className="font-medium text-foreground">P{task.priority}/5</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-4">
           <dt className="text-muted">Người nhận</dt>
           <dd className="font-medium text-foreground">{task.assignee?.name ?? 'Chưa giao'}</dd>
         </div>

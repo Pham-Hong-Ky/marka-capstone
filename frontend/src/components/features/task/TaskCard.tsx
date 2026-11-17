@@ -7,7 +7,6 @@ import { useMenuKeyboard } from '@/hooks/useMenuKeyboard';
 import type { TaskItem, TaskStatus } from '@/services/task';
 import { cn } from '@/utils/cn';
 import { formatDateTime } from '@/utils/format';
-import TaskPriorityBadge from './TaskPriorityBadge';
 
 const cardClasses =
   'w-full rounded-lg border border-border bg-surface p-3 text-left transition hover:border-accent/40 hover:bg-surface-2';
@@ -102,10 +101,7 @@ export const TaskCard = ({
 
   const summary = (
     <>
-      <span className="flex items-start justify-between gap-2">
-        <span className="line-clamp-2 text-[13px] font-medium text-foreground">{task.title}</span>
-        <TaskPriorityBadge priority={task.priority} />
-      </span>
+      <span className="line-clamp-2 text-[13px] font-medium text-foreground">{task.title}</span>
 
       <span className="mt-2 flex flex-wrap items-center gap-2">
         {task.post ? <Badge variant="neutral">Bài viết</Badge> : null}
@@ -119,7 +115,7 @@ export const TaskCard = ({
 
   return (
     <article
-      aria-label={`${task.title}, ưu tiên P${task.priority}`}
+      aria-label={`${task.title}`}
       aria-roledescription={draggable ? 'thẻ công việc có thể kéo' : 'thẻ công việc'}
       className={cardClasses}
       draggable={draggable}

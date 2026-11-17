@@ -20,7 +20,6 @@ export interface TaskItem {
   title: string;
   description: string | null;
   status: TaskStatus;
-  priority: number;
   assignee: TaskAssignee | null;
   assignedAt: string | null;
   dueAt: string | null;
@@ -49,7 +48,6 @@ export type TaskColumn = keyof Omit<TaskBoard, 'counts'>;
 export interface TaskBoardParams {
   mine?: boolean;
   search?: string;
-  priority?: number;
 }
 
 export interface CreateTaskPayload {
@@ -57,14 +55,12 @@ export interface CreateTaskPayload {
   description?: string;
   assigneeId?: string;
   dueAt?: string;
-  priority?: number;
 }
 
 export interface UpdateTaskPayload {
   title?: string;
   description?: string;
   dueAt?: string | null;
-  priority?: number;
 }
 
 export interface AssignTaskPayload {

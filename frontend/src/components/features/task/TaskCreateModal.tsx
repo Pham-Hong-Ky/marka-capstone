@@ -10,7 +10,6 @@ import TextField from '@/components/ui/TextField';
 import { useCreateTask, useUpdateTask } from '@/hooks/useTasks';
 import { useWorkspaceMembers } from '@/hooks/useWorkspace';
 import type { TaskItem } from '@/services/task';
-import { cn } from '@/utils/cn';
 import { toDateTimeLocalValue } from '@/utils/format';
 
 const taskFormSchema = z.object({
@@ -22,19 +21,15 @@ const taskFormSchema = z.object({
   description: z.string().trim().max(2000, 'Mô tả tối đa 2000 ký tự'),
   assigneeId: z.string(),
   dueAt: z.string(),
-  priority: z.number().int().min(1).max(5),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
-
-const PRIORITY_OPTIONS = [1, 2, 3, 4, 5];
 
 const buildDefaults = (task?: TaskItem | null): TaskFormValues => ({
   title: task?.title ?? '',
   description: task?.description ?? '',
   assigneeId: task?.assignee?.id ?? '',
   dueAt: task?.dueAt ? toDateTimeLocalValue(task.dueAt) : '',
-  priority: task?.priority ?? 3,
 });
 
 export const TaskCreateModal = ({
@@ -89,7 +84,6 @@ export const TaskCreateModal = ({
     const payload = {
       title: values.title,
       description: values.description,
-      priority: values.priority,
     };
     const dueAt = values.dueAt ? new Date(values.dueAt).toISOString() : null;
 
@@ -137,34 +131,20 @@ export const TaskCreateModal = ({
           {...register('description')}
         />
 
-        <div className={cn('grid gap-4', !task && 'sm:grid-cols-2')}>
-          {!task ? (
-            <SelectField
-              label="Người nhận"
-              error={errors.assigneeId?.message}
-              {...register('assigneeId')}
-            >
-              <option value="">Chưa giao</option>
-              {(membersData?.members ?? []).map((member) => (
-                <option key={member.userId} value={member.userId}>
-                  {member.name}
-                </option>
-              ))}
-            </SelectField>
-          ) : null}
-
+        {!task ? (
           <SelectField
-            label="Ưu tiên"
-            error={errors.priority?.message}
-            {...register('priority', { valueAsNumber: true })}
+            label="Người nhận"
+            error={errors.assigneeId?.message}
+            {...register('assigneeId')}
           >
-            {PRIORITY_OPTIONS.map((value) => (
-              <option key={value} value={value}>
-                P{value}
+            <option value="">Chưa giao</option>
+            {(membersData?.members ?? []).map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.name}
               </option>
             ))}
           </SelectField>
-        </div>
+        ) : null}
 
         <TextField
           label="Hạn chót"

@@ -47,7 +47,6 @@ export interface PostTaskSummary {
   title: string;
   status: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
   dueAt: string | null;
-  priority: number;
   assignee: PostAuthor | null;
 }
 

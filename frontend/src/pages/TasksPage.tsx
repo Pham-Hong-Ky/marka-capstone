@@ -32,7 +32,6 @@ export const TasksPage = () => {
   const canManage = activeWorkspace?.role === 'OWNER';
 
   const [search, setSearch] = useState('');
-  const [priority, setPriority] = useState<number | null>(null);
   const [mine, setMine] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -51,7 +50,6 @@ export const TasksPage = () => {
 
   const { data, isLoading, isError, error, refetch } = useTaskBoard(workspaceId, {
     search: debouncedSearch.trim() || undefined,
-    priority: priority ?? undefined,
     mine: mine || undefined,
   });
   const deleteTask = useDeleteTask();
@@ -157,7 +155,7 @@ export const TasksPage = () => {
     <PageContainer width="wide">
       <PageHeader
         title="Công việc"
-        description="Theo dõi việc của nhóm theo 4 cột. P1 là ưu tiên cao nhất, P5 là thấp nhất."
+        description="Theo dõi việc của nhóm theo 4 cột."
         actions={
           canManage ? (
             <Button type="button" onClick={() => openCreate('unassigned')}>
@@ -169,11 +167,9 @@ export const TasksPage = () => {
 
       <TaskFilterBar
         search={search}
-        priority={priority}
         mine={mine}
         canManage={canManage}
         onSearchChange={setSearch}
-        onPriorityChange={setPriority}
         onMineChange={setMine}
       />
 
