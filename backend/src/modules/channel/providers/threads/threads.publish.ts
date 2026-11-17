@@ -8,6 +8,9 @@ import type {
 } from '../port/social-provider.port.js';
 import { threadsApiUrl, threadsRequest } from './threads.graph.js';
 
+// threads_publish thường chậm hơn timeout mặc định; timeout sớm khiến bài đã lên Threads vẫn bị ghi lỗi mơ hồ.
+const PUBLISH_TIMEOUT_MS = 30_000;
+
 const countUniqueLinks = (text: string): number =>
   new Set(text.match(/https?:\/\/[^\s]+/gi) ?? []).size;
 
@@ -77,7 +80,8 @@ export const publishThreadsPost = async (
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ creation_id: creationId, access_token: accessToken }).toString(),
-      }
+      },
+      PUBLISH_TIMEOUT_MS
     );
     return body.id;
   };

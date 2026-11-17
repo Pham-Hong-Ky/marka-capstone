@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
+import redis from '../../../src/config/redis.js';
 import analyticsRepository from '../../../src/modules/analytics/analytics.repository.js';
 import { analyticsQueue } from '../../../src/workers/queues.js';
 
@@ -284,22 +285,30 @@ describe('Analytics — thống kê & gợi ý', () => {
     expect(res.status).toBe(422);
   });
 
-  it('bấm đồng bộ nhiều lần chỉ giữ một job chờ cho mỗi workspace', async () => {
+  it('bấm đồng bộ lần nữa trong thời gian chờ bị từ chối 429 và chỉ có một job', async () => {
     const jobId = `analytics-sync-${wsId}`;
+    const cooldownKey = `analytics:sync-cooldown:${wsId}`;
     await analyticsQueue.remove(jobId);
+    await redis.del(cooldownKey);
 
     try {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const res = await request(app)
-          .post(`/api/v1/workspaces/${wsId}/analytics/sync`)
-          .set('Authorization', `Bearer ${creatorToken}`);
-        expect(res.status).toBe(202);
-      }
+      const first = await request(app)
+        .post(`/api/v1/workspaces/${wsId}/analytics/sync`)
+        .set('Authorization', `Bearer ${creatorToken}`);
+      expect(first.status).toBe(202);
+
+      const second = await request(app)
+        .post(`/api/v1/workspaces/${wsId}/analytics/sync`)
+        .set('Authorization', `Bearer ${creatorToken}`);
+      expect(second.status).toBe(429);
+      expect(second.body.status).toBe('fail');
+      expect(second.body.message).toContain('giây');
 
       const jobs = await analyticsQueue.getJobs(['waiting', 'delayed', 'active']);
       expect(jobs.filter((job) => job.id === jobId)).toHaveLength(1);
     } finally {
       await analyticsQueue.remove(jobId);
+      await redis.del(cooldownKey);
     }
   });
 
