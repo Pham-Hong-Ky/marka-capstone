@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
+import ImageLightbox from '@/components/ui/ImageLightbox';
+import ZoomableImage from './ZoomableImage';
 import type { PostMedia } from '@/services/post';
 
 interface PendingMedia {
@@ -19,15 +22,18 @@ export const PostMediaGrid = ({
   onDeleteExisting: (mediaId: string) => void;
   onRemovePending: (url: string) => void;
 }) => {
+  const [viewUrl, setViewUrl] = useState<string | null>(null);
+
   if (existingMedia.length + pendingMedia.length === 0) {
     return <p className="text-xs text-subtle">Chưa có ảnh nào.</p>;
   }
 
   return (
     <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+      <ImageLightbox src={viewUrl} onClose={() => setViewUrl(null)} />
       {existingMedia.map((media) => (
         <div key={media.id} className="relative overflow-hidden rounded-lg border border-border">
-          <img src={media.url} alt="" className="h-24 w-full object-cover" />
+          <ZoomableImage url={media.url} onView={setViewUrl} />
           {media.source === 'AI_GENERATED' ? (
             <span
               title="Ảnh tạo bởi AI"
@@ -50,7 +56,7 @@ export const PostMediaGrid = ({
 
       {pendingMedia.map((item) => (
         <div key={item.url} className="relative overflow-hidden rounded-lg border border-border">
-          <img src={item.url} alt="" className="h-24 w-full object-cover" />
+          <ZoomableImage url={item.url} onView={setViewUrl} />
           <button
             type="button"
             aria-label="Bỏ ảnh"
