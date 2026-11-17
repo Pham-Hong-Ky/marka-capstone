@@ -23,8 +23,14 @@ import {
 import type { AnalyticsOverviewQuery, AnalyticsSuggestionsQuery } from './analytics.validation.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const SYNC_STALE_MS = 6 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 const SYNC_WINDOW_MS = 30 * DAY_MS;
+// Bài càng mới số liệu đổi càng nhanh nên làm mới dày hơn; bài cũ thưa dần để tiết kiệm lượt gọi API.
+const SYNC_REFRESH_TIERS = [
+  { maxAgeMs: DAY_MS, refreshMs: HOUR_MS },
+  { maxAgeMs: 7 * DAY_MS, refreshMs: 6 * HOUR_MS },
+  { maxAgeMs: SYNC_WINDOW_MS, refreshMs: 24 * HOUR_MS },
+];
 const SYNC_BATCH_SIZE = 50;
 const SUGGESTION_WINDOW_DAYS = 90;
 const EXTERNAL_LINK_PATTERN = /https?:\/\//i;
@@ -154,14 +160,23 @@ export const getSuggestions = async (
 const readToken = (encryptedToken: string | null): string | null =>
   decryptOrNull(encryptedToken);
 
-export const syncMetrics = async (options: { workspaceId?: string } = {}) => {
+const buildRefreshWindows = (now: Date) =>
+  SYNC_REFRESH_TIERS.map((tier, index) => ({
+    publishedFrom: new Date(now.getTime() - tier.maxAgeMs),
+    publishedTo: index === 0 ? undefined : new Date(now.getTime() - SYNC_REFRESH_TIERS[index - 1].maxAgeMs),
+    staleBefore: new Date(now.getTime() - tier.refreshMs),
+  }));
+
+export const syncMetrics = async (options: { workspaceId?: string; force?: boolean } = {}) => {
   const now = new Date();
   const schedules = await analyticsRepository.findSchedulesToSync({
     workspaceId: options.workspaceId,
     publishedSince: new Date(now.getTime() - SYNC_WINDOW_MS),
-    staleBefore: new Date(now.getTime() - SYNC_STALE_MS),
+    refreshWindows: options.force ? null : buildRefreshWindows(now),
     take: SYNC_BATCH_SIZE,
   });
+
+  logger.info(`[Analytics] Đồng bộ số liệu: ${schedules.length} bài cần làm mới (force=${Boolean(options.force)})`);
 
   let synced = 0;
   let failed = 0;

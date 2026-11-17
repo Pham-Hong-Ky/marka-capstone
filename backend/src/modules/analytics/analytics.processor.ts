@@ -4,8 +4,8 @@ import analyticsService from './analytics.service.js';
 
 export const processAnalyticsJob = async (job: Job) => {
   if (job.name === 'analytics-sync') {
-    const workspaceId = (job.data as { workspaceId?: string }).workspaceId;
-    return analyticsService.syncMetrics({ workspaceId });
+    const { workspaceId, force } = job.data as { workspaceId?: string; force?: boolean };
+    return analyticsService.syncMetrics({ workspaceId, force });
   }
 
   return { success: true };
@@ -14,7 +14,7 @@ export const processAnalyticsJob = async (job: Job) => {
 export const registerAnalyticsScheduler = async (): Promise<void> => {
   await analyticsQueue.upsertJobScheduler(
     'analytics-sync',
-    { every: 6 * 60 * 60 * 1000 },
+    { every: 60 * 60 * 1000 },
     {
       name: 'analytics-sync',
       data: {},

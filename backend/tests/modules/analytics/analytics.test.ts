@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
+import analyticsRepository from '../../../src/modules/analytics/analytics.repository.js';
 import { analyticsQueue } from '../../../src/workers/queues.js';
 
 const password = 'password123';
@@ -214,6 +215,41 @@ describe('Analytics — thống kê & gợi ý', () => {
     } finally {
       await analyticsQueue.remove(jobId);
     }
+  });
+
+  it('lịch tự động bỏ qua bài vừa có số liệu, đồng bộ thủ công (force) vẫn lấy lại', async () => {
+    const publishedSince = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const now = Date.now();
+    const hour = 60 * 60 * 1000;
+    const windows = [
+      { publishedFrom: new Date(now - 24 * hour), staleBefore: new Date(now - hour) },
+      {
+        publishedFrom: new Date(now - 7 * 24 * hour),
+        publishedTo: new Date(now - 24 * hour),
+        staleBefore: new Date(now - 6 * hour),
+      },
+      {
+        publishedFrom: new Date(now - 30 * 24 * hour),
+        publishedTo: new Date(now - 7 * 24 * hour),
+        staleBefore: new Date(now - 24 * hour),
+      },
+    ];
+
+    const auto = await analyticsRepository.findSchedulesToSync({
+      workspaceId: wsId,
+      publishedSince,
+      refreshWindows: windows,
+      take: 50,
+    });
+    const forced = await analyticsRepository.findSchedulesToSync({
+      workspaceId: wsId,
+      publishedSince,
+      refreshWindows: null,
+      take: 50,
+    });
+
+    expect(auto).toHaveLength(0);
+    expect(forced).toHaveLength(2);
   });
 
   it('chặn người ngoài workspace đọc số liệu', async () => {
