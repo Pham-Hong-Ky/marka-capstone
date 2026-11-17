@@ -36,6 +36,7 @@ const formatAxisTick = (value: number): string => {
 const LEGEND_LABELS: Record<string, string> = {
   posts: 'Số bài',
   engagement: 'Tương tác',
+  impressions: 'Lượt xem',
 };
 
 export const TrendChart = ({
@@ -51,8 +52,9 @@ export const TrendChart = ({
         (sum, point) => ({
           posts: sum.posts + point.posts,
           engagement: sum.engagement + point.engagement,
+          impressions: sum.impressions + point.impressions,
         }),
-        { posts: 0, engagement: 0 }
+        { posts: 0, engagement: 0, impressions: 0 }
       ),
     [series]
   );
@@ -61,7 +63,7 @@ export const TrendChart = ({
     <section className={cn('rounded-xl border border-border bg-surface p-4', className)}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">Hiệu suất nội dung</h2>
-        <p className="text-[11px] text-muted">Số bài đăng và tương tác theo ngày</p>
+        <p className="text-[11px] text-muted">Số bài đăng, tương tác và lượt xem theo ngày</p>
       </div>
 
       <div className="mt-3">
@@ -97,6 +99,7 @@ export const TrendChart = ({
               axisLine={false}
               tick={{ fill: 'var(--muted)', fontSize: 11 }}
             />
+            <YAxis yAxisId="impressions" hide domain={[0, (dataMax: number) => Math.max(dataMax, 4)]} />
             <Tooltip
               cursor={{ stroke: 'var(--border)' }}
               labelFormatter={(label) => formatDay(String(label))}
@@ -137,13 +140,23 @@ export const TrendChart = ({
               strokeWidth={2}
               dot={false}
             />
+            <Line
+              yAxisId="impressions"
+              type="monotone"
+              dataKey="impressions"
+              name="impressions"
+              stroke="var(--muted)"
+              strokeWidth={2}
+              strokeDasharray="4 3"
+              dot={false}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
 
       <p className="sr-only">
         Trong kỳ có tổng {formatNumber(totals.posts)} bài đăng và{' '}
-        {formatNumber(totals.engagement)} lượt tương tác.
+        {formatNumber(totals.engagement)} lượt tương tác, {formatNumber(totals.impressions)} lượt xem.
       </p>
     </section>
   );

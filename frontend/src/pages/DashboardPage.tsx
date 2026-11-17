@@ -3,8 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { RefreshCw, Share2 } from 'lucide-react';
 import AnalyticsFilterBar from '@/components/features/analytics/AnalyticsFilterBar';
 import BestTimesCard from '@/components/features/analytics/BestTimesCard';
+import ChannelBreakdownCard from '@/components/features/analytics/ChannelBreakdownCard';
 import ContentTipsCard from '@/components/features/analytics/ContentTipsCard';
 import CoverageAlert from '@/components/features/analytics/CoverageAlert';
+import PostMetricsTable from '@/components/features/analytics/PostMetricsTable';
 import ChannelPlatformBadge from '@/components/features/channel/ChannelPlatformBadge';
 import ChannelStatusBadge from '@/components/features/channel/ChannelStatusBadge';
 import Alert from '@/components/ui/Alert';
@@ -232,6 +234,7 @@ export const DashboardPage = () => {
   const summary = overview.data?.summary;
   const hasSyncedMetrics = (coverage?.syncedPosts ?? 0) > 0;
   const engagement = summary ? summary.likes + summary.comments + summary.shares : null;
+  const impressions = summary?.impressions ?? null;
   const reach = summary?.reach ?? null;
 
   const syncButton = (
@@ -262,6 +265,10 @@ export const DashboardPage = () => {
     {
       label: 'Tương tác',
       value: hasSyncedMetrics && engagement !== null ? formatNumber(engagement) : '—',
+    },
+    {
+      label: 'Lượt xem',
+      value: hasSyncedMetrics && impressions !== null ? formatNumber(impressions) : '—',
     },
     {
       label: 'Lượt tiếp cận',
@@ -337,6 +344,19 @@ export const DashboardPage = () => {
                   onRetry={() => void refetchChannels()}
                 />
               </div>
+
+              <ChannelBreakdownCard
+                channels={overview.data.byChannel}
+                onSelectChannel={
+                  effectiveFilters.channelId
+                    ? undefined
+                    : (channelId) => updateFilters({ ...filters, channelId })
+                }
+              />
+
+              {overview.data.coverage.publishedPosts > 0 ? (
+                <PostMetricsTable workspaceId={workspaceId} filters={effectiveFilters} />
+              ) : null}
 
               {overview.data.coverage.publishedPosts === 0 ? (
                 <p className="text-[13px] text-muted">

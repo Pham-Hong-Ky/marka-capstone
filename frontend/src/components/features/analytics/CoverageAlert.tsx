@@ -18,7 +18,7 @@ export const CoverageAlert = ({ coverage }: { coverage: AnalyticsCoverage }) => 
         <p>
           Đã đồng bộ {coverage.syncedPosts}/{coverage.publishedPosts} bài.
         </p>
-        {hasMissingImpressions ? <p>Một số Page không trả về impressions.</p> : null}
+        {hasMissingImpressions ? <p>Một số Page không trả về lượt xem.</p> : null}
         <p>{lastSynced}</p>
       </Alert>
     );
@@ -26,8 +26,8 @@ export const CoverageAlert = ({ coverage }: { coverage: AnalyticsCoverage }) => 
 
   if (hasMissingImpressions) {
     return (
-      <Alert variant="info" title="Thiếu dữ liệu hiển thị">
-        <p>Một số Page không trả về impressions.</p>
+      <Alert variant="info" title="Thiếu dữ liệu lượt xem">
+        <p>Một số Page không trả về lượt xem.</p>
         <p>{lastSynced}</p>
       </Alert>
     );
