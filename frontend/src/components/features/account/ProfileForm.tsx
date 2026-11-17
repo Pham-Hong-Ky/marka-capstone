@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import Alert from '@/components/ui/Alert';
@@ -5,15 +6,33 @@ import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import AvatarField from './AvatarField';
 import { useRequestTesterAccess, useUpdateProfile, useUploadAvatar } from '@/hooks/useAccount';
-import { profileFormSchema, type ProfileFormValues } from '@/services/user';
+import {
+  profileFormSchema,
+  type ProfileFormValues,
+  type TesterRequestPlatform,
+} from '@/services/user';
 import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
+
+const TESTER_REQUEST_COOLDOWN_MS = 10 * 60 * 1000;
 
 export const ProfileForm = () => {
   const user = useAuthStore((state) => state.user);
   const updateProfile = useUpdateProfile();
   const upload = useUploadAvatar();
   const requestTester = useRequestTesterAccess();
+  const [cooldowns, setCooldowns] = useState<Partial<Record<TesterRequestPlatform, boolean>>>({});
+
+  const sendTesterRequest = (platform: TesterRequestPlatform) =>
+    requestTester.mutate(platform, {
+      onSuccess: () => {
+        setCooldowns((current) => ({ ...current, [platform]: true }));
+        setTimeout(
+          () => setCooldowns((current) => ({ ...current, [platform]: false })),
+          TESTER_REQUEST_COOLDOWN_MS
+        );
+      },
+    });
 
   const {
     register,
@@ -86,10 +105,10 @@ export const ProfileForm = () => {
               variant="outline"
               className="min-h-11"
               isLoading={requestTester.isPending && requestTester.variables === 'FACEBOOK'}
-              disabled={requestTester.isPending}
-              onClick={() => requestTester.mutate('FACEBOOK')}
+              disabled={requestTester.isPending || cooldowns.FACEBOOK}
+              onClick={() => sendTesterRequest('FACEBOOK')}
             >
-              Gửi yêu cầu thêm Tester Facebook
+              {cooldowns.FACEBOOK ? 'Đã gửi, vui lòng đợi' : 'Gửi yêu cầu thêm Tester Facebook'}
             </Button>
           ) : null}
           <TextField
@@ -106,10 +125,10 @@ export const ProfileForm = () => {
               variant="outline"
               className="min-h-11"
               isLoading={requestTester.isPending && requestTester.variables === 'THREADS'}
-              disabled={requestTester.isPending}
-              onClick={() => requestTester.mutate('THREADS')}
+              disabled={requestTester.isPending || cooldowns.THREADS}
+              onClick={() => sendTesterRequest('THREADS')}
             >
-              Gửi yêu cầu thêm Tester Threads
+              {cooldowns.THREADS ? 'Đã gửi, vui lòng đợi' : 'Gửi yêu cầu thêm Tester Threads'}
             </Button>
           ) : null}
         </div>

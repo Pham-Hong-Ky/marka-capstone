@@ -51,6 +51,12 @@ export class ServiceUnavailableError extends AppError {
   }
 }
 
+export class TooManyRequestsError extends AppError {
+  constructor(message = 'Bạn thao tác quá nhanh. Vui lòng thử lại sau') {
+    super(message, 429);
+  }
+}
+
 export class BadGatewayError extends AppError {
   constructor(message = 'Dịch vụ bên ngoài trả về lỗi') {
     super(message, 502);
@@ -66,5 +72,6 @@ export default {
   BadRequestError,
   PaymentRequiredError,
   ServiceUnavailableError,
+  TooManyRequestsError,
   BadGatewayError,
 };
