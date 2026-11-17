@@ -169,7 +169,13 @@ export interface MetricPayload {
   partialError: string | null;
 }
 
-const reactionsDetailData = (value: Record<string, number> | null) =>
+const SYNC_ERROR_MAX_LENGTH = 255;
+export const PARTIAL_SYNC_PREFIX = 'Thiếu insights: ';
+
+export const isFailedSync = (syncError: string | null): boolean =>
+  syncError !== null && !syncError.startsWith(PARTIAL_SYNC_PREFIX);
+
+const reactionsDetailData =(value: Record<string, number> | null) =>
   value ? { reactionsDetail: value } : {};
 
 export const saveMetric = async (scheduledPostId: string, payload: MetricPayload) => {
@@ -179,7 +185,9 @@ export const saveMetric = async (scheduledPostId: string, payload: MetricPayload
     shares: payload.shares,
     impressions: payload.impressions,
     reach: payload.reach,
-    syncError: payload.partialError,
+    syncError: payload.partialError
+      ? `${PARTIAL_SYNC_PREFIX}${payload.partialError}`.slice(0, SYNC_ERROR_MAX_LENGTH)
+      : null,
     fetchedAt: new Date(),
   };
   const detail = reactionsDetailData(payload.reactionsDetail);
