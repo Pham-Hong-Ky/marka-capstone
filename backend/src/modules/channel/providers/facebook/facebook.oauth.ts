@@ -11,6 +11,7 @@ const AUTH_DIALOG_URL = 'https://www.facebook.com/v21.0/dialog/oauth';
 const SCOPES = [
   'pages_show_list',
   'pages_read_engagement',
+  'pages_read_user_content',
   'pages_manage_posts',
   'read_insights',
 ];
