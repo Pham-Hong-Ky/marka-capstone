@@ -39,7 +39,7 @@ export const triggerSync = catchAsync(async (req: Request, res: Response) => {
   await enqueue(
     QUEUE_NAMES.analytics,
     'analytics-sync',
-    { workspaceId },
+    { workspaceId, force: true },
     { jobId: `analytics-sync-${workspaceId}`, removeOnComplete: true, removeOnFail: true }
   );
 

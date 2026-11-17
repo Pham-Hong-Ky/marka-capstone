@@ -109,15 +109,21 @@ export const findCampaignTags = async (workspaceId: string): Promise<string[]> =
     .filter((tag): tag is string => Boolean(tag));
 };
 
+export interface RefreshWindow {
+  publishedFrom: Date;
+  publishedTo?: Date;
+  staleBefore: Date;
+}
+
 export const findSchedulesToSync = async ({
   workspaceId,
   publishedSince,
-  staleBefore,
+  refreshWindows,
   take,
 }: {
   workspaceId?: string;
   publishedSince: Date;
-  staleBefore: Date;
+  refreshWindows: RefreshWindow[] | null;
   take: number;
 }) =>
   prisma.scheduledPost.findMany({
@@ -131,10 +137,18 @@ export const findSchedulesToSync = async ({
         ...(workspaceId ? { workspaceId } : {}),
       },
       post: { deletedAt: null },
-      OR: [
-        { metric: { is: null } },
-        { metric: { OR: [{ fetchedAt: null }, { fetchedAt: { lt: staleBefore } }] } },
-      ],
+      ...(refreshWindows
+        ? {
+            OR: [
+              { metric: { is: null } },
+              { metric: { fetchedAt: null } },
+              ...refreshWindows.map(({ publishedFrom, publishedTo, staleBefore }) => ({
+                publishedAt: { gte: publishedFrom, ...(publishedTo ? { lt: publishedTo } : {}) },
+                metric: { fetchedAt: { lt: staleBefore } },
+              })),
+            ],
+          }
+        : {}),
     },
     select: {
       id: true,
