@@ -153,6 +153,7 @@ model User {
   workspaceMembers   WorkspaceMember[]
   sentInvites        WorkspaceInvite[]   @relation("SentInvites")
   createdPosts       Post[]              @relation("CreatedPosts")
+  createdPostVersions PostVersion[]      @relation("CreatedPostVersions")
   submittedPosts     Post[]              @relation("SubmittedPosts")
   reviewedPosts      Post[]              @relation("ReviewedPosts")
   assignedPosts      Post[]              @relation("AssignedPosts")
@@ -282,11 +283,35 @@ model Post {
   scheduledPosts ScheduledPost[]
   aiGenerations  AiGeneration[]
   task           Task?
+  versions       PostVersion[]
 
   @@index([workspaceId, status, deletedAt])
   @@index([workspaceId, assigneeId, taskStatus])
   @@index([createdById])
   @@map("posts")
+}
+
+enum PostVersionSource {
+  MANUAL
+  RESTORE
+}
+
+/// 5a. Lịch sử phiên bản nội dung bài viết (mỗi lần lưu tạo một bản)
+model PostVersion {
+  id          String            @id @default(uuid()) @db.VarChar(36)
+  postId      String            @db.VarChar(36)
+  version     Int
+  title       String            @db.VarChar(255)
+  content     Json
+  source      PostVersionSource @default(MANUAL)
+  createdById String?           @db.VarChar(36)
+  createdAt   DateTime          @default(now())
+
+  post      Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("CreatedPostVersions", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([postId, version])
+  @@map("post_versions")
 }
 
 /// 5b. Tasks table (bảng công việc Kanban)

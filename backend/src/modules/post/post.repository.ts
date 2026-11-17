@@ -1,5 +1,7 @@
-import type { Prisma, PostStatus, TaskStatus } from '@prisma/client';
+import type { Prisma, PostStatus, PostVersionSource, TaskStatus } from '@prisma/client';
 import prisma from '../../config/db.js';
+import { withTransaction } from '../../utils/transaction.js';
+import { recordPostVersion } from '../post-version/post-version.repository.js';
 import { SCHEDULE_PUBLIC_SELECT } from '../../shared/schedule.select.js';
 
 const POST_AUTHOR_SELECT = { id: true, name: true, avatar: true } as const;
@@ -10,7 +12,11 @@ export const createPost = async (data: {
   content: Prisma.InputJsonValue;
   createdById: string;
 }) => {
-  return prisma.post.create({ data });
+  return withTransaction(async (tx) => {
+    const post = await tx.post.create({ data });
+    await recordPostVersion(tx, post, { userId: data.createdById, source: 'MANUAL' });
+    return post;
+  });
 };
 
 export const getPostById = async (postId: string, workspaceId: string) => {
@@ -94,8 +100,16 @@ export const listPostsAndCount = async (params: ListPostsParams) => {
   ]);
 };
 
-export const updatePost = async (postId: string, data: { title?: string; content?: Prisma.InputJsonValue }) => {
-  return prisma.post.update({ where: { id: postId }, data });
+export const updatePost = async (
+  postId: string,
+  data: { title?: string; content?: Prisma.InputJsonValue },
+  version: { userId: string; source: PostVersionSource }
+) => {
+  return withTransaction(async (tx) => {
+    const post = await tx.post.update({ where: { id: postId }, data });
+    await recordPostVersion(tx, post, version);
+    return post;
+  });
 };
 
 // Cập nhật có điều kiện theo trạng thái cũ để hai thao tác đồng thời không cùng vượt qua kiểm tra.

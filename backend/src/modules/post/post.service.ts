@@ -124,7 +124,7 @@ export const updatePost = async (
   assertCanModify(post, userId, role);
   assertEditable(post);
 
-  return postRepository.updatePost(postId, data);
+  return postRepository.updatePost(postId, data, { userId, source: 'MANUAL' });
 };
 
 export const deletePost = async (workspaceId: string, userId: string, role: WorkspaceRole, postId: string) => {

@@ -4,3 +4,4 @@ export * from './post.content';
 export * from './post.permissions';
 export * from './post.schema';
 export { default as postService } from './post.api';
+export { default as postVersionService } from './post.version.api';

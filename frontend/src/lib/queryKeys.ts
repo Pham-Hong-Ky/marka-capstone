@@ -24,6 +24,8 @@ export const queryKeys = {
     detailWorkspace: (workspaceId: string) => ['post', workspaceId] as const,
     detail: (workspaceId: string, postId: string) =>
       ['post', workspaceId, postId] as const,
+    versions: (workspaceId: string, postId: string) =>
+      ['post', workspaceId, postId, 'versions'] as const,
   },
   schedule: {
     workspace: (workspaceId: string) => ['schedules', workspaceId] as const,
