@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import SelectField from '@/components/ui/SelectField';
 import TextArea from '@/components/ui/TextArea';
+import DateTimeField from '@/components/ui/DateTimeField';
 import TextField from '@/components/ui/TextField';
 import { useCreateTask, useUpdateTask } from '@/hooks/useTasks';
 import { useWorkspaceMembers } from '@/hooks/useWorkspace';
@@ -51,6 +52,7 @@ export const TaskCreateModal = ({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setError,
@@ -146,11 +148,19 @@ export const TaskCreateModal = ({
           </SelectField>
         ) : null}
 
-        <TextField
-          label="Hạn chót"
-          type="datetime-local"
-          error={errors.dueAt?.message}
-          {...register('dueAt')}
+        <Controller
+          control={control}
+          name="dueAt"
+          render={({ field }) => (
+            <DateTimeField
+              label="Hạn chót"
+              value={field.value}
+              min={new Date()}
+              onChange={field.onChange}
+              error={errors.dueAt?.message}
+              clearable
+            />
+          )}
         />
       </form>
 
