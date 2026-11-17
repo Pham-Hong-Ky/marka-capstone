@@ -24,6 +24,7 @@ describe('Analytics — thống kê & gợi ý', () => {
   let outsiderWorkspaceId = '';
   let ownerId = '';
   let channelId = '';
+  let outsiderChannelId = '';
 
   const createChannel = async (workspaceId: string, pageId: string) =>
     prisma.channelConnection.create({
@@ -140,6 +141,7 @@ describe('Analytics — thống kê & gợi ý', () => {
     const channel = await createChannel(wsId, `analytics-page-${stamp}`);
     channelId = channel.id;
     const outsiderChannel = await createChannel(outsiderWorkspaceId, `analytics-out-${stamp}`);
+    outsiderChannelId = outsiderChannel.id;
 
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     await createPublishedPost({
@@ -196,6 +198,90 @@ describe('Analytics — thống kê & gợi ý', () => {
     });
     expect(res.body.data.series).toHaveLength(30);
     expect(res.body.data.coverage).toMatchObject({ publishedPosts: 2, syncedPosts: 2 });
+  });
+
+  it('tổng quan có số liệu theo từng kênh và không lẫn kênh workspace khác', async () => {
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/analytics/overview?range=30d`)
+      .set('Authorization', `Bearer ${creatorToken}`);
+
+    expect(res.status).toBe(200);
+    const byChannel = res.body.data.byChannel as Array<Record<string, unknown>>;
+    expect(byChannel).toHaveLength(1);
+    expect(byChannel[0]).toMatchObject({
+      channelId,
+      name: `Page analytics-page-${stamp}`,
+      platform: 'FACEBOOK',
+      posts: 2,
+      likes: 15,
+      comments: 3,
+      shares: 1,
+      impressions: 1500,
+      engagement: 19,
+    });
+  });
+
+  it('liệt kê bài đã đăng kèm kênh và số liệu, mặc định bài mới nhất trước', async () => {
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/analytics/posts?range=30d`)
+      .set('Authorization', `Bearer ${creatorToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.meta).toMatchObject({ page: 1, total: 2, totalPages: 1 });
+
+    const posts = res.body.data.posts as Array<{
+      channel: { id: string; name: string };
+      impressions: number | null;
+      syncStatus: string;
+      publishedAt: string;
+    }>;
+    expect(posts).toHaveLength(2);
+    expect(posts[0].impressions).toBe(500);
+    expect(posts[0].channel).toMatchObject({ id: channelId, name: `Page analytics-page-${stamp}` });
+    expect(posts.every((post) => post.syncStatus === 'synced')).toBe(true);
+    expect(new Date(posts[0].publishedAt).getTime()).toBeGreaterThan(
+      new Date(posts[1].publishedAt).getTime()
+    );
+  });
+
+  it('sắp xếp theo lượt xem và phân trang danh sách bài', async () => {
+    const sorted = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/analytics/posts?range=30d&sort=impressions&limit=1&page=1`)
+      .set('Authorization', `Bearer ${creatorToken}`);
+
+    expect(sorted.status).toBe(200);
+    expect(sorted.body.data.posts).toHaveLength(1);
+    expect(sorted.body.data.posts[0].impressions).toBe(1000);
+    expect(sorted.body.meta).toMatchObject({ page: 1, limit: 1, total: 2, totalPages: 2 });
+
+    const secondPage = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/analytics/posts?range=30d&sort=impressions&limit=1&page=2`)
+      .set('Authorization', `Bearer ${creatorToken}`);
+
+    expect(secondPage.body.data.posts[0].impressions).toBe(500);
+  });
+
+  it('danh sách bài không trả dữ liệu của kênh thuộc workspace khác', async () => {
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/analytics/posts?range=30d&channelId=${outsiderChannelId}`)
+      .set('Authorization', `Bearer ${creatorToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.posts).toEqual([]);
+
+    const forbidden = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/analytics/posts?range=30d`)
+      .set('Authorization', `Bearer ${outsiderToken}`);
+
+    expect(forbidden.status).toBe(403);
+  });
+
+  it('từ chối tham số sắp xếp không hợp lệ ở danh sách bài', async () => {
+    const res = await request(app)
+      .get(`/api/v1/workspaces/${wsId}/analytics/posts?sort=abc`)
+      .set('Authorization', `Bearer ${creatorToken}`);
+
+    expect(res.status).toBe(422);
   });
 
   it('bấm đồng bộ nhiều lần chỉ giữ một job chờ cho mỗi workspace', async () => {

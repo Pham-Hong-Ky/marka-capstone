@@ -22,7 +22,10 @@ export const findMetricRows = async ({
       post: { deletedAt: null, ...(tag ? { campaignTag: tag } : {}) },
     },
     select: {
+      id: true,
       publishedAt: true,
+      post: { select: { id: true, title: true } },
+      channel: { select: { id: true, name: true, label: true, platform: true } },
       metric: {
         select: {
           reactions: true,
