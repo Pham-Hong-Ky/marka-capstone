@@ -82,7 +82,9 @@ import aiController from '../modules/ai/ai.controller.js';
 import {
   generateTextSchema,
   generateImageSchema,
+  generatePostSchema,
   generationIdSchema,
+  listGenerationsSchema,
 } from '../modules/ai/ai.validation.js';
 import analyticsController from '../modules/analytics/analytics.controller.js';
 import {
@@ -576,6 +578,21 @@ router.post(
   requireWorkspaceRole(),
   aiLimiter,
   aiController.generateImage
+);
+router.post(
+  '/workspaces/:workspaceId/ai/post',
+  requireAuth,
+  validate(generatePostSchema),
+  requireWorkspaceRole(),
+  aiLimiter,
+  aiController.generatePost
+);
+router.get(
+  '/workspaces/:workspaceId/ai/generations',
+  requireAuth,
+  validate(listGenerationsSchema),
+  requireWorkspaceRole(),
+  aiController.getGenerations
 );
 router.get(
   '/workspaces/:workspaceId/ai/generations/:generationId',

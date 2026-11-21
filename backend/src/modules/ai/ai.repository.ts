@@ -51,6 +51,12 @@ export const findGenerationByIdAndWorkspace = async (
   });
 };
 
+export const findGenerationsByIdsAndWorkspace = async (ids: string[], workspaceId: string) => {
+  return prisma.aiGeneration.findMany({
+    where: { id: { in: ids }, workspaceId },
+  });
+};
+
 export const findGenerationStatus = async (db: DbClient, generationId: string) => {
   return db.aiGeneration.findUnique({
     where: { id: generationId },
@@ -195,6 +201,7 @@ export const getPostForGenerationInTransaction = async (
 
 export default {
   findGenerationByIdAndWorkspace,
+  findGenerationsByIdsAndWorkspace,
   findGenerationStatus,
   createGeneration,
   createDraftPost,

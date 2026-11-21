@@ -4,7 +4,12 @@ import type { WorkspaceRole } from '@prisma/client';
 import ApiResponse from '../../utils/ApiResponse.js';
 import catchAsync from '../../utils/catchAsync.js';
 import aiService from './ai.service.js';
-import type { GenerateImageBody, GenerateTextBody } from './ai.validation.js';
+import type {
+  GenerateImageBody,
+  GeneratePostBody,
+  GenerateTextBody,
+  ListGenerationsQuery,
+} from './ai.validation.js';
 
 export const generateText = catchAsync(async (req: Request, res: Response) => {
   const result = await aiService.startTextGeneration({
@@ -36,6 +41,21 @@ export const generateImage = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+export const generatePost = catchAsync(async (req: Request, res: Response) => {
+  const result = await aiService.startPostGeneration({
+    workspaceId: getWorkspaceId(req),
+    userId: req.user!.id,
+    role: req.workspaceRole as WorkspaceRole,
+    body: req.body as GeneratePostBody,
+  });
+
+  return ApiResponse.success(res, {
+    statusCode: 202,
+    message: 'Đã đưa yêu cầu tạo bài viết bằng AI vào hàng đợi',
+    data: result,
+  });
+});
+
 export const getGeneration = catchAsync(async (req: Request, res: Response) => {
   const generation = await aiService.getGeneration({
     workspaceId: getWorkspaceId(req),
@@ -49,8 +69,21 @@ export const getGeneration = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+export const getGenerations = catchAsync(async (req: Request, res: Response) => {
+  const { ids } = req.query as unknown as ListGenerationsQuery;
+  const generations = await aiService.getGenerations({ workspaceId: getWorkspaceId(req), ids });
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Lấy trạng thái tạo nội dung AI thành công',
+    data: { generations },
+  });
+});
+
 export default {
   generateText,
   generateImage,
+  generatePost,
   getGeneration,
+  getGenerations,
 };

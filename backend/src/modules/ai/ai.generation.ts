@@ -21,10 +21,16 @@ import {
   getImageModel,
 } from './providers/ai.config.js';
 import { AiPostNotEditableError } from './providers/ai.errors.js';
-import { serializeImageSource, type ImageSourcePayload } from './prompts/ai.image-prompt.js';
+import { geminiClient } from './providers/ai.providers.js';
+import {
+  buildImageArtPrompt,
+  parseImageArtOutput,
+  serializeImageSource,
+  type ImageSourcePayload,
+} from './prompts/ai.image-prompt.js';
 import { buildTextPrompt, contentToPlainText, serializeTextPrompt } from './prompts/ai.prompt.js';
 import aiRepository from './ai.repository.js';
-import type { GenerateImageBody, GenerateTextBody } from './ai.validation.js';
+import type { GenerateImageBody, GeneratePostBody, GenerateTextBody } from './ai.validation.js';
 
 export interface StartGenerationContext {
   workspaceId: string;
@@ -203,7 +209,7 @@ const loadImageTargetPost = async (
   return assertPostEditable(tx, request.postId, context);
 };
 
-const buildImageSource = (
+export const buildImageSource = (
   request: ImageRequest,
   existingPost: ImageTargetPost | null,
   brandVoice: unknown
@@ -261,6 +267,146 @@ export const createImageGeneration = async (
   });
 
   return { ...pending, createdDraftId };
+};
+
+export const generateArtPrompt = async (source: ImageSourcePayload): Promise<string> => {
+  const { systemInstruction, userPrompt, responseSchema } = buildImageArtPrompt({
+    title: source.title ?? undefined,
+    contentText: source.contentText ?? undefined,
+    instructions: source.instructions ?? undefined,
+    brandVoice: source.brandVoice,
+  });
+
+  const raw = await geminiClient.generateJson({
+    model: getGeminiModel(),
+    systemInstruction,
+    userPrompt,
+    responseSchema,
+  });
+
+  return parseImageArtOutput(raw);
+};
+
+/** Nguồn để viết prompt ảnh: chủ đề khi có tạo chữ, ngược lại là nội dung bài đã có. */
+export const resolveBatchImageSource = async (
+  body: GeneratePostBody,
+  { workspaceId, userId, role }: StartGenerationContext,
+  brandVoice: unknown
+): Promise<ImageSourcePayload> => {
+  if (body.withText) {
+    return {
+      title: null,
+      contentText: body.topic,
+      instructions: body.instructions ?? null,
+      brandVoice,
+    };
+  }
+
+  if (body.postId) {
+    const post = await aiRepository.getPostForGeneration(body.postId, workspaceId);
+    if (!post) {
+      throw new NotFoundError('Bài viết không tồn tại');
+    }
+    assertCanEdit(post, userId, role);
+
+    return buildImageSource(
+      { kind: 'existing', postId: post.id, prompt: body.instructions },
+      post,
+      brandVoice
+    );
+  }
+
+  return buildImageSource(
+    {
+      kind: 'new',
+      title: body.title as string,
+      content: body.content as Prisma.InputJsonValue,
+      prompt: body.instructions,
+    },
+    null,
+    brandVoice
+  );
+};
+
+const EMPTY_DOC = { type: 'doc', content: [] } satisfies Prisma.InputJsonValue;
+
+export interface PostBatchParams {
+  body: GeneratePostBody;
+  context: StartGenerationContext;
+  brandVoice: unknown;
+  platforms: SocialPlatform[];
+  imageSource: ImageSourcePayload | null;
+  imagePrompts: string[];
+}
+
+export interface PostBatchItem {
+  generationId: string;
+  type: AiGenType;
+}
+
+/** Tạo (trong một giao dịch) bài nháp nếu cần, 1 generation chữ và N generation ảnh. */
+export const createPostBatch = async (tx: Prisma.TransactionClient, params: PostBatchParams) => {
+  const { body, context, imageSource, imagePrompts } = params;
+  let postId = body.postId ?? null;
+  let createdDraftId: string | null = null;
+
+  if (postId) {
+    await assertPostEditable(tx, postId, context);
+  } else if (imagePrompts.length > 0) {
+    const draft = await aiRepository.createDraftPost(tx, {
+      workspaceId: context.workspaceId,
+      title: (body.withText ? body.topic : body.title) as string,
+      content: body.withText ? EMPTY_DOC : (body.content as Prisma.InputJsonValue),
+      createdById: context.userId,
+    });
+    postId = draft.id;
+    createdDraftId = draft.id;
+  }
+
+  const items: PostBatchItem[] = [];
+  let creditCost = 0;
+  let remainingCredit = 0;
+  const track = (
+    generation: { id: string; creditCost: number },
+    type: AiGenType,
+    balanceAfter: number
+  ) => {
+    items.push({ generationId: generation.id, type });
+    creditCost += generation.creditCost;
+    remainingCredit = balanceAfter;
+  };
+
+  if (body.withText) {
+    const { generation, credit } = await createTextGeneration(
+      tx,
+      {
+        topic: body.topic as string,
+        instructions: body.instructions,
+        postId: postId ?? undefined,
+        channelIds: body.channelIds,
+      },
+      context,
+      params.brandVoice,
+      params.platforms
+    );
+    track(generation, 'TEXT', credit.balanceAfter);
+  }
+
+  for (const imagePrompt of imagePrompts) {
+    const { generation, credit } = await createPendingGeneration(tx, {
+      workspaceId: context.workspaceId,
+      userId: context.userId,
+      postId,
+      type: 'IMAGE',
+      provider: AI_IMAGE_PROVIDER,
+      model: getImageModel(),
+      prompt: serializeImageSource({ ...(imageSource as ImageSourcePayload), imagePrompt }),
+      creditCost: AI_IMAGE_COST,
+    });
+    track(generation, 'IMAGE', credit.balanceAfter);
+  }
+
+  return { postId, createdDraftId, items, creditCost, remainingCredit };
 };
 
 export default {
