@@ -16,6 +16,7 @@ const menuItemClasses =
 export const PostRowActions = ({
   post,
   canEdit,
+  canManage,
   onView,
   onEdit,
   canReview,
@@ -27,6 +28,7 @@ export const PostRowActions = ({
 }: {
   post: PostSummary;
   canEdit: boolean;
+  canManage: boolean;
   onView: () => void;
   onEdit: () => void;
   canReview: boolean;
@@ -49,7 +51,7 @@ export const PostRowActions = ({
       if (!trigger) return;
 
       const rect = trigger.getBoundingClientRect();
-      const estimatedHeight = (canEdit ? 4 : canReview ? 3 : 1) * MENU_ITEM_HEIGHT + MENU_PADDING;
+      const estimatedHeight = (1 + (canEdit ? 1 : 0) + (canManage ? 2 : 0) + (canReview ? 2 : 0)) * MENU_ITEM_HEIGHT + MENU_PADDING;
       const opensUpward = rect.bottom + estimatedHeight + 6 > window.innerHeight;
       const top = opensUpward ? rect.top - estimatedHeight - 6 : rect.bottom + 6;
       const maxLeft = Math.max(8, window.innerWidth - MENU_WIDTH - 8);
@@ -85,7 +87,7 @@ export const PostRowActions = ({
       window.removeEventListener('scroll', closeOnViewportChange, true);
       cancelAnimationFrame(frame);
     };
-  }, [open, canEdit, canReview]);
+  }, [open, canEdit, canManage, canReview]);
 
   const runAction = (action: () => void) => {
     setOpen(false);
@@ -153,16 +155,19 @@ export const PostRowActions = ({
               ) : null}
 
               {canEdit ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(menuItemClasses, 'text-foreground')}
+                  onClick={() => runAction(onEdit)}
+                >
+                  <Pencil className="h-4 w-4 text-muted" />
+                  Chỉnh sửa
+                </button>
+              ) : null}
+
+              {canManage ? (
                 <>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={cn(menuItemClasses, 'text-foreground')}
-                    onClick={() => runAction(onEdit)}
-                  >
-                    <Pencil className="h-4 w-4 text-muted" />
-                    Chỉnh sửa
-                  </button>
                   <button
                     type="button"
                     role="menuitem"

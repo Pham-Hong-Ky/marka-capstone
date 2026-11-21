@@ -112,6 +112,33 @@ export const assertCanModify = (
   }
 };
 
+// Bản nháp: mọi thành viên workspace được sửa. Bài bị từ chối: chỉ người tạo hoặc Owner.
+export const assertCanEdit = (
+  post: { status: PostStatus; createdById: string | null },
+  userId: string,
+  role: WorkspaceRole
+) => {
+  if (post.status !== 'DRAFT') {
+    assertCanModify(post, userId, role);
+  }
+  assertEditable(post);
+};
+
+export const recordPostEdit = (
+  workspaceId: string,
+  userId: string,
+  post: { id: string; title: string },
+  change: string
+) =>
+  auditService.recordAuditLog({
+    workspaceId,
+    actorId: userId,
+    action: 'POST_UPDATED',
+    targetType: 'Post',
+    targetId: post.id,
+    metadata: { title: post.title, change },
+  });
+
 export const updatePost = async (
   workspaceId: string,
   userId: string,
@@ -120,10 +147,12 @@ export const updatePost = async (
   data: { title?: string; content?: Prisma.InputJsonValue }
 ) => {
   const post = await getPost(workspaceId, postId);
-  assertCanModify(post, userId, role);
-  assertEditable(post);
+  assertCanEdit(post, userId, role);
 
-  return postRepository.updatePost(postId, data, { userId, source: 'MANUAL' });
+  const updated = await postRepository.updatePost(postId, data, { userId, source: 'MANUAL' });
+  await recordPostEdit(workspaceId, userId, updated, Object.keys(data).join(','));
+
+  return updated;
 };
 
 export const deletePost = async (workspaceId: string, userId: string, role: WorkspaceRole, postId: string) => {
@@ -163,12 +192,11 @@ export const uploadPostMedia = async (
   }
 
   const post = await getPost(workspaceId, postId);
-  assertCanModify(post, userId, role);
-  assertEditable(post);
+  assertCanEdit(post, userId, role);
 
   const url = await cloudinaryClient.uploadImageBuffer(file.buffer, `marka/workspaces/${workspaceId}/posts/${postId}`);
 
-  return postRepository.createMedia({
+  const media = await postRepository.createMedia({
     workspaceId,
     postId,
     url,
@@ -176,6 +204,9 @@ export const uploadPostMedia = async (
     size: file.size,
     createdById: userId,
   });
+  await recordPostEdit(workspaceId, userId, post, 'mediaAdded');
+
+  return media;
 };
 
 export const deletePostMedia = async (
@@ -186,8 +217,7 @@ export const deletePostMedia = async (
   mediaId: string
 ) => {
   const post = await getPost(workspaceId, postId);
-  assertCanModify(post, userId, role);
-  assertEditable(post);
+  assertCanEdit(post, userId, role);
 
   const media = await postRepository.findMediaByIdAndPost(postId, mediaId);
   if (!media) {
@@ -195,6 +225,7 @@ export const deletePostMedia = async (
   }
 
   await postRepository.softDeleteMedia(mediaId);
+  await recordPostEdit(workspaceId, userId, post, 'mediaRemoved');
   return { success: true as const };
 };
 

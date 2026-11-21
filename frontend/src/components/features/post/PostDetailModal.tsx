@@ -12,6 +12,7 @@ import PostScheduleList from './PostScheduleList';
 import PublishScheduleModal from '@/components/features/schedule/PublishScheduleModal';
 import RescheduleScheduleModal from '@/components/features/schedule/RescheduleScheduleModal';
 import {
+  canEditPost,
   canManagePost,
   canModifyPost,
   PUBLISHABLE_POST_STATUSES,
@@ -58,7 +59,8 @@ export const PostDetailModal = ({
   const [scheduleToUnpublish, setScheduleToUnpublish] = useState<ScheduleItem | null>(null);
   const unpublishSchedule = useUnpublishSchedule(workspaceId);
 
-  const canEdit = Boolean(post && canModifyPost(post, currentUserId, role));
+  const canEdit = Boolean(post && canEditPost(post, currentUserId, role));
+  const canModify = Boolean(post && canModifyPost(post, currentUserId, role));
   const canReview = post?.status === 'PENDING' && role === 'OWNER';
   const canPublish = Boolean(
     post &&
@@ -104,7 +106,7 @@ export const PostDetailModal = ({
               </Button>
             ) : null}
 
-            {canEdit ? (
+            {canModify ? (
               <Button
                 type="button"
                 variant="outline"
@@ -116,7 +118,7 @@ export const PostDetailModal = ({
               </Button>
             ) : null}
 
-            {canEdit ? (
+            {canModify ? (
               <Button
                 type="button"
                 isLoading={submitPost.isPending}

@@ -229,13 +229,47 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC36)', () => {
     expect(res.body.data.title).toBe('Đã sửa');
   });
 
-  it('UC07 — Creator khác sửa bài người khác trả 403', async () => {
+  it('UC07 — Thành viên khác sửa được bản nháp của người khác và ghi audit log người sửa', async () => {
+    const editor = await prisma.user.findUniqueOrThrow({ where: { email: creatorB.email } });
+
     const res = await request(app)
       .patch(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}`)
       .set('Authorization', `Bearer ${creatorBToken}`)
-      .send({ title: 'Hack' });
+      .send({ title: 'B sửa nháp của A' });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(res.body.data.title).toBe('B sửa nháp của A');
+
+    const log = await prisma.auditLog.findFirst({
+      where: { action: 'POST_UPDATED', targetId: creatorAPostId, actorId: editor.id },
+    });
+    expect(log).not.toBeNull();
+    expect(log?.createdAt).toBeInstanceOf(Date);
+    expect(log?.metadata).toMatchObject({ title: 'B sửa nháp của A', change: 'title' });
+  });
+
+  it('UC07 — Bài bị từ chối của người khác: Creator khác trả 403, chủ bài sửa được', async () => {
+    const rejected = await prisma.post.create({
+      data: {
+        workspaceId: wsId,
+        title: 'Bài bị từ chối',
+        content: {},
+        status: 'REJECTED',
+        createdById: creatorAId,
+      },
+    });
+
+    const denied = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${rejected.id}`)
+      .set('Authorization', `Bearer ${creatorBToken}`)
+      .send({ title: 'Hack' });
+    const allowed = await request(app)
+      .patch(`/api/v1/workspaces/${wsId}/posts/${rejected.id}`)
+      .set('Authorization', `Bearer ${creatorAToken}`)
+      .send({ title: 'Đã chỉnh lại' });
+
+    expect(denied.status).toBe(403);
+    expect(allowed.status).toBe(200);
   });
 
   it('UC07 — Owner sửa được bài của Creator (200)', async () => {
@@ -355,13 +389,13 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC36)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('UC36 — Creator khác upload vào bài người khác trả 403', async () => {
+  it('UC36 — Thành viên khác upload được ảnh vào bản nháp của người khác (201)', async () => {
     const res = await request(app)
       .post(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}/media`)
       .set('Authorization', `Bearer ${creatorBToken}`)
       .attach('file', Buffer.from([0x89, 0x50, 0x4e, 0x47]), { filename: 'a.png', contentType: 'image/png' });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(201);
   });
 
   it('setup — Upload thêm 1 ảnh để test quyền gỡ', async () => {
@@ -390,12 +424,12 @@ describe('Post module (UC05, UC07, UC08, UC09, UC10, UC36)', () => {
     expect(res.status).toBe(404);
   });
 
-  it('UC36 — Creator khác gỡ ảnh bài người khác trả 403', async () => {
+  it('UC36 — Thành viên khác gỡ được ảnh khỏi bản nháp của người khác (200)', async () => {
     const res = await request(app)
       .delete(`/api/v1/workspaces/${wsId}/posts/${creatorAPostId}/media/${mediaId2}`)
       .set('Authorization', `Bearer ${creatorBToken}`);
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 
   it('RBAC — Chặn lệch workspace giữa header và URL (403, không lộ dữ liệu)', async () => {

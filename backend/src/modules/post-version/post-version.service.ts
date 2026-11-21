@@ -1,6 +1,6 @@
 import type { WorkspaceRole } from '@prisma/client';
 import { NotFoundError } from '../../utils/errors/index.js';
-import postService, { assertCanModify, assertEditable } from '../post/post.service.js';
+import postService, { assertCanEdit, recordPostEdit } from '../post/post.service.js';
 import postRepository from '../post/post.repository.js';
 import postVersionRepository from './post-version.repository.js';
 
@@ -30,16 +30,18 @@ export const restoreVersion = async (
   version: number
 ) => {
   const post = await postService.getPost(workspaceId, postId);
-  assertCanModify(post, userId, role);
-  assertEditable(post);
+  assertCanEdit(post, userId, role);
 
   const target = await getVersionOrThrow(postId, version);
 
-  return postRepository.updatePost(
+  const restored = await postRepository.updatePost(
     postId,
     { title: target.title, content: target.content as object },
     { userId, source: 'RESTORE' }
   );
+  await recordPostEdit(workspaceId, userId, restored, `restoreVersion:${version}`);
+
+  return restored;
 };
 
 export default {

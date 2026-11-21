@@ -126,6 +126,12 @@ describe('Post version — lịch sử phiên bản bài viết', () => {
     const versions = (await listVersions()).body.data.versions;
     expect(versions).toHaveLength(4);
     expect(versions[0]).toMatchObject({ version: 4, source: 'RESTORE', title: 'Bản gốc' });
+
+    const log = await prisma.auditLog.findFirst({
+      where: { action: 'POST_UPDATED', targetId: postId },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(log?.metadata).toMatchObject({ change: 'restoreVersion:1' });
   });
 
   it('người ngoài workspace không đọc hay khôi phục được phiên bản', async () => {

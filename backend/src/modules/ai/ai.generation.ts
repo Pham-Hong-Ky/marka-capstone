@@ -11,7 +11,7 @@ import { NotFoundError } from '../../utils/errors/index.js';
 import logger from '../../utils/logger.js';
 import brandVoiceService from '../brandvoice/brandvoice.service.js';
 import creditService from '../credit/credit.service.js';
-import { assertCanModify, assertEditable } from '../post/post.service.js';
+import { assertCanEdit } from '../post/post.service.js';
 import {
   AI_IMAGE_COST,
   AI_IMAGE_PROVIDER,
@@ -92,8 +92,7 @@ const assertPostEditable = async (
     throw new NotFoundError('Bài viết không tồn tại');
   }
 
-  assertCanModify(post, userId, role);
-  assertEditable(post);
+  assertCanEdit(post, userId, role);
 
   return post;
 };

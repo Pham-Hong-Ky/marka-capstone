@@ -23,6 +23,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   POST_SUBMITTED: 'Gửi duyệt bài',
   POST_APPROVED: 'Duyệt bài',
   POST_REJECTED: 'Từ chối bài',
+  POST_UPDATED: 'Sửa bài viết',
   POST_DELETED: 'Xoá bài',
   POST_ASSIGNED: 'Giao việc',
   TASK_CREATED: 'Tạo công việc',
