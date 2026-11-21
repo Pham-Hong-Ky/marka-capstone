@@ -2,6 +2,7 @@ import logger from '../../../../utils/logger.js';
 import { BadRequestError } from '../../../../utils/errors/index.js';
 import { requestGraph } from '../transport/graph-request.js';
 import {
+  SocialPostGoneError,
   SocialRateLimitError,
   SocialTokenExpiredError,
   SocialTransientError,
@@ -75,6 +76,16 @@ const throwThreadsError = (status: number, body: ThreadsErrorBody | null): never
     status === 429
   ) {
     throw new SocialRateLimitError();
+  }
+
+  if (status === 404) {
+    throw new SocialPostGoneError();
+  }
+
+  if (error?.code === 10 || error?.code === 200) {
+    throw new BadRequestError(
+      'Tài khoản Threads chưa cấp đủ quyền cho thao tác này. Vui lòng kết nối lại kênh.'
+    );
   }
 
   if (/24 hours|too new/i.test(message)) {

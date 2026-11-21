@@ -62,7 +62,21 @@ export const useCancelSchedule = (workspaceId: string | null) => {
   });
 };
 
-export const useRescheduleSchedule = (workspaceId: string | null) => {
+export const useUnpublishSchedule = (workspaceId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (scheduleId: string) =>
+      scheduleService.unpublishSchedule(workspaceId as string, scheduleId),
+    onSuccess: () => {
+      if (workspaceId) invalidateScheduleData(queryClient, workspaceId);
+      toast.success('Gỡ bài đăng thành công');
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+};
+
+export const useRescheduleSchedule =(workspaceId: string | null) => {
   const queryClient = useQueryClient();
 
   return useMutation({

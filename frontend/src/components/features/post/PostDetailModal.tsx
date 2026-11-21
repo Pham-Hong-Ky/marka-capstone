@@ -4,6 +4,7 @@ import { CalendarClock, Check, Eye, Pencil, Send, Trash2, X } from 'lucide-react
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import PostStatusBadge from './PostStatusBadge';
 import PostPreviewModal from './PostPreviewModal';
@@ -18,6 +19,7 @@ import {
 } from '@/services/post';
 import type { ScheduleItem } from '@/services/schedule';
 import { usePost, useReviewPost, useSubmitPost } from '@/hooks/usePost';
+import { useUnpublishSchedule } from '@/hooks/useSchedule';
 import { getErrorMessage } from '@/utils/error';
 import type { WorkspaceRole } from '@/services/auth';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
@@ -53,6 +55,8 @@ export const PostDetailModal = ({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [publishMode, setPublishMode] = useState<'now' | 'schedule' | null>(null);
   const [scheduleToReschedule, setScheduleToReschedule] = useState<ScheduleItem | null>(null);
+  const [scheduleToUnpublish, setScheduleToUnpublish] = useState<ScheduleItem | null>(null);
+  const unpublishSchedule = useUnpublishSchedule(workspaceId);
 
   const canEdit = Boolean(post && canModifyPost(post, currentUserId, role));
   const canReview = post?.status === 'PENDING' && role === 'OWNER';
@@ -69,6 +73,20 @@ export const PostDetailModal = ({
         schedule.scheduledAt &&
         canManagePost(post, currentUserId, role)
     );
+  const canUnpublish = (schedule: ScheduleItem) =>
+    Boolean(
+      post &&
+        schedule.status === 'PUBLISHED' &&
+        schedule.externalPostId &&
+        canManagePost(post, currentUserId, role)
+    );
+
+  const confirmUnpublish = () => {
+    if (!scheduleToUnpublish) return;
+    unpublishSchedule.mutate(scheduleToUnpublish.id, {
+      onSettled: () => setScheduleToUnpublish(null),
+    });
+  };
 
   return (
     <Modal
@@ -179,6 +197,8 @@ export const PostDetailModal = ({
             schedules={schedules}
             canReschedule={canReschedule}
             onReschedule={setScheduleToReschedule}
+            canUnpublish={canUnpublish}
+            onUnpublish={setScheduleToUnpublish}
           />
 
           <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
@@ -204,6 +224,19 @@ export const PostDetailModal = ({
           onScheduled={() => setPublishMode(null)}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(scheduleToUnpublish)}
+        onClose={() => setScheduleToUnpublish(null)}
+        title="Gỡ bài đăng?"
+        description={`Bài viết sẽ bị xoá khỏi ${
+          scheduleToUnpublish?.channel.name ?? 'kênh'
+        }. Thao tác này không hoàn tác được trên nền tảng, nhưng bạn vẫn có thể đăng lại sau.`}
+        confirmLabel="Gỡ bài"
+        tone="danger"
+        isLoading={unpublishSchedule.isPending}
+        onConfirm={confirmUnpublish}
+      />
 
       {post ? (
         <RescheduleScheduleModal

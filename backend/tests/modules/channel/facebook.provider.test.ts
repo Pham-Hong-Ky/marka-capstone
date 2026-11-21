@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import logger from '../../../src/utils/logger.js';
 import { facebookAdapter } from '../../../src/modules/channel/providers/facebook/facebook.adapter.js';
 import {
+  SocialPostGoneError,
   SocialRateLimitError,
   SocialTransientError,
 } from '../../../src/modules/channel/providers/errors/social.errors.js';
@@ -53,6 +54,26 @@ describe('FacebookAdapter — lỗi trả người dùng và log', () => {
     );
     await expect(facebookAdapter.fetchProfile('page-token')).rejects.toThrow(
       'Nền tảng đang giới hạn tần suất. Hệ thống sẽ thử lại sau.'
+    );
+  });
+
+  it('deletePost gọi DELETE tới id bài với access_token', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ success: true }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await facebookAdapter.deletePost('page_post_1', 'page-token');
+
+    const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(init.method).toBe('DELETE');
+    expect(url.pathname).toMatch(/\/page_post_1$/);
+    expect(url.searchParams.get('access_token')).toBe('page-token');
+  });
+
+  it('deletePost: bài không còn tồn tại (code 100, subcode 33) → SocialPostGoneError', async () => {
+    stubGraphError({ code: 100, error_subcode: 33, message: 'Object does not exist' }, 400);
+
+    await expect(facebookAdapter.deletePost('page_post_1', 'page-token')).rejects.toBeInstanceOf(
+      SocialPostGoneError
     );
   });
 

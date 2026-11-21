@@ -52,5 +52,6 @@ export interface SocialProvider {
   fetchProfile(accessToken: string): Promise<SocialProfile>;
   publish(input: PublishInput): Promise<string>;
   fetchMetrics(externalPostId: string, accessToken: string): Promise<ProviderMetrics>;
+  deletePost?(externalPostId: string, accessToken: string): Promise<void>;
   refreshToken?(accessToken: string): Promise<string>;
 }

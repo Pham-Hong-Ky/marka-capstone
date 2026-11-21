@@ -43,6 +43,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   TOP_UP: 'Nạp credit',
   SCHEDULE_CREATED: 'Tạo lịch đăng',
   SCHEDULE_UPDATED: 'Đổi lịch đăng',
+  SCHEDULE_UNPUBLISHED: 'Gỡ bài đăng',
   SCHEDULE_CANCELLED: 'Huỷ lịch đăng',
   SCHEDULE_PUBLISH_FAILED: 'Đăng bài thất bại',
   SCHEDULE_PUBLISHED: 'Đăng bài thành công',

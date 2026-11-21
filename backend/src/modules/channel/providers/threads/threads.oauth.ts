@@ -13,7 +13,12 @@ import {
   type ThreadsTokenResponse,
 } from './threads.graph.js';
 
-const SCOPES = ['threads_basic', 'threads_content_publish', 'threads_manage_insights'];
+const SCOPES = [
+  'threads_basic',
+  'threads_content_publish',
+  'threads_manage_insights',
+  'threads_delete',
+];
 
 export const buildThreadsAuthorizationUrl = (state: string): string => {
   const url = new URL(AUTHORIZE_URL);

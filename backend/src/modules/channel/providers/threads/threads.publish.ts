@@ -39,6 +39,16 @@ const waitForContainer = async (containerId: string, accessToken: string): Promi
   throw new SocialTransientError('Threads đang xử lý nội dung. Hệ thống sẽ thử lại sau.');
 };
 
+export const deleteThreadsPost = async (
+  externalPostId: string,
+  accessToken: string
+): Promise<void> => {
+  await threadsRequest(
+    threadsApiUrl(`/${externalPostId}`, { access_token: accessToken }),
+    { method: 'DELETE' }
+  );
+};
+
 export const publishThreadsPost = async (
   input: PublishInput,
   capabilities: ProviderCapabilities

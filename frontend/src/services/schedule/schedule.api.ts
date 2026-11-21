@@ -39,6 +39,10 @@ export const cancelSchedule = async (workspaceId: string, scheduleId: string): P
   await httpClient.delete(`/workspaces/${workspaceId}/schedules/${scheduleId}`);
 };
 
+export const unpublishSchedule = async (workspaceId: string, scheduleId: string): Promise<void> => {
+  await httpClient.post(`/workspaces/${workspaceId}/schedules/${scheduleId}/unpublish`);
+};
+
 export const rescheduleSchedule = async (
   workspaceId: string,
   scheduleId: string,
@@ -55,5 +59,6 @@ export default {
   createSchedules,
   listSchedules,
   cancelSchedule,
+  unpublishSchedule,
   rescheduleSchedule,
 };

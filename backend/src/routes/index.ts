@@ -614,6 +614,13 @@ router.delete(
   requireWorkspaceRole(),
   scheduleController.cancelSchedule
 );
+router.post(
+  '/workspaces/:workspaceId/schedules/:scheduleId/unpublish',
+  requireAuth,
+  validate(scheduleIdSchema),
+  requireWorkspaceRole(),
+  scheduleController.unpublishSchedule
+);
 
 // Analytics — thống kê hiệu quả bài đăng & gợi ý (Phân hệ 8)
 router.get(

@@ -71,9 +71,26 @@ export const rescheduleSchedule = catchAsync(async (req: Request, res: Response)
   });
 });
 
+export const unpublishSchedule = catchAsync(async (req: Request, res: Response) => {
+  const workspaceId = getWorkspaceId(req);
+  await scheduleService.unpublishSchedule(
+    workspaceId,
+    req.user!.id,
+    req.workspaceRole!,
+    req.params.scheduleId as string
+  );
+
+  return ApiResponse.success(res, {
+    statusCode: 200,
+    message: 'Gỡ bài đăng thành công',
+    data: { success: true },
+  });
+});
+
 export default {
   createSchedules,
   listSchedules,
   cancelSchedule,
   rescheduleSchedule,
+  unpublishSchedule,
 };

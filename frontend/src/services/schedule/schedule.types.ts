@@ -11,7 +11,13 @@ type SchedulePostStatus =
   | 'FAILED'
   | 'ARCHIVED';
 
-export type ScheduleStatus = 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED' | 'CANCELLED';
+export type ScheduleStatus =
+  | 'SCHEDULED'
+  | 'PROCESSING'
+  | 'PUBLISHED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'UNPUBLISHED';
 
 export interface ScheduleChannel {
   id: string;

@@ -4,7 +4,9 @@ import app from '../../../src/app.js';
 import prisma from '../../../src/config/db.js';
 import { encrypt } from '../../../src/utils/encryption.js';
 import { facebookPublisher } from '../../../src/modules/channel/providers/facebook/facebook.publish.js';
+import { facebookAdapter } from '../../../src/modules/channel/providers/facebook/facebook.adapter.js';
 import {
+  SocialPostGoneError,
   SocialTokenExpiredError,
   SocialTransientError,
 } from '../../../src/modules/channel/providers/errors/social.errors.js';
@@ -556,6 +558,152 @@ describe('Schedule — đăng bài Facebook', () => {
       .send({ scheduledAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() });
 
     expect(res.status).toBe(403);
+  });
+
+  describe('Gỡ bài đã đăng', () => {
+    const createPublished = async (channelId = channelAId) => {
+      const postId = await createPost('PUBLISHED');
+      const schedule = await prisma.scheduledPost.create({
+        data: {
+          postId,
+          channelId,
+          status: 'PUBLISHED',
+          externalPostId: 'page_post_1',
+          publishedAt: new Date(),
+        },
+      });
+      return { postId, scheduleId: schedule.id };
+    };
+
+    const unpublish = (scheduleId: string, token = ownerToken) =>
+      request(app)
+        .post(`/api/v1/workspaces/${wsId}/schedules/${scheduleId}/unpublish`)
+        .set('Authorization', `Bearer ${token}`);
+
+    it('gỡ bài thành công: gọi nền tảng, lịch UNPUBLISHED, bài về APPROVED, ghi audit', async () => {
+      const { postId, scheduleId } = await createPublished();
+      const deleteSpy = vi.spyOn(facebookAdapter, 'deletePost').mockResolvedValue();
+
+      const res = await unpublish(scheduleId);
+
+      expect(res.status).toBe(200);
+      expect(deleteSpy).toHaveBeenCalledWith('page_post_1', 'page-token');
+      const schedule = await prisma.scheduledPost.findUnique({ where: { id: scheduleId } });
+      const post = await prisma.post.findUnique({ where: { id: postId } });
+      const audit = await prisma.auditLog.findFirst({
+        where: { action: 'SCHEDULE_UNPUBLISHED', targetId: scheduleId },
+      });
+      expect(schedule?.status).toBe('UNPUBLISHED');
+      expect(post?.status).toBe('APPROVED');
+      expect(audit).not.toBeNull();
+    });
+
+    it('bài còn đăng ở Page khác thì vẫn PUBLISHED', async () => {
+      const { postId, scheduleId } = await createPublished();
+      await prisma.scheduledPost.create({
+        data: { postId, channelId: channelBId, status: 'PUBLISHED', externalPostId: 'page_post_2' },
+      });
+      vi.spyOn(facebookAdapter, 'deletePost').mockResolvedValue();
+
+      const res = await unpublish(scheduleId);
+
+      expect(res.status).toBe(200);
+      const post = await prisma.post.findUnique({ where: { id: postId } });
+      expect(post?.status).toBe('PUBLISHED');
+    });
+
+    it('bài đã bị xoá tay trên nền tảng vẫn được đánh dấu đã gỡ', async () => {
+      const { scheduleId } = await createPublished();
+      vi.spyOn(facebookAdapter, 'deletePost').mockRejectedValue(new SocialPostGoneError());
+
+      const res = await unpublish(scheduleId);
+
+      expect(res.status).toBe(200);
+      const schedule = await prisma.scheduledPost.findUnique({ where: { id: scheduleId } });
+      expect(schedule?.status).toBe('UNPUBLISHED');
+    });
+
+    it('token hết hạn: giữ PUBLISHED và đánh dấu kênh EXPIRED', async () => {
+      const { scheduleId } = await createPublished();
+      vi.spyOn(facebookAdapter, 'deletePost').mockRejectedValue(new SocialTokenExpiredError());
+
+      const res = await unpublish(scheduleId);
+
+      expect(res.status).toBe(400);
+      const schedule = await prisma.scheduledPost.findUnique({ where: { id: scheduleId } });
+      const channel = await prisma.channelConnection.findUnique({ where: { id: channelAId } });
+      expect(schedule?.status).toBe('PUBLISHED');
+      expect(channel?.status).toBe('EXPIRED');
+    });
+
+    it('lỗi nền tảng khác: giữ PUBLISHED, không đổi trạng thái', async () => {
+      const { scheduleId } = await createPublished();
+      vi.spyOn(facebookAdapter, 'deletePost').mockRejectedValue(
+        new BadRequestError('Facebook từ chối yêu cầu. Vui lòng thử lại.')
+      );
+
+      const res = await unpublish(scheduleId);
+
+      expect(res.status).toBe(400);
+      const schedule = await prisma.scheduledPost.findUnique({ where: { id: scheduleId } });
+      expect(schedule?.status).toBe('PUBLISHED');
+    });
+
+    it('từ chối lịch chưa đăng thành công (409) và không gọi nền tảng', async () => {
+      const postId = await createPost();
+      const schedule = await prisma.scheduledPost.create({
+        data: { postId, channelId: channelAId, status: 'FAILED' },
+      });
+      const deleteSpy = vi.spyOn(facebookAdapter, 'deletePost').mockResolvedValue();
+
+      const res = await unpublish(schedule.id);
+
+      expect(res.status).toBe(409);
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it('từ chối khi kênh đã hết hạn (409)', async () => {
+      const { scheduleId } = await createPublished();
+      await prisma.channelConnection.update({
+        where: { id: channelAId },
+        data: { status: 'EXPIRED' },
+      });
+      const deleteSpy = vi.spyOn(facebookAdapter, 'deletePost').mockResolvedValue();
+
+      const res = await unpublish(scheduleId);
+
+      expect(res.status).toBe(409);
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it('người ngoài workspace bị chặn (403), Creator không gỡ được bài của người khác', async () => {
+      const { postId, scheduleId } = await createPublished();
+      await prisma.post.update({ where: { id: postId }, data: { createdById: ownerId } });
+      const deleteSpy = vi.spyOn(facebookAdapter, 'deletePost').mockResolvedValue();
+
+      const outside = await unpublish(scheduleId, outsiderToken);
+      const creatorDenied = await unpublish(scheduleId, creatorToken);
+
+      expect(outside.status).toBe(403);
+      expect(creatorDenied.status).toBe(403);
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it('sau khi gỡ có thể đăng lại cùng bài lên cùng kênh', async () => {
+      const { postId, scheduleId } = await createPublished();
+      vi.spyOn(facebookAdapter, 'deletePost').mockResolvedValue();
+      await unpublish(scheduleId);
+
+      const res = await request(app)
+        .post(`/api/v1/workspaces/${wsId}/posts/${postId}/schedules`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(schedulePayload([channelAId], new Date(Date.now() + 60 * 60 * 1000).toISOString()));
+
+      expect(res.status).toBe(201);
+      const schedule = await prisma.scheduledPost.findUnique({ where: { id: scheduleId } });
+      expect(schedule?.status).toBe('SCHEDULED');
+      expect(schedule?.externalPostId).toBeNull();
+    });
   });
 
   it('Worker đăng thành công nhiều ảnh và lưu externalPostId', async () => {

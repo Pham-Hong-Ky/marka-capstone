@@ -11,6 +11,7 @@ import channelService from '../channel/channel.service.js';
 import { getProvider } from '../channel/providers/provider.registry.js';
 import type { SocialProvider } from '../channel/providers/port/social-provider.port.js';
 import {
+  SocialPostGoneError,
   SocialTokenExpiredError,
   SocialTransientError,
 } from '../channel/providers/errors/social.errors.js';
@@ -330,6 +331,65 @@ export const rescheduleSchedule = async (
   return result.schedule;
 };
 
+export const unpublishSchedule = async (
+  workspaceId: string,
+  userId: string,
+  role: WorkspaceRole,
+  scheduleId: string
+): Promise<{ success: true }> => {
+  const schedule = await scheduleRepository.findScheduleForUnpublish(scheduleId, workspaceId);
+  if (!schedule) {
+    throw new NotFoundError('Lịch đăng không tồn tại');
+  }
+  assertCanModify(schedule.post, userId, role);
+  if (schedule.status !== 'PUBLISHED' || !schedule.externalPostId) {
+    throw new ConflictError('Chỉ có thể gỡ bài đã đăng thành công');
+  }
+  if (schedule.channel.status !== 'ACTIVE') {
+    throw new ConflictError('Kênh đã hết hạn. Vui lòng kết nối lại kênh để gỡ bài.');
+  }
+
+  const provider = getProvider(schedule.channel.platform);
+  if (!provider.deletePost) {
+    throw new BadRequestError(`Nền tảng ${platformLabel(schedule.channel.platform)} chưa hỗ trợ gỡ bài`);
+  }
+
+  const token = decryptOrNull(schedule.channel.accessToken);
+  if (!token) {
+    await markChannelExpired(schedule.channelId);
+    throw new BadRequestError('Không đọc được token của tài khoản. Vui lòng kết nối lại.');
+  }
+
+  try {
+    await provider.deletePost(schedule.externalPostId, token);
+  } catch (error) {
+    if (error instanceof SocialTokenExpiredError) {
+      await markChannelExpired(schedule.channelId);
+    }
+    if (!(error instanceof SocialPostGoneError)) throw error;
+    logger.info(`Bài ${schedule.externalPostId} đã không còn trên nền tảng, đánh dấu đã gỡ`);
+  }
+
+  if (!(await scheduleRepository.markScheduleUnpublished(scheduleId))) {
+    throw new ConflictError('Lịch đăng đã thay đổi trạng thái, vui lòng tải lại');
+  }
+
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId: userId,
+    action: 'SCHEDULE_UNPUBLISHED',
+    targetType: 'ScheduledPost',
+    targetId: scheduleId,
+    metadata: {
+      postId: schedule.postId,
+      channelId: schedule.channelId,
+      externalPostId: schedule.externalPostId,
+    },
+  });
+
+  return { success: true };
+};
+
 const markChannelExpired = async (channelId: string): Promise<void> => {
   await channelService.markChannelExpired(channelId);
 };
@@ -525,6 +585,7 @@ export default {
   listSchedules,
   cancelSchedule,
   rescheduleSchedule,
+  unpublishSchedule,
   publishSchedule,
   processDueSchedules,
 };

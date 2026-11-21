@@ -2,6 +2,7 @@ import logger from '../../../../utils/logger.js';
 import { BadRequestError } from '../../../../utils/errors/index.js';
 import { requestGraph } from '../transport/graph-request.js';
 import {
+  SocialPostGoneError,
   SocialRateLimitError,
   SocialTokenExpiredError,
   SocialTransientError,
@@ -79,6 +80,10 @@ const throwGraphError = (status: number, error: FacebookApiError | undefined): n
     throw new SocialRateLimitError();
   }
 
+  if (error?.code === 100 && error.error_subcode === 33) {
+    throw new SocialPostGoneError();
+  }
+
   if (
     error?.code === 100 &&
     (message.includes('code') || message.includes('expired') || message.includes('consumed'))
@@ -99,7 +104,7 @@ const throwGraphError = (status: number, error: FacebookApiError | undefined): n
 };
 
 const request = async <T>(
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'DELETE',
   path: string,
   params: Record<string, string>,
   form?: Record<string, string>,
@@ -125,6 +130,9 @@ const request = async <T>(
 
 export const facebookGet = <T>(path: string, params: Record<string, string>): Promise<T> =>
   request<T>('GET', path, params);
+
+export const facebookDelete = <T>(path: string, params: Record<string, string>): Promise<T> =>
+  request<T>('DELETE', path, params);
 
 export const facebookPost = <T>(
   path: string,
