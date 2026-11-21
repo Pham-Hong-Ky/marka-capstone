@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ChevronDown, Sparkles } from 'lucide-react';
@@ -7,8 +7,7 @@ import type { JSONContent } from '@tiptap/react';
 import Button from '@/components/ui/Button';
 import TextArea from '@/components/ui/TextArea';
 import TextField from '@/components/ui/TextField';
-import SelectableAccountList from '@/components/shared/SelectableAccountList';
-import { ChannelPlatformBadge } from '@/components/features/channel/ChannelPlatformBadge';
+import AiChannelPicker from './AiChannelPicker';
 import { useStartAiPost } from '@/hooks/useAi';
 import { useAiBatchWatcher, type AiBatchSummary } from '@/hooks/useAiBatchWatcher';
 import { useChannels } from '@/hooks/useChannels';
@@ -38,6 +37,12 @@ interface PostAIAssistantProps {
   onApplyText: (result: AiTextResult) => void;
 }
 
+const MODES = [
+  { label: 'Chỉ nội dung', withText: true, withImages: false },
+  { label: 'Nội dung + ảnh', withText: true, withImages: true },
+  { label: 'Chỉ ảnh', withText: false, withImages: true },
+] as const;
+
 const IMAGE_COUNT_OPTIONS = Array.from({ length: AI_MAX_IMAGES }, (_, index) => index + 1);
 
 const getSubmitLabel = (withText: boolean, withImages: boolean): string => {
@@ -65,7 +70,7 @@ export const PostAIAssistant = ({
   const queryClient = useQueryClient();
   const startPost = useStartAiPost();
 
-  const [open, setOpen] = useState(initialGenerationIds.length > 0);
+  const [open, setOpen] = useState(true);
   const [withText, setWithText] = useState(true);
   const [withImages, setWithImages] = useState(false);
   const [imageCount, setImageCount] = useState(1);
@@ -127,26 +132,29 @@ export const PostAIAssistant = ({
     );
   };
 
-  const hasThreads = channels.some(
-    (channel) => channel.platform === 'THREADS' && selectedIds.includes(channel.id)
-  );
   const missingChannel = withText && channels.length > 0 && selectedIds.length === 0;
   const creditCost = (withText ? AI_TEXT_COST : 0) + (withImages ? AI_IMAGE_COST * imageCount : 0);
-  const nothingSelected = !withText && !withImages;
 
+  const isNewPost = !postId;
   const validate = (): string | null => {
-    if (withText && topic.trim().length < 5) return 'Chủ đề tối thiểu 5 ký tự.';
-    if (missingChannel) return 'Chọn ít nhất một kênh để AI viết nội dung phù hợp.';
-    if (withImages && !postId && pendingImageCount > 0) {
-      return 'Vui lòng lưu bài để tải các ảnh đang chờ trước khi tạo ảnh AI.';
-    }
-    if (!withText && !postId && !title.trim()) {
-      return 'Cần nhập tiêu đề trước khi tạo ảnh cho bài mới.';
-    }
-    if (!withText && !postId && isContentEmpty(content)) {
-      return 'Cần có nội dung trước khi tạo ảnh cho bài mới.';
-    }
-    return null;
+    const rules: Array<[failed: boolean, message: string]> = [
+      [withText && topic.trim().length < 5, 'Chủ đề tối thiểu 5 ký tự.'],
+      [missingChannel, 'Chọn ít nhất một kênh để AI viết nội dung phù hợp.'],
+      [
+        withImages && isNewPost && pendingImageCount > 0,
+        'Vui lòng lưu bài để tải các ảnh đang chờ trước khi tạo ảnh AI.',
+      ],
+      [
+        !withText && isNewPost && !title.trim(),
+        'Cần nhập tiêu đề trước khi tạo ảnh cho bài mới.',
+      ],
+      [
+        !withText && isNewPost && isContentEmpty(content),
+        'Cần có nội dung trước khi tạo ảnh cho bài mới.',
+      ],
+    ];
+
+    return rules.find(([failed]) => failed)?.[1] ?? null;
   };
 
   const buildPayload = (): StartPostPayload => ({
@@ -202,10 +210,15 @@ export const PostAIAssistant = ({
         aria-controls="post-ai-assistant-panel"
         disabled={isWorking}
         onClick={() => setOpen((current) => !current)}
-        className="flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left transition hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed"
+        className="flex min-h-14 w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed"
       >
-        <Sparkles className="h-4 w-4 shrink-0 text-accent-text" aria-hidden="true" />
-        <span className="whitespace-nowrap text-sm font-medium text-foreground">Viết bằng AI</span>
+        <Sparkles className="h-5 w-5 shrink-0 text-accent-text" aria-hidden="true" />
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-foreground">Viết bằng AI</span>
+          <span className="block truncate text-xs text-muted">
+            Nhập chủ đề, AI viết bài và tạo ảnh minh hoạ
+          </span>
+        </span>
         <ChevronDown
           className={cn('ml-auto h-4 w-4 shrink-0 text-muted transition', open && 'rotate-180')}
           aria-hidden="true"
@@ -213,50 +226,12 @@ export const PostAIAssistant = ({
       </button>
 
       {open ? (
-        <div id="post-ai-assistant-panel" className="space-y-3 border-t border-border p-4">
-          <fieldset disabled={inputsDisabled} className="space-y-2">
-            <legend className="text-sm font-medium text-foreground">AI sẽ tạo</legend>
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border px-3 text-sm text-foreground transition hover:bg-surface-2">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-accent"
-                checked={withText}
-                onChange={(event) => setWithText(event.target.checked)}
-              />
-              Nội dung bài viết
-            </label>
-            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-1">
-              <label className="flex min-h-11 flex-1 cursor-pointer items-center gap-3 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 accent-accent"
-                  checked={withImages}
-                  onChange={(event) => setWithImages(event.target.checked)}
-                />
-                Ảnh minh hoạ
-              </label>
-              {withImages ? (
-                <select
-                  aria-label="Số lượng ảnh"
-                  className="min-h-11 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-accent"
-                  value={imageCount}
-                  onChange={(event) => setImageCount(Number(event.target.value))}
-                >
-                  {IMAGE_COUNT_OPTIONS.map((count) => (
-                    <option key={count} value={count}>
-                      {count} ảnh
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-            </div>
-          </fieldset>
-
+        <div id="post-ai-assistant-panel" className="space-y-4 border-t border-border p-4">
           {withText ? (
             <TextArea
               label="Chủ đề bài viết"
               name="ai-topic"
-              rows={3}
+              rows={4}
               maxLength={1000}
               placeholder="Ví dụ: Ra mắt bộ sưu tập áo thu đông cho nữ văn phòng"
               value={topic}
@@ -264,6 +239,79 @@ export const PostAIAssistant = ({
               onChange={(event) => setTopic(event.target.value)}
             />
           ) : null}
+
+          <fieldset disabled={inputsDisabled} className="space-y-2">
+            <legend className="text-sm font-medium text-foreground">AI sẽ tạo</legend>
+            <div
+              role="radiogroup"
+              aria-label="AI sẽ tạo"
+              className="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1"
+            >
+              {MODES.map((item) => {
+                const selected = item.withText === withText && item.withImages === withImages;
+
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => {
+                      setWithText(item.withText);
+                      setWithImages(item.withImages);
+                    }}
+                    className={cn(
+                      'min-h-11 rounded-md px-2 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed',
+                      selected
+                        ? 'bg-surface text-foreground shadow-sm'
+                        : 'text-muted hover:text-foreground'
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {withImages ? (
+              <div
+                role="radiogroup"
+                aria-label="Số lượng ảnh"
+                className="flex flex-wrap items-center gap-2 pt-1"
+              >
+                <span className="text-sm text-muted">Số ảnh</span>
+                {IMAGE_COUNT_OPTIONS.map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    role="radio"
+                    aria-checked={imageCount === count}
+                    onClick={() => setImageCount(count)}
+                    className={cn(
+                      'min-h-11 min-w-11 rounded-lg border px-3 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                      imageCount === count
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-border text-foreground hover:bg-surface-2'
+                    )}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </fieldset>
+
+          {withText ? (
+            <AiChannelPicker
+              channels={channels}
+              selectedIds={selectedIds}
+              isLoading={channelsQuery.isLoading}
+              isError={channelsQuery.isError}
+              disabled={inputsDisabled}
+              onToggle={toggleChannel}
+            />
+          ) : null}
+
           <TextField
             label={withText ? 'Yêu cầu thêm (tuỳ chọn)' : 'Ghi chú cho ảnh (tuỳ chọn)'}
             name="ai-instructions"
@@ -281,79 +329,6 @@ export const PostAIAssistant = ({
             }}
           />
 
-          {withText ? (
-            <div>
-              <p className="text-sm font-medium text-foreground">Kênh đăng bài</p>
-              <p className="mt-0.5 text-xs text-muted">
-                AI viết một bài đăng được trên tất cả kênh đã chọn.
-              </p>
-              {channelsQuery.isLoading ? (
-                <p role="status" className="mt-2 text-xs text-muted">
-                  Đang tải danh sách kênh...
-                </p>
-              ) : channelsQuery.isError ? (
-                <p role="alert" className="mt-2 text-sm text-danger">
-                  Không tải được danh sách kênh. Vui lòng thử lại.
-                </p>
-              ) : channels.length === 0 ? (
-                <p className="mt-2 rounded-lg border border-border bg-surface-2 p-3 text-xs text-muted">
-                  Chưa kết nối kênh nào.{' '}
-                  <Link
-                    to="/channels"
-                    className="font-medium text-accent-text underline-offset-2 hover:underline"
-                  >
-                    Kết nối kênh
-                  </Link>{' '}
-                  để nội dung được tối ưu theo kênh.
-                </p>
-              ) : (
-                <>
-                  <SelectableAccountList
-                    className="mt-2 space-y-2"
-                    accounts={channels.map((channel) => ({
-                      id: channel.id,
-                      name: channel.label ?? channel.name,
-                      avatar: channel.avatar,
-                      meta: <ChannelPlatformBadge platform={channel.platform} />,
-                    }))}
-                    selectedIds={selectedIds}
-                    onToggle={toggleChannel}
-                  />
-                  {missingChannel ? (
-                    <p role="alert" className="mt-2 text-sm text-danger">
-                      Chọn ít nhất một kênh.
-                    </p>
-                  ) : hasThreads ? (
-                    <p className="mt-2 text-xs text-subtle">
-                      Threads giới hạn 500 ký tự nên nội dung sẽ được viết ngắn gọn.
-                    </p>
-                  ) : null}
-                </>
-              )}
-            </div>
-          ) : null}
-
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-subtle">
-              {withText ? 'Thay tiêu đề và nội dung hiện tại. ' : ''}
-              {withImages && !postId ? 'Bài mới sẽ được lưu nháp trước. ' : ''}
-              {creditCost > 0 ? `Tổng ${creditCost} credit.` : 'Chọn nội dung hoặc ảnh.'}
-            </p>
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              isLoading={isWorking}
-              disabled={
-                inputsDisabled ||
-                nothingSelected ||
-                missingChannel ||
-                (withText && channelsQuery.isLoading) ||
-                (withText && topic.trim().length < 5)
-              }
-            >
-              {getSubmitLabel(withText, withImages)}
-            </Button>
-          </div>
           {isWorking ? (
             <p role="status" className="text-xs text-muted">
               Đang tạo{withImages ? ' nội dung và ảnh' : ''}... Có thể mất vài chục giây.
@@ -364,6 +339,29 @@ export const PostAIAssistant = ({
               {error}
             </p>
           ) : null}
+
+          <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-2 p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Tổng {creditCost} credit</p>
+              <p className="text-xs text-muted">
+                {withText ? 'Thay tiêu đề và nội dung hiện tại. ' : ''}
+                {withImages && !postId ? 'Bài mới sẽ được lưu nháp trước.' : ''}
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              isLoading={isWorking}
+              disabled={
+                inputsDisabled ||
+                missingChannel ||
+                (withText && channelsQuery.isLoading) ||
+                (withText && topic.trim().length < 5)
+              }
+            >
+              {getSubmitLabel(withText, withImages)}
+            </Button>
+          </div>
         </div>
       ) : null}
     </section>
