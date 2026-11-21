@@ -1,6 +1,7 @@
 import { getErrorMessage } from '../utils/errorMessage.js';
 import { UnrecoverableError, Worker, type Job } from 'bullmq';
 import { queueConnection } from '../config/redis.js';
+import env from '../config/env.js';
 import logger from '../utils/logger.js';
 import { processScheduleJob } from '../modules/schedule/schedule.processor.js';
 import { processAnalyticsJob } from '../modules/analytics/analytics.processor.js';
@@ -82,11 +83,13 @@ const createWorker = (
   queueName: QueueName,
   label: WorkerLabel,
   processor: (job: Job) => Promise<unknown> = createProcessor(label),
-  onFinalFailure?: (job: Job, error: Error) => Promise<void>
+  onFinalFailure?: (job: Job, error: Error) => Promise<void>,
+  concurrency = 1
 ): Worker => {
   const worker = new Worker(queueName, processor, {
     connection: queueConnection,
     prefix: QUEUE_PREFIX,
+    concurrency,
   });
   attachLifecycle(worker, label, onFinalFailure);
   return worker;
@@ -109,7 +112,8 @@ export const contentWorker = createWorker(
   QUEUE_NAMES.contentGeneration,
   'ContentWorker',
   processContentJob,
-  handleAiFinalFailure
+  handleAiFinalFailure,
+  env.AI_WORKER_CONCURRENCY
 );
 export const scheduleWorker = createWorker(
   QUEUE_NAMES.schedule,

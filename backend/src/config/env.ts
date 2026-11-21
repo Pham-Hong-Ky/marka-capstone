@@ -29,6 +29,8 @@ const envSchema = z.object({
   CLOUDFLARE_ACCOUNT_ID: z.string().default(''),
   CLOUDFLARE_API_TOKEN: z.string().default(''),
   CLOUDFLARE_IMAGE_MODEL: z.string().default('@cf/black-forest-labs/flux-1-schnell'),
+  // Số job AI chạy song song. Gói miễn phí Gemini/Cloudflare giới hạn tốc độ nên giữ thấp.
+  AI_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(2),
   CLOUDINARY_CLOUD_NAME: z.string().default(''),
   CLOUDINARY_API_KEY: z.string().default(''),
   CLOUDINARY_API_SECRET: z.string().default(''),

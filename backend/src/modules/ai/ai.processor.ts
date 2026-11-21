@@ -104,15 +104,21 @@ const runImageGeneration = async (generation: AiGeneration) => {
   const post = await aiRepository.getPostForGeneration(generation.postId, generation.workspaceId);
   assertPostAcceptsImages(post);
 
+  const startedAt = Date.now();
   const imagePrompt = await resolveImagePrompt(parseImageSourcePayload(generation.prompt));
+  const promptDoneAt = Date.now();
   const buffer = await cloudflareImageClient.generateImage({
     model: generation.model,
     prompt: imagePrompt,
   });
+  const drawDoneAt = Date.now();
 
   const url = await cloudinaryClient.uploadImageBuffer(
     buffer,
     `marka/workspaces/${generation.workspaceId}/posts/${generation.postId}/ai`
+  );
+  logger.info(
+    `[AI] ảnh ${generation.id}: prompt ${promptDoneAt - startedAt}ms, vẽ ${drawDoneAt - promptDoneAt}ms, upload ${Date.now() - drawDoneAt}ms`
   );
 
   await aiService.completeImageGeneration({
