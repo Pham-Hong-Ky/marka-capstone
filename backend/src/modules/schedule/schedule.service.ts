@@ -28,8 +28,9 @@ const STALE_PROCESSING_MS = 10 * 60 * 1000;
 export const PROCESSING_HEARTBEAT_MS = 60 * 1000;
 const DUE_BATCH_SIZE = 10;
 
-const platformLabel = (platform: string): string =>
-  platform === 'THREADS' ? 'Threads' : platform === 'FACEBOOK' ? 'Facebook' : platform;
+const PLATFORM_LABELS: Record<string, string> = { THREADS: 'Threads', FACEBOOK: 'Facebook' };
+
+const platformLabel = (platform: string): string => PLATFORM_LABELS[platform] ?? platform;
 
 interface CreateScheduleInput {
   channelIds: string[];
@@ -44,6 +45,7 @@ interface ListSchedulesQuery {
   limit: number;
 }
 
+// đưa vào hàng đợi
 const enqueueImmediate = async (scheduleId: string): Promise<void> => {
   try {
     const { scheduleQueue } = await import('../../workers/queues.js');
@@ -189,7 +191,7 @@ const recordCreatedSchedules = async (params: {
     }
   }
 };
-
+// tạo lịch đăng bài
 export const createSchedules = async (
   workspaceId: string,
   userId: string,
@@ -331,6 +333,21 @@ export const rescheduleSchedule = async (
   return result.schedule;
 };
 
+type UnpublishableSchedule = NonNullable<
+  Awaited<ReturnType<typeof scheduleRepository.findScheduleForUnpublish>>
+>;
+
+const assertUnpublishable = (schedule: UnpublishableSchedule): string => {
+  if (schedule.status !== 'PUBLISHED' || !schedule.externalPostId) {
+    throw new ConflictError('Chỉ có thể gỡ bài đã đăng thành công');
+  }
+  if (schedule.channel.status !== 'ACTIVE') {
+    throw new ConflictError('Kênh đã hết hạn. Vui lòng kết nối lại kênh để gỡ bài.');
+  }
+
+  return schedule.externalPostId;
+};
+
 export const unpublishSchedule = async (
   workspaceId: string,
   userId: string,
@@ -342,12 +359,7 @@ export const unpublishSchedule = async (
     throw new NotFoundError('Lịch đăng không tồn tại');
   }
   assertCanModify(schedule.post, userId, role);
-  if (schedule.status !== 'PUBLISHED' || !schedule.externalPostId) {
-    throw new ConflictError('Chỉ có thể gỡ bài đã đăng thành công');
-  }
-  if (schedule.channel.status !== 'ACTIVE') {
-    throw new ConflictError('Kênh đã hết hạn. Vui lòng kết nối lại kênh để gỡ bài.');
-  }
+  const externalPostId = assertUnpublishable(schedule);
 
   const provider = getProvider(schedule.channel.platform);
   if (!provider.deletePost) {
@@ -356,18 +368,18 @@ export const unpublishSchedule = async (
 
   const token = decryptOrNull(schedule.channel.accessToken);
   if (!token) {
-    await markChannelExpired(schedule.channelId);
+    await channelService.markChannelExpired(schedule.channelId);
     throw new BadRequestError('Không đọc được token của tài khoản. Vui lòng kết nối lại.');
   }
 
   try {
-    await provider.deletePost(schedule.externalPostId, token);
+    await provider.deletePost(externalPostId, token);
   } catch (error) {
     if (error instanceof SocialTokenExpiredError) {
-      await markChannelExpired(schedule.channelId);
+      await channelService.markChannelExpired(schedule.channelId);
     }
     if (!(error instanceof SocialPostGoneError)) throw error;
-    logger.info(`Bài ${schedule.externalPostId} đã không còn trên nền tảng, đánh dấu đã gỡ`);
+    logger.info(`Bài ${externalPostId} đã không còn trên nền tảng, đánh dấu đã gỡ`);
   }
 
   if (!(await scheduleRepository.markScheduleUnpublished(scheduleId))) {
@@ -383,15 +395,11 @@ export const unpublishSchedule = async (
     metadata: {
       postId: schedule.postId,
       channelId: schedule.channelId,
-      externalPostId: schedule.externalPostId,
+      externalPostId,
     },
   });
 
   return { success: true };
-};
-
-const markChannelExpired = async (channelId: string): Promise<void> => {
-  await channelService.markChannelExpired(channelId);
 };
 
 const failSchedule = async (
@@ -423,14 +431,14 @@ const failSchedule = async (
 };
 
 const handlePublishError = async (
-  schedule: NonNullable<Awaited<ReturnType<typeof scheduleRepository.findScheduleForPublish>>>,
+  schedule: PublishableSchedule,
   error: unknown,
   feedStarted: boolean
 ): Promise<{ outcome: 'failed' | 'retry' }> => {
   const message = getErrorMessage(error);
 
   if (error instanceof SocialTokenExpiredError) {
-    await markChannelExpired(schedule.channelId);
+    await channelService.markChannelExpired(schedule.channelId);
     return failSchedule(schedule, 'Token của kênh đã hết hạn. Vui lòng kết nối lại kênh.', {
       tokenExpired: true,
     });
@@ -468,6 +476,70 @@ const keepProcessingAlive = (scheduleId: string): (() => void) => {
   return () => clearInterval(timer);
 };
 
+type PublishableSchedule = NonNullable<
+  Awaited<ReturnType<typeof scheduleRepository.findScheduleForPublish>>
+>;
+
+interface PublishPlan {
+  provider: SocialProvider;
+  token: string;
+  message: string;
+  imageUrls: string[];
+}
+
+class PublishPrecheckError extends Error {}
+
+const preparePublish = async (schedule: PublishableSchedule): Promise<PublishPlan> => {
+  // Post/kênh có thể đã bị xoá mềm sau khi lịch được đọc nhưng trước khi claim.
+  if (!(await scheduleRepository.findPublishablePost(schedule.postId))) {
+    throw new PublishPrecheckError('Bài viết đã bị xoá');
+  }
+  if (!(await scheduleRepository.findPublishableChannel(schedule.channelId))) {
+    throw new PublishPrecheckError('Kênh đã bị ngắt kết nối');
+  }
+  if (schedule.channel.status !== 'ACTIVE') {
+    throw new PublishPrecheckError('Kênh đã hết hạn. Vui lòng kết nối lại kênh.');
+  }
+
+  const provider = getProvider(schedule.channel.platform);
+  if (!provider.capabilities.supportsPublish) {
+    throw new PublishPrecheckError(
+      `Nền tảng ${platformLabel(schedule.channel.platform)} chưa hỗ trợ đăng bài`
+    );
+  }
+
+  const token = decryptOrNull(schedule.channel.accessToken);
+  if (!token) {
+    await channelService.markChannelExpired(schedule.channelId);
+    throw new PublishPrecheckError('Không đọc được token của tài khoản. Vui lòng kết nối lại.');
+  }
+
+  try {
+    return { provider, token, ...validatePostContent(schedule.post, provider) };
+  } catch (error) {
+    throw new PublishPrecheckError(getErrorMessage(error));
+  }
+};
+
+const publishToPlatform = async (
+  schedule: PublishableSchedule,
+  plan: PublishPlan,
+  onRemoteStart: () => void
+): Promise<string> => {
+  const stopHeartbeat = keepProcessingAlive(schedule.id);
+  try {
+    return await plan.provider.publish({
+      externalAccountId: schedule.channel.externalAccountId,
+      accessToken: plan.token,
+      text: plan.message,
+      imageUrls: plan.imageUrls,
+      onRemoteStart,
+    });
+  } finally {
+    stopHeartbeat();
+  }
+};
+
 export const publishSchedule = async (
   scheduleId: string
 ): Promise<{ outcome: 'published' | 'failed' | 'retry' | 'skipped' | 'not_found'; externalPostId?: string }> => {
@@ -480,59 +552,19 @@ export const publishSchedule = async (
     return { outcome: 'skipped' };
   }
 
-  // Post/kênh có thể đã bị xoá mềm sau khi lịch được đọc nhưng trước khi claim.
-  const publishablePost = await scheduleRepository.findPublishablePost(schedule.postId);
-  if (!publishablePost) {
-    return failSchedule(schedule, 'Bài viết đã bị xoá');
-  }
-
-  const publishableChannel = await scheduleRepository.findPublishableChannel(schedule.channelId);
-  if (!publishableChannel) {
-    return failSchedule(schedule, 'Kênh đã bị ngắt kết nối');
-  }
-
-  if (schedule.channel.status !== 'ACTIVE') {
-    return failSchedule(schedule, 'Kênh đã hết hạn. Vui lòng kết nối lại kênh.');
-  }
-
-  const provider = getProvider(schedule.channel.platform);
-  if (!provider.capabilities.supportsPublish) {
-    return failSchedule(schedule, `Nền tảng ${platformLabel(schedule.channel.platform)} chưa hỗ trợ đăng bài`);
-  }
-
-  const token = decryptOrNull(schedule.channel.accessToken);
-
-  if (!token) {
-    await markChannelExpired(schedule.channelId);
-    return failSchedule(schedule, 'Không đọc được token của tài khoản. Vui lòng kết nối lại.');
-  }
-
-  let message: string;
-  let imageUrls: string[];
+  let plan: PublishPlan;
   try {
-    ({ message, imageUrls } = validatePostContent(schedule.post, provider));
+    plan = await preparePublish(schedule);
   } catch (error) {
-    const text = getErrorMessage(error);
-    return failSchedule(schedule, text);
+    if (error instanceof PublishPrecheckError) return failSchedule(schedule, error.message);
+    throw error;
   }
 
   let feedStarted = false;
   try {
-    const stopHeartbeat = keepProcessingAlive(scheduleId);
-    let externalPostId: string;
-    try {
-      externalPostId = await provider.publish({
-        externalAccountId: schedule.channel.externalAccountId,
-        accessToken: token,
-        text: message,
-        imageUrls,
-        onRemoteStart: () => {
-          feedStarted = true;
-        },
-      });
-    } finally {
-      stopHeartbeat();
-    }
+    const externalPostId = await publishToPlatform(schedule, plan, () => {
+      feedStarted = true;
+    });
 
     const published = await scheduleRepository.markSchedulePublished(scheduleId, externalPostId);
     if (!published) {

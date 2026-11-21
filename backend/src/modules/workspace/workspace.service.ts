@@ -10,6 +10,7 @@ import { buildWorkspaceInviteEmail } from '../../templates/workspaceInviteEmail.
 import notificationService from '../notification/notification.service.js';
 import {
   AppError,
+  BadRequestError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -84,6 +85,12 @@ export const listMyWorkspaces = async (userId: string): Promise<WorkspaceSummary
 
 export const isWorkspaceMember = async (workspaceId: string, userId: string): Promise<boolean> =>
   Boolean(await workspaceRepository.findMember(workspaceId, userId));
+
+export const assertAssigneeIsMember = async (workspaceId: string, assigneeId: string) => {
+  if (!(await isWorkspaceMember(workspaceId, assigneeId))) {
+    throw new BadRequestError('Người nhận việc không phải là thành viên của workspace');
+  }
+};
 
 export const updateWorkspace = async (
   workspaceId: string,
@@ -388,6 +395,7 @@ export default {
   createWorkspace,
   listMyWorkspaces,
   isWorkspaceMember,
+  assertAssigneeIsMember,
   updateWorkspace,
   deleteWorkspace,
   listMembers,

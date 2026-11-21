@@ -1,6 +1,7 @@
 import { buildPaginationMeta } from '../../utils/pagination.js';
-import { getErrorMessage } from '../../utils/errorMessage.js';
-import logger from '../../utils/logger.js';
+import { assertOwnerOrSelf } from '../../utils/access.js';
+import { assertDueAtValid } from '../../utils/dueDate.js';
+import { notifySafely } from '../../utils/notifySafely.js';
 import type { PostStatus, Prisma, TaskStatus, WorkspaceRole } from '@prisma/client';
 import postRepository from './post.repository.js';
 import postNotification from './post.notification.js';
@@ -13,14 +14,6 @@ import { cloudinaryClient } from '../../utils/cloudinary.client.js';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../utils/errors/index.js';
 
 const TRANSITION_CONFLICT_MESSAGE = 'Không thể chuyển trạng thái bài viết này';
-
-const notifySafely = async (action: () => Promise<void>) => {
-  try {
-    await action();
-  } catch (error) {
-    logger.warn(`Không gửi được thông báo: ${getErrorMessage(error)}`);
-  }
-};
 
 const transitionPost = async (
   post: { id: string; workspaceId: string; status: PostStatus },
@@ -309,12 +302,6 @@ export const reviewPost = async (
   return updated;
 };
 
-const assertAssigneeIsMember = async (workspaceId: string, assigneeId: string) => {
-  if (!(await workspaceService.isWorkspaceMember(workspaceId, assigneeId))) {
-    throw new BadRequestError('Người nhận việc không phải là thành viên của workspace');
-  }
-};
-
 export const assignPost = async (
   workspaceId: string,
   actorId: string,
@@ -327,17 +314,11 @@ export const assignPost = async (
   const dueAt = assigned ? data.dueAt ?? null : null;
 
   if (data.assigneeId) {
-    await assertAssigneeIsMember(workspaceId, data.assigneeId);
+    await workspaceService.assertAssigneeIsMember(workspaceId, data.assigneeId);
   }
 
-  if (assigned && data.dueAt) {
-    const now = Date.now();
-    if (data.dueAt.getTime() < now) {
-      throw new BadRequestError('Hạn chót không được ở quá khứ');
-    }
-    if (data.dueAt.getTime() > now + 365 * 24 * 60 * 60 * 1000) {
-      throw new BadRequestError('Hạn chót tối đa 1 năm kể từ hiện tại');
-    }
+  if (assigned) {
+    assertDueAtValid(data.dueAt);
   }
 
   await postRepository.assignPost(postId, {
@@ -403,9 +384,12 @@ export const updateTaskStatus = async (
     throw new ConflictError('Bài viết chưa được giao việc');
   }
 
-  if (role !== 'OWNER' && post.assigneeId !== userId) {
-    throw new ForbiddenError('Chỉ người nhận việc hoặc chủ workspace được cập nhật trạng thái công việc');
-  }
+  assertOwnerOrSelf(
+    role,
+    post.assigneeId,
+    userId,
+    'Chỉ người nhận việc hoặc chủ workspace được cập nhật trạng thái công việc'
+  );
 
   await postRepository.updateTaskStatus(postId, taskStatus);
   await taskRepository.updateTaskStatusForPost(postId, taskStatus);

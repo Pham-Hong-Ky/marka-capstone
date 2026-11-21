@@ -14,23 +14,14 @@ import workspaceService from '../workspace/workspace.service.js';
 import auditService from '../audit/audit.service.js';
 import { getErrorMessage } from '../../utils/errorMessage.js';
 import logger from '../../utils/logger.js';
-import { addDays } from '../../utils/date.js';
-import {
-  BadRequestError,
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-} from '../../utils/errors/index.js';
+import { assertOwnerOrSelf } from '../../utils/access.js';
+import { assertDueAtValid } from '../../utils/dueDate.js';
+import { notifySafely as notifyWithLabel } from '../../utils/notifySafely.js';
+import { BadRequestError, ConflictError, NotFoundError } from '../../utils/errors/index.js';
 
 const BOARD_COLUMN_LIMIT = 100;
 
-const notifySafely = async (action: () => Promise<void>) => {
-  try {
-    await action();
-  } catch (error) {
-    logger.warn(`Không gửi được thông báo công việc: ${getErrorMessage(error)}`);
-  }
-};
+const notifySafely = (action: () => Promise<void>) => notifyWithLabel(action, 'thông báo công việc');
 
 const syncPostSafely = async (postId: string, data: Prisma.PostUncheckedUpdateInput) => {
   try {
@@ -40,31 +31,11 @@ const syncPostSafely = async (postId: string, data: Prisma.PostUncheckedUpdateIn
   }
 };
 
-const assertDueAtValid = (dueAt?: Date | null, currentDueAt?: Date | null) => {
-  if (!dueAt) return;
-
-  const now = new Date();
-  if (dueAt.getTime() < now.getTime()) {
-    // Cho phép giữ nguyên hạn cũ đã qua khi chỉ sửa các trường khác.
-    if (currentDueAt && dueAt.getTime() === currentDueAt.getTime()) return;
-    throw new BadRequestError('Hạn chót không được ở quá khứ');
-  }
-  if (dueAt.getTime() > addDays(now, 365).getTime()) {
-    throw new BadRequestError('Hạn chót tối đa 1 năm kể từ hiện tại');
-  }
-};
-
-const assertAssigneeIsMember = async (workspaceId: string, assigneeId: string) => {
-  if (!(await workspaceService.isWorkspaceMember(workspaceId, assigneeId))) {
-    throw new BadRequestError('Người nhận việc không phải là thành viên của workspace');
-  }
-};
-
 export const createTask = async (workspaceId: string, actorId: string, body: CreateTaskBody) => {
   assertDueAtValid(body.dueAt);
 
   if (body.assigneeId) {
-    await assertAssigneeIsMember(workspaceId, body.assigneeId);
+    await workspaceService.assertAssigneeIsMember(workspaceId, body.assigneeId);
   }
 
   const assignedAt = body.assigneeId ? new Date() : null;
@@ -113,13 +84,12 @@ export const getTaskBoard = async (
 ) => {
   const isOwner = role === 'OWNER';
   const mine = isOwner && query.mine === true;
-  const assigneeId = isOwner ? (mine ? userId : undefined) : userId;
-  const includeUnassigned = isOwner && !mine;
+  const viewsAll = isOwner && !mine;
 
   const filters = {
     workspaceId,
-    assigneeId,
-    includeUnassigned,
+    assigneeId: viewsAll ? undefined : userId,
+    includeUnassigned: viewsAll,
     search: query.search,
   };
 
@@ -150,7 +120,7 @@ export const assignTask = async (
   const { assigneeId } = body;
 
   if (assigneeId) {
-    await assertAssigneeIsMember(workspaceId, assigneeId);
+    await workspaceService.assertAssigneeIsMember(workspaceId, assigneeId);
   }
 
   const updated = await taskRepository.assignTask(taskId, {
@@ -210,9 +180,7 @@ export const updateTaskStatus = async (
     throw new ConflictError('Công việc chưa được giao cho ai');
   }
 
-  if (role !== 'OWNER' && task.assignee.id !== actorId) {
-    throw new ForbiddenError('Bạn không có quyền cập nhật công việc này');
-  }
+  assertOwnerOrSelf(role, task.assignee.id, actorId, 'Bạn không có quyền cập nhật công việc này');
 
   const updated = await taskRepository.updateTaskStatus(taskId, body.status);
 
@@ -275,50 +243,41 @@ export const updateTask = async (
   return updated;
 };
 
-const assertCanManageTask = (
-  role: WorkspaceRole,
-  task: { assignee: { id: string } | null },
-  userId: string
-) => {
-  if (role !== 'OWNER' && task.assignee?.id !== userId) {
-    throw new ForbiddenError('Bạn không có quyền thao tác trên công việc này');
-  }
-};
+const CLEARED_POST_ASSIGNMENT = {
+  assigneeId: null,
+  assignedById: null,
+  assignedAt: null,
+  dueAt: null,
+  taskStatus: 'TODO',
+} as const;
 
-export const linkTaskPost = async (
+const unlinkTaskPost = async (
   workspaceId: string,
   userId: string,
-  role: WorkspaceRole,
-  taskId: string,
-  body: LinkTaskPostBody
+  task: Awaited<ReturnType<typeof getTaskOrThrow>>
 ) => {
-  const task = await getTaskOrThrow(taskId, workspaceId);
-  const linkedPostId = task.post?.id ?? null;
-  assertCanManageTask(role, task, userId);
-
-  if (body.postId === null) {
-    const updated = await taskRepository.linkTaskPost(taskId, null);
-    if (linkedPostId) {
-      await syncPostSafely(linkedPostId, {
-        assigneeId: null,
-        assignedById: null,
-        assignedAt: null,
-        dueAt: null,
-        taskStatus: 'TODO',
-      });
-    }
-    await auditService.recordAuditLog({
-      workspaceId,
-      actorId: userId,
-      action: 'TASK_POST_UNLINKED',
-      targetType: 'Task',
-      targetId: taskId,
-      metadata: { title: task.title },
-    });
-    return updated;
+  const updated = await taskRepository.linkTaskPost(task.id, null);
+  if (task.post) {
+    await syncPostSafely(task.post.id, CLEARED_POST_ASSIGNMENT);
   }
+  await auditService.recordAuditLog({
+    workspaceId,
+    actorId: userId,
+    action: 'TASK_POST_UNLINKED',
+    targetType: 'Task',
+    targetId: task.id,
+    metadata: { title: task.title },
+  });
+  return updated;
+};
 
-  const post = await postRepository.getPostById(body.postId, workspaceId);
+const attachTaskPost = async (
+  workspaceId: string,
+  userId: string,
+  task: Awaited<ReturnType<typeof getTaskOrThrow>>,
+  postId: string
+) => {
+  const post = await postRepository.getPostById(postId, workspaceId);
   if (!post) {
     throw new NotFoundError('Bài viết không tồn tại');
   }
@@ -326,14 +285,14 @@ export const linkTaskPost = async (
     throw new BadRequestError('Không thể gắn bài viết đã lưu trữ');
   }
 
-  const existing = await taskRepository.findTaskByPostId(body.postId);
-  if (existing && existing.id !== taskId) {
+  const existing = await taskRepository.findTaskByPostId(postId);
+  if (existing && existing.id !== task.id) {
     throw new ConflictError('Bài viết đã được gắn với công việc khác');
   }
 
   try {
-    const updated = await taskRepository.linkTaskPost(taskId, body.postId);
-    await syncPostSafely(body.postId, {
+    const updated = await taskRepository.linkTaskPost(task.id, postId);
+    await syncPostSafely(postId, {
       assigneeId: updated.assignee?.id ?? null,
       assignedById: updated.assignedById,
       assignedAt: updated.assignedAt,
@@ -345,8 +304,8 @@ export const linkTaskPost = async (
       actorId: userId,
       action: 'TASK_POST_LINKED',
       targetType: 'Task',
-      targetId: taskId,
-      metadata: { title: task.title, postId: body.postId },
+      targetId: task.id,
+      metadata: { title: task.title, postId },
     });
     return updated;
   } catch (error) {
@@ -357,6 +316,21 @@ export const linkTaskPost = async (
   }
 };
 
+export const linkTaskPost = async (
+  workspaceId: string,
+  userId: string,
+  role: WorkspaceRole,
+  taskId: string,
+  body: LinkTaskPostBody
+) => {
+  const task = await getTaskOrThrow(taskId, workspaceId);
+  assertOwnerOrSelf(role, task.assignee?.id, userId, 'Bạn không có quyền thao tác trên công việc này');
+
+  return body.postId === null
+    ? unlinkTaskPost(workspaceId, userId, task)
+    : attachTaskPost(workspaceId, userId, task, body.postId);
+};
+
 export const deleteTask = async (workspaceId: string, actorId: string, taskId: string) => {
   const task = await getTaskOrThrow(taskId, workspaceId);
   const postId = task.post?.id ?? null;
@@ -364,13 +338,7 @@ export const deleteTask = async (workspaceId: string, actorId: string, taskId: s
   await taskRepository.softDeleteTask(taskId);
 
   if (postId) {
-    await syncPostSafely(postId, {
-      assigneeId: null,
-      assignedById: null,
-      assignedAt: null,
-      dueAt: null,
-      taskStatus: 'TODO',
-    });
+    await syncPostSafely(postId, CLEARED_POST_ASSIGNMENT);
   }
 
   await auditService.recordAuditLog({
