@@ -218,6 +218,40 @@ export const cancelSchedule = async (scheduleId: string, workspaceId: string) =>
     return { outcome: 'cancelled' as const, postId: schedule.postId };
   });
 
+export const findScheduleForUnpublish = async (scheduleId: string, workspaceId: string) =>
+  prisma.scheduledPost.findFirst({
+    where: { id: scheduleId, channel: { workspaceId } },
+    select: {
+      id: true,
+      postId: true,
+      channelId: true,
+      status: true,
+      externalPostId: true,
+      post: { select: { createdById: true } },
+      channel: {
+        select: { externalAccountId: true, accessToken: true, status: true, platform: true },
+      },
+    },
+  });
+
+export const markScheduleUnpublished = async (scheduleId: string) =>
+  prisma.$transaction(async (tx) => {
+    const schedule = await tx.scheduledPost.findUnique({
+      where: { id: scheduleId },
+      select: { postId: true },
+    });
+    if (!schedule) return false;
+
+    const { count } = await tx.scheduledPost.updateMany({
+      where: { id: scheduleId, status: 'PUBLISHED' },
+      data: { status: 'UNPUBLISHED' },
+    });
+    if (count === 0) return false;
+
+    await recomputePostStatus(tx, schedule.postId);
+    return true;
+  });
+
 export const findDueScheduleIds = async (limit: number) => {
   const now = new Date();
 
@@ -393,6 +427,8 @@ export default {
   findScheduleInWorkspace,
   updateScheduleTime,
   cancelSchedule,
+  findScheduleForUnpublish,
+  markScheduleUnpublished,
   findDueScheduleIds,
   claimSchedule,
   touchProcessingSchedule,

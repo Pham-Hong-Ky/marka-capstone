@@ -13,14 +13,19 @@ import { resolveTargetPlatforms } from './prompts/ai.channels.js';
 import {
   assertPostAcceptsImages,
   createImageGeneration,
+  createPostBatch,
   createTextGeneration,
+  generateArtPrompt,
   getBrandVoice,
   normalizeImageRequest,
   parseGenerationResponse,
+  resolveBatchImageSource,
   toStartResult,
+  type PostBatchItem,
 } from './ai.generation.js';
+import { buildImageVariants, type ImageSourcePayload } from './prompts/ai.image-prompt.js';
 import aiRepository from './ai.repository.js';
-import type { GenerateImageBody, GenerateTextBody } from './ai.validation.js';
+import type { GenerateImageBody, GeneratePostBody, GenerateTextBody } from './ai.validation.js';
 
 const STALE_GENERATION_MS = 30 * 60 * 1000;
 const STALE_GENERATION_BATCH = 100;
@@ -142,6 +147,108 @@ export const startImageGeneration = async ({
   return toStartResult(generation, credit.balanceAfter);
 };
 
+interface StartPostGenerationParams extends StartGenerationContext {
+  body: GeneratePostBody;
+}
+
+// Một lần gọi Gemini viết prompt gốc, các ảnh dùng chung và chỉ khác bố cục.
+const buildBatchImagePrompts = async (source: ImageSourcePayload, count: number) => {
+  try {
+    return buildImageVariants(await generateArtPrompt(source), count);
+  } catch (error) {
+    logger.error(`Không tạo được prompt ảnh: ${getErrorMessage(error)}`);
+    throw new ServiceUnavailableError('Không tạo được gợi ý ảnh. Vui lòng thử lại.');
+  }
+};
+
+const enqueueBatch = async (
+  items: PostBatchItem[],
+  createdDraftId: string | null
+): Promise<PostBatchItem[]> => {
+  const results = await Promise.allSettled(
+    items.map((item) =>
+      enqueue(QUEUE_NAMES.contentGeneration, item.type === 'IMAGE' ? 'ai:image' : 'ai:text', {
+        generationId: item.generationId,
+      })
+    )
+  );
+
+  const queued: PostBatchItem[] = [];
+  for (const [index, result] of results.entries()) {
+    const item = items[index];
+    if (result.status === 'fulfilled') {
+      queued.push(item);
+      continue;
+    }
+
+    logger.error(`Không enqueue được job AI ${item.generationId}: ${getErrorMessage(result.reason)}`);
+    await failGeneration(item.generationId, 'Không thể đưa yêu cầu vào hàng đợi xử lý').catch(
+      (error: unknown) =>
+        logger.error(`Không hoàn được credit cho generation ${item.generationId}: ${getErrorMessage(error)}`)
+    );
+  }
+
+  if (queued.length === 0) {
+    if (createdDraftId) await removeDraftQuietly(createdDraftId);
+    throw new ServiceUnavailableError('Không thể đưa yêu cầu vào hàng đợi. Vui lòng thử lại.');
+  }
+
+  return queued;
+};
+
+export const startPostGeneration = async ({
+  workspaceId,
+  userId,
+  role,
+  body,
+}: StartPostGenerationParams) => {
+  const wantsImages = body.imageCount > 0;
+
+  if ((body.withText || wantsImages) && !isTextAiConfigured()) {
+    throw new ServiceUnavailableError('Dịch vụ AI tạo nội dung chưa được cấu hình');
+  }
+  if (wantsImages && !isImageAiConfigured()) {
+    throw new ServiceUnavailableError('Dịch vụ AI tạo ảnh chưa được cấu hình');
+  }
+
+  const brandVoice = await getBrandVoice(workspaceId);
+  const platforms = body.withText ? await resolveTargetPlatforms(workspaceId, body.channelIds) : [];
+  const context = { workspaceId, userId, role };
+
+  const imageSource = wantsImages ? await resolveBatchImageSource(body, context, brandVoice) : null;
+  const imagePrompts = imageSource ? await buildBatchImagePrompts(imageSource, body.imageCount) : [];
+
+  const batch = await withTransaction((tx) =>
+    createPostBatch(tx, { body, context, brandVoice, platforms, imageSource, imagePrompts })
+  );
+
+  const generations = await enqueueBatch(batch.items, batch.createdDraftId);
+
+  return {
+    postId: batch.postId,
+    createdDraft: batch.createdDraftId !== null,
+    generations,
+    creditCost: batch.creditCost,
+    remainingCredit: batch.remainingCredit,
+  };
+};
+
+const toGenerationView = (
+  generation: NonNullable<Awaited<ReturnType<typeof aiRepository.findGenerationByIdAndWorkspace>>>
+) => ({
+  id: generation.id,
+  type: generation.type,
+  status: generation.status,
+  provider: generation.provider,
+  model: generation.model,
+  postId: generation.postId,
+  creditCost: generation.creditCost,
+  result: parseGenerationResponse(generation),
+  errorMessage: generation.errorMessage,
+  createdAt: generation.createdAt,
+  updatedAt: generation.updatedAt,
+});
+
 export const getGeneration = async ({
   workspaceId,
   generationId,
@@ -155,19 +262,19 @@ export const getGeneration = async ({
     throw new NotFoundError('Không tìm thấy tiến trình tạo nội dung AI');
   }
 
-  return {
-    id: generation.id,
-    type: generation.type,
-    status: generation.status,
-    provider: generation.provider,
-    model: generation.model,
-    postId: generation.postId,
-    creditCost: generation.creditCost,
-    result: parseGenerationResponse(generation),
-    errorMessage: generation.errorMessage,
-    createdAt: generation.createdAt,
-    updatedAt: generation.updatedAt,
-  };
+  return toGenerationView(generation);
+};
+
+export const getGenerations = async ({
+  workspaceId,
+  ids,
+}: {
+  workspaceId: string;
+  ids: string[];
+}) => {
+  const generations = await aiRepository.findGenerationsByIdsAndWorkspace(ids, workspaceId);
+
+  return generations.map(toGenerationView);
 };
 
 // --- Worker cập nhật trạng thái generation ---
@@ -291,7 +398,9 @@ export const recoverStaleGenerations = async (now = new Date()) => {
 export default {
   startTextGeneration,
   startImageGeneration,
+  startPostGeneration,
   getGeneration,
+  getGenerations,
   markProcessing,
   completeTextGeneration,
   completeImageGeneration,

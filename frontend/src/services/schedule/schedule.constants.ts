@@ -6,6 +6,7 @@ export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, string> = {
   PUBLISHED: 'Đã đăng',
   FAILED: 'Đăng lỗi',
   CANCELLED: 'Đã huỷ',
+  UNPUBLISHED: 'Đã gỡ',
 };
 
 export const SCHEDULE_STATUS_BADGE_CLASSES: Record<ScheduleStatus, string> = {
@@ -14,6 +15,7 @@ export const SCHEDULE_STATUS_BADGE_CLASSES: Record<ScheduleStatus, string> = {
   PUBLISHED: 'bg-success/10 text-success',
   FAILED: 'bg-danger/10 text-danger',
   CANCELLED: 'bg-surface-2 text-muted',
+  UNPUBLISHED: 'bg-surface-2 text-muted',
 };
 
 export const SCHEDULE_STATUS_DOT_CLASSES: Record<ScheduleStatus, string> = {
@@ -22,6 +24,7 @@ export const SCHEDULE_STATUS_DOT_CLASSES: Record<ScheduleStatus, string> = {
   PUBLISHED: 'bg-success',
   FAILED: 'bg-danger',
   CANCELLED: 'bg-subtle',
+  UNPUBLISHED: 'bg-subtle',
 };
 
 export const OCCUPIED_SCHEDULE_STATUSES: ScheduleStatus[] = ['SCHEDULED', 'PROCESSING', 'PUBLISHED'];
@@ -38,4 +41,5 @@ export const SCHEDULE_STATUS_TABS: ScheduleStatusTab[] = [
   { value: 'PUBLISHED', label: 'Đã đăng' },
   { value: 'FAILED', label: 'Đăng lỗi' },
   { value: 'CANCELLED', label: 'Đã huỷ' },
+  { value: 'UNPUBLISHED', label: 'Đã gỡ' },
 ];

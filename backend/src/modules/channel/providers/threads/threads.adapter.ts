@@ -14,7 +14,7 @@ import {
   readThreadsProfile,
   refreshThreadsToken,
 } from './threads.oauth.js';
-import { publishThreadsPost } from './threads.publish.js';
+import { deleteThreadsPost, publishThreadsPost } from './threads.publish.js';
 
 /**
  * Adapter Threads: chuyển các thao tác của port `SocialProvider`
@@ -59,6 +59,10 @@ export class ThreadsAdapter implements SocialProvider {
 
   fetchMetrics(externalPostId: string, accessToken: string): Promise<ProviderMetrics> {
     return fetchThreadsMetrics(externalPostId, accessToken);
+  }
+
+  deletePost(externalPostId: string, accessToken: string): Promise<void> {
+    return deleteThreadsPost(externalPostId, accessToken);
   }
 }
 

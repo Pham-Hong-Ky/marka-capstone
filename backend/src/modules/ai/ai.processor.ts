@@ -4,7 +4,6 @@ import { UnrecoverableError, type Job } from 'bullmq';
 import logger from '../../utils/logger.js';
 import { contentGenerationQueue } from '../../workers/queues.js';
 import { cloudinaryClient } from '../../utils/cloudinary.client.js';
-import { getGeminiModel } from './providers/ai.config.js';
 import {
   AiContentPolicyError,
   AiOutputError,
@@ -13,9 +12,7 @@ import {
   AiProviderError,
 } from './providers/ai.errors.js';
 import {
-  buildImageArtPrompt,
   buildImagePrompt,
-  parseImageArtOutput,
   parseImageSourcePayload,
   type ImageSourcePayload,
 } from './prompts/ai.image-prompt.js';
@@ -26,7 +23,7 @@ import {
   toTiptapDoc,
 } from './prompts/ai.prompt.js';
 import { cloudflareImageClient, geminiClient } from './providers/ai.providers.js';
-import { assertPostAcceptsImages } from './ai.generation.js';
+import { assertPostAcceptsImages, generateArtPrompt } from './ai.generation.js';
 import aiRepository from './ai.repository.js';
 import aiService from './ai.service.js';
 
@@ -39,21 +36,7 @@ const resolveImagePrompt = async (source: ImageSourcePayload) => {
     return source.imagePrompt.trim();
   }
 
-  const { systemInstruction, userPrompt, responseSchema } = buildImageArtPrompt({
-    title: source.title ?? undefined,
-    contentText: source.contentText ?? undefined,
-    instructions: source.instructions ?? undefined,
-    brandVoice: source.brandVoice,
-  });
-
-  const raw = await geminiClient.generateJson({
-    model: getGeminiModel(),
-    systemInstruction,
-    userPrompt,
-    responseSchema,
-  });
-
-  return buildImagePrompt(parseImageArtOutput(raw));
+  return buildImagePrompt(await generateArtPrompt(source));
 };
 
 const normalizeAiError = (error: unknown, attempt: number): unknown => {
@@ -104,15 +87,21 @@ const runImageGeneration = async (generation: AiGeneration) => {
   const post = await aiRepository.getPostForGeneration(generation.postId, generation.workspaceId);
   assertPostAcceptsImages(post);
 
+  const startedAt = Date.now();
   const imagePrompt = await resolveImagePrompt(parseImageSourcePayload(generation.prompt));
+  const promptDoneAt = Date.now();
   const buffer = await cloudflareImageClient.generateImage({
     model: generation.model,
     prompt: imagePrompt,
   });
+  const drawDoneAt = Date.now();
 
   const url = await cloudinaryClient.uploadImageBuffer(
     buffer,
     `marka/workspaces/${generation.workspaceId}/posts/${generation.postId}/ai`
+  );
+  logger.info(
+    `[AI] ảnh ${generation.id}: prompt ${promptDoneAt - startedAt}ms, vẽ ${drawDoneAt - promptDoneAt}ms, upload ${Date.now() - drawDoneAt}ms`
   );
 
   await aiService.completeImageGeneration({

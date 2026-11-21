@@ -4,8 +4,10 @@ export { default as aiRepository } from './ai.repository.js';
 export {
   generateTextSchema,
   generateImageSchema,
+  generatePostSchema,
   generationIdSchema,
   type GenerateTextBody,
   type GenerateImageBody,
+  type GeneratePostBody,
 } from './ai.validation.js';
 export { processContentJob, executeAiGeneration, buildAiFailureMessage } from './ai.processor.js';

@@ -90,7 +90,7 @@ describe('Threads OAuth', () => {
     expect(url.searchParams.get('client_id')).toBe('threads-app-id');
     expect(url.searchParams.get('redirect_uri')).toBe(threadsEnv.redirectUri);
     expect(url.searchParams.get('scope')).toBe(
-      'threads_basic,threads_content_publish,threads_manage_insights'
+      'threads_basic,threads_content_publish,threads_manage_insights,threads_delete'
     );
   });
 

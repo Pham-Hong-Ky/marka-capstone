@@ -7,7 +7,7 @@ import type {
   SocialProfile,
   SocialProvider,
 } from '../port/social-provider.port.js';
-import { facebookGet } from './facebook.graph.js';
+import { facebookDelete, facebookGet } from './facebook.graph.js';
 import { fetchFacebookMetrics } from './facebook.metrics.js';
 import {
   buildFacebookAuthorizationUrl,
@@ -72,6 +72,10 @@ export class FacebookAdapter implements SocialProvider {
 
   fetchMetrics(externalPostId: string, accessToken: string): Promise<ProviderMetrics> {
     return fetchFacebookMetrics(externalPostId, accessToken);
+  }
+
+  async deletePost(externalPostId: string, accessToken: string): Promise<void> {
+    await facebookDelete(`/${externalPostId}`, { access_token: accessToken });
   }
 }
 

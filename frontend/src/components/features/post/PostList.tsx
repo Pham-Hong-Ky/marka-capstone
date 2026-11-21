@@ -6,7 +6,7 @@ import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table';
 import PostRowActions from './PostRowActions';
 import PostStatusBadge from './PostStatusBadge';
 import type { WorkspaceRole } from '@/services/auth';
-import { canModifyPost, type PaginationMeta, type PostSummary } from '@/services/post';
+import { canEditPost, canModifyPost, type PaginationMeta, type PostSummary } from '@/services/post';
 import { formatDate } from '@/utils/format';
 
 export const PostList = ({
@@ -91,7 +91,8 @@ export const PostList = ({
               <TD className="px-2 py-2 text-right">
                 <PostRowActions
                   post={post}
-                  canEdit={canModifyPost(post, currentUserId, role)}
+                  canEdit={canEditPost(post, currentUserId, role)}
+                  canManage={canModifyPost(post, currentUserId, role)}
                   onView={() => onOpen(post)}
                   onEdit={() => onEdit(post)}
                   canReview={post.status === 'PENDING' && role === 'OWNER'}

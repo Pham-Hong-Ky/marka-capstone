@@ -82,7 +82,9 @@ import aiController from '../modules/ai/ai.controller.js';
 import {
   generateTextSchema,
   generateImageSchema,
+  generatePostSchema,
   generationIdSchema,
+  listGenerationsSchema,
 } from '../modules/ai/ai.validation.js';
 import analyticsController from '../modules/analytics/analytics.controller.js';
 import {
@@ -577,6 +579,21 @@ router.post(
   aiLimiter,
   aiController.generateImage
 );
+router.post(
+  '/workspaces/:workspaceId/ai/post',
+  requireAuth,
+  validate(generatePostSchema),
+  requireWorkspaceRole(),
+  aiLimiter,
+  aiController.generatePost
+);
+router.get(
+  '/workspaces/:workspaceId/ai/generations',
+  requireAuth,
+  validate(listGenerationsSchema),
+  requireWorkspaceRole(),
+  aiController.getGenerations
+);
 router.get(
   '/workspaces/:workspaceId/ai/generations/:generationId',
   requireAuth,
@@ -613,6 +630,13 @@ router.delete(
   validate(scheduleIdSchema),
   requireWorkspaceRole(),
   scheduleController.cancelSchedule
+);
+router.post(
+  '/workspaces/:workspaceId/schedules/:scheduleId/unpublish',
+  requireAuth,
+  validate(scheduleIdSchema),
+  requireWorkspaceRole(),
+  scheduleController.unpublishSchedule
 );
 
 // Analytics — thống kê hiệu quả bài đăng & gợi ý (Phân hệ 8)

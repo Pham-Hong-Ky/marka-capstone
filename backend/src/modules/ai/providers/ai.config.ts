@@ -14,6 +14,7 @@ export const AI_IMAGE_MAX_PROMPT_LENGTH = 2048;
 export const AI_IMAGE_ART_PROMPT_MAX_LENGTH = 600;
 export const AI_IMAGE_CONTENT_LIMIT = 800;
 export const AI_IMAGE_STEPS = 8;
+export const AI_MAX_IMAGES_PER_REQUEST = 4;
 
 export const AI_TEXT_MAX_OUTPUT_TOKENS = 4096;
 export const AI_TEXT_TEMPERATURE = 0.7;

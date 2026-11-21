@@ -5,19 +5,19 @@ import PageContainer from '@/components/ui/PageContainer';
 import PageHeader from '@/components/ui/PageHeader';
 import PostEditorForm from '@/components/features/post/PostEditorForm';
 import { usePost } from '@/hooks/usePost';
-import { canModifyPost } from '@/services/post';
+import { canEditPost } from '@/services/post';
 import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/utils/error';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
 import { useActiveWorkspace } from '@/hooks/useWorkspace';
 
 interface PostEditorLocationState {
-  pendingAiGenerationId?: string;
+  pendingAiGenerationIds?: string[];
 }
 
 interface PendingAiGeneration {
   postId: string;
-  generationId: string;
+  generationIds: string[];
 }
 
 export const PostEditorPage = () => {
@@ -29,19 +29,19 @@ export const PostEditorPage = () => {
   // Từ /posts/new sang /posts/:id/edit React Router không remount page. Giữ ID
   // trong state để không mất khi trang tạm hiện skeleton chờ tải bài.
   const postKey = postId ?? 'new';
-  const pendingAiGenerationId =
-    (location.state as PostEditorLocationState | null)?.pendingAiGenerationId ?? null;
+  const pendingAiGenerationIds =
+    (location.state as PostEditorLocationState | null)?.pendingAiGenerationIds ?? null;
   const [pendingAi, setPendingAi] = useState<PendingAiGeneration | null>(
-    pendingAiGenerationId ? { postId: postKey, generationId: pendingAiGenerationId } : null
+    pendingAiGenerationIds ? { postId: postKey, generationIds: pendingAiGenerationIds } : null
   );
-  const initialAiGenerationId =
-    pendingAi?.postId === postKey ? pendingAi.generationId : null;
+  const initialAiGenerationIds =
+    pendingAi?.postId === postKey ? pendingAi.generationIds : [];
 
   useEffect(() => {
-    if (!pendingAiGenerationId) return;
-    setPendingAi({ postId: postKey, generationId: pendingAiGenerationId });
+    if (!pendingAiGenerationIds) return;
+    setPendingAi({ postId: postKey, generationIds: pendingAiGenerationIds });
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-  }, [pendingAiGenerationId, postKey, location.pathname, location.search, navigate]);
+  }, [pendingAiGenerationIds, postKey, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (pendingAi && pendingAi.postId !== postKey) setPendingAi(null);
@@ -75,13 +75,13 @@ export const PostEditorPage = () => {
 
   if (
     post &&
-    !canModifyPost(post, currentUserId, activeWorkspace?.role ?? 'CONTENT_CREATOR')
+    !canEditPost(post, currentUserId, activeWorkspace?.role ?? 'CONTENT_CREATOR')
   ) {
     return (
       <EmptyState
         className="mx-auto max-w-xl"
         title="Bài viết không thể chỉnh sửa"
-        description="Chỉ chỉnh sửa được bài ở trạng thái Nháp hoặc Bị từ chối và do bạn tạo."
+        description="Chỉ chỉnh sửa được bài Nháp, hoặc bài Bị từ chối do bạn tạo."
       />
     );
   }
@@ -97,7 +97,7 @@ export const PostEditorPage = () => {
         key={postId ?? 'new'}
         workspaceId={workspaceId}
         post={post ?? null}
-        initialAiGenerationId={initialAiGenerationId}
+        initialAiGenerationIds={initialAiGenerationIds}
       />
     </PageContainer>
   );

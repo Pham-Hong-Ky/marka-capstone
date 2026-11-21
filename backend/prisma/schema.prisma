@@ -89,6 +89,7 @@ enum PublishStatus {
   PUBLISHED
   FAILED
   CANCELLED
+  UNPUBLISHED
 }
 
 enum AiGenType {

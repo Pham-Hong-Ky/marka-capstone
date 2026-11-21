@@ -12,6 +12,7 @@ export const canManagePost = (
   role: WorkspaceRole
 ): boolean => role === 'OWNER' || (Boolean(userId) && post.createdById === userId);
 
+// Gửi duyệt và xoá: chỉ người tạo hoặc Owner, khi bài là Nháp hoặc Bị từ chối.
 export const canModifyPost = (
   post: PostOwnership,
   userId: string | null,
@@ -23,5 +24,12 @@ export const canModifyPost = (
 
   return canManagePost(post, userId, role);
 };
+
+// Sửa nội dung: Nháp thì mọi thành viên workspace, Bị từ chối thì người tạo hoặc Owner.
+export const canEditPost = (
+  post: PostOwnership,
+  userId: string | null,
+  role: WorkspaceRole
+): boolean => post.status === 'DRAFT' || canModifyPost(post, userId, role);
 
 export default canModifyPost;

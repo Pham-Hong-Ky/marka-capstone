@@ -17,6 +17,14 @@ export class SocialTransientError extends BadRequestError {
   }
 }
 
+/** Bài không còn trên nền tảng (đã bị xoá tay) — coi như đã gỡ. */
+export class SocialPostGoneError extends BadRequestError {
+  constructor(message = 'Bài viết không còn tồn tại trên nền tảng.') {
+    super(message);
+    this.name = 'SocialPostGoneError';
+  }
+}
+
 export class SocialRateLimitError extends SocialTransientError {
   constructor(message = 'Nền tảng đang giới hạn tần suất. Hệ thống sẽ thử lại sau.') {
     super(message);

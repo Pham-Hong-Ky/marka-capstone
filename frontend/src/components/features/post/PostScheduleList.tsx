@@ -1,4 +1,4 @@
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, Trash2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import ScheduleStatusBadge from '@/components/features/schedule/ScheduleStatusBadge';
 import { buildExternalPostUrl } from '@/services/channel';
@@ -15,10 +15,14 @@ export const PostScheduleList = ({
   schedules,
   canReschedule,
   onReschedule,
+  canUnpublish,
+  onUnpublish,
 }: {
   schedules: ScheduleItem[];
   canReschedule?: (schedule: ScheduleItem) => boolean;
   onReschedule?: (schedule: ScheduleItem) => void;
+  canUnpublish?: (schedule: ScheduleItem) => boolean;
+  onUnpublish?: (schedule: ScheduleItem) => void;
 }) => {
   if (schedules.length === 0) return null;
 
@@ -43,6 +47,17 @@ export const PostScheduleList = ({
                 >
                   <CalendarClock className="h-4 w-4" />
                   Đổi lịch
+                </Button>
+              ) : null}
+              {canUnpublish?.(schedule) && onUnpublish ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="ml-auto min-h-11 px-3 text-danger hover:bg-danger/10"
+                  onClick={() => onUnpublish(schedule)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Gỡ bài
                 </Button>
               ) : null}
             </div>

@@ -118,6 +118,19 @@ export const buildImagePrompt = (artPrompt: string): string => {
   return `${base} ${AI_IMAGE_FINAL_CONSTRAINTS}`.trim();
 };
 
+// Mỗi ảnh trong cùng một yêu cầu dùng một bố cục khác để các ảnh không giống nhau.
+const IMAGE_VARIATIONS = [
+  '',
+  'Composition: close-up detail shot.',
+  'Composition: wide shot showing the surrounding context.',
+  'Composition: top-down flat lay view.',
+];
+
+export const buildImageVariants = (artPrompt: string, count: number): string[] =>
+  Array.from({ length: count }, (_, index) =>
+    buildImagePrompt(`${artPrompt.trim()} ${IMAGE_VARIATIONS[index % IMAGE_VARIATIONS.length]}`)
+  );
+
 export const serializeImageSource = (source: ImageSourcePayload): string =>
   JSON.stringify(source);
 

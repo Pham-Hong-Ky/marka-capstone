@@ -9,7 +9,6 @@ import TextField from '@/components/ui/TextField';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import ImageUploadField from '@/components/ui/ImageUploadField';
 import PostAIAssistant from './PostAIAssistant';
-import PostAIImageGenerator from './PostAIImageGenerator';
 import PostMediaGrid from './PostMediaGrid';
 import PostVersionHistory from './PostVersionHistory';
 import { EMPTY_DOC, isContentEmpty, postEditorSchema, type PostDetail, type PostEditorValues } from '@/services/post';
@@ -47,11 +46,11 @@ interface AiOverwrite {
 export const PostEditorForm = ({
   workspaceId,
   post,
-  initialAiGenerationId = null,
+  initialAiGenerationIds = [],
 }: {
   workspaceId: string;
   post: PostDetail | null;
-  initialAiGenerationId?: string | null;
+  initialAiGenerationIds?: string[];
 }) => {
   const navigate = useNavigate();
   const createPost = useCreatePost();
@@ -382,22 +381,14 @@ export const PostEditorForm = ({
           <PostAIAssistant
             workspaceId={workspaceId}
             postId={post?.id ?? null}
+            title={title}
+            content={content}
             disabled={isSaving}
+            pendingImageCount={pending.length}
+            initialGenerationIds={initialAiGenerationIds}
             onBusyChange={setAiBusy}
             onApplyText={handleApplyText}
           />
-
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <PostAIImageGenerator
-              workspaceId={workspaceId}
-              postId={post?.id ?? null}
-              title={title}
-              content={content}
-              disabled={isSaving || aiBusy}
-              pendingImageCount={pending.length}
-              initialImageGenerationId={initialAiGenerationId}
-            />
-          </div>
 
           {post ? (
             <PostVersionHistory
