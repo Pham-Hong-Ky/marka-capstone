@@ -81,6 +81,7 @@ export const router = createBrowserRouter([
                   { path: 'appearance', lazy: page(() => import('@/pages/settings/AppearanceTab')) },
                   { path: 'workspace', lazy: page(() => import('@/pages/settings/WorkspaceTab')) },
                   { path: 'members', lazy: page(() => import('@/pages/settings/MembersTab')) },
+                  { path: 'activity', lazy: page(() => import('@/pages/settings/ActivityTab')) },
                 ],
               },
               { path: '*', lazy: page(() => import('@/pages/NotFoundPage')) },

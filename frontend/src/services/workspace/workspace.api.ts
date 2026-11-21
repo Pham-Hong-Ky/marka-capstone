@@ -1,6 +1,7 @@
 import httpClient from '../httpClient';
-import { unwrap } from '../http';
-import type { ApiResponse } from '@/types';
+import { unwrap, unwrapPaginated } from '../http';
+import type { ApiResponse, PaginationMeta } from '@/types';
+import type { AdminAuditLog, AdminAuditLogsQuery, AdminAuditLogsResponse } from '../admin';
 import type { WorkspaceRole } from '../auth';
 import type {
   AcceptInviteResult,
@@ -62,7 +63,29 @@ export const changeMemberRole = async (
     )
   );
 
+export const listAuditLogs = async (
+  id: string,
+  query: AdminAuditLogsQuery
+): Promise<AdminAuditLogsResponse> => {
+  const response = await httpClient.get<
+    ApiResponse<{ auditLogs: AdminAuditLog[] }, PaginationMeta>
+  >(`/workspaces/${id}/audit-logs`, {
+    params: {
+      page: query.page,
+      limit: query.limit,
+      ...(query.action ? { action: query.action } : {}),
+      ...(query.targetType ? { targetType: query.targetType } : {}),
+      ...(query.dateFrom ? { dateFrom: query.dateFrom } : {}),
+      ...(query.dateTo ? { dateTo: query.dateTo } : {}),
+    },
+  });
+  const { data, meta } = unwrapPaginated(response);
+
+  return { auditLogs: data.auditLogs, meta };
+};
+
 export default {
+  listAuditLogs,
   createWorkspace,
   updateWorkspace,
   deleteWorkspace,

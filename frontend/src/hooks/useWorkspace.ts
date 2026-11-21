@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { workspaceService, type InviteMemberPayload, type WorkspaceMembersResponse } from '@/services/workspace';
-import { authService, type AuthUser, type UserWorkspace, type WorkspaceRole } from '@/services/auth';
+import type { AdminAuditLogsQuery } from '@/services/admin';
+import { authService,type AuthUser, type UserWorkspace, type WorkspaceRole } from '@/services/auth';
 import { queryClient } from '@/lib/queryClient';
 import { queryKeys } from '@/lib/queryKeys';
 import { useAuthStore } from '@/stores/auth.store';
@@ -33,7 +34,18 @@ export const useWorkspaceMembers = (workspaceId: string | null) =>
     enabled: Boolean(workspaceId),
   });
 
-export const useInviteDetails = (token: string | null) => {
+export const useWorkspaceAuditLogs = (
+  workspaceId: string | null,
+  query: AdminAuditLogsQuery,
+  options?: { enabled?: boolean }
+) =>
+  useQuery({
+    queryKey: queryKeys.workspace.auditLogs(workspaceId ?? '', query),
+    queryFn: () => workspaceService.listAuditLogs(workspaceId as string, query),
+    enabled: Boolean(workspaceId) && (options?.enabled ?? true),
+  });
+
+export const useInviteDetails =(token: string | null) => {
   // Kết quả phụ thuộc người gọi: khách nhận yêu cầu đăng ký, người đã đăng nhập
   // thì được thêm vào workspace. Đổi người xem phải gọi lại API, nếu không cache
   // "requiresRegistration" của khách sẽ chặn việc tham gia sau khi đăng nhập.

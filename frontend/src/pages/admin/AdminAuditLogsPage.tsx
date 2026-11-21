@@ -12,26 +12,9 @@ import { useClampPage } from '@/hooks/useClampPage';
 import { AUDIT_ACTION_LABELS, type AdminAuditLog } from '@/services/admin';
 import { getErrorMessage } from '@/utils/error';
 import { formatDateTime } from '@/utils/format';
+import { endOfVnDayIso, startOfVnDayIso } from '@/utils/vnDate';
 
 const PAGE_SIZE = 20;
-
-const parseVnDate = (value: string): Date | undefined => {
-  const date = new Date(value);
-
-  return Number.isNaN(date.getTime()) ? undefined : date;
-};
-
-const startOfVnDayIso = (date: string) => {
-  const parsed = parseVnDate(`${date}T00:00:00+07:00`);
-
-  return parsed?.toISOString();
-};
-
-const endOfVnDayIso = (date: string) => {
-  const parsed = parseVnDate(`${date}T23:59:59.999+07:00`);
-
-  return parsed?.toISOString();
-};
 
 const actionLabel = (action: string) => AUDIT_ACTION_LABELS[action] ?? action;
 
