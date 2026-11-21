@@ -78,8 +78,8 @@ export const queryKeys = {
       ['brand-voice', workspaceId, 'insights', params] as const,
   },
   ai: {
-    generation: (workspaceId: string, generationId: string) =>
-      ['ai-generation', workspaceId, generationId] as const,
+    generations: (workspaceId: string, generationIds: string[]) =>
+      ['ai-generations', workspaceId, generationIds] as const,
   },
   task: {
     board: (workspaceId: string, params: TaskBoardParams) =>

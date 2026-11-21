@@ -5,6 +5,8 @@ import type {
   AiGeneration,
   StartGenerationResponse,
   StartImagePayload,
+  StartPostPayload,
+  StartPostResponse,
   StartTextPayload,
 } from './ai.types';
 
@@ -24,6 +26,23 @@ export const startImage = async (
     await httpClient.post<ApiResponse<StartGenerationResponse>>(`${base(workspaceId)}/images`, payload)
   );
 
+export const startPost = async (
+  workspaceId: string,
+  payload: StartPostPayload
+): Promise<StartPostResponse> =>
+  unwrap(await httpClient.post<ApiResponse<StartPostResponse>>(`${base(workspaceId)}/post`, payload));
+
+export const getGenerations = async (
+  workspaceId: string,
+  generationIds: string[]
+): Promise<AiGeneration[]> =>
+  unwrap(
+    await httpClient.get<ApiResponse<{ generations: AiGeneration[] }>>(
+      `${base(workspaceId)}/generations`,
+      { params: { ids: generationIds.join(',') } }
+    )
+  ).generations;
+
 export const getGeneration = async (
   workspaceId: string,
   generationId: string
@@ -37,5 +56,7 @@ export const getGeneration = async (
 export default {
   startText,
   startImage,
+  startPost,
+  getGenerations,
   getGeneration,
 };

@@ -43,6 +43,30 @@ export interface StartImagePayload {
   prompt?: string;
 }
 
+export interface StartPostPayload {
+  withText: boolean;
+  imageCount: number;
+  topic?: string;
+  instructions?: string;
+  channelIds?: string[];
+  postId?: string;
+  title?: string;
+  content?: object;
+}
+
+export interface StartedGeneration {
+  generationId: string;
+  type: AiGenType;
+}
+
+export interface StartPostResponse {
+  postId: string | null;
+  createdDraft: boolean;
+  generations: StartedGeneration[];
+  creditCost: number;
+  remainingCredit: number;
+}
+
 export interface StartGenerationResponse {
   generationId: string;
   status: 'PENDING';
