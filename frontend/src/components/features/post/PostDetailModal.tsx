@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import PostStatusBadge from './PostStatusBadge';
+import PostEditHistory from './PostEditHistory';
 import PostPreviewModal from './PostPreviewModal';
 import PostScheduleList from './PostScheduleList';
 import PublishScheduleModal from '@/components/features/schedule/PublishScheduleModal';
@@ -202,6 +203,8 @@ export const PostDetailModal = ({
             canUnpublish={canUnpublish}
             onUnpublish={setScheduleToUnpublish}
           />
+
+          <PostEditHistory workspaceId={workspaceId} postId={post.id} />
 
           <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
             <Eye className="h-4 w-4" />
